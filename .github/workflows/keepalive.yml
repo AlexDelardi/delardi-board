@@ -1,0 +1,25 @@
+# Free Supabase projects pause after roughly 7 days of low database activity.
+# A weekly-only meeting rhythm sits right on that boundary, so this pings the
+# board once a day to keep it awake. The key below is the publishable key that
+# already ships in index.html - it carries read-only access.
+name: Keep the board database awake
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # 06:17 UTC daily
+  workflow_dispatch:        # and a manual "Run workflow" button
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read one row from the board
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: sb_publishable_e3psDmNYQU7L6Wdcax_Hrw_qi3douJp" \
+            "https://hugduzqwyqwryicfzipu.supabase.co/rest/v1/pillars?select=id&limit=1")
+          echo "Supabase responded $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::The board database did not answer with 200. It may have paused - resume it in the Supabase dashboard."
+            exit 1
+          fi

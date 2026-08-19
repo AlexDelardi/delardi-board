@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Delardi Weekly Board</title>
+<style>
+/* ===========================================================================
+   Delardi Weekly Board
+   Palette: validated categorical slots 1-4 for the four pillars; reserved
+   status palette for state. Never colour alone - every chip carries its word.
+   ========================================================================= */
+:root {
+  --page:        #f9f9f7;
+  --surface:     #fcfcfb;
+  --surface-2:   #f2f1ee;
+  --ink:         #0b0b0b;
+  --ink-2:       #52514e;
+  --muted:       #898781;
+  --grid:        #e1e0d9;
+  --line:        #c3c2b7;
+  --border:      rgba(11,11,11,0.10);
+  --shadow:      0 1px 2px rgba(11,11,11,.04), 0 8px 24px rgba(11,11,11,.06);
+  --good:        #0ca30c;
+  --warning:     #fab219;
+  --serious:     #ec835a;
+  --critical:    #d03b3b;
+  --good-ink:    #006300;
+  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100;
+  --radius: 10px;
+  color-scheme: light;
+}
+:root[data-theme="dark"], html[data-theme="auto"].sysdark {
+  --page:      #0d0d0d;
+  --surface:   #1a1a19;
+  --surface-2: #232322;
+  --ink:       #ffffff;
+  --ink-2:     #c3c2b7;
+  --muted:     #898781;
+  --grid:      #2c2c2a;
+  --line:      #383835;
+  --border:    rgba(255,255,255,0.10);
+  --shadow:    0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
+  --good-ink:  #0ca30c;
+  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+
+/* ------------------------------------------------------------------ header */
+.top {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.top-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 20px 12px;
+  flex-wrap: wrap;
+}
+.brand h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+.brand p  { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.spacer { flex: 1 1 auto; }
+
+.btn {
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; font-size: 13.5px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 7px;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.primary:hover { opacity: .88; }
+.btn.subtle { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.subtle:hover { background: var(--surface-2); }
+.btn.sm { padding: 5px 9px; font-size: 12.5px; }
+.btn.danger { color: var(--critical); border-color: var(--border); }
+
+.lock-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--ink-2);
+  padding: 6px 11px; border-radius: 8px; background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.lock-state .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+
+/* -------------------------------------------------------------- scoreboard */
+.scoreboard {
+  display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
+  gap: 1px; background: var(--border);
+  border-top: 1px solid var(--border);
+}
+.stat {
+  background: var(--surface); padding: 11px 16px 13px;
+  min-width: 0;
+}
+.stat .label {
+  font-size: 11.5px; color: var(--muted); font-weight: 500;
+  text-transform: uppercase; letter-spacing: .045em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stat .val {
+  font-size: 25px; font-weight: 600; line-height: 1.15; margin-top: 3px;
+  letter-spacing: -0.02em;
+}
+.stat .sub {
+  font-size: 11.5px; color: var(--muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stat .target { color: var(--ink-2); font-weight: 500; }
+.stat.editable .val { cursor: text; }
+
+/* ----------------------------------------------------------------- toolbar */
+.toolbar select { max-width: 190px; }
+.toolbar input[type=text] { width: 190px; }
+.toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 20px; border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button {
+  background: var(--surface); border: 0; padding: 7px 13px; font-size: 13.5px;
+  color: var(--ink-2); border-right: 1px solid var(--border);
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 550; }
+select, input[type=text], input[type=date], textarea {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 9px; font-size: 13.5px;
+  max-width: 100%;
+}
+textarea { resize: vertical; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--p1); outline-offset: -1px; }
+.field-label {
+  display: block; font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .045em; color: var(--muted); font-weight: 500; margin-bottom: 5px;
+}
+
+/* ------------------------------------------------------------------- board */
+.board {
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 14px; padding: 16px 20px 60px; align-items: start;
+}
+.col { min-width: 0; }
+.col-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 2px 9px; border-bottom: 2px solid var(--accent);
+  margin-bottom: 11px;
+}
+.col-head .name { font-size: 13.5px; font-weight: 650; letter-spacing: .01em; }
+.col-head .count {
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.col-head .swatch { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); flex: none; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius); padding: 11px 12px 10px;
+  margin-bottom: 9px; cursor: pointer; text-align: left; width: 100%;
+  display: block; box-shadow: 0 1px 1px rgba(11,11,11,.03);
+}
+.card:hover { box-shadow: var(--shadow); }
+.card .title { font-size: 14.5px; font-weight: 600; line-height: 1.32; }
+.card .owner { font-size: 12px; color: var(--ink-2); margin-top: 5px; }
+.card .next { font-size: 12.5px; color: var(--ink-2); margin-top: 7px; line-height: 1.4; }
+.card .row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+.card.is-done { opacity: .62; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 3px 8px 3px 7px;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--ink-2);
+  white-space: nowrap;
+}
+.chip .glyph { font-size: 10px; line-height: 1; }
+.chip[data-tone="good"]     { color: var(--good-ink); border-color: color-mix(in srgb, var(--good) 40%, transparent); background: color-mix(in srgb, var(--good) 9%, var(--surface)); }
+.chip[data-tone="warning"]  { color: var(--ink);      border-color: color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 16%, var(--surface)); }
+.chip[data-tone="critical"] { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 40%, transparent); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); }
+.chip[data-tone="serious"]  { color: var(--ink);      border-color: color-mix(in srgb, var(--serious) 55%, transparent); background: color-mix(in srgb, var(--serious) 15%, var(--surface)); }
+.chip.age[data-tone="warning"], .chip.age[data-tone="serious"] { font-variant-numeric: tabular-nums; }
+.chip.prio { border-style: dashed; }
+
+.empty-col { font-size: 12.5px; color: var(--muted); padding: 10px 2px; font-style: italic; }
+.hint { font-size: 12.5px; color: var(--muted); }
+
+/* ------------------------------------------------------------------ drawer */
+.scrim {
+  position: fixed; inset: 0; background: rgba(11,11,11,.35);
+  z-index: 60; opacity: 0; pointer-events: none; transition: opacity .16s;
+}
+.scrim.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%);
+  background: var(--surface); z-index: 70; box-shadow: var(--shadow);
+  transform: translateX(100%); transition: transform .2s ease;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+.drawer.open { transform: none; }
+.drawer-head {
+  padding: 16px 18px 13px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.drawer-head h2 { margin: 6px 0 0; font-size: 19px; line-height: 1.3; font-weight: 650; }
+.drawer-body { overflow-y: auto; padding: 16px 18px 40px; flex: 1; }
+.drawer-section { margin-bottom: 22px; }
+.drawer-section > h3 {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); margin: 0 0 10px; font-weight: 600;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.pill-tag {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+  font-weight: 600; color: var(--ink-2);
+}
+.pill-tag .swatch { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); }
+
+.drawer-body input[type=text], .drawer-body select, .drawer-body textarea { width: 100%; }
+.drawer-body input[type=date] { width: auto; }
+
+.log-entry {
+  border-left: 2px solid var(--grid); padding: 0 0 15px 13px; position: relative;
+}
+.log-entry:last-child { padding-bottom: 2px; }
+.log-entry .meta {
+  font-size: 11.5px; color: var(--muted); display: flex; gap: 8px;
+  align-items: center; flex-wrap: wrap;
+}
+.log-entry .meta strong { color: var(--ink-2); font-weight: 600; }
+.log-entry .note { font-size: 13.5px; margin-top: 4px; white-space: pre-wrap; line-height: 1.5; }
+
+/* -------------------------------------------------------------- meeting mode */
+.meeting { padding: 24px 20px 80px; max-width: 900px; margin: 0 auto; }
+.meeting .progress { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meeting h2 { font-size: 31px; line-height: 1.22; margin: 10px 0 12px; font-weight: 650; letter-spacing: -0.015em; }
+.meeting .detail { font-size: 15px; color: var(--ink-2); line-height: 1.55; }
+.meeting .prev-note {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; margin: 16px 0;
+  font-size: 14px; line-height: 1.5;
+}
+.meeting textarea { width: 100%; min-height: 110px; font-size: 15px; }
+.meeting-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface);
+  border-top: 1px solid var(--border); padding: 11px 20px;
+  display: flex; gap: 10px; align-items: center; z-index: 30;
+}
+.status-picker { display: flex; gap: 7px; flex-wrap: wrap; }
+.status-picker button {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 11px; font-size: 12.5px; color: var(--ink-2);
+}
+.status-picker button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+
+/* ------------------------------------------------------------------- modal */
+.modal {
+  position: fixed; inset: 0; z-index: 90; display: none;
+  align-items: center; justify-content: center; padding: 20px;
+  background: rgba(11,11,11,.45);
+}
+.modal.open { display: flex; }
+.modal-card {
+  background: var(--surface); border-radius: 14px; padding: 22px;
+  width: min(460px, 100%); box-shadow: var(--shadow); border: 1px solid var(--border);
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-card h2 { margin: 0 0 6px; font-size: 18px; font-weight: 650; }
+.modal-card p.lead { margin: 0 0 16px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.modal-card label { display: block; margin-bottom: 12px; }
+.modal-card input, .modal-card select, .modal-card textarea { width: 100%; }
+.modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 6px; }
+.err { color: var(--critical); font-size: 13px; margin: 0 0 12px; font-weight: 500; }
+pre.minutes {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; font-size: 12px; line-height: 1.5; max-height: 46vh; overflow: auto;
+  white-space: pre-wrap; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* ------------------------------------------------------------------- toast */
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--page); padding: 10px 18px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 500; z-index: 100; opacity: 0;
+  transition: opacity .18s, transform .18s; pointer-events: none;
+  box-shadow: var(--shadow); max-width: 90vw;
+}
+.toast.show { opacity: 1; transform: translateX(-50%); }
+
+.loading { padding: 60px 20px; text-align: center; color: var(--muted); }
+
+@media (max-width: 1180px) {
+  .scoreboard { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .board { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 720px) {
+  /* One swipeable row rather than three stacked ones, so topics stay above the fold. */
+  .scoreboard {
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scoreboard .stat { min-width: 168px; scroll-snap-align: start; }
+  .board { grid-template-columns: 1fr; padding: 14px 13px 60px; }
+  .top-row, .toolbar { padding-left: 13px; padding-right: 13px; }
+  .brand h1 { font-size: 17px; }
+  .meeting h2 { font-size: 24px; }
+}
+@media print {
+  .top, .toolbar, .meeting-nav, .drawer, .scrim { display: none !important; }
+  .board { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Loading the board…</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer" role="dialog" aria-label="Topic detail"></div>
+<div class="modal" id="modal"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ===========================================================================
+   Configuration
+   The publishable key below is designed to be public. It carries READ-ONLY
+   database permission, enforced by row-level security in Postgres. Every write
+   goes through the board-api edge function, which requires the team passcode.
+   ========================================================================= */
+const SUPABASE_URL = "https://hugduzqwyqwryicfzipu.supabase.co";
+const PUBLISHABLE_KEY = "sb_publishable_e3psDmNYQU7L6Wdcax_Hrw_qi3douJp";
+const LEGACY_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1Z2R1enF3eXF3cnlpY2Z6aXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMjA1OTgsImV4cCI6MjEwMjY5NjU5OH0.eswNU9Rdb3U4Ft37ElQH33nTpaYx6o3Amdz0m-6zepA";
+const API = SUPABASE_URL + "/functions/v1/board-api";
+
+const STATUS = {
+  not_started:    { label: "Not started",    glyph: "○",  tone: "" },
+  in_progress:    { label: "In progress",    glyph: "◐",  tone: "" },
+  blocked:        { label: "Blocked",        glyph: "✕",  tone: "critical" },
+  needs_decision: { label: "Needs decision", glyph: "◆",  tone: "warning" },
+  decided:        { label: "Decided",        glyph: "✓",  tone: "good" },
+  done:           { label: "Done",           glyph: "●",  tone: "good" },
+  parked:         { label: "Parked",         glyph: "‖",  tone: "" },
+};
+const STATUS_ORDER = ["needs_decision","blocked","in_progress","not_started","decided","done","parked"];
+const PRIORITY = { high: "High", medium: "Medium", low: "Low" };
+const STALE_WARN = 3, STALE_SERIOUS = 6;
+
+/* ------------------------------------------------------------------- state */
+const S = {
+  pillars: [], topics: [], updates: [], weeks: [], scoreboard: [],
+  week: null, view: "week",
+  filters: { pillar: "", owner: "", status: "", q: "", stale: false, archived: false },
+  session: null,
+  meetingIdx: 0,
+  drawerTopic: null,
+};
+
+/* ----------------------------------------------------------------- helpers */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const el = (tag, props = {}, kids = []) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (v !== null && v !== undefined && v !== false) n.setAttribute(k, v);
+  }
+  for (const kid of [].concat(kids)) if (kid) n.appendChild(kid);
+  return n;
+};
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function mondayOf(d) {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dow = x.getUTCDay();               // 0 Sun .. 6 Sat
+  x.setUTCDate(x.getUTCDate() - ((dow + 6) % 7));
+  return x.toISOString().slice(0, 10);
+}
+const thisMonday = () => mondayOf(new Date());
+
+function weekLabel(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00Z");
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+function weeksBetween(isoA, isoB) {
+  if (!isoA || !isoB) return null;
+  const ms = new Date(isoB + "T00:00:00Z") - new Date(isoA + "T00:00:00Z");
+  return Math.floor(ms / (7 * 864e5));
+}
+function ageOf(topic) {
+  const ref = topic.last_discussed_week || topic.first_raised_week;
+  if (!ref) return null;
+  const w = weeksBetween(ref, S.week || thisMonday());
+  return w === null || w < 0 ? 0 : w;
+}
+function staleTone(weeks) {
+  if (weeks === null) return "";
+  if (weeks >= STALE_SERIOUS) return "serious";
+  if (weeks >= STALE_WARN) return "warning";
+  return "";
+}
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function store(key, val) {
+  try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); }
+  catch (e) { return null; }
+}
+
+/* --------------------------------------------------------------------- api */
+let readKeyMode = "publishable";
+function readHeaders() {
+  return readKeyMode === "publishable"
+    ? { apikey: PUBLISHABLE_KEY }
+    : { apikey: LEGACY_ANON_KEY, Authorization: "Bearer " + LEGACY_ANON_KEY };
+}
+async function read(path) {
+  let res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { headers: readHeaders() });
+  if ((res.status === 401 || res.status === 403) && readKeyMode === "publishable") {
+    readKeyMode = "legacy";                       // fall back to the legacy anon key
+    res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { headers: readHeaders() });
+  }
+  if (!res.ok) throw new Error("Could not load data (" + res.status + ")");
+  return res.json();
+}
+async function call(action, payload = {}) {
+  const body = { action, ...payload };
+  if (S.session && action !== "unlock") body.token = S.session.token;
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* empty body */ }
+  if (!res.ok) {
+    if (res.status === 401 && action !== "unlock") { S.session = null; store("board_session", ""); renderAll(); }
+    throw new Error(data.error || "Request failed (" + res.status + ")");
+  }
+  return data;
+}
+
+/* ------------------------------------------------------------------- load */
+async function loadAll() {
+  const [pillars, topics, updates, weeks, scoreboard] = await Promise.all([
+    read("pillars?select=*&order=sort_order"),
+    read("topics?select=*&order=pillar_id,sort_order"),
+    read("topic_updates?select=*&order=created_at.desc"),
+    read("weeks?select=*&order=week_start.desc"),
+    read("scoreboard?select=*&order=sort_order"),
+  ]);
+  S.pillars = pillars; S.topics = topics; S.updates = updates;
+  S.weeks = weeks; S.scoreboard = scoreboard;
+  const mon = thisMonday();
+  if (!S.weeks.some((w) => w.week_start === mon)) S.weeks.unshift({ week_start: mon, label: null, synthetic: true });
+  if (!S.week) S.week = mon;
+}
+
+const updatesFor = (topicId) => S.updates.filter((u) => u.topic_id === topicId);
+const updatesIn = (week) => S.updates.filter((u) => u.week_start === week);
+const pillarOf = (id) => S.pillars.find((p) => p.id === id) || { name: "—", accent: "var(--muted)" };
+const canEdit = () => !!S.session;
+
+function visibleTopics() {
+  const f = S.filters;
+  let list = S.topics.filter((t) => (f.archived ? true : !t.archived));
+  if (S.view === "week" || S.view === "meeting") {
+    const discussedThisWeek = new Set(updatesIn(S.week).map((u) => u.topic_id));
+    list = list.filter((t) => !["done", "parked"].includes(t.status) || discussedThisWeek.has(t.id));
+  }
+  if (f.pillar) list = list.filter((t) => String(t.pillar_id) === f.pillar);
+  if (f.owner) list = list.filter((t) => (t.owner || "") === f.owner);
+  if (f.status) list = list.filter((t) => t.status === f.status);
+  if (f.stale) list = list.filter((t) => (ageOf(t) || 0) >= STALE_WARN && !["done", "parked"].includes(t.status));
+  if (f.q) {
+    const q = f.q.toLowerCase();
+    list = list.filter((t) =>
+      [t.title, t.detail, t.owner, t.next_step].some((v) => (v || "").toLowerCase().includes(q)));
+  }
+  const rank = (t) => STATUS_ORDER.indexOf(t.status);
+  const prio = (t) => ["high", "medium", "low"].indexOf(t.priority);
+  return list.sort((a, b) => rank(a) - rank(b) || prio(a) - prio(b) || a.sort_order - b.sort_order);
+}
+
+/* ------------------------------------------------------------ render: chips */
+function statusChip(status) {
+  const s = STATUS[status] || STATUS.not_started;
+  return el("span", { class: "chip", "data-tone": s.tone || null }, [
+    el("span", { class: "glyph", text: s.glyph, "aria-hidden": "true" }),
+    el("span", { text: s.label }),
+  ]);
+}
+function ageChip(topic) {
+  const w = ageOf(topic);
+  if (w === null) return null;
+  if (["done", "parked"].includes(topic.status)) return null;
+  const tone = staleTone(w);
+  if (!tone && w < 1) return null;
+  const txt = w === 0 ? "this week" : w === 1 ? "1 wk" : w + " wks";
+  return el("span", { class: "chip age", "data-tone": tone || null, title: "Last discussed " + txt },
+    [el("span", { text: (tone ? "⚑ " : "") + txt })]);
+}
+
+/* ----------------------------------------------------------- render: header */
+function renderHeader() {
+  const weekOpts = S.weeks.map((w) =>
+    el("option", { value: w.week_start, selected: w.week_start === S.week ? "selected" : null,
+                   text: "Week of " + weekLabel(w.week_start) + (w.synthetic ? " (new)" : "") }));
+
+  const lock = canEdit()
+    ? el("span", { class: "lock-state" }, [
+        el("span", { class: "dot" }),
+        el("span", { text: "Editing as " + S.session.name }),
+        el("button", { class: "btn subtle sm", text: "Lock", onclick: lockNow }),
+      ])
+    : el("button", { class: "btn primary", onclick: openUnlock, html: "🔒&nbsp; Unlock to edit" });
+
+  const head = el("div", { class: "top" }, [
+    el("div", { class: "top-row" }, [
+      el("div", { class: "brand" }, [
+        el("h1", { text: "Delardi Weekly Board" }),
+        el("p", { text: "Marketing · Retail · Operations · Company Steering" }),
+      ]),
+      el("div", { class: "spacer" }),
+      el("select", { "aria-label": "Meeting week", onchange: (e) => { S.week = e.target.value; S.meetingIdx = 0; renderAll(); } }, weekOpts),
+      el("button", { class: "btn subtle", text: "◐", title: "Light / dark", "aria-label": "Toggle light or dark", onclick: toggleTheme }),
+      lock,
+    ]),
+    renderScoreboard(),
+    renderToolbar(),
+  ]);
+  return head;
+}
+
+function renderScoreboard() {
+  const tiles = S.scoreboard.map((m) => {
+    const arrow = m.direction === "down" ? "↓" : m.direction === "up" ? "↑" : "→";
+    return el("div", { class: "stat" + (canEdit() ? " editable" : ""), title: m.note || "" }, [
+      el("div", { class: "label", text: m.metric }),
+      el("div", { class: "val", text: m.current_val || "—",
+                  onclick: canEdit() ? () => editMetric(m) : null }),
+      el("div", { class: "sub" }, [
+        el("span", { class: "target", text: "Target " + arrow }),
+        el("span", { text: m.note ? " · " + m.note : "" }),
+      ]),
+    ]);
+  });
+  return el("div", { class: "scoreboard" }, tiles);
+}
+
+function renderToolbar() {
+  const f = S.filters;
+  const owners = [...new Set(S.topics.map((t) => t.owner).filter(Boolean))].sort();
+
+  const viewSeg = el("div", { class: "seg" }, [
+    el("button", { text: "This week", "aria-pressed": String(S.view === "week"), onclick: () => setView("week") }),
+    el("button", { text: "Everything", "aria-pressed": String(S.view === "all"), onclick: () => setView("all") }),
+    el("button", { text: "Meeting mode", "aria-pressed": String(S.view === "meeting"), onclick: () => setView("meeting") }),
+  ]);
+
+  const pillarSel = el("select", { "aria-label": "Filter by pillar", onchange: (e) => { f.pillar = e.target.value; renderAll(); } },
+    [el("option", { value: "", text: "All pillars" })].concat(
+      S.pillars.map((p) => el("option", { value: String(p.id), selected: f.pillar === String(p.id) ? "selected" : null, text: p.name }))));
+
+  const ownerSel = el("select", { "aria-label": "Filter by owner", onchange: (e) => { f.owner = e.target.value; renderAll(); } },
+    [el("option", { value: "", text: "All owners" })].concat(
+      owners.map((o) => el("option", { value: o, selected: f.owner === o ? "selected" : null, text: o }))));
+
+  const statusSel = el("select", { "aria-label": "Filter by status", onchange: (e) => { f.status = e.target.value; renderAll(); } },
+    [el("option", { value: "", text: "All statuses" })].concat(
+      STATUS_ORDER.map((s) => el("option", { value: s, selected: f.status === s ? "selected" : null, text: STATUS[s].label }))));
+
+  const search = el("input", { type: "text", placeholder: "Search topics…", value: f.q, "aria-label": "Search topics",
+    oninput: (e) => { f.q = e.target.value; renderBody(); } });
+
+  const staleBtn = el("button", { class: "btn" + (f.stale ? " primary" : ""), "aria-pressed": String(f.stale),
+    text: "⚑ Stale only", onclick: () => { f.stale = !f.stale; renderAll(); } });
+
+  const kids = [viewSeg, pillarSel, ownerSel, statusSel, search, staleBtn, el("div", { class: "spacer" })];
+  if (canEdit()) kids.push(el("button", { class: "btn", text: "+ New topic", onclick: () => openTopicForm(null) }));
+  kids.push(el("button", { class: "btn", text: "⧉ Minutes", onclick: openMinutes }));
+  return el("div", { class: "toolbar" }, kids);
+}
+
+function setView(v) { S.view = v; S.meetingIdx = 0; renderAll(); }
+
+/* ------------------------------------------------------------ render: board */
+function renderBoard() {
+  const list = visibleTopics();
+  const cols = S.pillars
+    .filter((p) => !S.filters.pillar || String(p.id) === S.filters.pillar)
+    .map((p) => {
+      const mine = list.filter((t) => t.pillar_id === p.id);
+      const cards = mine.length
+        ? mine.map((t) => topicCard(t))
+        : [el("div", { class: "empty-col", text: "Nothing here this week." })];
+      return el("div", { class: "col", style: "--accent:" + p.accent }, [
+        el("div", { class: "col-head" }, [
+          el("span", { class: "swatch" }),
+          el("span", { class: "name", text: p.name }),
+          el("span", { class: "count", text: String(mine.length) }),
+        ]),
+      ].concat(cards));
+    });
+  return el("div", { class: "board" }, cols);
+}
+
+function topicCard(t) {
+  const p = pillarOf(t.pillar_id);
+  const row = [statusChip(t.status)];
+  const age = ageChip(t);
+  if (age) row.push(age);
+  if (t.priority === "high") row.push(el("span", { class: "chip prio", text: "High" }));
+  if (t.due_date) row.push(el("span", { class: "chip", text: "Due " + weekLabel(t.due_date) }));
+  if (t.archived) row.push(el("span", { class: "chip", text: "Archived" }));
+
+  const kids = [el("div", { class: "title", text: t.title })];
+  if (t.owner) kids.push(el("div", { class: "owner", text: t.owner }));
+  if (t.next_step) kids.push(el("div", { class: "next", text: "→ " + t.next_step }));
+  kids.push(el("div", { class: "row" }, row));
+
+  return el("button", {
+    class: "card" + (["done", "parked"].includes(t.status) ? " is-done" : ""),
+    style: "--accent:" + p.accent,
+    onclick: () => openDrawer(t.id),
+  }, kids);
+}
+
+/* ----------------------------------------------------------------- drawer */
+function openDrawer(topicId) {
+  S.drawerTopic = topicId;
+  renderDrawer();
+  $("#drawer").classList.add("open");
+  $("#scrim").classList.add("open");
+}
+function closeDrawer() {
+  S.drawerTopic = null;
+  $("#drawer").classList.remove("open");
+  $("#scrim").classList.remove("open");
+}
+
+function renderDrawer() {
+  const d = $("#drawer");
+  d.innerHTML = "";
+  const t = S.topics.find((x) => x.id === S.drawerTopic);
+  if (!t) return;
+  const p = pillarOf(t.pillar_id);
+
+  d.appendChild(el("div", { class: "drawer-head", style: "--accent:" + p.accent }, [
+    el("div", {}, [
+      el("span", { class: "pill-tag" }, [el("span", { class: "swatch" }), el("span", { text: p.name })]),
+      el("h2", { text: t.title }),
+    ]),
+    el("div", { class: "spacer" }),
+    el("button", { class: "btn subtle", text: "✕", "aria-label": "Close", onclick: closeDrawer }),
+  ]));
+
+  const body = el("div", { class: "drawer-body" });
+
+  if (t.detail) {
+    body.appendChild(el("div", { class: "drawer-section" }, [
+      el("h3", { text: "Background" }),
+      el("div", { style: "font-size:13.5px;line-height:1.55;color:var(--ink-2);white-space:pre-wrap", text: t.detail }),
+    ]));
+  }
+
+  /* --- current position ------------------------------------------------- */
+  const facts = el("div", { class: "drawer-section" }, [el("h3", { text: "Where it stands" })]);
+  if (canEdit()) {
+    const statusSel = el("select", {}, STATUS_ORDER.map((s) =>
+      el("option", { value: s, selected: t.status === s ? "selected" : null, text: STATUS[s].label })));
+    const prioSel = el("select", {}, Object.keys(PRIORITY).map((k) =>
+      el("option", { value: k, selected: t.priority === k ? "selected" : null, text: PRIORITY[k] })));
+    const ownerIn = el("input", { type: "text", value: t.owner || "", placeholder: "Owner" });
+    const nextIn = el("input", { type: "text", value: t.next_step || "", placeholder: "The next concrete step" });
+    const dueIn = el("input", { type: "date", value: t.due_date || "" });
+
+    facts.appendChild(el("div", { class: "grid2" }, [
+      el("div", {}, [el("span", { class: "field-label", text: "Status" }), statusSel]),
+      el("div", {}, [el("span", { class: "field-label", text: "Priority" }), prioSel]),
+    ]));
+    facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Owner" }), ownerIn]));
+    facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Next step" }), nextIn]));
+    facts.appendChild(el("div", { style: "margin-top:11px;max-width:200px" }, [el("span", { class: "field-label", text: "Due" }), dueIn]));
+    facts.appendChild(el("div", { style: "margin-top:13px;display:flex;gap:9px;flex-wrap:wrap" }, [
+      el("button", { class: "btn primary", text: "Save changes", onclick: async (ev) => {
+        ev.target.disabled = true;
+        try {
+          await call("update_topic", { id: t.id, patch: {
+            status: statusSel.value, priority: prioSel.value, owner: ownerIn.value,
+            next_step: nextIn.value, due_date: dueIn.value || null } });
+          await refresh(); toast("Saved.");
+        } catch (e) { toast(e.message); } finally { ev.target.disabled = false; }
+      } }),
+      el("button", { class: "btn", text: "Edit title / background", onclick: () => openTopicForm(t) }),
+      el("button", { class: "btn danger", text: t.archived ? "Restore" : "Archive", onclick: async () => {
+        try { await call("update_topic", { id: t.id, patch: { archived: !t.archived } });
+          await refresh(); toast(t.archived ? "Restored." : "Archived."); closeDrawer(); }
+        catch (e) { toast(e.message); }
+      } }),
+    ]));
+  } else {
+    const row = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px" }, [statusChip(t.status)]);
+    const a = ageChip(t); if (a) row.appendChild(a);
+    facts.appendChild(row);
+    if (t.owner) facts.appendChild(el("div", { style: "font-size:13.5px", text: "Owner: " + t.owner }));
+    if (t.next_step) facts.appendChild(el("div", { style: "font-size:13.5px;margin-top:4px", text: "Next step: " + t.next_step }));
+    if (t.due_date) facts.appendChild(el("div", { style: "font-size:13.5px;margin-top:4px", text: "Due: " + weekLabel(t.due_date) }));
+  }
+  body.appendChild(facts);
+
+  /* --- log this week ---------------------------------------------------- */
+  if (canEdit()) {
+    const note = el("textarea", { rows: "4", placeholder: "What was said about this today?" });
+    const stat = el("select", {}, [el("option", { value: "", text: "Leave status unchanged" })].concat(
+      STATUS_ORDER.map((s) => el("option", { value: s, text: "→ " + STATUS[s].label }))));
+    body.appendChild(el("div", { class: "drawer-section" }, [
+      el("h3", { text: "Log an update · week of " + weekLabel(S.week) }),
+      note,
+      el("div", { style: "display:flex;gap:9px;margin-top:9px;flex-wrap:wrap" }, [
+        stat,
+        el("button", { class: "btn primary", text: "Add to the record", onclick: async (ev) => {
+          if (!note.value.trim()) { toast("Write the update first."); return; }
+          ev.target.disabled = true;
+          try {
+            await call("add_update", { topic_id: t.id, week_start: S.week, note: note.value, status_at: stat.value || null });
+            note.value = ""; await refresh(); toast("Logged.");
+          } catch (e) { toast(e.message); } finally { ev.target.disabled = false; }
+        } }),
+      ]),
+    ]));
+  }
+
+  /* --- history ---------------------------------------------------------- */
+  const log = updatesFor(t.id);
+  const hist = el("div", { class: "drawer-section" }, [
+    el("h3", { text: "Weekly record · " + log.length + (log.length === 1 ? " entry" : " entries") }),
+  ]);
+  if (!log.length) {
+    hist.appendChild(el("div", { class: "hint", text: "Nothing logged yet. The first update starts the trail." }));
+  } else {
+    for (const u of log) {
+      const meta = [
+        el("strong", { text: "Week of " + weekLabel(u.week_start) }),
+        el("span", { text: u.author }),
+      ];
+      if (u.status_at) meta.push(statusChip(u.status_at));
+      const mine = S.session && u.author === S.session.name &&
+        (Date.now() - new Date(u.created_at).getTime()) < 15 * 60000;
+      if (mine) {
+        meta.push(el("button", { class: "btn subtle sm", text: "remove", onclick: async () => {
+          try { await call("delete_update", { id: u.id }); await refresh(); renderDrawer(); toast("Removed."); }
+          catch (e) { toast(e.message); }
+        } }));
+      }
+      hist.appendChild(el("div", { class: "log-entry" }, [
+        el("div", { class: "meta" }, meta),
+        el("div", { class: "note", text: u.note }),
+      ]));
+    }
+  }
+  body.appendChild(hist);
+  d.appendChild(body);
+}
+
+/* ------------------------------------------------------------ meeting mode */
+function renderMeeting() {
+  const list = visibleTopics();
+  if (!list.length) return el("div", { class: "meeting" }, [el("p", { class: "hint", text: "No topics match the current filters." })]);
+  if (S.meetingIdx >= list.length) S.meetingIdx = list.length - 1;
+  const t = list[S.meetingIdx];
+  const p = pillarOf(t.pillar_id);
+  const log = updatesFor(t.id);
+  const last = log[0];
+
+  const wrap = el("div", { class: "meeting", style: "--accent:" + p.accent }, [
+    el("div", { style: "display:flex;align-items:center;gap:12px;flex-wrap:wrap" }, [
+      el("span", { class: "pill-tag" }, [el("span", { class: "swatch" }), el("span", { text: p.name })]),
+      statusChip(t.status),
+      ageChip(t) || el("span"),
+      el("span", { class: "spacer", style: "flex:1" }),
+      el("span", { class: "progress", text: (S.meetingIdx + 1) + " of " + list.length }),
+    ]),
+    el("h2", { text: t.title }),
+  ]);
+  if (t.owner) wrap.appendChild(el("div", { class: "detail", text: "Owner: " + t.owner }));
+  if (t.next_step) wrap.appendChild(el("div", { class: "detail", style: "margin-top:4px", text: "Next step: " + t.next_step }));
+  if (t.detail) wrap.appendChild(el("div", { class: "detail", style: "margin-top:12px", text: t.detail }));
+
+  if (last) {
+    wrap.appendChild(el("div", { class: "prev-note" }, [
+      el("div", { style: "font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:5px",
+                  text: "Last time · week of " + weekLabel(last.week_start) + " · " + last.author }),
+      el("div", { style: "white-space:pre-wrap", text: last.note }),
+    ]));
+  }
+
+  if (canEdit()) {
+    const note = el("textarea", { placeholder: "This week…", rows: "4" });
+    let chosen = "";
+    const picker = el("div", { class: "status-picker", style: "margin-top:10px" },
+      STATUS_ORDER.map((s) => el("button", { text: STATUS[s].label, "aria-pressed": "false", onclick: (ev) => {
+        chosen = chosen === s ? "" : s;
+        [...picker.children].forEach((b) => b.setAttribute("aria-pressed", "false"));
+        if (chosen) ev.target.setAttribute("aria-pressed", "true");
+      } })));
+    const save = async (advance) => {
+      if (note.value.trim()) {
+        try { await call("add_update", { topic_id: t.id, week_start: S.week, note: note.value, status_at: chosen || null }); await refresh(); toast("Logged."); }
+        catch (e) { toast(e.message); return; }
+      } else if (chosen) {
+        try { await call("update_topic", { id: t.id, patch: { status: chosen } }); await refresh(); }
+        catch (e) { toast(e.message); return; }
+      }
+      if (advance) step(1); else renderBody();
+    };
+    wrap.appendChild(el("div", { style: "margin-top:16px" }, [
+      el("span", { class: "field-label", text: "Log this week" }), note, picker,
+      el("div", { style: "margin-top:11px;display:flex;gap:9px" }, [
+        el("button", { class: "btn primary", text: "Save and next →", onclick: () => save(true) }),
+        el("button", { class: "btn", text: "Save", onclick: () => save(false) }),
+      ]),
+    ]));
+    wrap._save = save;
+  } else {
+    wrap.appendChild(el("p", { class: "hint", style: "margin-top:18px", text: "Unlock with the team passcode to log updates." }));
+  }
+
+  const nav = el("div", { class: "meeting-nav" }, [
+    el("button", { class: "btn", text: "← Previous", onclick: () => step(-1), disabled: S.meetingIdx === 0 ? "disabled" : null }),
+    el("button", { class: "btn", text: "Skip →", onclick: () => step(1) }),
+    el("span", { class: "hint", text: "Week of " + weekLabel(S.week) }),
+    el("div", { class: "spacer", style: "flex:1" }),
+    el("button", { class: "btn subtle", text: "Leave meeting mode", onclick: () => setView("week") }),
+  ]);
+  return el("div", {}, [wrap, nav]);
+}
+function step(n) {
+  const total = visibleTopics().length;
+  S.meetingIdx = Math.max(0, Math.min(total - 1, S.meetingIdx + n));
+  renderBody();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ---------------------------------------------------------------- minutes */
+function buildMinutes() {
+  const ups = updatesIn(S.week);
+  const lines = ["# Delardi Weekly Board — minutes", "", "Week of " + weekLabel(S.week), ""];
+  let any = false;
+  for (const p of S.pillars) {
+    const rows = ups.filter((u) => {
+      const t = S.topics.find((x) => x.id === u.topic_id);
+      return t && t.pillar_id === p.id;
+    });
+    if (!rows.length) continue;
+    any = true;
+    lines.push("## " + p.name, "");
+    for (const u of rows) {
+      const t = S.topics.find((x) => x.id === u.topic_id);
+      lines.push("**" + t.title + "**" + (t.owner ? " — " + t.owner : ""));
+      lines.push("");
+      lines.push(u.note.split("\n").map((l) => "> " + l).join("\n"));
+      lines.push("");
+      const bits = ["Status: " + (STATUS[t.status] || {}).label];
+      if (t.next_step) bits.push("Next: " + t.next_step);
+      if (t.due_date) bits.push("Due: " + weekLabel(t.due_date));
+      lines.push("- " + bits.join(" · "));
+      lines.push("");
+    }
+  }
+  if (!any) lines.push("_Nothing was logged for this week yet._", "");
+
+  const open = S.topics.filter((t) => !t.archived && !["done", "parked"].includes(t.status));
+  const notTouched = open.filter((t) => !ups.some((u) => u.topic_id === t.id));
+  if (notTouched.length) {
+    lines.push("## Open, not discussed this week", "");
+    for (const t of notTouched) {
+      const w = ageOf(t);
+      lines.push("- " + t.title + " (" + pillarOf(t.pillar_id).name + (t.owner ? ", " + t.owner : "") +
+        (w >= STALE_WARN ? " — " + w + " weeks since last discussed" : "") + ")");
+    }
+    lines.push("");
+  }
+  const decisions = S.topics.filter((t) => t.status === "needs_decision" && !t.archived);
+  if (decisions.length) {
+    lines.push("## Waiting on a decision", "");
+    for (const t of decisions) lines.push("- " + t.title + " (" + pillarOf(t.pillar_id).name + ")");
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function openMinutes() {
+  const md = buildMinutes();
+  showModal("Minutes · week of " + weekLabel(S.week),
+    "Grouped by pillar, with what was left untouched and what is waiting on a decision.",
+    [el("pre", { class: "minutes", text: md })],
+    [
+      el("button", { class: "btn", text: "Download .md", onclick: () => {
+        const blob = new Blob([md], { type: "text/markdown" });
+        const a = el("a", { href: URL.createObjectURL(blob), download: "delardi-board-" + S.week + ".md" });
+        document.body.appendChild(a); a.click(); a.remove();
+      } }),
+      el("button", { class: "btn primary", text: "Copy", onclick: async () => {
+        try { await navigator.clipboard.writeText(md); toast("Copied."); }
+        catch (e) {
+          const ta = el("textarea", { style: "position:fixed;opacity:0" }); ta.value = md;
+          document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+          toast("Copied.");
+        }
+      } }),
+    ]);
+}
+
+/* ----------------------------------------------------------------- modals */
+function showModal(title, lead, bodyKids, actionKids) {
+  const m = $("#modal");
+  m.innerHTML = "";
+  const card = el("div", { class: "modal-card" }, [el("h2", { text: title })]);
+  if (lead) card.appendChild(el("p", { class: "lead", text: lead }));
+  for (const k of bodyKids) card.appendChild(k);
+  card.appendChild(el("div", { class: "modal-actions" },
+    [el("button", { class: "btn subtle", text: "Close", onclick: closeModal })].concat(actionKids || [])));
+  m.appendChild(card);
+  m.classList.add("open");
+  return card;
+}
+function closeModal() { $("#modal").classList.remove("open"); $("#modal").innerHTML = ""; }
+
+function openUnlock() {
+  const name = el("input", { type: "text", placeholder: "e.g. Alex", value: store("board_name") || "" });
+  const pass = el("input", { type: "password", placeholder: "Team passcode" });
+  const err = el("p", { class: "err", style: "display:none" });
+  const go = async () => {
+    err.style.display = "none";
+    if (!name.value.trim()) { err.textContent = "Your name, so updates are attributed."; err.style.display = "block"; return; }
+    try {
+      const r = await call("unlock", { name: name.value.trim(), passcode: pass.value });
+      S.session = { token: r.token, name: r.name, expires_at: r.expires_at };
+      store("board_session", JSON.stringify(S.session));
+      store("board_name", r.name);
+      closeModal(); renderAll();
+      toast("Edit mode on until " + new Date(r.expires_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    } catch (e) { err.textContent = e.message; err.style.display = "block"; }
+  };
+  pass.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  showModal("Unlock editing", "Anyone can read this board. Changing it needs the team passcode. Your name is recorded against every update.",
+    [err,
+     el("label", {}, [el("span", { class: "field-label", text: "Your name" }), name]),
+     el("label", {}, [el("span", { class: "field-label", text: "Team passcode" }), pass])],
+    [el("button", { class: "btn primary", text: "Unlock", onclick: go })]);
+  setTimeout(() => (name.value ? pass : name).focus(), 60);
+}
+function lockNow() { S.session = null; store("board_session", ""); renderAll(); toast("Locked."); }
+
+function openTopicForm(existing) {
+  const title = el("input", { type: "text", value: existing ? existing.title : "", placeholder: "What is the topic?" });
+  const detail = el("textarea", { rows: "4", placeholder: "Background — why this is on the board" });
+  if (existing && existing.detail) detail.value = existing.detail;
+  const pillar = el("select", {}, S.pillars.map((p) =>
+    el("option", { value: String(p.id), selected: existing && existing.pillar_id === p.id ? "selected" : null, text: p.name })));
+  const owner = el("input", { type: "text", value: existing ? existing.owner || "" : "", placeholder: "Who owns it" });
+  const next = el("input", { type: "text", value: existing ? existing.next_step || "" : "", placeholder: "The next concrete step" });
+  const prio = el("select", {}, Object.keys(PRIORITY).map((k) =>
+    el("option", { value: k, selected: (existing ? existing.priority : "medium") === k ? "selected" : null, text: PRIORITY[k] })));
+  const err = el("p", { class: "err", style: "display:none" });
+
+  const save = async (ev) => {
+    if (!title.value.trim()) { err.textContent = "A title is needed."; err.style.display = "block"; return; }
+    ev.target.disabled = true;
+    try {
+      if (existing) {
+        await call("update_topic", { id: existing.id, patch: {
+          title: title.value, detail: detail.value, pillar_id: Number(pillar.value),
+          owner: owner.value, next_step: next.value, priority: prio.value } });
+      } else {
+        await call("add_topic", { pillar_id: Number(pillar.value), title: title.value, detail: detail.value,
+          owner: owner.value, next_step: next.value, priority: prio.value, week_start: S.week });
+      }
+      closeModal(); await refresh(); if (S.drawerTopic) renderDrawer(); toast("Saved.");
+    } catch (e) { err.textContent = e.message; err.style.display = "block"; ev.target.disabled = false; }
+  };
+
+  showModal(existing ? "Edit topic" : "New topic", null,
+    [err,
+     el("label", {}, [el("span", { class: "field-label", text: "Title" }), title]),
+     el("label", {}, [el("span", { class: "field-label", text: "Pillar" }), pillar]),
+     el("label", {}, [el("span", { class: "field-label", text: "Background" }), detail]),
+     el("label", {}, [el("span", { class: "field-label", text: "Owner" }), owner]),
+     el("label", {}, [el("span", { class: "field-label", text: "Next step" }), next]),
+     el("label", {}, [el("span", { class: "field-label", text: "Priority" }), prio])],
+    [el("button", { class: "btn primary", text: "Save", onclick: save })]);
+  setTimeout(() => title.focus(), 60);
+}
+
+function editMetric(m) {
+  const v = el("input", { type: "text", value: m.current_val || "" });
+  showModal("Update: " + m.metric, m.note || null,
+    [el("label", {}, [el("span", { class: "field-label", text: "Current value" }), v])],
+    [el("button", { class: "btn primary", text: "Save", onclick: async (ev) => {
+      ev.target.disabled = true;
+      try { await call("set_scoreboard", { id: m.id, current_val: v.value }); closeModal(); await refresh(); toast("Saved."); }
+      catch (e) { toast(e.message); ev.target.disabled = false; }
+    } })]);
+  setTimeout(() => v.focus(), 60);
+}
+
+/* ------------------------------------------------------------------- theme */
+function applyTheme() {
+  let mode;
+  try { mode = localStorage.getItem("board_theme") || "auto"; } catch (e) { mode = "auto"; }
+  document.documentElement.setAttribute("data-theme", mode);
+  const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.classList.toggle("sysdark", mode === "auto" && sysDark);
+}
+function toggleTheme() {
+  let mode;
+  try { mode = localStorage.getItem("board_theme") || "auto"; } catch (e) { mode = "auto"; }
+  const nextMode = mode === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark")
+                                   : mode === "dark" ? "light" : "dark";
+  try { localStorage.setItem("board_theme", nextMode); } catch (e) {}
+  applyTheme();
+}
+
+/* -------------------------------------------------------------------- init */
+function renderBody() {
+  const host = $("#body-host");
+  if (!host) return;
+  host.innerHTML = "";
+  host.appendChild(S.view === "meeting" ? renderMeeting() : renderBoard());
+}
+function renderAll() {
+  const app = $("#app");
+  app.innerHTML = "";
+  app.appendChild(renderHeader());
+  app.appendChild(el("div", { id: "body-host" }));
+  renderBody();
+  if (S.drawerTopic) renderDrawer();
+}
+async function refresh() {
+  await loadAll();
+  renderAll();
+}
+
+function restoreSession() {
+  try {
+    const raw = store("board_session");
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s && s.token && new Date(s.expires_at).getTime() > Date.now()) S.session = s;
+  } catch (e) { /* ignore */ }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeModal(); closeDrawer(); return; }
+  if (S.view !== "meeting") return;
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (typing && !(e.ctrlKey || e.metaKey)) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+});
+$("#scrim").addEventListener("click", closeDrawer);
+$("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+(async function boot() {
+  applyTheme();
+  restoreSession();
+  try {
+    await loadAll();
+    renderAll();
+    if (S.session) { try { await call("ping"); } catch (e) { S.session = null; renderAll(); } }
+  } catch (e) {
+    $("#app").innerHTML = '<div class="loading">Could not load the board. ' + esc(e.message) +
+      '<br><br>If this persists the database may have paused — it resumes with one click in the Supabase dashboard.</div>';
+  }
+})();
+</script>
+</body>
+</html>
