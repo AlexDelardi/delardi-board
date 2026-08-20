@@ -631,7 +631,7 @@ const S = {
   locked: true,
   pillars: [], topics: [], updates: [], weeks: [], scoreboard: [], suggestions: [],
   week: null, view: "week", statScope: "week", statsCollapsed: false,
-  filters: { pillar: "", owner: "", status: "", q: "", sensitive: false, archived: false },
+  filters: { pillar: "", owner: "", status: "", priority: "", q: "", sensitive: false, archived: false },
   session: null,
   meetingIdx: 0,
   meetingDraft: {},
@@ -840,6 +840,7 @@ function visibleTopics() {
   if (f.pillar) list = list.filter((t) => String(t.pillar_id) === f.pillar);
   if (f.owner) list = list.filter((t) => (t.owner || "") === f.owner);
   if (f.status) list = list.filter((t) => t.status === f.status);
+  if (f.priority) list = list.filter((t) => t.priority === f.priority);
   if (f.sensitive) list = list.filter((t) => t.sensitive);
   if (f.q) {
     const q = f.q.toLowerCase();
@@ -1027,7 +1028,9 @@ function renderTaskStats() {
   });
   const prioTiles = PRIORITY_ORDER.map((p) => {
     const n = stats.byPriority[p] || 0;
-    return el("span", { class: "tstat" + (n ? "" : " zero") }, [
+    const active = S.filters.priority === p;
+    return el("button", { class: "tstat" + (n ? "" : " zero"), "aria-pressed": String(active),
+      onclick: () => { S.filters.priority = active ? "" : p; renderAll(); } }, [
       el("b", { text: String(n) }), el("span", { text: PRIORITY[p] }),
     ]);
   });
