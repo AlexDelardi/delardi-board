@@ -213,8 +213,13 @@ a { color: inherit; }
   font-size: 12.5px; color: var(--ink-2); background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px 4px 9px;
 }
+button.tstat { cursor: pointer; }
+button.tstat:hover { background: var(--border); }
+button.tstat[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+button.tstat[aria-pressed="true"] b { color: var(--surface); }
 .tstat b { font-family: var(--serif); font-size: 14.5px; color: var(--navy); font-weight: 700; }
 :root[data-theme="dark"] .tstat b, html[data-theme="auto"].sysdark .tstat b { color: var(--ink); }
+.task-stats.collapsed .grp { display: none; }
 .tstat.zero { opacity: .45; }
 
 /* ----------------------------------------------------------------- toolbar */
@@ -568,8 +573,6 @@ pre.minutes {
     -webkit-overflow-scrolling: touch;
   }
   .scoreboard .stat { min-width: 168px; scroll-snap-align: start; }
-  .task-stats { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
-  .task-stats .grp { flex: none; }
   .board { grid-template-columns: 1fr; padding: 14px 13px 60px; }
   .top-row, .toolbar { padding-left: 13px; padding-right: 13px; }
   .brand h1 { font-size: 17px; }
@@ -627,7 +630,7 @@ const OWNERS = ["Vladimir","Timur","Thibaud","Umid","Alexandr","Alex","Olga","El
 const S = {
   locked: true,
   pillars: [], topics: [], updates: [], weeks: [], scoreboard: [], suggestions: [],
-  week: null, view: "week", statScope: "week",
+  week: null, view: "week", statScope: "week", statsCollapsed: false,
   filters: { pillar: "", owner: "", status: "", q: "", sensitive: false, archived: false },
   session: null,
   meetingIdx: 0,
@@ -1012,9 +1015,13 @@ function renderTaskStats() {
   ]);
 
   const stats = computeTaskStats();
+  // Clicking a status tile is the same filter as the "All statuses" select in
+  // the toolbar — click again (or the same status a second time) to clear it.
   const statusTiles = STATUS_ORDER.map((s) => {
     const n = stats.byStatus[s] || 0;
-    return el("span", { class: "tstat" + (n ? "" : " zero") }, [
+    const active = S.filters.status === s;
+    return el("button", { class: "tstat" + (n ? "" : " zero"), "aria-pressed": String(active),
+      onclick: () => { S.filters.status = active ? "" : s; renderAll(); } }, [
       el("b", { text: String(n) }), el("span", { text: STATUS[s].label }),
     ]);
   });
@@ -1025,12 +1032,16 @@ function renderTaskStats() {
     ]);
   });
 
-  return el("div", { class: "task-stats" }, [
+  const hideToggle = el("button", { class: "btn subtle sm", text: S.statsCollapsed ? "Show stats" : "Hide stats",
+    onclick: () => { S.statsCollapsed = !S.statsCollapsed; renderAll(); } });
+
+  return el("div", { class: "task-stats" + (S.statsCollapsed ? " collapsed" : "") }, [
     seg,
     el("div", { class: "grp" }, [el("span", { class: "grp-label", text: "By status" })].concat(statusTiles)),
     el("div", { class: "grp" }, [el("span", { class: "grp-label", text: "By priority" })].concat(prioTiles)),
     el("div", { class: "spacer" }),
     el("button", { class: "btn subtle sm m-hide", text: "▦ Company KPIs", onclick: openKpis }),
+    hideToggle,
   ]);
 }
 
