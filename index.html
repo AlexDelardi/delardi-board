@@ -373,6 +373,27 @@ pre.minutes {
   white-space: pre-wrap; font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* -------------------------------------------------------------------- gate */
+#app.gated { filter: blur(9px) saturate(.9); pointer-events: none; user-select: none; }
+.gate {
+  position: fixed; inset: 0; z-index: 85; display: flex;
+  align-items: center; justify-content: center; padding: 20px;
+  background: rgba(0,26,74,.34);
+}
+.gate-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  width: min(400px, 100%); box-shadow: var(--shadow); overflow: hidden;
+}
+.gate-mast { background: var(--navy); padding: 17px 22px; }
+.gate-mast img { height: 34px; width: auto; display: block; }
+.gate-card h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 20px 22px 5px; }
+.gate-card p.lead { margin: 0 22px 18px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.gate-card label { display: block; margin: 0 22px 13px; }
+.gate-card input { width: 100%; }
+.gate-card .err { margin: 0 22px 12px; }
+.gate-card .btn { margin: 5px 22px 0; width: calc(100% - 44px); justify-content: center; }
+.gate-card .gate-foot { margin: 15px 22px 18px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
 /* ------------------------------------------------------------------- toast */
 .toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -422,14 +443,12 @@ pre.minutes {
 <script>
 /* ===========================================================================
    Configuration
-   The publishable key below is designed to be public. It carries READ-ONLY
-   database permission, enforced by row-level security in Postgres. Every write
-   goes through the board-api edge function, which requires the team passcode.
+   There is deliberately NO database key in this file. Every read and every
+   write goes through the board-api edge function, and both require a session
+   token that is issued only in exchange for the team passcode. Until that
+   happens the page holds nothing but placeholder content.
    ========================================================================= */
-const SUPABASE_URL = "https://hugduzqwyqwryicfzipu.supabase.co";
-const PUBLISHABLE_KEY = "sb_publishable_e3psDmNYQU7L6Wdcax_Hrw_qi3douJp";
-const LEGACY_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1Z2R1enF3eXF3cnlpY2Z6aXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMjA1OTgsImV4cCI6MjEwMjY5NjU5OH0.eswNU9Rdb3U4Ft37ElQH33nTpaYx6o3Amdz0m-6zepA";
-const API = SUPABASE_URL + "/functions/v1/board-api";
+const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/board-api";
 
 // Brand assets, lifted from the DELARDI brandbook. The simplified wordmark is
 // the version the brandbook permits where layout height rules out the primary
@@ -452,6 +471,7 @@ const ROMAN = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 
 /* ------------------------------------------------------------------- state */
 const S = {
+  locked: true,
   pillars: [], topics: [], updates: [], weeks: [], scoreboard: [],
   week: null, view: "week",
   filters: { pillar: "", owner: "", status: "", q: "", stale: false, archived: false },
@@ -515,26 +535,11 @@ function toast(msg) {
   toast._t = setTimeout(() => t.classList.remove("show"), 2600);
 }
 function store(key, val) {
-  try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); }
+  try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); }
   catch (e) { return null; }
 }
 
 /* --------------------------------------------------------------------- api */
-let readKeyMode = "publishable";
-function readHeaders() {
-  return readKeyMode === "publishable"
-    ? { apikey: PUBLISHABLE_KEY }
-    : { apikey: LEGACY_ANON_KEY, Authorization: "Bearer " + LEGACY_ANON_KEY };
-}
-async function read(path) {
-  let res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { headers: readHeaders() });
-  if ((res.status === 401 || res.status === 403) && readKeyMode === "publishable") {
-    readKeyMode = "legacy";                       // fall back to the legacy anon key
-    res = await fetch(SUPABASE_URL + "/rest/v1/" + path, { headers: readHeaders() });
-  }
-  if (!res.ok) throw new Error("Could not load data (" + res.status + ")");
-  return res.json();
-}
 async function call(action, payload = {}) {
   const body = { action, ...payload };
   if (S.session && action !== "unlock") body.token = S.session.token;
@@ -546,7 +551,7 @@ async function call(action, payload = {}) {
   let data = {};
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) {
-    if (res.status === 401 && action !== "unlock") { S.session = null; store("board_session", ""); renderAll(); }
+    if (res.status === 401 && action !== "unlock") lockDown();
     throw new Error(data.error || "Request failed (" + res.status + ")");
   }
   return data;
@@ -554,18 +559,69 @@ async function call(action, payload = {}) {
 
 /* ------------------------------------------------------------------- load */
 async function loadAll() {
-  const [pillars, topics, updates, weeks, scoreboard] = await Promise.all([
-    read("pillars?select=*&order=sort_order"),
-    read("topics?select=*&order=pillar_id,sort_order"),
-    read("topic_updates?select=*&order=created_at.desc"),
-    read("weeks?select=*&order=week_start.desc"),
-    read("scoreboard?select=*&order=sort_order"),
-  ]);
-  S.pillars = pillars; S.topics = topics; S.updates = updates;
-  S.weeks = weeks; S.scoreboard = scoreboard;
+  const snap = await call("snapshot");          // refused without a valid session
+  S.pillars = snap.pillars || [];
+  S.topics = snap.topics || [];
+  S.updates = snap.updates || [];
+  S.weeks = snap.weeks || [];
+  S.scoreboard = snap.scoreboard || [];
   const mon = thisMonday();
   if (!S.weeks.some((w) => w.week_start === mon)) S.weeks.unshift({ week_start: mon, label: null, synthetic: true });
   if (!S.week) S.week = mon;
+}
+
+/* The blurred layer behind the passcode card. This is invented content: no real
+   row is ever fetched while the board is locked, so there is nothing in the DOM
+   to un-blur, read from the network tab, or pull off the API. */
+function skeletonState() {
+  const pillars = [
+    { id: 1, slug: "marketing",  name: "Marketing",        sort_order: 1 },
+    { id: 2, slug: "retail",     name: "Retail",           sort_order: 2 },
+    { id: 3, slug: "operations", name: "Operations",       sort_order: 3 },
+    { id: 4, slug: "steering",   name: "Company Steering", sort_order: 4 },
+  ];
+  const filler = [
+    "Agree the next milestone and its owner",
+    "Confirm the schedule for the coming quarter",
+    "Review the standing report format",
+    "Decide who carries this forward",
+    "Bring the proposal back with numbers",
+    "Set the review date and the measure",
+    "Draft the outline and circulate it",
+    "Close the open question from last month",
+  ];
+  const statuses = ["needs_decision", "in_progress", "not_started", "blocked", "decided", "not_started"];
+  const topics = [];
+  let n = 0;
+  for (const p of pillars) {
+    for (let i = 0; i < 3 + (p.id % 3); i++) {
+      n++;
+      topics.push({
+        id: "placeholder-" + n, pillar_id: p.id, title: filler[n % filler.length], detail: "",
+        owner: "\u2014", status: statuses[n % statuses.length],
+        priority: ["high", "medium", "low"][n % 3],
+        next_step: "Hidden until the board is unlocked", due_date: null,
+        first_raised_week: null, last_discussed_week: null, sort_order: i, archived: false,
+      });
+    }
+  }
+  const scoreboard = [1, 2, 3, 4, 5, 6].map((id) => ({
+    id, metric: "\u2014\u2014\u2014\u2014", current_val: "\u2014\u2014",
+    direction: "flat", note: "\u2014\u2014\u2014\u2014\u2014", sort_order: id,
+  }));
+  return { pillars, topics, updates: [], scoreboard,
+           weeks: [{ week_start: thisMonday(), label: null }], week: thisMonday() };
+}
+
+function lockDown() {
+  S.session = null;
+  store("board_session", "");
+  S.locked = true;
+  S.drawerTopic = null;
+  closeDrawer();
+  closeModal();
+  Object.assign(S, skeletonState());
+  renderAll();
 }
 
 const updatesFor = (topicId) => S.updates.filter((u) => u.topic_id === topicId);
@@ -628,7 +684,7 @@ function renderHeader() {
         el("span", { text: "Editing as " + S.session.name }),
         el("button", { class: "btn subtle sm", text: "Lock", onclick: lockNow }),
       ])
-    : el("button", { class: "btn primary", onclick: openUnlock, html: "🔒&nbsp; Unlock to edit" });
+    : el("span", { class: "lock-state" }, [el("span", { text: "Locked" })]);
 
   const head = el("div", { class: "top" }, [
     el("div", { class: "top-row" }, [
@@ -1051,31 +1107,60 @@ function showModal(title, lead, bodyKids, actionKids) {
 }
 function closeModal() { $("#modal").classList.remove("open"); $("#modal").innerHTML = ""; }
 
-function openUnlock() {
+/* The locked state. The card sits over a blurred placeholder board; the real
+   rows are requested only after the passcode has been checked server-side. */
+function renderGate() {
+  const existing = $("#gate");
+  if (!S.locked) { if (existing) existing.remove(); return; }
+  if (existing) return;
+
   const name = el("input", { type: "text", placeholder: "e.g. Alex", value: store("board_name") || "" });
   const pass = el("input", { type: "password", placeholder: "Team passcode" });
-  const err = el("p", { class: "err", style: "display:none" });
+  const err  = el("p", { class: "err", style: "display:none" });
+  const btn  = el("button", { class: "btn primary", text: "Open the board" });
+
   const go = async () => {
     err.style.display = "none";
-    if (!name.value.trim()) { err.textContent = "Your name, so updates are attributed."; err.style.display = "block"; return; }
+    if (!name.value.trim()) {
+      err.textContent = "Your name, so updates are attributed."; err.style.display = "block"; return;
+    }
+    btn.disabled = true; btn.textContent = "Checking…";
     try {
       const r = await call("unlock", { name: name.value.trim(), passcode: pass.value });
       S.session = { token: r.token, name: r.name, expires_at: r.expires_at };
       store("board_session", JSON.stringify(S.session));
       store("board_name", r.name);
-      closeModal(); renderAll();
-      toast("Edit mode on until " + new Date(r.expires_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
-    } catch (e) { err.textContent = e.message; err.style.display = "block"; }
+      await loadAll();
+      S.locked = false;
+      renderAll();
+      toast("Open until " + new Date(r.expires_at)
+        .toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    } catch (e) {
+      err.textContent = e.message; err.style.display = "block";
+      btn.disabled = false; btn.textContent = "Open the board";
+      pass.value = ""; pass.focus();
+    }
   };
-  pass.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
-  showModal("Unlock editing", "Anyone can read this board. Changing it needs the team passcode. Your name is recorded against every update.",
-    [err,
-     el("label", {}, [el("span", { class: "field-label", text: "Your name" }), name]),
-     el("label", {}, [el("span", { class: "field-label", text: "Team passcode" }), pass])],
-    [el("button", { class: "btn primary", text: "Unlock", onclick: go })]);
-  setTimeout(() => (name.value ? pass : name).focus(), 60);
+  btn.addEventListener("click", go);
+  for (const f of [name, pass]) f.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+
+  const card = el("div", { class: "gate-card" }, [
+    el("div", { class: "gate-mast" }, [el("img", { src: LOGO_WORDMARK, alt: "Delardi" })]),
+    el("h2", { text: "Weekly Board" }),
+    el("p", { class: "lead", text: "This board is private. Enter the team passcode to open it." }),
+    err,
+    el("label", {}, [el("span", { class: "field-label", text: "Your name" }), name]),
+    el("label", {}, [el("span", { class: "field-label", text: "Team passcode" }), pass]),
+    btn,
+    el("p", { class: "gate-foot",
+      text: "Nothing behind this card is real. The board loads no data until the passcode is accepted." }),
+  ]);
+
+  document.body.appendChild(el("div", { class: "gate", id: "gate" }, [card]));
+  setTimeout(() => (name.value ? pass : name).focus(), 80);
 }
-function lockNow() { S.session = null; store("board_session", ""); renderAll(); toast("Locked."); }
+
+function lockNow() { lockDown(); toast("Locked."); }
 
 function openTopicForm(existing) {
   const title = el("input", { type: "text", value: existing ? existing.title : "", placeholder: "What is the topic?" });
@@ -1156,10 +1241,13 @@ function renderBody() {
 function renderAll() {
   const app = $("#app");
   app.innerHTML = "";
+  app.className = S.locked ? "gated" : "";
+  app.setAttribute("aria-hidden", S.locked ? "true" : "false");
   app.appendChild(renderHeader());
   app.appendChild(el("div", { id: "body-host" }));
   renderBody();
   if (S.drawerTopic) renderDrawer();
+  renderGate();
 }
 async function refresh() {
   await loadAll();
@@ -1190,14 +1278,12 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", app
 (async function boot() {
   applyTheme();
   restoreSession();
-  try {
-    await loadAll();
-    renderAll();
-    if (S.session) { try { await call("ping"); } catch (e) { S.session = null; renderAll(); } }
-  } catch (e) {
-    $("#app").innerHTML = '<div class="loading">Could not load the board. ' + esc(e.message) +
-      '<br><br>If this persists the database may have paused — it resumes with one click in the Supabase dashboard.</div>';
+  if (S.session) {
+    try { await loadAll(); S.locked = false; }
+    catch (e) { S.session = null; store("board_session", ""); }
   }
+  if (S.locked) Object.assign(S, skeletonState());
+  renderAll();
 })();
 </script>
 </body>

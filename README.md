@@ -1,42 +1,40 @@
 # Delardi Weekly Board
 
-A single public page for the weekly leadership meeting: topics tracked across
+A private page for the weekly leadership meeting: topics tracked across
 **Marketing · Retail · Operations · Company Steering**, with a week-by-week
 record of what was said about each one.
 
-**Live board:** https://alexdelardi.github.io/delardi-board/
+The address is deliberately not published here. Ask Alex for the link and the
+team passcode.
 
 ## How it is put together
 
 | Layer | What it is |
 |---|---|
 | Data | Supabase Postgres (project `hugduzqwyqwryicfzipu`, EU-West) |
-| Reads | Supabase REST API, called straight from the page with the publishable key |
-| Writes | `board-api` edge function, which is the only holder of the service role key |
+| API | `board-api` edge function — the only route to the data, in either direction |
 | Page | `index.html` — one self-contained file, no build step, no dependencies |
 | Hosting | GitHub Pages from `main` |
 
 ## The security model
 
-Read is open; write is gated.
+**This repository is public, so it contains no key of any kind.** Earlier versions
+of the page carried a read-only database key; they no longer do. Everything the
+page needs comes from the API, and the API answers nothing without a session.
 
-- The publishable key in `index.html` is **designed to be public**. It grants
-  read-only access to five board tables and nothing else.
-- Row-level security in Postgres gives the anonymous role `SELECT` on
-  `pillars`, `weeks`, `topics`, `topic_updates` and `scoreboard`. All write
-  grants are revoked from the public roles, so a write is refused before RLS is
-  even consulted. `editor_sessions`, `auth_attempts` and `write_log` have RLS
-  on with no policies at all — deny by default.
-- Editing requires the team passcode. The page sends it to the edge function,
-  which compares a SHA-256 digest against a server-side value and returns an
-  opaque 8-hour session token. **The passcode is never stored in this repo.**
-- Failed passcode attempts are rate-limited to 10 per IP per hour.
+- Opening the board requires the team passcode. The page sends it to the edge
+  function, which compares a SHA-256 digest against a server-side value and
+  returns an opaque 8-hour session token. **The passcode is never stored in this
+  repository, in the page, or in the database in plaintext.**
+- Until that token exists the page fetches nothing at all. The blurred board
+  behind the passcode card is invented placeholder content — there is no real row
+  in the DOM to un-blur, read out of the network tab, or lift from the API.
+- Anonymous read access is revoked in Postgres. `SELECT` on every board table is
+  refused for the public roles, so a key would not help even if one leaked.
+- Failed passcode attempts are rate-limited to 10 per IP per hour and recorded.
 - Every write is attributed and appended to `write_log`. Weekly updates are
   append-only: an author can remove their own entry within 15 minutes, after
   which the record stands and corrections are added rather than edited.
-
-Because the repository is public, it holds code only. No topic content, no
-figures, no personal data.
 
 ## Changing the passcode
 
@@ -46,6 +44,10 @@ the SHA-256 hex digest of the new passcode. No redeploy needed.
 ```bash
 printf '%s' 'your-new-passcode' | sha256sum
 ```
+
+Pick something not derived from the company name — the passcode is the only
+control on the whole board, and company-plus-year is the first thing a targeted
+guesser tries.
 
 ## Updating the page
 
