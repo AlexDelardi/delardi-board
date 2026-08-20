@@ -186,6 +186,8 @@ a { color: inherit; }
 .stat.editable .val { cursor: text; }
 
 /* ----------------------------------------------------------------- toolbar */
+.filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.filters-toggle { display: none; }
 .toolbar select { max-width: 190px; }
 .toolbar input[type=text] { width: 190px; }
 .toolbar {
@@ -373,6 +375,90 @@ pre.minutes {
   white-space: pre-wrap; font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* ---------------------------------------------------------- drag and drop */
+.card.draggable { cursor: grab; }
+.card.draggable:active { cursor: grabbing; }
+.card.dragging { opacity: .35; }
+.col.drop-target { background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 6px; }
+.card[data-drop="before"] { box-shadow: 0 -3px 0 -1px var(--accent); }
+.card[data-drop="after"]  { box-shadow: 0  3px 0 -1px var(--accent); }
+.col-drop-tail { height: 26px; border-radius: 6px; }
+.col-drop-tail[data-drop="in"] { box-shadow: inset 0 3px 0 -1px var(--accent); }
+
+/* ------------------------------------------------------------- suggestions */
+.sug-wrap { padding: 16px 20px 70px; max-width: 1080px; margin: 0 auto; }
+.sug-intro { font-size: 13.5px; color: var(--ink-2); line-height: 1.55; margin: 0 0 16px; max-width: 70ch; }
+.sug {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--radius);
+  padding: 14px 16px 13px; margin-bottom: 11px;
+}
+.sug-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 7px; }
+.sug-kind {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 3px; background: var(--navy); color: #fff;
+}
+.sug-kind[data-kind="update"] { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border); }
+.sug h3 { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; line-height: 1.3; }
+.sug .note { font-size: 13.5px; line-height: 1.55; color: var(--ink); margin: 7px 0 0; white-space: pre-wrap; }
+.sug .meta { font-size: 12px; color: var(--ink-2); margin-top: 8px; line-height: 1.5; }
+.sug .evidence {
+  margin: 10px 0 0; padding: 8px 11px; border-left: 2px solid var(--line);
+  background: var(--surface-2); font-size: 12.5px; color: var(--ink-2);
+  font-style: italic; line-height: 1.5; border-radius: 0 4px 4px 0;
+}
+.sug .src { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+.sug .acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.seg .badge {
+  display: inline-block; min-width: 17px; padding: 0 5px; margin-left: 7px;
+  border-radius: 9px; background: var(--navy); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 17px; text-align: center;
+}
+.seg button[aria-pressed="true"] .badge { background: var(--surface); color: var(--navy); }
+.sug-empty { padding: 44px 10px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* ------------------------------------------------------------------ mobile */
+.pillar-chips { display: none; gap: 7px; padding: 10px 13px; overflow-x: auto; background: var(--surface); border-top: 1px solid var(--border); }
+.pillar-chips button {
+  flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: 999px; padding: 7px 13px; font-size: 13.5px; white-space: nowrap;
+}
+.pillar-chips button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 600; }
+.pillar-chips button .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+.fab {
+  display: none; position: fixed; right: 16px; bottom: 18px; z-index: 50;
+  width: 54px; height: 54px; border-radius: 50%; border: 0;
+  background: var(--navy); color: #fff; font-size: 27px; line-height: 1;
+  box-shadow: 0 4px 16px rgba(0,26,74,.34);
+}
+@media (max-width: 720px) {
+  .pillar-chips { display: flex; }
+  .brand .sub, .brand .rule, .top-row .spacer { display: none; }
+  .brand .mark { height: 28px; }
+  .brand .title { font-size: 15px; }
+  .top-row { gap: 10px; padding: 11px 13px 10px; }
+  .top-row select { flex: 1 1 auto; min-width: 0; }
+  .seg { overflow-x: auto; max-width: 100%; }
+  .seg button { flex: none; padding: 7px 10px; font-size: 12.5px; }
+  .filters { display: none; width: 100%; }
+  .filters.open { display: flex; }
+  .filters-toggle { display: inline-flex; }
+  .m-hide { display: none; }
+  .toolbar { padding: 9px 13px; }
+  .fab.on { display: block; }
+  .drawer { width: 100%; border-left: 0; }
+  .drawer-head { padding: 14px 15px 12px; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  .drawer-head h2 { font-size: 18px; }
+  .drawer-body { padding: 14px 15px 90px; }
+  .toolbar { gap: 8px; }
+  .toolbar select, .toolbar input[type=text] { flex: 1 1 44%; max-width: none; width: auto; }
+  .board .col-head { position: sticky; top: 0; background: var(--page); z-index: 1; padding-top: 8px; }
+  .card { padding: 13px 14px 12px; }
+  .card .title { font-size: 15.5px; }
+  .btn { padding: 9px 13px; }
+  .sug-wrap { padding: 14px 13px 80px; }
+}
+
 /* -------------------------------------------------------------------- gate */
 #app.gated { filter: blur(9px) saturate(.9); pointer-events: none; user-select: none; }
 .gate {
@@ -438,6 +524,7 @@ pre.minutes {
 <div class="scrim" id="scrim"></div>
 <div class="drawer" id="drawer" role="dialog" aria-label="Topic detail"></div>
 <div class="modal" id="modal"></div>
+<button class="fab" id="fab" aria-label="New topic" title="New topic">+</button>
 <img class="watermark" src="data:image/png;base64,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" alt="">
 <div class="toast" id="toast"></div>
 <script>
@@ -472,7 +559,7 @@ const ROMAN = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 /* ------------------------------------------------------------------- state */
 const S = {
   locked: true,
-  pillars: [], topics: [], updates: [], weeks: [], scoreboard: [],
+  pillars: [], topics: [], updates: [], weeks: [], scoreboard: [], suggestions: [],
   week: null, view: "week",
   filters: { pillar: "", owner: "", status: "", q: "", stale: false, archived: false },
   session: null,
@@ -565,6 +652,7 @@ async function loadAll() {
   S.updates = snap.updates || [];
   S.weeks = snap.weeks || [];
   S.scoreboard = snap.scoreboard || [];
+  S.suggestions = snap.suggestions || [];
   const mon = thisMonday();
   if (!S.weeks.some((w) => w.week_start === mon)) S.weeks.unshift({ week_start: mon, label: null, synthetic: true });
   if (!S.week) S.week = mon;
@@ -609,7 +697,7 @@ function skeletonState() {
     id, metric: "\u2014\u2014\u2014\u2014", current_val: "\u2014\u2014",
     direction: "flat", note: "\u2014\u2014\u2014\u2014\u2014", sort_order: id,
   }));
-  return { pillars, topics, updates: [], scoreboard,
+  return { pillars, topics, updates: [], scoreboard, suggestions: [],
            weeks: [{ week_start: thisMonday(), label: null }], week: thisMonday() };
 }
 
@@ -645,9 +733,12 @@ function visibleTopics() {
     list = list.filter((t) =>
       [t.title, t.detail, t.owner, t.next_step].some((v) => (v || "").toLowerCase().includes(q)));
   }
+  // Manual order leads — dragging is meant to be a real signal. Finished work
+  // sinks to the bottom regardless, and status only breaks ties.
+  const done = (t) => (["done", "parked"].includes(t.status) ? 1 : 0);
   const rank = (t) => STATUS_ORDER.indexOf(t.status);
-  const prio = (t) => ["high", "medium", "low"].indexOf(t.priority);
-  return list.sort((a, b) => rank(a) - rank(b) || prio(a) - prio(b) || a.sort_order - b.sort_order);
+  return list.sort((a, b) =>
+    done(a) - done(b) || a.sort_order - b.sort_order || rank(a) - rank(b));
 }
 
 /* ------------------------------------------------------------ render: chips */
@@ -670,6 +761,71 @@ function ageChip(topic) {
   const txt = w === 0 ? "this week" : w === 1 ? "1 wk" : w + " wks";
   return el("span", { class: "chip age", "data-tone": tone || null, title: "Last discussed " + txt },
     [el("span", { text: (tone ? "⚑ " : "") + txt })]);
+}
+
+/* ------------------------------------------------------------ drag and drop */
+let dragId = null;
+const canDrag = () => canEdit() && !window.matchMedia("(hover: none)").matches;
+
+function clearDropMarks() {
+  document.querySelectorAll("[data-drop]").forEach((n) => n.removeAttribute("data-drop"));
+  document.querySelectorAll(".col.drop-target").forEach((n) => n.classList.remove("drop-target"));
+}
+
+function onColDragOver(e) {
+  if (!dragId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const col = e.currentTarget;
+  clearDropMarks();
+  col.classList.add("drop-target");
+  const card = e.target.closest ? e.target.closest(".card") : null;
+  if (card && card.dataset.topicId !== dragId) {
+    const r = card.getBoundingClientRect();
+    card.setAttribute("data-drop", e.clientY < r.top + r.height / 2 ? "before" : "after");
+  } else if (!card) {
+    const tail = col.querySelector(".col-drop-tail");
+    if (tail) tail.setAttribute("data-drop", "in");
+  }
+}
+
+async function onColDrop(e, pillarIdVal) {
+  if (!dragId) return;
+  e.preventDefault();
+  const col = e.currentTarget;
+  const movingId = dragId;
+  const marked = col.querySelector(".card[data-drop]");
+  const ids = [...col.querySelectorAll(".card")]
+    .map((n) => n.dataset.topicId).filter((id) => id && id !== movingId);
+  let index = ids.length;
+  if (marked) {
+    const at = ids.indexOf(marked.dataset.topicId);
+    index = marked.getAttribute("data-drop") === "before" ? at : at + 1;
+  }
+  ids.splice(index, 0, movingId);
+  clearDropMarks();
+  dragId = null;
+  await applyReorder(pillarIdVal, ids);
+}
+
+// Optimistic: move it on screen straight away, roll back if the server refuses.
+async function applyReorder(pillarIdVal, ids) {
+  const before = S.topics.map((t) => ({ id: t.id, pillar_id: t.pillar_id, sort_order: t.sort_order }));
+  ids.forEach((id, i) => {
+    const t = S.topics.find((x) => x.id === id);
+    if (t) { t.pillar_id = pillarIdVal; t.sort_order = i + 1; }
+  });
+  renderBody();
+  try {
+    await call("reorder_topics", { pillar_id: pillarIdVal, ordered_ids: ids });
+  } catch (err) {
+    for (const b of before) {
+      const t = S.topics.find((x) => x.id === b.id);
+      if (t) { t.pillar_id = b.pillar_id; t.sort_order = b.sort_order; }
+    }
+    renderBody();
+    toast(err.message);
+  }
 }
 
 /* ----------------------------------------------------------- render: header */
@@ -707,6 +863,7 @@ function renderHeader() {
     ]),
     renderScoreboard(),
     renderToolbar(),
+    renderPillarChips(),
   ]);
   return head;
 }
@@ -731,10 +888,16 @@ function renderToolbar() {
   const f = S.filters;
   const owners = [...new Set(S.topics.map((t) => t.owner).filter(Boolean))].sort();
 
+  const pending = (S.suggestions || []).length;
+  const sugBtn = el("button", { "aria-pressed": String(S.view === "suggestions"), onclick: () => setView("suggestions") },
+    [el("span", { text: "Suggested" })]);
+  if (pending) sugBtn.appendChild(el("span", { class: "badge", text: String(pending) }));
+
   const viewSeg = el("div", { class: "seg" }, [
     el("button", { text: "This week", "aria-pressed": String(S.view === "week"), onclick: () => setView("week") }),
     el("button", { text: "Everything", "aria-pressed": String(S.view === "all"), onclick: () => setView("all") }),
     el("button", { text: "Meeting mode", "aria-pressed": String(S.view === "meeting"), onclick: () => setView("meeting") }),
+    sugBtn,
   ]);
 
   const pillarSel = el("select", { "aria-label": "Filter by pillar", onchange: (e) => { f.pillar = e.target.value; renderAll(); } },
@@ -755,13 +918,37 @@ function renderToolbar() {
   const staleBtn = el("button", { class: "btn" + (f.stale ? " primary" : ""), "aria-pressed": String(f.stale),
     text: "⚑ Stale only", onclick: () => { f.stale = !f.stale; renderAll(); } });
 
-  const kids = [viewSeg, pillarSel, ownerSel, statusSel, search, staleBtn, el("div", { class: "spacer" })];
-  if (canEdit()) kids.push(el("button", { class: "btn", text: "+ New topic", onclick: () => openTopicForm(null) }));
+  const filters = el("div", { class: "filters" + (S.filtersOpen ? " open" : "") },
+    [pillarSel, ownerSel, statusSel, search, staleBtn]);
+  const toggle = el("button", { class: "btn filters-toggle", "aria-pressed": String(!!S.filtersOpen),
+    text: "Filters", onclick: () => { S.filtersOpen = !S.filtersOpen; renderAll(); } });
+
+  const kids = [viewSeg, toggle, filters, el("div", { class: "spacer" })];
+  if (canEdit()) {
+    kids.push(el("button", { class: "btn m-hide", text: "+ New topic", onclick: () => openTopicForm(null) }));
+  }
   kids.push(el("button", { class: "btn", text: "⧉ Minutes", onclick: openMinutes }));
   return el("div", { class: "toolbar" }, kids);
 }
 
 function setView(v) { S.view = v; S.meetingIdx = 0; renderAll(); }
+
+// Four columns do not work on a phone, so mobile picks one pillar at a time.
+function renderPillarChips() {
+  const f = S.filters;
+  const chip = (label, val, accent) => {
+    const b = el("button", { "aria-pressed": String(f.pillar === val),
+      onclick: () => { f.pillar = val; renderAll(); } });
+    if (accent) b.appendChild(el("span", { class: "dot", style: "background:" + accent }));
+    b.appendChild(el("span", { text: label }));
+    return b;
+  };
+  const kids = [chip("All", "", null)];
+  for (const p of S.pillars) {
+    kids.push(chip(p.name, String(p.id), "var(--p-" + p.slug + ")"));
+  }
+  return el("div", { class: "pillar-chips" }, kids);
+}
 
 /* ------------------------------------------------------------ render: board */
 function renderBoard() {
@@ -773,7 +960,7 @@ function renderBoard() {
       const cards = mine.length
         ? mine.map((t) => topicCard(t))
         : [el("div", { class: "empty-col", text: "Nothing here this week." })];
-      return el("div", { class: "col", "data-pillar": p.slug }, [
+      const col = el("div", { class: "col", "data-pillar": p.slug }, [
         el("div", { class: "col-head" }, [
           el("span", { class: "numeral", text: ROMAN[p.sort_order] || "" }),
           el("span", { class: "swatch" }),
@@ -781,6 +968,15 @@ function renderBoard() {
           el("span", { class: "count", text: String(mine.length) }),
         ]),
       ].concat(cards));
+      col.appendChild(el("div", { class: "col-drop-tail" }));
+      if (canDrag()) {
+        col.addEventListener("dragover", onColDragOver);
+        col.addEventListener("drop", (e) => onColDrop(e, p.id));
+        col.addEventListener("dragleave", (e) => {
+          if (!col.contains(e.relatedTarget)) col.classList.remove("drop-target");
+        });
+      }
+      return col;
     });
   return el("div", { class: "board" }, cols);
 }
@@ -799,11 +995,151 @@ function topicCard(t) {
   if (t.next_step) kids.push(el("div", { class: "next", text: "→ " + t.next_step }));
   kids.push(el("div", { class: "row" }, row));
 
-  return el("button", {
-    class: "card" + (["done", "parked"].includes(t.status) ? " is-done" : ""),
+  const card = el("button", {
+    class: "card" + (["done", "parked"].includes(t.status) ? " is-done" : "") +
+           (canDrag() ? " draggable" : ""),
     "data-pillar": p.slug,
-    onclick: () => openDrawer(t.id),
+    "data-topic-id": t.id,
+    onclick: () => { if (!dragId) openDrawer(t.id); },
   }, kids);
+  if (canDrag()) {
+    card.draggable = true;
+    card.addEventListener("dragstart", (e) => {
+      dragId = t.id;
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", t.id); } catch (_) {}
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => {
+      dragId = null;
+      card.classList.remove("dragging");
+      clearDropMarks();
+    });
+  }
+  return card;
+}
+
+/* ------------------------------------------------------------ suggestions */
+function renderSuggestions() {
+  const list = S.suggestions || [];
+  const wrap = el("div", { class: "sug-wrap" });
+  wrap.appendChild(el("p", { class: "sug-intro", text:
+    "Drafted from your Zoom meetings. Each one carries the meeting it came from and the line that " +
+    "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
+    "reaches the board that you have not read. Accepting an update on an archived topic brings that " +
+    "topic back onto the board." }));
+
+  if (!list.length) {
+    wrap.appendChild(el("div", { class: "sug-empty",
+      text: "Nothing waiting. New suggestions appear here after a meeting has been read." }));
+    return wrap;
+  }
+  for (const sg of list) wrap.appendChild(suggestionCard(sg));
+  return wrap;
+}
+
+function suggestionCard(sg) {
+  const isNew = sg.kind === "new";
+  const topic = isNew ? null : S.topics.find((t) => t.id === sg.target_topic_id);
+  const p = isNew ? pillarOf(sg.pillar_id) : (topic ? pillarOf(topic.pillar_id) : pillarOf(0));
+  const heading = isNew ? sg.title : (topic ? topic.title : "(topic no longer exists)");
+
+  const head = el("div", { class: "sug-head" }, [
+    el("span", { class: "sug-kind", "data-kind": sg.kind, text: isNew ? "New topic" : "Update" }),
+    el("span", { class: "pill-tag" }, [el("span", { class: "swatch" }), el("span", { text: p.name })]),
+  ]);
+  if (sg.status) head.appendChild(statusChip(sg.status));
+  if (topic && topic.archived) {
+    head.appendChild(el("span", { class: "chip", "data-tone": "warning",
+      text: "archived — accepting restores it" }));
+  }
+
+  const card = el("div", { class: "sug", "data-pillar": p.slug }, [
+    head,
+    el("h3", { text: heading }),
+    el("p", { class: "note", text: sg.note }),
+  ]);
+
+  const bits = [];
+  if (sg.owner) bits.push("Owner: " + sg.owner);
+  if (sg.next_step) bits.push("Next: " + sg.next_step);
+  if (bits.length) card.appendChild(el("div", { class: "meta", text: bits.join(" · ") }));
+  if (sg.evidence) card.appendChild(el("blockquote", { class: "evidence", text: "\u201c" + sg.evidence + "\u201d" }));
+  card.appendChild(el("div", { class: "src",
+    text: sg.source_meeting + (sg.source_date ? " · " + weekLabel(sg.source_date) : "") }));
+
+  if (canEdit()) {
+    card.appendChild(el("div", { class: "acts" }, [
+      el("button", { class: "btn primary", text: "Review and accept", onclick: () => openAccept(sg) }),
+      el("button", { class: "btn subtle", text: "Dismiss", onclick: async (ev) => {
+        ev.target.disabled = true;
+        try {
+          await call("dismiss_suggestion", { id: sg.id });
+          S.suggestions = S.suggestions.filter((x) => x.id !== sg.id);
+          renderAll(); toast("Dismissed.");
+        } catch (e) { toast(e.message); ev.target.disabled = false; }
+      } }),
+    ]));
+  } else {
+    card.appendChild(el("p", { class: "hint", style: "margin-top:11px",
+      text: "Unlock to accept or dismiss." }));
+  }
+  return card;
+}
+
+function openAccept(sg) {
+  const isNew = sg.kind === "new";
+  const topic = isNew ? null : S.topics.find((t) => t.id === sg.target_topic_id);
+
+  const title = el("input", { type: "text", value: sg.title || "" });
+  const pillar = el("select", {}, S.pillars.map((p) =>
+    el("option", { value: String(p.id), selected: sg.pillar_id === p.id ? "selected" : null, text: p.name })));
+  const note = el("textarea", { rows: "7" }); note.value = sg.note || "";
+  const owner = el("input", { type: "text", value: sg.owner || "" });
+  const next = el("input", { type: "text", value: sg.next_step || "" });
+  const status = el("select", {}, STATUS_ORDER.map((k) =>
+    el("option", { value: k, selected: sg.status === k ? "selected" : null, text: STATUS[k].label })));
+  const err = el("p", { class: "err", style: "display:none" });
+
+  const fields = [err];
+  if (isNew) {
+    fields.push(el("label", {}, [el("span", { class: "field-label", text: "Topic title" }), title]));
+    fields.push(el("label", {}, [el("span", { class: "field-label", text: "Pillar" }), pillar]));
+  } else {
+    fields.push(el("p", { class: "lead", style: "margin:0 0 14px",
+      text: "This will be logged against \u201c" + (topic ? topic.title : "?") + "\u201d" +
+            (topic && topic.archived ? ", and will bring it back onto the board." : ".") }));
+  }
+  fields.push(el("label", {}, [el("span", { class: "field-label", text: "Weekly update" }), note]));
+  fields.push(el("label", {}, [el("span", { class: "field-label", text: "Owner" }), owner]));
+  fields.push(el("label", {}, [el("span", { class: "field-label", text: "Next step" }), next]));
+  fields.push(el("label", {}, [el("span", { class: "field-label", text: "Status" }), status]));
+
+  const save = async (ev) => {
+    err.style.display = "none";
+    if (!note.value.trim()) { err.textContent = "The update text is required."; err.style.display = "block"; return; }
+    if (isNew && !title.value.trim()) { err.textContent = "A title is required."; err.style.display = "block"; return; }
+    ev.target.disabled = true; ev.target.textContent = "Saving…";
+    try {
+      await call("accept_suggestion", {
+        id: sg.id, week_start: S.week, note: note.value, owner: owner.value,
+        next_step: next.value, status: status.value,
+        title: isNew ? title.value : undefined,
+        pillar_id: isNew ? Number(pillar.value) : undefined,
+      });
+      closeModal();
+      await refresh();
+      toast("Added to the board.");
+    } catch (e) {
+      err.textContent = e.message; err.style.display = "block";
+      ev.target.disabled = false; ev.target.textContent = "Accept";
+    }
+  };
+
+  showModal(isNew ? "Accept as a new topic" : "Accept as an update",
+    "Drafted from " + sg.source_meeting + (sg.source_date ? ", " + weekLabel(sg.source_date) : "") +
+    ". Edit anything before it lands.",
+    fields, [el("button", { class: "btn primary", text: "Accept", onclick: save })]);
 }
 
 /* ----------------------------------------------------------------- drawer */
@@ -855,10 +1191,16 @@ function renderDrawer() {
     const nextIn = el("input", { type: "text", value: t.next_step || "", placeholder: "The next concrete step" });
     const dueIn = el("input", { type: "date", value: t.due_date || "" });
 
+    // Drag does not exist on touch or for keyboard users, so moving a topic
+    // between pillars has to be possible here too.
+    const pillarSel = el("select", {}, S.pillars.map((pp) =>
+      el("option", { value: String(pp.id), selected: t.pillar_id === pp.id ? "selected" : null, text: pp.name })));
     facts.appendChild(el("div", { class: "grid2" }, [
       el("div", {}, [el("span", { class: "field-label", text: "Status" }), statusSel]),
       el("div", {}, [el("span", { class: "field-label", text: "Priority" }), prioSel]),
     ]));
+    facts.appendChild(el("div", { style: "margin-top:11px" }, [
+      el("span", { class: "field-label", text: "Section" }), pillarSel]));
     facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Owner" }), ownerIn]));
     facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Next step" }), nextIn]));
     facts.appendChild(el("div", { style: "margin-top:11px;max-width:200px" }, [el("span", { class: "field-label", text: "Due" }), dueIn]));
@@ -868,7 +1210,8 @@ function renderDrawer() {
         try {
           await call("update_topic", { id: t.id, patch: {
             status: statusSel.value, priority: prioSel.value, owner: ownerIn.value,
-            next_step: nextIn.value, due_date: dueIn.value || null } });
+            next_step: nextIn.value, due_date: dueIn.value || null,
+            pillar_id: Number(pillarSel.value) } });
           await refresh(); toast("Saved.");
         } catch (e) { toast(e.message); } finally { ev.target.disabled = false; }
       } }),
@@ -1236,7 +1579,11 @@ function renderBody() {
   const host = $("#body-host");
   if (!host) return;
   host.innerHTML = "";
-  host.appendChild(S.view === "meeting" ? renderMeeting() : renderBoard());
+  host.appendChild(
+    S.view === "meeting" ? renderMeeting() :
+    S.view === "suggestions" ? renderSuggestions() : renderBoard());
+  const fab = $("#fab");
+  if (fab) fab.className = "fab" + (canEdit() && !S.locked && S.view !== "meeting" ? " on" : "");
 }
 function renderAll() {
   const app = $("#app");
@@ -1274,6 +1621,7 @@ document.addEventListener("keydown", (e) => {
 $("#scrim").addEventListener("click", closeDrawer);
 $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+$("#fab").addEventListener("click", () => openTopicForm(null));
 
 (async function boot() {
   applyTheme();
