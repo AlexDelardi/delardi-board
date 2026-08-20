@@ -112,7 +112,19 @@ a { color: inherit; }
 .brand .sub {
   font-size: 11px; letter-spacing: .11em; text-transform: uppercase;
   color: var(--header-ink-2); margin-top: 3px;
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
 }
+.brand .sub button {
+  background: none; border: 0; padding: 1px 2px; margin: 0;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: var(--header-ink-2); cursor: pointer; border-radius: 3px;
+}
+.brand .sub button:hover { color: var(--header-ink); }
+.brand .sub button[aria-pressed="true"] {
+  color: var(--header-ink); font-weight: 700; text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.brand .sub .dash { color: var(--header-ink-2); opacity: .55; }
 /* controls sitting on the navy band */
 .top-row .btn, .top-row select {
   background: rgba(255,255,255,0.07); color: var(--header-ink);
@@ -184,6 +196,26 @@ a { color: inherit; }
 }
 .stat .target { color: var(--ink-2); font-weight: 500; }
 .stat.editable .val { cursor: text; }
+
+/* -------------------------------------------------------------- task stats */
+.task-stats {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 20px; border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.task-stats .grp { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.task-stats .grp-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 600; margin-right: 2px;
+}
+.tstat {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font-size: 12.5px; color: var(--ink-2); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px 4px 9px;
+}
+.tstat b { font-family: var(--serif); font-size: 14.5px; color: var(--navy); font-weight: 700; }
+:root[data-theme="dark"] .tstat b, html[data-theme="auto"].sysdark .tstat b { color: var(--ink); }
+.tstat.zero { opacity: .45; }
 
 /* ----------------------------------------------------------------- toolbar */
 .filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -317,6 +349,19 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--p1); outlin
 .drawer-body input[type=text], .drawer-body select, .drawer-body textarea { width: 100%; }
 .drawer-body input[type=date] { width: auto; }
 
+/* ------------------------------------------------------------ person field */
+.person-field { display: flex; flex-direction: column; gap: 6px; }
+.person-field input[type=text] { width: 100%; }
+.check-field {
+  display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+  cursor: pointer; color: var(--ink);
+}
+.check-field input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--navy); flex: none; }
+.chip[data-tone="sensitive"] {
+  color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent);
+  background: color-mix(in srgb, var(--critical) 8%, var(--surface));
+}
+
 .log-entry {
   border-left: 2px solid var(--grid); padding: 0 0 15px 13px; position: relative;
 }
@@ -350,6 +395,21 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--p1); outlin
   border-radius: 999px; padding: 5px 11px; font-size: 12.5px; color: var(--ink-2);
 }
 .status-picker button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+.finalized-note {
+  display: flex; align-items: flex-start; gap: 10px; margin-top: 16px;
+  padding: 12px 14px; border-radius: var(--radius);
+  background: color-mix(in srgb, var(--good) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+}
+.finalized-note .txt { flex: 1; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+.finalized-note .mk { color: var(--good-ink); font-weight: 700; flex: none; }
+.meeting-summary-item {
+  border-left: 2px solid var(--grid); padding: 3px 0 15px 13px; margin-bottom: 4px;
+}
+.meeting-summary-item h4 { margin: 0 0 3px; font-size: 14.5px; font-weight: 600; }
+.meeting-summary-item .note { font-size: 13px; color: var(--ink-2); line-height: 1.5; white-space: pre-wrap; }
+.meeting-summary-item .meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.meeting-skip-note { font-size: 12.5px; color: var(--muted); margin-top: 18px; }
 
 /* ------------------------------------------------------------------- modal */
 .modal {
@@ -508,6 +568,8 @@ pre.minutes {
     -webkit-overflow-scrolling: touch;
   }
   .scoreboard .stat { min-width: 168px; scroll-snap-align: start; }
+  .task-stats { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .task-stats .grp { flex: none; }
   .board { grid-template-columns: 1fr; padding: 14px 13px 60px; }
   .top-row, .toolbar { padding-left: 13px; padding-right: 13px; }
   .brand h1 { font-size: 17px; }
@@ -553,18 +615,25 @@ const STATUS = {
 };
 const STATUS_ORDER = ["needs_decision","blocked","in_progress","not_started","decided","done","parked"];
 const PRIORITY = { high: "High", medium: "Medium", low: "Low" };
+const PRIORITY_ORDER = ["high","medium","low"];
 const STALE_WARN = 3, STALE_SERIOUS = 6;
 const ROMAN = { 1: "I", 2: "II", 3: "III", 4: "IV" };
+
+// Fixed roster, so Owner / Supporting stay consistent instead of drifting
+// into near-duplicate free-text spellings of the same person.
+const OWNERS = ["Vladimir","Timur","Thibaud","Umid","Alexandr","Alex","Olga","Elvira"];
 
 /* ------------------------------------------------------------------- state */
 const S = {
   locked: true,
   pillars: [], topics: [], updates: [], weeks: [], scoreboard: [], suggestions: [],
-  week: null, view: "week",
-  filters: { pillar: "", owner: "", status: "", q: "", stale: false, archived: false },
+  week: null, view: "week", statScope: "week",
+  filters: { pillar: "", owner: "", status: "", q: "", sensitive: false, archived: false },
   session: null,
   meetingIdx: 0,
+  meetingDraft: {},
   drawerTopic: null,
+  filtersOpen: false,
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -583,6 +652,40 @@ const el = (tag, props = {}, kids = []) => {
 };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// A fixed-roster select with a graceful escape hatch: legacy free-text values
+// (e.g. "Olga & Alex", from before the roster existed) still show, editable
+// via "Other…", rather than silently getting clobbered on the next save.
+function personField(value) {
+  const known = value && OWNERS.includes(value);
+  const opts = [{ v: "", t: "— none —" }]
+    .concat(OWNERS.map((o) => ({ v: o, t: o })))
+    .concat([{ v: "__other__", t: "Other…" }]);
+  const sel = el("select", {}, opts.map((o) => {
+    const isOther = o.v === "__other__";
+    const selected = isOther ? (!!value && !known) : value === o.v;
+    return el("option", { value: o.v, selected: selected ? "selected" : null, text: o.t });
+  }));
+  const other = el("input", { type: "text", placeholder: "Name",
+    value: (!known && value) ? value : "",
+    style: (!known && value) ? "" : "display:none" });
+  sel.addEventListener("change", () => {
+    other.style.display = sel.value === "__other__" ? "" : "none";
+    if (sel.value === "__other__") other.focus();
+  });
+  const wrap = el("div", { class: "person-field" }, [sel, other]);
+  wrap.getValue = () => (sel.value === "__other__" ? other.value.trim() : sel.value);
+  return wrap;
+}
+
+function sensitiveField(value) {
+  const cb = el("input", { type: "checkbox" });
+  cb.checked = !!value;
+  const label = el("label", { class: "check-field" }, [
+    cb, el("span", { text: "Sensitive — mark for restricted access once we set up access groups" })]);
+  label.getValue = () => cb.checked;
+  return label;
+}
 
 function mondayOf(d) {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -686,10 +789,12 @@ function skeletonState() {
       n++;
       topics.push({
         id: "placeholder-" + n, pillar_id: p.id, title: filler[n % filler.length], detail: "",
-        owner: "\u2014", status: statuses[n % statuses.length],
+        owner: "\u2014", supporting: n % 4 === 0 ? "\u2014" : "", sensitive: n % 7 === 0,
+        status: statuses[n % statuses.length],
         priority: ["high", "medium", "low"][n % 3],
         next_step: "Hidden until the board is unlocked", due_date: null,
-        first_raised_week: null, last_discussed_week: null, sort_order: i, archived: false,
+        first_raised_week: null, last_discussed_week: null, status_week: null,
+        sort_order: i, archived: false,
       });
     }
   }
@@ -706,6 +811,7 @@ function lockDown() {
   store("board_session", "");
   S.locked = true;
   S.drawerTopic = null;
+  S.meetingDraft = {};
   closeDrawer();
   closeModal();
   Object.assign(S, skeletonState());
@@ -721,13 +827,17 @@ function visibleTopics() {
   const f = S.filters;
   let list = S.topics.filter((t) => (f.archived ? true : !t.archived));
   if (S.view === "week" || S.view === "meeting") {
+    // A Done/Parked topic stays visible for the week its status was set in,
+    // then rolls off "This week" once a later week starts — status_week is
+    // the source of truth; the update log is a fallback for older rows.
     const discussedThisWeek = new Set(updatesIn(S.week).map((u) => u.topic_id));
-    list = list.filter((t) => !["done", "parked"].includes(t.status) || discussedThisWeek.has(t.id));
+    list = list.filter((t) => !["done", "parked"].includes(t.status) ||
+      t.status_week === S.week || discussedThisWeek.has(t.id));
   }
   if (f.pillar) list = list.filter((t) => String(t.pillar_id) === f.pillar);
   if (f.owner) list = list.filter((t) => (t.owner || "") === f.owner);
   if (f.status) list = list.filter((t) => t.status === f.status);
-  if (f.stale) list = list.filter((t) => (ageOf(t) || 0) >= STALE_WARN && !["done", "parked"].includes(t.status));
+  if (f.sensitive) list = list.filter((t) => t.sensitive);
   if (f.q) {
     const q = f.q.toLowerCase();
     list = list.filter((t) =>
@@ -739,6 +849,28 @@ function visibleTopics() {
   const rank = (t) => STATUS_ORDER.indexOf(t.status);
   return list.sort((a, b) =>
     done(a) - done(b) || a.sort_order - b.sort_order || rank(a) - rank(b));
+}
+
+/* --------------------------------------------------------------- task stats */
+// "This week" mirrors the board's own week filter; "Upcoming weeks" is the
+// full open backlog regardless of when it was last touched — what's still on
+// the plate, not just what's on today's agenda.
+function computeTaskStats() {
+  let list = S.topics.filter((t) => !t.archived);
+  if (S.statScope === "week") {
+    const discussedThisWeek = new Set(updatesIn(S.week).map((u) => u.topic_id));
+    list = list.filter((t) => !["done", "parked"].includes(t.status) ||
+      t.status_week === S.week || discussedThisWeek.has(t.id));
+  } else {
+    list = list.filter((t) => !["done", "parked"].includes(t.status));
+  }
+  const byStatus = {}; STATUS_ORDER.forEach((s) => (byStatus[s] = 0));
+  const byPriority = { high: 0, medium: 0, low: 0 };
+  for (const t of list) {
+    byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+    byPriority[t.priority] = (byPriority[t.priority] || 0) + 1;
+  }
+  return { total: list.length, byStatus, byPriority };
 }
 
 /* ------------------------------------------------------------ render: chips */
@@ -849,11 +981,13 @@ function renderHeader() {
         el("span", { class: "rule" }),
         el("div", {}, [
           el("div", { class: "title", text: "Weekly Board" }),
-          el("div", { class: "sub", text: "Marketing · Retail · Operations · Steering" }),
+          streamNav(),
         ]),
       ]),
       el("div", { class: "spacer" }),
-      el("select", { "aria-label": "Meeting week", onchange: (e) => { S.week = e.target.value; S.meetingIdx = 0; renderAll(); } }, weekOpts),
+      el("select", { "aria-label": "Meeting week", onchange: (e) => {
+        S.week = e.target.value; S.meetingIdx = 0; S.meetingDraft = {}; renderAll();
+      } }, weekOpts),
       el("button", { class: "btn subtle", title: "Light / dark", "aria-label": "Toggle light or dark",
         html: '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">' +
               '<circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
@@ -861,17 +995,50 @@ function renderHeader() {
         onclick: toggleTheme }),
       lock,
     ]),
-    renderScoreboard(),
+    renderTaskStats(),
     renderToolbar(),
     renderPillarChips(),
   ]);
   return head;
 }
 
-function renderScoreboard() {
+function renderTaskStats() {
+  const scope = S.statScope;
+  const seg = el("div", { class: "seg" }, [
+    el("button", { text: "This week", "aria-pressed": String(scope === "week"),
+      onclick: () => { S.statScope = "week"; renderAll(); } }),
+    el("button", { text: "Upcoming weeks", "aria-pressed": String(scope === "upcoming"),
+      onclick: () => { S.statScope = "upcoming"; renderAll(); } }),
+  ]);
+
+  const stats = computeTaskStats();
+  const statusTiles = STATUS_ORDER.map((s) => {
+    const n = stats.byStatus[s] || 0;
+    return el("span", { class: "tstat" + (n ? "" : " zero") }, [
+      el("b", { text: String(n) }), el("span", { text: STATUS[s].label }),
+    ]);
+  });
+  const prioTiles = PRIORITY_ORDER.map((p) => {
+    const n = stats.byPriority[p] || 0;
+    return el("span", { class: "tstat" + (n ? "" : " zero") }, [
+      el("b", { text: String(n) }), el("span", { text: PRIORITY[p] }),
+    ]);
+  });
+
+  return el("div", { class: "task-stats" }, [
+    seg,
+    el("div", { class: "grp" }, [el("span", { class: "grp-label", text: "By status" })].concat(statusTiles)),
+    el("div", { class: "grp" }, [el("span", { class: "grp-label", text: "By priority" })].concat(prioTiles)),
+    el("div", { class: "spacer" }),
+    el("button", { class: "btn subtle sm m-hide", text: "▦ Company KPIs", onclick: openKpis }),
+  ]);
+}
+
+function openKpis() {
   const tiles = S.scoreboard.map((m) => {
     const arrow = m.direction === "down" ? "↓" : m.direction === "up" ? "↑" : "→";
-    return el("div", { class: "stat" + (canEdit() ? " editable" : ""), title: m.note || "" }, [
+    return el("div", { class: "stat" + (canEdit() ? " editable" : ""), title: m.note || "",
+      style: "border:1px solid var(--border);border-radius:8px" }, [
       el("div", { class: "label", text: m.metric }),
       el("div", { class: "val", text: m.current_val || "—",
                   onclick: canEdit() ? () => editMetric(m) : null }),
@@ -881,7 +1048,8 @@ function renderScoreboard() {
       ]),
     ]);
   });
-  return el("div", { class: "scoreboard" }, tiles);
+  showModal("Company KPIs", canEdit() ? "Click a value to update it." : null,
+    [el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:1px" }, tiles)], []);
 }
 
 function renderToolbar() {
@@ -915,11 +1083,11 @@ function renderToolbar() {
   const search = el("input", { type: "text", placeholder: "Search topics…", value: f.q, "aria-label": "Search topics",
     oninput: (e) => { f.q = e.target.value; renderBody(); } });
 
-  const staleBtn = el("button", { class: "btn" + (f.stale ? " primary" : ""), "aria-pressed": String(f.stale),
-    text: "⚑ Stale only", onclick: () => { f.stale = !f.stale; renderAll(); } });
+  const sensitiveBtn = el("button", { class: "btn" + (f.sensitive ? " primary" : ""), "aria-pressed": String(f.sensitive),
+    text: "🔒 Sensitive only", onclick: () => { f.sensitive = !f.sensitive; renderAll(); } });
 
   const filters = el("div", { class: "filters" + (S.filtersOpen ? " open" : "") },
-    [pillarSel, ownerSel, statusSel, search, staleBtn]);
+    [pillarSel, ownerSel, statusSel, search, sensitiveBtn]);
   const toggle = el("button", { class: "btn filters-toggle", "aria-pressed": String(!!S.filtersOpen),
     text: "Filters", onclick: () => { S.filtersOpen = !S.filtersOpen; renderAll(); } });
 
@@ -932,6 +1100,22 @@ function renderToolbar() {
 }
 
 function setView(v) { S.view = v; S.meetingIdx = 0; renderAll(); }
+
+// The header subtitle doubles as a filter: click a stream to show only its
+// column, click it again (or "All") to clear the filter.
+function streamNav() {
+  const f = S.filters;
+  const kids = [];
+  const all = el("button", { "aria-pressed": String(!f.pillar), text: "All",
+    onclick: () => { f.pillar = ""; renderAll(); } });
+  kids.push(all);
+  for (const p of S.pillars) {
+    kids.push(el("span", { class: "dash", text: " · " }));
+    kids.push(el("button", { "aria-pressed": String(f.pillar === String(p.id)), text: p.name,
+      onclick: () => { f.pillar = f.pillar === String(p.id) ? "" : String(p.id); renderAll(); } }));
+  }
+  return el("div", { class: "sub" }, kids);
+}
 
 // Four columns do not work on a phone, so mobile picks one pillar at a time.
 function renderPillarChips() {
@@ -988,10 +1172,12 @@ function topicCard(t) {
   if (age) row.push(age);
   if (t.priority === "high") row.push(el("span", { class: "chip prio", text: "High" }));
   if (t.due_date) row.push(el("span", { class: "chip", text: "Due " + weekLabel(t.due_date) }));
+  if (t.sensitive) row.push(el("span", { class: "chip", "data-tone": "sensitive", text: "🔒 Sensitive" }));
   if (t.archived) row.push(el("span", { class: "chip", text: "Archived" }));
 
   const kids = [el("div", { class: "title", text: t.title })];
-  if (t.owner) kids.push(el("div", { class: "owner", text: t.owner }));
+  const who = [t.owner, t.supporting ? "+ " + t.supporting : ""].filter(Boolean).join(" ");
+  if (who) kids.push(el("div", { class: "owner", text: who }));
   if (t.next_step) kids.push(el("div", { class: "next", text: "→ " + t.next_step }));
   kids.push(el("div", { class: "row" }, row));
 
@@ -1023,11 +1209,23 @@ function topicCard(t) {
 function renderSuggestions() {
   const list = S.suggestions || [];
   const wrap = el("div", { class: "sug-wrap" });
-  wrap.appendChild(el("p", { class: "sug-intro", text:
-    "Drafted from your Zoom meetings. Each one carries the meeting it came from and the line that " +
-    "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
-    "reaches the board that you have not read. Accepting an update on an archived topic brings that " +
-    "topic back onto the board." }));
+  const introRow = el("div", { style: "display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap" }, [
+    el("p", { class: "sug-intro", style: "flex:1;min-width:240px", text:
+      "Drafted from your Zoom meetings. Each one carries the meeting it came from and the line that " +
+      "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
+      "reaches the board that you have not read. Accepting an update on an archived topic brings that " +
+      "topic back onto the board." }),
+  ]);
+  if (list.length && canEdit()) {
+    introRow.appendChild(el("button", { class: "btn danger sm", text: "Decline all", onclick: async (ev) => {
+      if (!window.confirm("Decline all " + list.length + " pending suggestion" + (list.length === 1 ? "" : "s") +
+        "? This can't be undone.")) return;
+      ev.target.disabled = true;
+      try { await call("dismiss_all_suggestions", {}); await refresh(); toast("Declined all."); }
+      catch (e) { toast(e.message); ev.target.disabled = false; }
+    } }));
+  }
+  wrap.appendChild(introRow);
 
   if (!list.length) {
     wrap.appendChild(el("div", { class: "sug-empty",
@@ -1062,6 +1260,7 @@ function suggestionCard(sg) {
 
   const bits = [];
   if (sg.owner) bits.push("Owner: " + sg.owner);
+  if (sg.supporting) bits.push("Supporting: " + sg.supporting);
   if (sg.next_step) bits.push("Next: " + sg.next_step);
   if (bits.length) card.appendChild(el("div", { class: "meta", text: bits.join(" · ") }));
   if (sg.evidence) card.appendChild(el("blockquote", { class: "evidence", text: "\u201c" + sg.evidence + "\u201d" }));
@@ -1095,7 +1294,8 @@ function openAccept(sg) {
   const pillar = el("select", {}, S.pillars.map((p) =>
     el("option", { value: String(p.id), selected: sg.pillar_id === p.id ? "selected" : null, text: p.name })));
   const note = el("textarea", { rows: "7" }); note.value = sg.note || "";
-  const owner = el("input", { type: "text", value: sg.owner || "" });
+  const owner = personField(sg.owner || "");
+  const supporting = personField(sg.supporting || "");
   const next = el("input", { type: "text", value: sg.next_step || "" });
   const status = el("select", {}, STATUS_ORDER.map((k) =>
     el("option", { value: k, selected: sg.status === k ? "selected" : null, text: STATUS[k].label })));
@@ -1112,6 +1312,7 @@ function openAccept(sg) {
   }
   fields.push(el("label", {}, [el("span", { class: "field-label", text: "Weekly update" }), note]));
   fields.push(el("label", {}, [el("span", { class: "field-label", text: "Owner" }), owner]));
+  fields.push(el("label", {}, [el("span", { class: "field-label", text: "Supporting" }), supporting]));
   fields.push(el("label", {}, [el("span", { class: "field-label", text: "Next step" }), next]));
   fields.push(el("label", {}, [el("span", { class: "field-label", text: "Status" }), status]));
 
@@ -1122,8 +1323,8 @@ function openAccept(sg) {
     ev.target.disabled = true; ev.target.textContent = "Saving…";
     try {
       await call("accept_suggestion", {
-        id: sg.id, week_start: S.week, note: note.value, owner: owner.value,
-        next_step: next.value, status: status.value,
+        id: sg.id, week_start: S.week, note: note.value, owner: owner.getValue(),
+        supporting: supporting.getValue(), next_step: next.value, status: status.value,
         title: isNew ? title.value : undefined,
         pillar_id: isNew ? Number(pillar.value) : undefined,
       });
@@ -1187,7 +1388,9 @@ function renderDrawer() {
       el("option", { value: s, selected: t.status === s ? "selected" : null, text: STATUS[s].label })));
     const prioSel = el("select", {}, Object.keys(PRIORITY).map((k) =>
       el("option", { value: k, selected: t.priority === k ? "selected" : null, text: PRIORITY[k] })));
-    const ownerIn = el("input", { type: "text", value: t.owner || "", placeholder: "Owner" });
+    const ownerF = personField(t.owner);
+    const supportingF = personField(t.supporting);
+    const sensitiveF = sensitiveField(t.sensitive);
     const nextIn = el("input", { type: "text", value: t.next_step || "", placeholder: "The next concrete step" });
     const dueIn = el("input", { type: "date", value: t.due_date || "" });
 
@@ -1201,15 +1404,20 @@ function renderDrawer() {
     ]));
     facts.appendChild(el("div", { style: "margin-top:11px" }, [
       el("span", { class: "field-label", text: "Section" }), pillarSel]));
-    facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Owner" }), ownerIn]));
+    facts.appendChild(el("div", { class: "grid2", style: "margin-top:11px" }, [
+      el("div", {}, [el("span", { class: "field-label", text: "Owner" }), ownerF]),
+      el("div", {}, [el("span", { class: "field-label", text: "Supporting" }), supportingF]),
+    ]));
     facts.appendChild(el("div", { style: "margin-top:11px" }, [el("span", { class: "field-label", text: "Next step" }), nextIn]));
     facts.appendChild(el("div", { style: "margin-top:11px;max-width:200px" }, [el("span", { class: "field-label", text: "Due" }), dueIn]));
+    facts.appendChild(el("div", { style: "margin-top:13px" }, [sensitiveF]));
     facts.appendChild(el("div", { style: "margin-top:13px;display:flex;gap:9px;flex-wrap:wrap" }, [
       el("button", { class: "btn primary", text: "Save changes", onclick: async (ev) => {
         ev.target.disabled = true;
         try {
-          await call("update_topic", { id: t.id, patch: {
-            status: statusSel.value, priority: prioSel.value, owner: ownerIn.value,
+          await call("update_topic", { id: t.id, week_start: S.week, patch: {
+            status: statusSel.value, priority: prioSel.value, owner: ownerF.getValue(),
+            supporting: supportingF.getValue(), sensitive: sensitiveF.getValue(),
             next_step: nextIn.value, due_date: dueIn.value || null,
             pillar_id: Number(pillarSel.value) } });
           await refresh(); toast("Saved.");
@@ -1225,8 +1433,10 @@ function renderDrawer() {
   } else {
     const row = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px" }, [statusChip(t.status)]);
     const a = ageChip(t); if (a) row.appendChild(a);
+    if (t.sensitive) row.appendChild(el("span", { class: "chip", "data-tone": "sensitive", text: "🔒 Sensitive" }));
     facts.appendChild(row);
     if (t.owner) facts.appendChild(el("div", { style: "font-size:13.5px", text: "Owner: " + t.owner }));
+    if (t.supporting) facts.appendChild(el("div", { style: "font-size:13.5px;margin-top:4px", text: "Supporting: " + t.supporting }));
     if (t.next_step) facts.appendChild(el("div", { style: "font-size:13.5px;margin-top:4px", text: "Next step: " + t.next_step }));
     if (t.due_date) facts.appendChild(el("div", { style: "font-size:13.5px;margin-top:4px", text: "Due: " + weekLabel(t.due_date) }));
   }
@@ -1287,14 +1497,22 @@ function renderDrawer() {
 }
 
 /* ------------------------------------------------------------ meeting mode */
+// Nothing here writes to the record as you go. Each topic's comment is staged
+// in S.meetingDraft by "Finalize topic"; the extra step past the last topic is
+// a summary of everything staged, and only "Finalize meeting" there commits it
+// all in one batch and saves the minutes for the week.
 function renderMeeting() {
   const list = visibleTopics();
   if (!list.length) return el("div", { class: "meeting" }, [el("p", { class: "hint", text: "No topics match the current filters." })]);
-  if (S.meetingIdx >= list.length) S.meetingIdx = list.length - 1;
+  if (S.meetingIdx > list.length) S.meetingIdx = list.length;
+  if (S.meetingIdx === list.length) return renderMeetingSummary(list);
+
   const t = list[S.meetingIdx];
   const p = pillarOf(t.pillar_id);
   const log = updatesFor(t.id);
   const last = log[0];
+  const draft = S.meetingDraft[t.id];
+  const finalizedCount = Object.keys(S.meetingDraft).length;
 
   const wrap = el("div", { class: "meeting", "data-pillar": p.slug }, [
     el("div", { style: "display:flex;align-items:center;gap:12px;flex-wrap:wrap" }, [
@@ -1302,11 +1520,13 @@ function renderMeeting() {
       statusChip(t.status),
       ageChip(t) || el("span"),
       el("span", { class: "spacer", style: "flex:1" }),
-      el("span", { class: "progress", text: (S.meetingIdx + 1) + " of " + list.length }),
+      el("span", { class: "progress",
+        text: (S.meetingIdx + 1) + " of " + list.length + (finalizedCount ? " · " + finalizedCount + " finalized" : "") }),
     ]),
     el("h2", { text: t.title }),
   ]);
-  if (t.owner) wrap.appendChild(el("div", { class: "detail", text: "Owner: " + t.owner }));
+  const who = [t.owner, t.supporting ? "+ " + t.supporting : ""].filter(Boolean).join(" ");
+  if (who) wrap.appendChild(el("div", { class: "detail", text: "Owner: " + who }));
   if (t.next_step) wrap.appendChild(el("div", { class: "detail", style: "margin-top:4px", text: "Next step: " + t.next_step }));
   if (t.detail) wrap.appendChild(el("div", { class: "detail", style: "margin-top:12px", text: t.detail }));
 
@@ -1320,31 +1540,33 @@ function renderMeeting() {
 
   if (canEdit()) {
     const note = el("textarea", { placeholder: "This week…", rows: "4" });
-    let chosen = "";
+    note.value = draft ? draft.note : "";
+    let chosen = draft ? (draft.status_at || "") : "";
     const picker = el("div", { class: "status-picker", style: "margin-top:10px" },
-      STATUS_ORDER.map((s) => el("button", { text: STATUS[s].label, "aria-pressed": "false", onclick: (ev) => {
+      STATUS_ORDER.map((s) => el("button", { text: STATUS[s].label, "aria-pressed": String(chosen === s), onclick: (ev) => {
         chosen = chosen === s ? "" : s;
         [...picker.children].forEach((b) => b.setAttribute("aria-pressed", "false"));
         if (chosen) ev.target.setAttribute("aria-pressed", "true");
       } })));
-    const save = async (advance) => {
-      if (note.value.trim()) {
-        try { await call("add_update", { topic_id: t.id, week_start: S.week, note: note.value, status_at: chosen || null }); await refresh(); toast("Logged."); }
-        catch (e) { toast(e.message); return; }
-      } else if (chosen) {
-        try { await call("update_topic", { id: t.id, patch: { status: chosen } }); await refresh(); }
-        catch (e) { toast(e.message); return; }
-      }
-      if (advance) step(1); else renderBody();
-    };
+    const finalizeBtn = el("button", { class: "btn primary", text: draft ? "Update finalized topic" : "Finalize topic",
+      disabled: note.value.trim() ? null : "disabled" });
+    note.addEventListener("input", () => { finalizeBtn.disabled = note.value.trim() ? null : true; });
+    finalizeBtn.addEventListener("click", () => {
+      if (!note.value.trim()) return;
+      S.meetingDraft[t.id] = { note: note.value.trim(), status_at: chosen || null };
+      toast("Finalized. Moving on…");
+      step(1);
+    });
+    const actions = [finalizeBtn];
+    if (draft) {
+      actions.push(el("button", { class: "btn subtle", text: "Remove from meeting", onclick: () => {
+        delete S.meetingDraft[t.id]; renderBody();
+      } }));
+    }
     wrap.appendChild(el("div", { style: "margin-top:16px" }, [
-      el("span", { class: "field-label", text: "Log this week" }), note, picker,
-      el("div", { style: "margin-top:11px;display:flex;gap:9px" }, [
-        el("button", { class: "btn primary", text: "Save and next →", onclick: () => save(true) }),
-        el("button", { class: "btn", text: "Save", onclick: () => save(false) }),
-      ]),
+      el("span", { class: "field-label", text: "This week…" }), note, picker,
+      el("div", { style: "margin-top:11px;display:flex;gap:9px;flex-wrap:wrap" }, actions),
     ]));
-    wrap._save = save;
   } else {
     wrap.appendChild(el("p", { class: "hint", style: "margin-top:18px", text: "Unlock with the team passcode to log updates." }));
   }
@@ -1358,11 +1580,83 @@ function renderMeeting() {
   ]);
   return el("div", {}, [wrap, nav]);
 }
+
+function renderMeetingSummary(list) {
+  const draftIds = Object.keys(S.meetingDraft);
+  const wrap = el("div", { class: "meeting" }, [
+    el("div", { style: "display:flex;align-items:center;gap:12px;flex-wrap:wrap" }, [
+      el("span", { class: "spacer", style: "flex:1" }),
+      el("span", { class: "progress", text: draftIds.length + " of " + list.length + " finalized" }),
+    ]),
+    el("h2", { text: "Meeting summary" }),
+    el("div", { class: "detail",
+      text: "Review what you finalized, then finalize the meeting to write it all to each topic's weekly record and save this week's minutes." }),
+  ]);
+
+  if (!draftIds.length) {
+    wrap.appendChild(el("p", { class: "hint", style: "margin-top:16px", text: "Nothing finalized yet. Go back and finalize at least one topic." }));
+  } else {
+    const items = el("div", { style: "margin-top:18px" });
+    for (const id of draftIds) {
+      const t = S.topics.find((x) => x.id === id);
+      if (!t) continue;
+      const d = S.meetingDraft[id];
+      const meta = ["Week of " + weekLabel(S.week)];
+      if (d.status_at) meta.push("→ " + STATUS[d.status_at].label);
+      items.appendChild(el("div", { class: "meeting-summary-item" }, [
+        el("h4", { text: t.title }),
+        el("div", { class: "note", text: d.note }),
+        el("div", { class: "meta", text: meta.join(" · ") }),
+      ]));
+    }
+    wrap.appendChild(items);
+  }
+
+  const skipped = list.filter((t) => !S.meetingDraft[t.id]);
+  if (skipped.length) {
+    wrap.appendChild(el("div", { class: "meeting-skip-note",
+      text: "Not finalized: " + skipped.map((t) => t.title).join(", ") }));
+  }
+
+  if (canEdit()) {
+    wrap.appendChild(el("div", { style: "margin-top:20px;display:flex;gap:9px;flex-wrap:wrap" }, [
+      el("button", { class: "btn primary", text: "Finalize meeting", disabled: draftIds.length ? null : "disabled",
+        onclick: async (ev) => { ev.target.disabled = true; ev.target.textContent = "Finalizing…"; await finalizeMeeting(); } }),
+    ]));
+  }
+
+  const nav = el("div", { class: "meeting-nav" }, [
+    el("button", { class: "btn", text: "← Previous", onclick: () => step(-1) }),
+    el("span", { class: "hint", text: "Week of " + weekLabel(S.week) }),
+    el("div", { class: "spacer", style: "flex:1" }),
+    el("button", { class: "btn subtle", text: "Leave meeting mode", onclick: () => setView("week") }),
+  ]);
+  return el("div", {}, [wrap, nav]);
+}
+
 function step(n) {
   const total = visibleTopics().length;
-  S.meetingIdx = Math.max(0, Math.min(total - 1, S.meetingIdx + n));
+  S.meetingIdx = Math.max(0, Math.min(total, S.meetingIdx + n));
   renderBody();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function finalizeMeeting() {
+  const entries = Object.keys(S.meetingDraft).map((id) => ({
+    topic_id: id, note: S.meetingDraft[id].note, status_at: S.meetingDraft[id].status_at || null,
+  }));
+  if (!entries.length) { toast("Finalize at least one topic first."); renderBody(); return; }
+  const minutes = buildDraftMinutes();
+  try {
+    await call("finalize_meeting", { week_start: S.week, entries, minutes_md: minutes });
+    S.meetingDraft = {};
+    await refresh();
+    setView("week");
+    toast("Meeting finalized. Minutes saved for this week.");
+  } catch (e) {
+    toast(e.message);
+    renderBody();
+  }
 }
 
 /* ---------------------------------------------------------------- minutes */
@@ -1413,10 +1707,66 @@ function buildMinutes() {
   return lines.join("\n");
 }
 
+// A draft version of buildMinutes(), sourced from what has been finalized in
+// this meeting session but not yet written anywhere — used to preview, and to
+// hand to the server as the record when "Finalize meeting" is pressed.
+function buildDraftMinutes() {
+  const list = visibleTopics();
+  const entries = Object.keys(S.meetingDraft).map((id) => ({ id, ...S.meetingDraft[id] }));
+  const lines = ["# Delardi Weekly Board — minutes", "", "Week of " + weekLabel(S.week), ""];
+  let any = false;
+  for (const p of S.pillars) {
+    const rows = entries.filter((e) => { const t = S.topics.find((x) => x.id === e.id); return t && t.pillar_id === p.id; });
+    if (!rows.length) continue;
+    any = true;
+    lines.push("## " + p.name, "");
+    for (const e of rows) {
+      const t = S.topics.find((x) => x.id === e.id);
+      lines.push("**" + t.title + "**" + (t.owner ? " — " + t.owner : ""));
+      lines.push("");
+      lines.push(e.note.split("\n").map((l) => "> " + l).join("\n"));
+      lines.push("");
+      const bits = ["Status: " + (STATUS[e.status_at || t.status] || {}).label];
+      if (t.next_step) bits.push("Next: " + t.next_step);
+      if (t.due_date) bits.push("Due: " + weekLabel(t.due_date));
+      lines.push("- " + bits.join(" · "));
+      lines.push("");
+    }
+  }
+  if (!any) lines.push("_Nothing was finalized for this week yet._", "");
+
+  const finalizedIds = new Set(entries.map((e) => e.id));
+  const notTouched = list.filter((t) => !finalizedIds.has(t.id) && !["done", "parked"].includes(t.status));
+  if (notTouched.length) {
+    lines.push("## Open, not discussed this week", "");
+    for (const t of notTouched) {
+      const w = ageOf(t);
+      lines.push("- " + t.title + " (" + pillarOf(t.pillar_id).name + (t.owner ? ", " + t.owner : "") +
+        (w >= STALE_WARN ? " — " + w + " weeks since last discussed" : "") + ")");
+    }
+    lines.push("");
+  }
+  const decisions = S.topics.filter((t) => t.status === "needs_decision" && !t.archived);
+  if (decisions.length) {
+    lines.push("## Waiting on a decision", "");
+    for (const t of decisions) lines.push("- " + t.title + " (" + pillarOf(t.pillar_id).name + ")");
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+const currentWeekRow = () => S.weeks.find((w) => w.week_start === S.week) || null;
+
 function openMinutes() {
-  const md = buildMinutes();
-  showModal("Minutes · week of " + weekLabel(S.week),
-    "Grouped by pillar, with what was left untouched and what is waiting on a decision.",
+  const wk = currentWeekRow();
+  const finalized = !!(wk && wk.minutes_md);
+  const md = finalized ? wk.minutes_md : buildMinutes();
+  const lead = finalized
+    ? "Finalized by " + wk.finalized_by + ", " +
+      new Date(wk.finalized_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + "."
+    : "Grouped by pillar, with what was left untouched and what is waiting on a decision. " +
+      "Not finalized yet — this is a live preview and will change as updates are logged.";
+  showModal("Minutes · week of " + weekLabel(S.week), lead,
     [el("pre", { class: "minutes", text: md })],
     [
       el("button", { class: "btn", text: "Download .md", onclick: () => {
@@ -1511,7 +1861,9 @@ function openTopicForm(existing) {
   if (existing && existing.detail) detail.value = existing.detail;
   const pillar = el("select", {}, S.pillars.map((p) =>
     el("option", { value: String(p.id), selected: existing && existing.pillar_id === p.id ? "selected" : null, text: p.name })));
-  const owner = el("input", { type: "text", value: existing ? existing.owner || "" : "", placeholder: "Who owns it" });
+  const owner = personField(existing ? existing.owner : "");
+  const supporting = personField(existing ? existing.supporting : "");
+  const sensitive = sensitiveField(existing ? existing.sensitive : false);
   const next = el("input", { type: "text", value: existing ? existing.next_step || "" : "", placeholder: "The next concrete step" });
   const prio = el("select", {}, Object.keys(PRIORITY).map((k) =>
     el("option", { value: k, selected: (existing ? existing.priority : "medium") === k ? "selected" : null, text: PRIORITY[k] })));
@@ -1522,12 +1874,14 @@ function openTopicForm(existing) {
     ev.target.disabled = true;
     try {
       if (existing) {
-        await call("update_topic", { id: existing.id, patch: {
+        await call("update_topic", { id: existing.id, week_start: S.week, patch: {
           title: title.value, detail: detail.value, pillar_id: Number(pillar.value),
-          owner: owner.value, next_step: next.value, priority: prio.value } });
+          owner: owner.getValue(), supporting: supporting.getValue(), sensitive: sensitive.getValue(),
+          next_step: next.value, priority: prio.value } });
       } else {
         await call("add_topic", { pillar_id: Number(pillar.value), title: title.value, detail: detail.value,
-          owner: owner.value, next_step: next.value, priority: prio.value, week_start: S.week });
+          owner: owner.getValue(), supporting: supporting.getValue(), sensitive: sensitive.getValue(),
+          next_step: next.value, priority: prio.value, week_start: S.week });
       }
       closeModal(); await refresh(); if (S.drawerTopic) renderDrawer(); toast("Saved.");
     } catch (e) { err.textContent = e.message; err.style.display = "block"; ev.target.disabled = false; }
@@ -1539,8 +1893,10 @@ function openTopicForm(existing) {
      el("label", {}, [el("span", { class: "field-label", text: "Pillar" }), pillar]),
      el("label", {}, [el("span", { class: "field-label", text: "Background" }), detail]),
      el("label", {}, [el("span", { class: "field-label", text: "Owner" }), owner]),
+     el("label", {}, [el("span", { class: "field-label", text: "Supporting" }), supporting]),
      el("label", {}, [el("span", { class: "field-label", text: "Next step" }), next]),
-     el("label", {}, [el("span", { class: "field-label", text: "Priority" }), prio])],
+     el("label", {}, [el("span", { class: "field-label", text: "Priority" }), prio]),
+     el("label", {}, [sensitive])],
     [el("button", { class: "btn primary", text: "Save", onclick: save })]);
   setTimeout(() => title.focus(), 60);
 }
