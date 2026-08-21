@@ -759,6 +759,14 @@ async function loadAll() {
   S.weeks = snap.weeks || [];
   S.scoreboard = snap.scoreboard || [];
   S.suggestions = snap.suggestions || [];
+  // Permission flags are re-read from the server on every load, not trusted
+  // from whatever localStorage cached at unlock time — so a right granted or
+  // revoked since then takes effect on the next page load, not just next login.
+  if (S.session) {
+    S.session.canViewSensitive = !!snap.can_view_sensitive;
+    S.session.canViewEmailSuggestions = !!snap.can_view_email_suggestions;
+    store("board_session", JSON.stringify(S.session));
+  }
   const mon = thisMonday();
   if (!S.weeks.some((w) => w.week_start === mon)) S.weeks.unshift({ week_start: mon, label: null, synthetic: true });
   if (!S.week) S.week = mon;
@@ -1070,10 +1078,12 @@ function renderToolbar() {
   const f = S.filters;
   const owners = [...new Set(S.topics.map((t) => t.owner).filter(Boolean))].sort();
 
-  const pending = (S.suggestions || []).length;
+  const zoomSuggestions = (S.suggestions || []).filter((s) => s.channel !== "email");
+  const emailSuggestions = (S.suggestions || []).filter((s) => s.channel === "email");
+
   const sugBtn = el("button", { "aria-pressed": String(S.view === "suggestions"), onclick: () => setView("suggestions") },
     [el("span", { text: "Suggested" })]);
-  if (pending) sugBtn.appendChild(el("span", { class: "badge", text: String(pending) }));
+  if (zoomSuggestions.length) sugBtn.appendChild(el("span", { class: "badge", text: String(zoomSuggestions.length) }));
 
   const viewSeg = el("div", { class: "seg" }, [
     el("button", { text: "This week", "aria-pressed": String(S.view === "week"), onclick: () => setView("week") }),
@@ -1081,6 +1091,17 @@ function renderToolbar() {
     el("button", { text: "Meeting mode", "aria-pressed": String(S.view === "meeting"), onclick: () => setView("meeting") }),
     sugBtn,
   ]);
+
+  // Alex-only: suggestions drafted from the connected inbox, not the Zoom
+  // transcript pipeline. The backend never even sends these to anyone else,
+  // but the tab is also just not rendered for other sessions.
+  if (S.session && S.session.canViewEmailSuggestions) {
+    const emailBtn = el("button", { "aria-pressed": String(S.view === "email-suggestions"),
+      title: "Email Suggestions — drafted from your inbox, visible only to you",
+      onclick: () => setView("email-suggestions") }, [el("span", { text: "Inbox" })]);
+    if (emailSuggestions.length) emailBtn.appendChild(el("span", { class: "badge", text: String(emailSuggestions.length) }));
+    viewSeg.appendChild(emailBtn);
+  }
 
   const pillarSel = el("select", { "aria-label": "Filter by pillar", onchange: (e) => { f.pillar = e.target.value; renderAll(); } },
     [el("option", { value: "", text: "All pillars" })].concat(
@@ -1097,11 +1118,13 @@ function renderToolbar() {
   const search = el("input", { type: "text", placeholder: "Search topics…", value: f.q, "aria-label": "Search topics",
     oninput: (e) => { f.q = e.target.value; renderBody(); } });
 
+  const canSeeSensitive = !!(S.session && S.session.canViewSensitive);
   const sensitiveBtn = el("button", { class: "btn" + (f.sensitive ? " primary" : ""), "aria-pressed": String(f.sensitive),
     text: "🔒 Sensitive only", onclick: () => { f.sensitive = !f.sensitive; renderAll(); } });
 
-  const filters = el("div", { class: "filters" + (S.filtersOpen ? " open" : "") },
-    [pillarSel, ownerSel, statusSel, search, sensitiveBtn]);
+  const filterKids = [pillarSel, ownerSel, statusSel, search];
+  if (canSeeSensitive) filterKids.push(sensitiveBtn);
+  const filters = el("div", { class: "filters" + (S.filtersOpen ? " open" : "") }, filterKids);
   const toggle = el("button", { class: "btn filters-toggle", "aria-pressed": String(!!S.filtersOpen),
     text: "Filters", onclick: () => { S.filtersOpen = !S.filtersOpen; renderAll(); } });
 
@@ -1220,34 +1243,49 @@ function topicCard(t) {
 }
 
 /* ------------------------------------------------------------ suggestions */
-function renderSuggestions() {
-  const list = S.suggestions || [];
+function renderSuggestionsTab(list, channel, opts) {
   const wrap = el("div", { class: "sug-wrap" });
   const introRow = el("div", { style: "display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap" }, [
-    el("p", { class: "sug-intro", style: "flex:1;min-width:240px", text:
-      "Drafted from your Zoom meetings. Each one carries the meeting it came from and the line that " +
-      "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
-      "reaches the board that you have not read. Accepting an update on an archived topic brings that " +
-      "topic back onto the board." }),
+    el("p", { class: "sug-intro", style: "flex:1;min-width:240px", text: opts.intro }),
   ]);
   if (list.length && canEdit()) {
     introRow.appendChild(el("button", { class: "btn danger sm", text: "Decline all", onclick: async (ev) => {
       if (!window.confirm("Decline all " + list.length + " pending suggestion" + (list.length === 1 ? "" : "s") +
         "? This can't be undone.")) return;
       ev.target.disabled = true;
-      try { await call("dismiss_all_suggestions", {}); await refresh(); toast("Declined all."); }
+      try { await call("dismiss_all_suggestions", { channel }); await refresh(); toast("Declined all."); }
       catch (e) { toast(e.message); ev.target.disabled = false; }
     } }));
   }
   wrap.appendChild(introRow);
 
   if (!list.length) {
-    wrap.appendChild(el("div", { class: "sug-empty",
-      text: "Nothing waiting. New suggestions appear here after a meeting has been read." }));
+    wrap.appendChild(el("div", { class: "sug-empty", text: opts.empty }));
     return wrap;
   }
   for (const sg of list) wrap.appendChild(suggestionCard(sg));
   return wrap;
+}
+
+function renderSuggestions() {
+  const list = (S.suggestions || []).filter((s) => s.channel !== "email");
+  return renderSuggestionsTab(list, "zoom", {
+    intro: "Drafted from your Zoom meetings. Each one carries the meeting it came from and the line that " +
+      "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
+      "reaches the board that you have not read. Accepting an update on an archived topic brings that " +
+      "topic back onto the board.",
+    empty: "Nothing waiting. New suggestions appear here after a meeting has been read.",
+  });
+}
+
+function renderEmailSuggestions() {
+  const list = (S.suggestions || []).filter((s) => s.channel === "email");
+  return renderSuggestionsTab(list, "email", {
+    intro: "Drafted from your connected inbox. Each one carries the email it came from and the line that " +
+      "prompted it, so you can see why before you take it. Accepting opens it pre-filled — nothing " +
+      "reaches the board that you have not read. This tab is only visible to you.",
+    empty: "Nothing waiting. New suggestions appear here after your inbox has been reviewed.",
+  });
 }
 
 function suggestionCard(sg) {
@@ -1821,26 +1859,27 @@ function renderGate() {
   if (!S.locked) { if (existing) existing.remove(); return; }
   if (existing) return;
 
-  const name = el("input", { type: "text", placeholder: "e.g. Alex", value: store("board_name") || "" });
-  const pass = el("input", { type: "password", placeholder: "Team passcode" });
+  const pass = el("input", { type: "password", placeholder: "Your passcode" });
   const err  = el("p", { class: "err", style: "display:none" });
   const btn  = el("button", { class: "btn primary", text: "Open the board" });
 
   const go = async () => {
     err.style.display = "none";
-    if (!name.value.trim()) {
-      err.textContent = "Your name, so updates are attributed."; err.style.display = "block"; return;
+    if (!pass.value.trim()) {
+      err.textContent = "Enter your passcode."; err.style.display = "block"; return;
     }
     btn.disabled = true; btn.textContent = "Checking…";
     try {
-      const r = await call("unlock", { name: name.value.trim(), passcode: pass.value });
-      S.session = { token: r.token, name: r.name, expires_at: r.expires_at };
+      const r = await call("unlock", { passcode: pass.value });
+      S.session = {
+        token: r.token, name: r.name, expires_at: r.expires_at,
+        canViewSensitive: !!r.can_view_sensitive, canViewEmailSuggestions: !!r.can_view_email_suggestions,
+      };
       store("board_session", JSON.stringify(S.session));
-      store("board_name", r.name);
       await loadAll();
       S.locked = false;
       renderAll();
-      toast("Open until " + new Date(r.expires_at)
+      toast("Welcome, " + r.name + " — open until " + new Date(r.expires_at)
         .toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
     } catch (e) {
       err.textContent = e.message; err.style.display = "block";
@@ -1849,22 +1888,21 @@ function renderGate() {
     }
   };
   btn.addEventListener("click", go);
-  for (const f of [name, pass]) f.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  pass.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
 
   const card = el("div", { class: "gate-card" }, [
     el("div", { class: "gate-mast" }, [el("img", { src: LOGO_WORDMARK, alt: "Delardi" })]),
     el("h2", { text: "Weekly Board" }),
-    el("p", { class: "lead", text: "This board is private. Enter the team passcode to open it." }),
+    el("p", { class: "lead", text: "This board is private. Enter your personal passcode to open it." }),
     err,
-    el("label", {}, [el("span", { class: "field-label", text: "Your name" }), name]),
-    el("label", {}, [el("span", { class: "field-label", text: "Team passcode" }), pass]),
+    el("label", {}, [el("span", { class: "field-label", text: "Your passcode" }), pass]),
     btn,
     el("p", { class: "gate-foot",
-      text: "Nothing behind this card is real. The board loads no data until the passcode is accepted." }),
+      text: "Nothing behind this card is real. The board loads no data until your passcode is accepted." }),
   ]);
 
   document.body.appendChild(el("div", { class: "gate", id: "gate" }, [card]));
-  setTimeout(() => (name.value ? pass : name).focus(), 80);
+  setTimeout(() => pass.focus(), 80);
 }
 
 function lockNow() { lockDown(); toast("Locked."); }
@@ -1951,7 +1989,8 @@ function renderBody() {
   host.innerHTML = "";
   host.appendChild(
     S.view === "meeting" ? renderMeeting() :
-    S.view === "suggestions" ? renderSuggestions() : renderBoard());
+    S.view === "suggestions" ? renderSuggestions() :
+    S.view === "email-suggestions" ? renderEmailSuggestions() : renderBoard());
   const fab = $("#fab");
   if (fab) fab.className = "fab" + (canEdit() && !S.locked && S.view !== "meeting" ? " on" : "");
 }
