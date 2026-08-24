@@ -853,7 +853,7 @@ function visibleTopics() {
   if (f.q) {
     const q = f.q.toLowerCase();
     list = list.filter((t) =>
-      [t.title, t.detail, t.owner, t.next_step].some((v) => (v || "").toLowerCase().includes(q)));
+      [t.title, t.detail, t.owner, t.supporting, t.next_step].some((v) => (v || "").toLowerCase().includes(q)));
   }
   // Manual order leads — dragging is meant to be a real signal. Finished work
   // sinks to the bottom regardless, and status only breaks ties.
