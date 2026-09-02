@@ -679,7 +679,7 @@ const S = {
   // Collapsed by default on phones so the board shows sooner; still a plain
   // toggle afterward, independent of viewport.
   statsCollapsed: window.matchMedia("(max-width: 720px)").matches,
-  filters: { pillar: "", owner: "", status: "", priority: "", q: "", sensitive: false, archived: false },
+  filters: { pillar: "", owner: "", status: "", priority: "", q: "", hideSensitive: false, archived: false },
   session: null,
   meetingIdx: 0,
   meetingDraft: {},
@@ -898,7 +898,7 @@ function visibleTopics() {
   if (f.owner) list = list.filter((t) => (t.owner || "") === f.owner);
   if (f.status) list = list.filter((t) => t.status === f.status);
   if (f.priority) list = list.filter((t) => t.priority === f.priority);
-  if (f.sensitive) list = list.filter((t) => t.sensitive);
+  if (f.hideSensitive) list = list.filter((t) => !t.sensitive);
   if (f.q) {
     const q = f.q.toLowerCase();
     list = list.filter((t) =>
@@ -1174,8 +1174,9 @@ function renderToolbar() {
     oninput: (e) => { f.q = e.target.value; renderBody(); } });
 
   const canSeeSensitive = !!(S.session && S.session.canViewSensitive);
-  const sensitiveBtn = el("button", { class: "btn" + (f.sensitive ? " primary" : ""), "aria-pressed": String(f.sensitive),
-    text: "🔒 Sensitive only", onclick: () => { f.sensitive = !f.sensitive; renderAll(); } });
+  const sensitiveBtn = el("button", { class: "btn" + (f.hideSensitive ? " primary" : ""), "aria-pressed": String(f.hideSensitive),
+    text: f.hideSensitive ? "🔒 Show sensitive" : "🔒 Hide sensitive",
+    onclick: () => { f.hideSensitive = !f.hideSensitive; renderAll(); } });
 
   const filterKids = [pillarSel, ownerSel, statusSel, search];
   if (canSeeSensitive) filterKids.push(sensitiveBtn);
@@ -1521,8 +1522,9 @@ function renderNavDrawer() {
   const search = el("input", { type: "text", placeholder: "Search topics…", value: f.q, "aria-label": "Search topics",
     oninput: (e) => { f.q = e.target.value; renderBody(); } });
   const canSeeSensitive = !!(S.session && S.session.canViewSensitive);
-  const sensitiveBtn = el("button", { class: "btn" + (f.sensitive ? " primary" : ""), "aria-pressed": String(f.sensitive),
-    text: "🔒 Sensitive only", onclick: () => { f.sensitive = !f.sensitive; renderAll(); } });
+  const sensitiveBtn = el("button", { class: "btn" + (f.hideSensitive ? " primary" : ""), "aria-pressed": String(f.hideSensitive),
+    text: f.hideSensitive ? "🔒 Show sensitive" : "🔒 Hide sensitive",
+    onclick: () => { f.hideSensitive = !f.hideSensitive; renderAll(); } });
   const filterKids = [pillarSel, ownerSel, statusSel, search];
   if (canSeeSensitive) filterKids.push(sensitiveBtn);
 
