@@ -81,6 +81,16 @@ It follows the same model as the board, with its own API and its own right:
 - Every retail client has one owner: a current sales rep, or "Shared (store)"
   for lapsed and dormant clients the whole team works. The card keeps the
   previous owner and says how the current one was assigned.
+- The **Insights** tab (`crm/?view=insights`) shows where the value sits (ABC
+  class by lifecycle), the priority lists in playbook order, each owner's book,
+  acquisition and brand/category mix by year, and birthdays in the next 30 days.
+  Every figure opens the client list filtered to the same people. The figures
+  are computed in the database (`crm_insights()`); retail by default, with a
+  switch to include related parties.
+- ABC class, lifecycle and segment are recalculated every night at 00:05
+  Tashkent (`crm_recompute_segments()`, scheduled with pg_cron), and after a
+  merge or a delete. ABC is cut on retail clients only; related parties keep
+  their own class. Each change is written to the client's history.
 
 ## Updating a page
 
