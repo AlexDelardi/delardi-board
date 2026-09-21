@@ -60,14 +60,22 @@ guesser tries.
 
 A second page in the same repository, for the CRM spring clean: the client list,
 each client's card, and what needs checking between Colibri and the marketing
-questionnaire. Read-only for now.
+questionnaire. People with edit rights settle each field (and say how they know),
+mark records checked, set them aside or delete them, merge duplicates, change the
+owner, record do-not-contact and referrals, and add notes. English or Russian.
 
 It follows the same model as the board, with its own API and its own right:
 
 - Its data comes only from the `crm-api` edge function. This page, like the
   board, holds no key of any kind.
-- A board passcode opens it **only** if that person has been given client access
-  (`can_view_crm`). Editing is a further, separate right (`can_edit_crm`).
+- The board and the instrument are separate rights (`can_view_board`,
+  `can_view_crm`); a passcode opens only what its owner has been given, and a
+  session issued by one is refused by the other. Editing client records is a
+  further right (`can_edit_crm`). Rights are re-checked on every request, so
+  switching someone off takes effect at once.
+- Every change is made by a database function that writes the change and its
+  line in `crm_events` together, with who and when. Merges also keep a full
+  before-image in `crm_merge_log` so they can be undone by hand.
 - Phone numbers are held in the database for matching but never sent to the
   page. Sales people appear only as "Sales rep N".
 - Every retail client has one owner: a current sales rep, or "Shared (store)"

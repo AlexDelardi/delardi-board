@@ -155,6 +155,7 @@ button.stat[aria-pressed="true"] { background: var(--surface-2); box-shadow: ins
 :root[data-theme="dark"] .stat .val, html[data-theme="auto"].sysdark .stat .val { color: var(--ink); }
 .stat .sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat .tone { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.stat .tone.blank { border: 1.5px solid var(--muted); box-sizing: border-box; }
 
 /* ---------------------------------------------------------------- toolbar */
 .toolbar {
@@ -165,7 +166,7 @@ button.stat[aria-pressed="true"] { background: var(--surface-2); box-shadow: ins
 .toolbar .field > span {
   font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600;
 }
-input[type=text], input[type=search], input[type=password], select {
+input[type=text], input[type=search], input[type=password], input[type=date], select, textarea {
   background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
   padding: 7px 10px; font-size: 13.5px; min-width: 0; color: var(--ink);
 }
@@ -197,7 +198,10 @@ table.clients tbody tr { cursor: pointer; }
 table.clients tbody tr:hover { background: var(--row-hover); }
 table.clients tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 table.clients .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-table.clients .ref { font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+table.clients .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; }
+table.clients .ref { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin-top: 2px; }
+table.clients .ref .id { font-size: 12px; color: var(--ink-2); letter-spacing: .01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.clients tr.closed td { opacity: .6; }
 table.clients .src { font-size: 11.5px; color: var(--muted); margin-top: 1px; white-space: nowrap; }
 .loading-list { opacity: .45; transition: opacity .12s; }
 .muted { color: var(--muted); }
@@ -313,6 +317,86 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
 .gate-card .btn { margin: 5px 22px 0; width: calc(100% - 44px); justify-content: center; }
 .gate-card .gate-foot { margin: 15px 22px 18px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
 
+/* ------------------------------------------------------ language switch */
+.lang { display: inline-flex; border: 1px solid var(--header-line); border-radius: 8px; overflow: hidden; flex: none; }
+.lang button {
+  background: transparent; border: 0; color: var(--header-ink-2); cursor: pointer;
+  padding: 6px 10px; font-size: 12px; letter-spacing: .06em; font-weight: 600;
+}
+.lang button + button { border-left: 1px solid var(--header-line); }
+.lang button[aria-pressed="true"] { background: rgba(255,255,255,0.14); color: var(--header-ink); }
+.lang button:hover { color: var(--header-ink); }
+.gate-tools { display: flex; align-items: center; gap: 12px; }
+.gate-tools .lang { border-color: rgba(255,255,255,0.22); }
+.gate-tools .lang button { color: #B9C6DE; }
+.gate-tools .lang button[aria-pressed="true"] { color: #FFFFFF; }
+
+/* ---------------------------------------------------------------- progress */
+.progress { padding: 14px 22px 0; }
+.progress-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 7px; font-size: 12.5px; color: var(--ink-2); }
+.progress-title { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.progress-text b { color: var(--ink); font-weight: 600; }
+.progress-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--warning) 22%, var(--surface)); border: 1px solid var(--border); }
+.progress-bar.skel { background: var(--surface-2); }
+.progress-bar .seg { display: block; height: 100%; }
+.progress-bar .seg.done { background: var(--good); }
+.progress-bar .seg.aside { background: var(--muted); }
+
+/* ------------------------------------------------------------ review forms */
+.review-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.drawer-section .review-head h3 {
+  margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600;
+}
+.drawer-section.review { padding: 13px 14px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.meta-line { margin: -6px 0 10px; font-size: 12.5px; color: var(--ink-2); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.btn.danger { background: var(--critical); color: #fff; border-color: var(--critical); }
+.btn.danger:hover { opacity: .9; }
+.btn.danger-text { color: var(--critical); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.banner {
+  padding: 9px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 13.5px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+}
+.banner.critical { border-color: color-mix(in srgb, var(--critical) 45%, transparent); background: color-mix(in srgb, var(--critical) 8%, var(--surface)); }
+.banner a { color: var(--ink); font-weight: 600; }
+.editor {
+  margin-top: 10px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); display: flex; flex-direction: column; gap: 8px; font-size: 13.5px;
+}
+.editor fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.editor legend, .editor .lbl, .editor h4 {
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2); padding: 0; margin: 0 0 2px;
+}
+.editor h4 { font-size: 13px; color: var(--ink); }
+.editor .opt { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; cursor: pointer; overflow-wrap: anywhere; }
+.editor .opt input[type=radio], .editor .opt input[type=checkbox] { margin: 2px 0 0; flex: none; width: 16px; height: 16px; accent-color: var(--navy-2); }
+.editor .opt.other { flex-wrap: wrap; align-items: center; }
+.editor .opt.other > .opt { flex: none; }
+.editor .opt.other input[type=text], .editor .opt.other input[type=date], .editor .opt.other select { flex: 1 1 180px; }
+.editor input[type=text], .editor textarea, .editor select, .editor input[type=date] { width: 100%; }
+.editor .opt.other input, .editor .opt.other select { width: auto; }
+.editor textarea { resize: vertical; min-height: 64px; }
+.editor .hint, .dup .hint { font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.45; }
+.form-err { margin: 0; color: var(--critical); font-size: 13px; font-weight: 500; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.reset-field { align-self: flex-start; }
+.editor-row > td { padding-top: 0 !important; border-top: 0 !important; }
+.confirmed-row > td { padding-top: 0 !important; border-top: 0 !important; font-size: 13px; }
+table.compare td.st .by, table.compare .st-inline .by { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+table.compare td.st .btn, table.compare .st-inline .btn { margin-top: 6px; display: flex; }
+.inline-btn { margin-top: 5px; }
+.drawer-section > h3 .aside-btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
+.drawer-section > h3 { display: flex; align-items: center; gap: 10px; }
+.drawer-section.dups.flagged { padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--warning) 7%, var(--surface)); }
+.dup { display: flex; flex-direction: column; gap: 8px; }
+.dup + .dup, .dup + .btn { margin-top: 12px; }
+.dup-card { padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 13.5px; }
+.dup-card a { color: var(--ink); font-weight: 600; }
+.dup-card .muted { font-size: 12px; margin-top: 2px; }
+.drawer-body.busy { cursor: progress; }
+.chip.dnc { white-space: nowrap; }
+
 /* ------------------------------------------------------------------- toast */
 .toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -375,9 +459,10 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
   dl.kv { grid-template-columns: 1fr 1fr; }
   /* Status moves under the field name, so three columns fit a phone. */
   table.compare th.st, table.compare td.st { display: none; }
-  table.compare td.f { width: 34%; }
+  table.compare td.f { width: 38%; }
   table.compare .st-inline { display: block; margin-top: 5px; }
-  table.compare .st-inline .chip { white-space: normal; }
+  table.compare .st-inline .chip { white-space: normal; overflow-wrap: normal; word-break: normal; }
+  table.compare td.f { overflow-wrap: normal; }
   table.compare th { white-space: normal; overflow-wrap: anywhere; }
   .lock-state .who { display: none; }
   .lock-state { padding-left: 9px; }
@@ -393,6 +478,10 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
   .toolbar .filters .field.reset > span { display: none; }
   .btn { padding: 9px 13px; }
   .watermark { display: none !important; }
+  .progress { padding: 12px 13px 0; }
+  .lang button { padding: 6px 8px; }
+  .drawer-section.review { padding: 12px 12px 11px; }
+  .editor { padding: 11px; }
 }
 @media (min-width: 721px) { table.clients td.col-meta { display: none; } }
 @media (prefers-reduced-motion: reduce) { .drawer, .scrim, .toast { transition: none; } }
@@ -409,11 +498,12 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
 <script>
 /* ===========================================================================
    Configuration
-   There is deliberately NO database key in this file. Every read goes through
-   the crm-api edge function, which needs a session token issued only in
-   exchange for a personal passcode — and only to someone who has been given
-   CRM access, which is a separate right from the Weekly Board. Until then the
-   page holds nothing but invented placeholder content.
+   There is deliberately NO database key in this file. Every read and every
+   write goes through the crm-api edge function, which needs a session token
+   issued only in exchange for a personal passcode — and only to someone who
+   has been given CRM access, which is a separate right from the Weekly Board.
+   Changing a record is a further right again. Until a passcode is accepted
+   the page holds nothing but invented placeholder content.
 
    Phone numbers never reach this page: the API withholds them and sends only
    whether the two sources agree. Sales people appear only as "Sales rep N".
@@ -422,39 +512,427 @@ const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-api";
 const LOGO_WORDMARK = "data:image/png;base64,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";
 const SESSION_KEY = "crm_session";
 const THEME_KEY = "board_theme";          // shared with the Weekly Board on purpose
+const LANG_KEY = "delardi_lang";          // shared with the landing page
 const PAGE = 50;
 
+/* ---------------------------------------------------------------- language
+   English is written in the code; Russian comes from this table, keyed by the
+   English. Anything missing from the table simply shows in English. */
+const RU = {
+  // header, gate, landing
+  "Client Instrument": "Клиентская база",
+  "CRM spring clean": "Генеральная уборка базы",
+  "Weekly board": "Еженедельная доска",
+  "All tools": "Все инструменты",
+  "All Delardi tools": "Все инструменты Delardi",
+  "Switch between light and dark": "Переключить светлую и тёмную тему",
+  "Language": "Язык",
+  "Lock": "Заблокировать",
+  "Locked.": "Заблокировано.",
+  "can edit": "может редактировать",
+  "view only": "только просмотр",
+  "Client records are private. Enter your personal passcode to open them.": "Данные клиентов конфиденциальны. Введите свой личный код доступа.",
+  "Your passcode": "Ваш код доступа",
+  "Open the instrument": "Открыть",
+  "Checking…": "Проверяем…",
+  "Enter your passcode.": "Введите код доступа.",
+  "Nothing behind this card is real. The instrument loads no data until your passcode is accepted, and a Weekly Board passcode opens it only if you have been given client access.":
+    "За этой карточкой нет настоящих данных. Они загружаются только после проверки кода, а код от еженедельной доски подходит, только если вам дан доступ к клиентской базе.",
+  "Welcome, {name} — open until {time}": "Здравствуйте, {name}! Доступ открыт до {time}",
+  "Unlock": "Вход",
+  // server messages
+  "That passcode is not right.": "Неверный код доступа.",
+  "This account does not have access to the CRM.": "У этой учётной записи нет доступа к клиентской базе.",
+  "That session is not valid. Enter your passcode again.": "Сеанс недействителен. Введите код доступа ещё раз.",
+  "Your session has expired. Enter your passcode again.": "Сеанс истёк. Введите код доступа ещё раз.",
+  "Enter your passcode to open the instrument.": "Введите код доступа.",
+  "Too many failed attempts. Try again in an hour.": "Слишком много неудачных попыток. Попробуйте через час.",
+  "Your account can view client records but not change them.": "Ваша учётная запись может просматривать данные клиентов, но не изменять их.",
+  "No record with that reference.": "Записи с таким номером нет.",
+  "That is not a valid client reference.": "Это не номер клиента.",
+  "This record was merged into another one and cannot be changed.": "Эта запись объединена с другой, изменить её нельзя.",
+  "This record is deleted. Restore it before changing it.": "Запись удалена. Сначала восстановите её.",
+  "Say how the value was confirmed.": "Укажите, как подтверждено значение.",
+  "Choose where the value comes from.": "Выберите, откуда взять значение.",
+  "Phone numbers cannot be typed in here.": "Номер телефона здесь вводить нельзя.",
+  "There is no value to confirm.": "Нечего подтверждать.",
+  "A name must be 2 to 120 characters.": "Имя должно быть от 2 до 120 символов.",
+  "Gender must be F or M.": "Пол: Ж или М.",
+  "A date of birth must be a real date, written YYYY-MM-DD.": "Дата рождения должна быть настоящей датой.",
+  "That date of birth is outside the plausible range.": "Такая дата рождения невозможна.",
+  "There is no number on file from that source.": "В этом источнике нет номера.",
+  "Nothing on this record is held by one source only.": "В этой записи нет полей только из одного источника.",
+  "The record is already in that state.": "Запись уже в этом состоянии.",
+  "Give a short reason.": "Коротко укажите причину.",
+  "Keep the reason under 300 characters.": "Причина — не длиннее 300 символов.",
+  "Settle every field where the sources differ before marking the record checked.": "Сначала решите все поля, где источники расходятся.",
+  "Choose a current sales rep or the shared list.": "Выберите действующего продавца или общий список.",
+  "That is already the owner.": "Это уже ответственный.",
+  "Keep the contact note under 300 characters.": "Заметка о контакте — не длиннее 300 символов.",
+  "Keep \"referred by\" under 120 characters.": "Поле «По рекомендации» — не длиннее 120 символов.",
+  "Nothing has changed.": "Ничего не изменилось.",
+  "Write the note first.": "Сначала напишите заметку.",
+  "Keep a note under 1,000 characters.": "Заметка — не длиннее 1000 символов.",
+  "Choose two different records.": "Выберите две разные записи.",
+  "Request failed ({n})": "Ошибка запроса ({n})",
+  // tiles, progress
+  "Needs a decision": "Нужно решение",
+  "Needs confirming": "Нужно подтвердить",
+  "Set aside": "Отложено",
+  "Done": "Готово",
+  "Clean": "Совпадает",
+  "Checked": "Проверено",
+  "Deleted": "Удалено",
+  "Merged": "Объединено",
+  "Retail clients": "Розничные клиенты",
+  "Owner has left": "Ответственный ушёл",
+  "Shared (store)": "Общий список (бутик)",
+  "fields where the sources differ": "полей, где источники расходятся",
+  "{n} where the sources differ": "{n} — источники расходятся",
+  "{n} from one source only": "{n} — только из одного источника",
+  "waiting on the client or a check": "ждут клиента или проверки",
+  "{checked} checked · {clean} matched": "{checked} проверено · {clean} совпало",
+  "{spend} lifetime · {n} related excluded": "{spend} за всё время · без {n} связанных",
+  "{spend} · lapsed and dormant": "{spend} · ушедшие и спящие",
+  "{spend} of retail spend": "{spend} розничных продаж",
+  "Retail clients on the shared win-back list, worked by the whole team": "Розничные клиенты в общем списке на возврат — с ними работает вся команда",
+  "Retail clients whose owner is no longer an assignable sales rep": "Розничные клиенты, чей ответственный больше не работает",
+  "Click to filter the list": "Нажмите, чтобы отфильтровать список",
+  "Click to clear this filter": "Нажмите, чтобы снять фильтр",
+  "Clean-up progress": "Прогресс уборки",
+  "{done} of {total} records done": "Готово {done} из {total} записей",
+  "{n} set aside": "{n} отложено",
+  "{n} to go": "осталось {n}",
+  "{n} worked on this week": "{n} за эту неделю",
+  // toolbar
+  "Search": "Поиск",
+  "Name or reference": "Имя или номер",
+  "Search by name or client reference": "Поиск по имени или номеру клиента",
+  "Filters": "Фильтры",
+  "Filters ({n})": "Фильтры ({n})",
+  "Status": "Статус",
+  "Any status": "Любой статус",
+  "Owner": "Ответственный",
+  "All owners": "Все ответственные",
+  "Current sales reps": "Действующие продавцы",
+  "{label} (left)": "{label} (ушёл)",
+  "Records": "Записи",
+  "All records": "Все записи",
+  "All clients": "Все клиенты",
+  "Prospects": "Потенциальные клиенты",
+  "Related parties": "Связанные лица",
+  "ABC": "ABC",
+  "Any class": "Любой класс",
+  "Lifecycle": "Жизненный цикл",
+  "Any": "Любой",
+  "Sort": "Сортировка",
+  "Highest spend": "Больше всего покупок",
+  "Lowest spend": "Меньше всего покупок",
+  "Most recent purchase": "Последняя покупка — недавно",
+  "Longest since purchase": "Последняя покупка — давно",
+  "Reference": "Номер",
+  "Recently changed": "Недавно изменённые",
+  "Reset": "Сбросить",
+  // list
+  "Client": "Клиент",
+  "Segment": "Сегмент",
+  "Last purchase": "Последняя покупка",
+  "Lifetime spend": "Сумма покупок",
+  "Client records": "Записи клиентов",
+  "Loading…": "Загрузка…",
+  "Showing": "Показано",
+  "of": "из",
+  "No records match these filters.": "Нет записей по этим фильтрам.",
+  "Clear filters": "Сбросить фильтры",
+  "Try again": "Повторить",
+  "← Previous": "← Назад",
+  "Next →": "Далее →",
+  "Page {n} of {m}": "Страница {n} из {m}",
+  "Colibri + questionnaire": "Colibri + анкета",
+  "Colibri only": "Только Colibri",
+  "Questionnaire only": "Только анкета",
+  "Related": "Связанное лицо",
+  "Prospect": "Потенциальный",
+  "Do not contact": "Не беспокоить",
+  "has left": "ушёл",
+  "Class {c}": "Класс {c}",
+  "Last {d}": "Последняя {d}",
+  "Open {id}": "Открыть {id}",
+  "Unnamed record": "Без имени",
+  "{n} differ": "{n} расходится",
+  "{n} to confirm": "{n} подтвердить",
+  "into {id}": "в {id}",
+  "owner: {o}": "ответственный: {o}",
+  "class {c}": "класс {c}",
+  // card
+  "Close": "Закрыть",
+  "Could not open this record": "Не удалось открыть запись",
+  "Loading the record…": "Загружаем запись…",
+  "Related party": "Связанное лицо",
+  "Review": "Проверка",
+  "Everything on file matches across both sources.": "Всё, что есть в обоих источниках, совпадает.",
+  "Every field is settled.": "Все поля решены.",
+  "Accept single-source values ({n})": "Принять значения из одного источника ({n})",
+  "Takes each value held by only one source as it is. You can change any of them afterwards.":
+    "Каждое значение, которое есть только в одном источнике, будет принято как есть. Потом любое можно изменить.",
+  "Mark as checked": "Отметить как проверенную",
+  "Settle the fields where the sources differ first.": "Сначала решите поля, где источники расходятся.",
+  "Set aside…": "Отложить…",
+  "Delete…": "Удалить…",
+  "Reopen": "Вернуть в работу",
+  "Restore": "Восстановить",
+  "Checked by {by}, {d}": "Проверено: {by}, {d}",
+  "Set aside by {by}, {d}": "Отложено: {by}, {d}",
+  "Deleted by {by}, {d}": "Удалено: {by}, {d}",
+  "Reason": "Причина",
+  "Why is it set aside? E.g. client not reachable": "Почему откладываем? Например: не дозвонились",
+  "Why delete it? E.g. test entry, not a client": "Почему удаляем? Например: тестовая запись",
+  "Deleted records drop out of every list and figure. They can be restored.":
+    "Удалённые записи пропадают из списков и цифр. Их можно восстановить.",
+  "Cancel": "Отмена",
+  "Save": "Сохранить",
+  "Saving…": "Сохраняем…",
+  "Saved.": "Сохранено.",
+  "Confirm": "Подтвердить",
+  "This record was merged into {id}.": "Эта запись объединена с {id}.",
+  "Open {id}": "Открыть {id}",
+  "View only. Ask Alex if you need to change records.": "Только просмотр. Если нужно менять записи, обратитесь к Алексу.",
+  // identity
+  "Identity — Colibri against the questionnaire": "Личные данные — Colibri и анкета",
+  "Field": "Поле",
+  "Questionnaire": "Анкета",
+  "Name": "Имя",
+  "Phone": "Телефон",
+  "Gender": "Пол",
+  "Date of birth": "Дата рождения",
+  "Female": "Женский",
+  "Male": "Мужской",
+  "No number on file": "Номера нет",
+  "Held, not shown here": "Есть, но здесь не показывается",
+  "Phone numbers are matched between the two sources on the server; the numbers themselves are not sent to this page.":
+    "Номера телефонов сравниваются на сервере; сами номера на эту страницу не передаются.",
+  "Match": "Совпадает",
+  "One source only": "Только один источник",
+  "Sources differ": "Источники расходятся",
+  "Not on file": "Нет данных",
+  "Confirmed by client": "Подтвердил клиент",
+  "Confirmed by Delardi": "Подтвердил Delardi",
+  "Entered by hand": "Введено вручную",
+  "Accepted from one source": "Принято из одного источника",
+  "Decide": "Решить",
+  "Add": "Добавить",
+  "Change": "Изменить",
+  "Which value is right?": "Какое значение верное?",
+  "From Colibri": "Из Colibri",
+  "From the questionnaire": "Из анкеты",
+  "Something else": "Другое",
+  "The number in Colibri": "Номер из Colibri",
+  "The number in the questionnaire": "Номер из анкеты",
+  "The number on file": "Номер, который есть",
+  "How do you know?": "Откуда известно?",
+  "The client confirmed it": "Подтвердил клиент",
+  "From our own records": "По нашим данным",
+  "Choose a value.": "Выберите значение.",
+  "Say how you know.": "Укажите, откуда известно.",
+  "Back to the automatic comparison": "Вернуть автоматическое сравнение",
+  "{n} field needs a decision": "{n} поле требует решения",
+  "{n} fields need a decision": "{n} полей требуют решения",
+  "{n} field needs confirming": "{n} поле нужно подтвердить",
+  "{n} fields need confirming": "{n} полей нужно подтвердить",
+  "{by}, {d}": "{by}, {d}",
+  // duplicates, merge
+  "Possible duplicate": "Возможный дубликат",
+  "Same phone number as this record. Check whether they are one person.": "Тот же номер телефона, что и у этой записи. Проверьте, один ли это человек.",
+  "Same person — merge…": "Один человек — объединить…",
+  "Different people": "Разные люди",
+  "Merge with another record…": "Объединить с другой записью…",
+  "Reference of the other record": "Номер другой записи",
+  "Look up": "Найти",
+  "Merge two records": "Объединение записей",
+  "Which record should stay?": "Какую запись оставить?",
+  "This one ({id})": "Эту ({id})",
+  "The other one ({id})": "Другую ({id})",
+  "The kept record takes the other's purchases and fills its blanks from it. The other record is closed and points to the kept one. This cannot be undone here — ask Alex if a merge was wrong.":
+    "Оставшаяся запись получит покупки другой и заполнит свои пустые поля. Вторая запись закроется и будет ссылаться на оставшуюся. Отменить здесь нельзя — если ошиблись, обратитесь к Алексу.",
+  "Merge": "Объединить",
+  "Merged. {id} now holds both records.": "Объединено. Теперь всё в {id}.",
+  "Note (optional)": "Заметка (необязательно)",
+  // commercial
+  "Commercial": "Покупки и ответственный",
+  "Purchases": "Покупки",
+  "A prospect: completed the questionnaire but has no purchase on record in Colibri.":
+    "Потенциальный клиент: заполнил анкету, но покупок в Colibri нет.",
+  "Purchase occasions": "Визитов с покупкой",
+  "Items bought": "Куплено изделий",
+  "First purchase": "Первая покупка",
+  "ABC class": "Класс ABC",
+  "How assigned": "Как назначен",
+  "Previous owner": "Прежний ответственный",
+  "Sales people seen": "Продавцов у клиента",
+  "Yes — kept out of retail figures": "Да — не входит в розничные цифры",
+  "No": "Нет",
+  "Yes": "Да",
+  "Assigned": "Назначен",
+  "Change owner": "Сменить ответственного",
+  "New owner": "Новый ответственный",
+  "Why? (optional)": "Почему? (необязательно)",
+  "Balanced by spend": "Распределено по сумме покупок",
+  "Lapsed or dormant — shared win-back list": "Ушедший или спящий — общий список на возврат",
+  "Continuity — this rep has served the client before": "Преемственность — продавец уже работал с клиентом",
+  "Manual": "Вручную",
+  // contact
+  "Contact": "Контакт",
+  "Contact note": "Заметка о контакте",
+  "Referred by": "По рекомендации",
+  "Edit": "Изменить",
+  "The client has asked not to be contacted": "Клиент просил его не беспокоить",
+  "E.g. calls only after 18:00, prefers Telegram": "Например: звонить после 18:00, удобнее Telegram",
+  "A client reference or a name": "Номер клиента или имя",
+  // questionnaire
+  "Not in the questionnaire. Everything above comes from Colibri alone.": "В анкете нет. Всё выше — только из Colibri.",
+  "submitted {d}": "заполнена {d}",
+  "Patronymic": "Отчество",
+  "Email or handle": "Email или ник",
+  "Preferred channel": "Удобный канал",
+  "Marketing consent": "Согласие на рассылки",
+  "Buying for": "Для кого покупает",
+  "How they heard of us": "Откуда узнал о нас",
+  "Would buy online": "Купил бы онлайн",
+  "Brand preference": "Любимые бренды",
+  "Duplicate form": "Повторная анкета",
+  "Yes — submitted more than once": "Да — заполнена больше одного раза",
+  "Not stated": "Не указано",
+  "→ not mapped yet": "→ пока без соответствия",
+  // purchases
+  "Brand": "Бренд",
+  "Lines": "Строк",
+  "Net": "Сумма",
+  "Return": "Возврат",
+  "Full price": "Полная цена",
+  "No description in Colibri": "Нет описания в Colibri",
+  // notes
+  "Notes and history": "Заметки и история",
+  "Add a note": "Добавить заметку",
+  "Add note": "Добавить",
+  "E.g. called, will visit on Saturday": "Например: позвонили, придёт в субботу",
+  "flagged at load": "отмечено при загрузке",
+  "Name field carries a note": "В поле имени — заметка",
+  "Owner assigned": "Назначен ответственный",
+  "Marked as related party": "Отмечен как связанное лицо",
+  "{field} confirmed": "{field}: подтверждено",
+  "{field} handed back to the automatic comparison": "{field}: возвращено к автоматическому сравнению",
+  "Accepted as held by one source": "Принято из одного источника",
+  "Marked as checked.": "Отмечено как проверенная.",
+  "Set aside.": "Отложено.",
+  "Deleted.": "Удалено.",
+  "Reopened.": "Возвращено в работу.",
+  "Restored.": "Восстановлено.",
+  "Do not contact: on": "Не беспокоить: включено",
+  "Do not contact: off": "Не беспокоить: выключено",
+  "Contact note changed": "Изменена заметка о контакте",
+  "Referred by changed": "Изменено поле «По рекомендации»",
+  "Note": "Заметка",
+  "Not the same person as {id}": "Не тот же человек, что {id}",
+  "Merged into {id}": "Объединено с {id}",
+  "Merged {id} into this record": "{id} объединена с этой записью",
+  "the client confirmed it": "подтвердил клиент",
+  "from our own records": "по нашим данным",
+  "from Colibri": "из Colibri",
+  "from the questionnaire": "из анкеты",
+  "typed in": "введено вручную",
+  // lifecycle, segments, categories
+  "Active": "Активный",
+  "At risk": "В зоне риска",
+  "Lapsed": "Ушедший",
+  "Dormant": "Спящий",
+  "Champion": "Чемпион",
+  "Champions": "Чемпионы",
+  "Loyal": "Лояльный",
+  "Hibernating": "В спячке",
+  "Lost": "Потерянный",
+  "New client": "Новый клиент",
+  "New": "Новый",
+  "Promising": "Перспективный",
+  "Need attention": "Требует внимания",
+  "Potential loyalist": "Потенциально лояльный",
+  "Can't lose": "Нельзя потерять",
+};
+// Counted nouns: English one/many; Russian one/few/many.
+const PL = {
+  record: { en: ["record", "records"], ru: ["запись", "записи", "записей"] },
+  line:   { en: ["line", "lines"], ru: ["строка", "строки", "строк"] },
+  field:  { en: ["field", "fields"], ru: ["поле", "поля", "полей"] },
+};
+function initialLang() {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    if (v === "en" || v === "ru") return v;
+  } catch (e) { /* storage blocked */ }
+  return /^ru\b/i.test(navigator.language || "") ? "ru" : "en";
+}
+let LANG = initialLang();
+const LOC = () => (LANG === "ru" ? "ru-RU" : "en-GB");
+function tr(s, vars) {
+  let out = (LANG === "ru" && Object.prototype.hasOwnProperty.call(RU, s)) ? RU[s] : s;
+  if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return out;
+}
+function pl(n, key) {
+  const f = PL[key][LANG];
+  if (LANG === "ru") {
+    const a = Math.abs(n) % 10, b = Math.abs(n) % 100;
+    const i = a === 1 && b !== 11 ? 0 : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 1 : 2;
+    return n + " " + f[i];
+  }
+  return n + " " + (n === 1 ? f[0] : f[1]);
+}
+function setLang(l) {
+  LANG = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* ignore */ }
+  document.documentElement.lang = l;
+  renderAll();
+  if (S.cardId) renderDrawer();
+}
+
+/* --------------------------------------------------------------- vocabulary */
 // How each identity field compares across Colibri and the questionnaire.
 const FLAG = {
-  agreed:   { label: "Match",                glyph: "✓", tone: "good" },
-  gap:      { label: "One source only",      shape: "half", tone: "warning" },
-  conflict: { label: "Sources differ",       glyph: "◆", tone: "serious" },
-  none:     { label: "Not on file",          glyph: "–", tone: "" },
-  client:   { label: "Confirmed by client",  glyph: "✓", tone: "good" },
-  delardi:  { label: "Confirmed by Delardi", glyph: "✓", tone: "good" },
-  manual:   { label: "Entered by hand",      glyph: "✎", tone: "good" },
-  rule:     { label: "Set by rule",          glyph: "≈", tone: "" },
+  agreed:   { label: "Match",                    glyph: "✓", tone: "good" },
+  gap:      { label: "One source only",          shape: "half", tone: "warning" },
+  conflict: { label: "Sources differ",           glyph: "◆", tone: "serious" },
+  none:     { label: "Not on file",              glyph: "–", tone: "" },
+  client:   { label: "Confirmed by client",      glyph: "✓", tone: "good" },
+  delardi:  { label: "Confirmed by Delardi",     glyph: "✓", tone: "good" },
+  manual:   { label: "Entered by hand",          glyph: "✎", tone: "good" },
+  rule:     { label: "Accepted from one source", glyph: "≈", tone: "good" },
 };
-const QUEUE = {
-  conflict: { label: "Needs a decision", glyph: "◆", tone: "serious" },
-  gap:      { label: "Needs confirming", shape: "half", tone: "warning" },
-  clean:    { label: "Clean",            glyph: "✓", tone: "good" },
+const HUMAN_FLAGS = ["client", "delardi", "manual", "rule"];
+// One status per record, as the API reports it.
+const STATUS = {
+  decision:  { label: "Needs a decision", glyph: "◆", tone: "serious" },
+  confirm:   { label: "Needs confirming", shape: "half", tone: "warning" },
+  clean:     { label: "Clean",            glyph: "✓", tone: "good" },
+  checked:   { label: "Checked",          glyph: "✓", tone: "good" },
+  set_aside: { label: "Set aside",        glyph: "‖", tone: "" },
+  deleted:   { label: "Deleted",          glyph: "×", tone: "critical" },
+  merged:    { label: "Merged",           glyph: "→", tone: "" },
 };
+const FIELD_LABEL = { name: "Name", phone: "Phone", gender: "Gender", dob: "Date of birth" };
 const LIFECYCLES = ["Active", "At risk", "Lapsed", "Dormant"];
 const SORTS = [
   ["spend", "Highest spend"], ["spend_asc", "Lowest spend"],
-  ["recent", "Most recent purchase"], ["oldest", "Longest since purchase"], ["id", "Reference"],
+  ["recent", "Most recent purchase"], ["oldest", "Longest since purchase"],
+  ["touched", "Recently changed"], ["id", "Reference"],
 ];
 const TYPES = [
   ["", "All records"], ["retail", "Retail clients"], ["client", "All clients"],
   ["prospect", "Prospects"], ["related", "Related parties"],
 ];
-const EVENT_LABEL = {
-  duplicate_suspect: "Possible duplicate",
-  name_carries_note: "Name field carries a note",
-  owner_assigned: "Owner assigned",
-  related_party_set: "Marked as related party",
-};
+const STATUS_OPTIONS = [
+  ["", "Any status"], ["decision", "Needs a decision"], ["confirm", "Needs confirming"],
+  ["done", "Done"], ["checked", "Checked"], ["clean", "Clean"],
+  ["set_aside", "Set aside"], ["deleted", "Deleted"], ["merged", "Merged"],
+];
 // The store's shared list. The API labels it "Shared (store)"; older responses
 // said "Unassigned", so both are recognised.
 const SHARED = "Shared (store)";
@@ -466,10 +944,11 @@ const MAPPED = {
   awareness_source_raw: "awareness_source", online_interest_raw: "online_interest",
   brand_preference_raw: "brand_preference",
 };
+const READ_ACTIONS = ["reference", "stats", "clients", "client", "ping", "peek"];
 
 /* ------------------------------------------------------------------- state */
 const blankFilters = () => ({
-  q: "", queue_class: "", owner: "", type: "", abc_class: "", lifecycle_status: "", sort: "spend", offset: 0,
+  q: "", status: "", owner: "", type: "", abc_class: "", lifecycle_status: "", sort: "spend", offset: 0,
 });
 const S = {
   locked: true, session: null,
@@ -478,7 +957,11 @@ const S = {
   f: blankFilters(),
   filtersOpen: false,
   card: null, cardId: null, cardError: null, lastFocus: null,
+  edit: null,          // the one inline form open on the card, if any
+  busy: false,         // a write is in flight
+  formError: null,
 };
+const canEdit = () => !!(S.session && S.session.can_edit && S.ref && S.ref.can_edit);
 
 /* ----------------------------------------------------------------- helpers */
 const $ = (sel, root) => (root || document).querySelector(sel);
@@ -487,6 +970,7 @@ function el(tag, props = {}, kids = []) {
   for (const [k, v] of Object.entries(props)) {
     if (k === "class") n.className = v;
     else if (k === "text") n.textContent = v;
+    else if (k === "value") n.value = v;
     else if (k.startsWith("on")) n.addEventListener(k.slice(2).toLowerCase(), v);
     else if (v !== null && v !== undefined && v !== false) n.setAttribute(k, v === true ? "" : v);
   }
@@ -502,33 +986,42 @@ const sentence = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 function fmtUZS(n) {
   if (n === null || n === undefined || n === "") return "—";
   const x = Number(n), a = Math.abs(x);
-  if (a >= 1e9) return (x / 1e9).toFixed(2) + "bn";
-  if (a >= 1e6) return (x / 1e6).toFixed(1) + "m";
-  return x.toLocaleString("en-GB");
+  const num = (v, d) => v.toLocaleString(LOC(), { minimumFractionDigits: d, maximumFractionDigits: d });
+  if (a >= 1e9) return num(x / 1e9, 2) + (LANG === "ru" ? " млрд" : "bn");
+  if (a >= 1e6) return num(x / 1e6, 1) + (LANG === "ru" ? " млн" : "m");
+  return x.toLocaleString(LOC());
 }
-const fullUZS = (n) => (n === null || n === undefined) ? "" : Number(n).toLocaleString("en-GB") + " UZS";
+const fullUZS = (n) => (n === null || n === undefined) ? "" : Number(n).toLocaleString(LOC()) + " UZS";
 function fmtDate(iso) {
   if (!iso) return "—";
   const d = new Date(String(iso).length === 10 ? iso + "T00:00:00Z" : iso);
   if (isNaN(d)) return String(iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString(LOC(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 function fmtDateTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d)) return String(iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + ", " +
-    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString(LOC(), { day: "numeric", month: "short", year: "numeric" }) + ", " +
+    d.toLocaleTimeString(LOC(), { hour: "2-digit", minute: "2-digit" });
 }
-const fmtGender = (g) => g === "M" ? "Male" : g === "F" ? "Female" : (blank(g) ? "—" : g);
-const plural = (n, one, many) => n + " " + (n === 1 ? one : (many || one + "s"));
+const fmtTime = (iso) => new Date(iso).toLocaleTimeString(LOC(), { hour: "2-digit", minute: "2-digit" });
+const fmtGender = (g) => g === "M" ? tr("Male") : g === "F" ? tr("Female") : (blank(g) ? "—" : g);
+const trv = (v) => blank(v) ? "—" : tr(String(v));   // data values that may have a translation
+// Owners, sales reps and whoever made a change: labels translate, names don't.
+const who = (v) => {
+  if (blank(v)) return v;
+  const m = /^Sales rep (\d+)$/.exec(String(v));
+  if (m) return LANG === "ru" ? "Продавец " + m[1] : String(v);
+  return tr(String(v));
+};
 
 function chip(def, text, extraClass) {
   const mark = def.shape
     ? el("span", { class: "shape " + def.shape, "aria-hidden": "true" })
     : el("span", { class: "glyph", "aria-hidden": "true", text: def.glyph });
   return el("span", { class: "chip" + (extraClass ? " " + extraClass : ""), "data-tone": def.tone || null }, [
-    mark, text || def.label,
+    mark, text || tr(def.label),
   ]);
 }
 // Same half-disc icon the Weekly Board uses for its theme switch.
@@ -567,8 +1060,11 @@ async function call(action, payload = {}) {
   let data = {};
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) {
-    if ((res.status === 401 || res.status === 403) && action !== "unlock") lockDown(data.error);
-    const err = new Error(data.error || "Request failed (" + res.status + ")");
+    // A failed session locks the page. A refused write does not: the person
+    // is still signed in and can keep reading.
+    const sessionGone = res.status === 401 || (res.status === 403 && READ_ACTIONS.includes(action));
+    if (sessionGone && action !== "unlock") lockDown(data.error);
+    const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
     err.status = res.status;
     throw err;
   }
@@ -578,7 +1074,7 @@ async function call(action, payload = {}) {
 function listParams() {
   const f = S.f, p = { sort: f.sort, limit: PAGE, offset: f.offset };
   if (f.q) p.q = f.q;
-  if (f.queue_class) p.queue_class = f.queue_class;
+  if (f.status) p.status = f.status;
   if (f.abc_class) p.abc_class = f.abc_class;
   if (f.lifecycle_status) p.lifecycle_status = f.lifecycle_status;
   if (f.owner === "__orphaned") p.owner_status = "orphaned";
@@ -616,6 +1112,15 @@ async function loadList() {
   renderListHost();
   renderScoreboard();
 }
+// After a write: the counts and the list move, quietly, behind the open card.
+async function refreshBehind() {
+  try {
+    const [ref, stats] = await Promise.all([call("reference"), call("stats")]);
+    S.ref = ref; S.stats = stats;
+    renderScoreboard(); renderProgress();
+  } catch (e) { /* the list reload below reports trouble */ }
+  loadList();
+}
 function setFilter(patch) {
   Object.assign(S.f, patch, { offset: "offset" in patch ? patch.offset : 0 });
   renderToolbarValues();
@@ -627,41 +1132,47 @@ function setFilter(patch) {
 // no real row in the DOM to un-blur, read from the network tab, or lift.
 function skeleton() {
   const rows = [];
-  const classes = ["conflict", "gap", "clean", "gap", "conflict", "clean", "gap", "clean"];
+  const st = ["decision", "confirm", "clean", "confirm", "decision", "checked", "confirm", "clean"];
   for (let i = 0; i < 14; i++) {
     rows.push({
-      client_id: "DLD-····", record_type: "client", in_colibri: true, in_marketing: i % 3 !== 0,
-      queue_class: classes[i % classes.length], conflict_fields: i % 2, gap_fields: i % 3,
+      client_id: "DLD-····", display_name: "—————— ————", record_type: "client", in_colibri: true, in_marketing: i % 3 !== 0,
+      review_status: st[i % st.length], conflict_fields: i % 2, gap_fields: 1 + (i % 3),
       abc_class: ["A", "B", "C"][i % 3], rfm_segment: "———", lifecycle_status: "———",
       client_owner: "———", owner_active: true, last_purchase_at: null, lifetime_spend_uzs: null,
-      related_party: false,
+      related_party: false, do_not_contact: false,
     });
   }
   return rows;
 }
 
 /* ------------------------------------------------------------------ header */
+function langSwitch() {
+  return el("div", { class: "lang", role: "group", "aria-label": tr("Language") }, ["en", "ru"].map((l) =>
+    el("button", { type: "button", lang: l, "aria-pressed": LANG === l ? "true" : "false",
+      onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
+}
 function renderHeader() {
   const right = [];
-  right.push(el("a", { class: "btn subtle hide-sm", href: "../board/", text: "Weekly board" }));
-  right.push(el("button", { class: "btn subtle", type: "button", "aria-label": "Switch between light and dark",
-    title: "Light / dark", onclick: toggleTheme }, [themeIcon()]));
+  right.push(el("a", { class: "btn subtle hide-sm", href: "../board/", text: tr("Weekly board") }));
+  right.push(langSwitch());
+  right.push(el("button", { class: "btn subtle", type: "button", "aria-label": tr("Switch between light and dark"),
+    title: tr("Switch between light and dark"), onclick: toggleTheme }, [themeIcon()]));
   if (S.session && !S.locked) {
     right.push(el("span", { class: "lock-state" }, [
       el("span", { class: "dot", "aria-hidden": "true" }),
       el("span", { class: "who", text: S.session.name }),
-      el("span", { class: "role", text: S.session.can_edit ? "· can edit" : "· view only" }),
-      el("button", { class: "btn subtle sm", type: "button", onclick: lockNow, text: "Lock" }),
+      el("span", { class: "role", text: "· " + (canEdit() ? tr("can edit") : tr("view only")) }),
+      el("button", { class: "btn subtle sm", type: "button", onclick: lockNow, text: tr("Lock") }),
     ]));
   }
   return el("div", { class: "top-row" }, [
     el("div", { class: "brand" }, [
-      el("a", { class: "home", href: "../", title: "All Delardi tools" }, [
-        el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — all tools" })]),
+      el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
+        el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
       el("span", { class: "rule", "aria-hidden": "true" }),
       el("div", {}, [
-        el("div", { class: "title", text: "Client Instrument" }),
-        el("div", { class: "sub", text: "CRM spring clean · read-only" }),
+        el("div", { class: "title", text: tr("Client Instrument") }),
+        el("div", { class: "sub", text: tr("CRM spring clean") }),
       ]),
     ]),
     el("div", { class: "spacer" }),
@@ -674,7 +1185,7 @@ function tile(opts) {
   const kids = [
     el("div", { class: "label" }, [
       opts.tone ? el("span", { class: "tone", "aria-hidden": "true",
-        style: "background: var(--" + opts.tone + ")" }) : null,
+        style: "background: var(--" + opts.tone + ")" }) : el("span", { class: "tone blank", "aria-hidden": "true" }),
       opts.label,
     ]),
     el("div", { class: "val", text: opts.val }),
@@ -682,9 +1193,9 @@ function tile(opts) {
   ];
   if (!opts.onclick) return el("div", { class: "stat" }, kids);
   return el("button", { class: "stat", type: "button", "aria-pressed": opts.pressed ? "true" : "false",
-    title: opts.pressed ? "Click to clear this filter" : "Click to filter the list", onclick: opts.onclick }, kids);
+    title: opts.pressed ? tr("Click to clear this filter") : tr("Click to filter the list"), onclick: opts.onclick }, kids);
 }
-// Fourth tile. Normally the shared list (lapsed and dormant clients the whole
+// Fifth tile. Normally the shared list (lapsed and dormant clients the whole
 // team works). If a sales rep leaves and their clients have not been moved yet,
 // it becomes "Owner has left" so the gap cannot sit unnoticed.
 const OWNER_TILE_KEYS = ["__orphaned", "__unassigned"];
@@ -694,17 +1205,17 @@ function ownerTile(st, f, locked) {
   const pressed = f.owner === key && f.type === "retail";
   const onclick = locked ? null : () => setFilter(pressed ? { owner: "", type: "" } : { owner: key, type: "retail" });
   if (orphaned) {
-    return tile({ label: "Owner has left", tone: "critical",
+    return tile({ label: tr("Owner has left"), tone: "critical",
       val: String(st.orphaned.clients),
-      sub: fmtUZS(st.orphaned.spend) + " of retail spend",
-      subTitle: fullUZS(st.orphaned.spend) + " — retail clients whose owner is no longer an assignable sales rep",
+      sub: tr("{spend} of retail spend", { spend: fmtUZS(st.orphaned.spend) }),
+      subTitle: fullUZS(st.orphaned.spend) + " — " + tr("Retail clients whose owner is no longer an assignable sales rep"),
       pressed, onclick });
   }
   const shared = (!locked && st.by_owner && (st.by_owner[SHARED] || st.by_owner.Unassigned)) || null;
-  return tile({ label: SHARED,
+  return tile({ label: tr(SHARED),
     val: locked ? "—" : String(shared ? shared.clients : 0),
-    sub: locked ? "——" : fmtUZS(shared ? shared.spend : 0) + " · lapsed and dormant",
-    subTitle: locked ? "" : fullUZS(shared ? shared.spend : 0) + " — retail clients on the shared win-back list, worked by the whole team",
+    sub: locked ? "——" : tr("{spend} · lapsed and dormant", { spend: fmtUZS(shared ? shared.spend : 0) }),
+    subTitle: locked ? "" : fullUZS(shared ? shared.spend : 0) + " — " + tr("Retail clients on the shared win-back list, worked by the whole team"),
     pressed, onclick });
 }
 function renderScoreboard() {
@@ -714,45 +1225,70 @@ function renderScoreboard() {
   const t = S.ref && S.ref.totals, st = S.stats;
   const locked = S.locked || !t || !st;
   const f = S.f;
-  const toggleQueue = (cls) => () => setFilter({ queue_class: f.queue_class === cls ? "" : cls });
+  const toggle = (status) => () => setFilter({ status: f.status === status ? "" : status });
   host.append(
-    tile({ label: "Needs a decision", tone: "serious",
-      val: locked ? "—" : String(t.conflict),
-      sub: locked ? "——" : plural(t.conflict_fields, "field") + " where the sources differ",
-      pressed: f.queue_class === "conflict", onclick: locked ? null : toggleQueue("conflict") }),
-    tile({ label: "Needs confirming", tone: "warning",
-      val: locked ? "—" : String(t.gap),
-      sub: locked ? "——" : plural(t.gap_fields, "field") + " from one source only",
-      pressed: f.queue_class === "gap", onclick: locked ? null : toggleQueue("gap") }),
-    tile({ label: "Clean", tone: "good",
-      val: locked ? "—" : String(t.clean),
-      sub: locked ? "——" : "nothing outstanding",
-      pressed: f.queue_class === "clean", onclick: locked ? null : toggleQueue("clean") }),
+    tile({ label: tr("Needs a decision"), tone: "serious",
+      val: locked ? "—" : String(t.decision),
+      sub: locked ? "——" : tr("{n} where the sources differ", { n: pl(t.conflict_fields, "field") }),
+      pressed: f.status === "decision", onclick: locked ? null : toggle("decision") }),
+    tile({ label: tr("Needs confirming"), tone: "warning",
+      val: locked ? "—" : String(t.confirm),
+      sub: locked ? "——" : tr("{n} from one source only", { n: pl(t.gap_fields, "field") }),
+      pressed: f.status === "confirm", onclick: locked ? null : toggle("confirm") }),
+    tile({ label: tr("Set aside"),
+      val: locked ? "—" : String(t.set_aside),
+      sub: locked ? "——" : tr("waiting on the client or a check"),
+      pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
+    tile({ label: tr("Done"), tone: "good",
+      val: locked ? "—" : String(t.done),
+      sub: locked ? "——" : tr("{checked} checked · {clean} matched", { checked: t.checked, clean: t.clean }),
+      pressed: f.status === "done", onclick: locked ? null : toggle("done") }),
     ownerTile(st, f, locked),
-    tile({ label: "Retail clients",
+    tile({ label: tr("Retail clients"),
       val: locked ? "—" : String(st.clients),
-      sub: locked ? "——" : fmtUZS(st.total_spend) + " lifetime · related parties excluded",
+      sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
+        { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
       subTitle: locked ? "" : fullUZS(st.total_spend),
       pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
       onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
         owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
-    tile({ label: "Related parties",
-      val: locked ? "—" : String(st.related_party.clients),
-      sub: locked ? "——" : fmtUZS(st.related_party.spend) + " at founder terms",
-      subTitle: locked ? "" : fullUZS(st.related_party.spend) + " — founders and related accounts, kept out of retail figures",
-      pressed: f.type === "related",
-      onclick: locked ? null : () => setFilter({ type: f.type === "related" ? "" : "related" }) }),
+  );
+}
+// The clean-up at a glance: done, set aside, still to do.
+function renderProgress() {
+  const host = $("#progress");
+  if (!host) return;
+  host.innerHTML = "";
+  const t = S.ref && S.ref.totals;
+  if (S.locked || !t) { host.appendChild(el("div", { class: "progress-bar skel" })); return; }
+  const total = t.records || 1, done = t.done, aside = t.set_aside, togo = t.decision + t.confirm;
+  const pct = (n) => Math.round((n / total) * 1000) / 10 + "%";
+  const week = S.ref.activity ? S.ref.activity.week : 0;
+  host.append(
+    el("div", { class: "progress-head" }, [
+      el("span", { class: "progress-title", text: tr("Clean-up progress") }),
+      el("span", { class: "progress-text" }, [
+        el("b", { text: tr("{done} of {total} records done", { done, total: t.records }) }),
+        " · " + tr("{n} set aside", { n: aside }) + " · " + tr("{n} to go", { n: togo }) +
+        " · " + tr("{n} worked on this week", { n: pl(week, "record") }),
+      ]),
+    ]),
+    el("div", { class: "progress-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(t.records),
+      "aria-valuenow": String(done), "aria-label": tr("Clean-up progress") }, [
+      el("span", { class: "seg done", style: "width:" + pct(done) }),
+      el("span", { class: "seg aside", style: "width:" + pct(aside) }),
+    ]),
   );
 }
 
 /* ---------------------------------------------------------------- toolbar */
 function ownerOptions() {
-  const opts = [["", "All owners"], ["__assignable", "Current sales reps"], ["__unassigned", SHARED], ["__orphaned", "Owner has left"]];
+  const opts = [["", tr("All owners")], ["__assignable", tr("Current sales reps")], ["__unassigned", tr(SHARED)], ["__orphaned", tr("Owner has left")]];
   const reps = (S.ref && S.ref.sales_reps) || [];
   const active = reps.filter((r) => r.active && !isShared(r.label));
   const former = reps.filter((r) => !r.active);
-  for (const r of active) opts.push([r.label, r.label]);
-  for (const r of former) opts.push([r.label, r.label + " (left)"]);
+  for (const r of active) opts.push([r.label, who(r.label)]);
+  for (const r of former) opts.push([r.label, tr("{label} (left)", { label: who(r.label) })]);
   return opts;
 }
 function selectField(label, key, options) {
@@ -762,27 +1298,30 @@ function selectField(label, key, options) {
   s.value = S.f[key];
   return el("label", { class: "field" }, [el("span", { text: label }), s]);
 }
+const FILTER_KEYS = ["status", "owner", "type", "abc_class", "lifecycle_status"];
 let searchTimer = null;
 function renderToolbar() {
-  const q = el("input", { type: "search", placeholder: "DLD-0042", value: S.f.q, "aria-label": "Search by client reference",
+  const q = el("input", { type: "search", placeholder: tr("Name or reference"), value: S.f.q,
+    "aria-label": tr("Search by name or client reference"),
     oninput: (e) => { clearTimeout(searchTimer); const v = e.target.value.trim(); searchTimer = setTimeout(() => setFilter({ q: v }), 280); } });
-  const activeCount = ["queue_class", "owner", "type", "abc_class", "lifecycle_status"].filter((k) => S.f[k]).length;
+  const activeCount = FILTER_KEYS.filter((k) => S.f[k]).length;
+  const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
-    el("label", { class: "field search" }, [el("span", { text: "Reference" }), q]),
+    el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
     el("button", { class: "btn filters-toggle", type: "button", "aria-expanded": S.filtersOpen ? "true" : "false",
       "aria-controls": "filters",
       onclick: () => { S.filtersOpen = !S.filtersOpen; $("#toolbar").classList.toggle("open", S.filtersOpen);
         $(".filters-toggle").setAttribute("aria-expanded", S.filtersOpen ? "true" : "false"); },
-      text: activeCount ? "Filters (" + activeCount + ")" : "Filters" }),
+      text: activeCount ? tr("Filters ({n})", { n: activeCount }) : tr("Filters") }),
     el("div", { class: "filters", id: "filters" }, [
-      selectField("Review", "queue_class", [["", "Any status"], ["conflict", "Needs a decision"], ["gap", "Needs confirming"], ["clean", "Clean"]]),
-      selectField("Owner", "owner", ownerOptions()),
-      selectField("Records", "type", TYPES),
-      selectField("ABC", "abc_class", [["", "Any class"], ["A", "A"], ["B", "B"], ["C", "C"]]),
-      selectField("Lifecycle", "lifecycle_status", [["", "Any"]].concat(LIFECYCLES.map((l) => [l, l]))),
-      selectField("Sort", "sort", SORTS),
-      el("div", { class: "field reset" }, [el("span", { "aria-hidden": "true", text: "\u00a0" }),
-        el("button", { class: "btn subtle", type: "button", onclick: resetFilters, text: "Reset" })]),
+      selectField(tr("Status"), "status", tx(STATUS_OPTIONS)),
+      selectField(tr("Owner"), "owner", ownerOptions()),
+      selectField(tr("Records"), "type", tx(TYPES)),
+      selectField(tr("ABC"), "abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]]),
+      selectField(tr("Lifecycle"), "lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)]))),
+      selectField(tr("Sort"), "sort", tx(SORTS)),
+      el("div", { class: "field reset" }, [el("span", { "aria-hidden": "true", text: " " }),
+        el("button", { class: "btn subtle", type: "button", onclick: resetFilters, text: tr("Reset") })]),
     ]),
   ]);
 }
@@ -790,8 +1329,8 @@ function renderToolbarValues() {
   document.querySelectorAll("#toolbar select[data-key]").forEach((s) => { s.value = S.f[s.dataset.key]; });
   const btn = $(".filters-toggle");
   if (btn) {
-    const n = ["queue_class", "owner", "type", "abc_class", "lifecycle_status"].filter((k) => S.f[k]).length;
-    btn.textContent = n ? "Filters (" + n + ")" : "Filters";
+    const n = FILTER_KEYS.filter((k) => S.f[k]).length;
+    btn.textContent = n ? tr("Filters ({n})", { n }) : tr("Filters");
   }
   renderScoreboard();
 }
@@ -805,50 +1344,54 @@ function resetFilters() {
 
 /* ------------------------------------------------------------------- list */
 function sourceLine(r) {
-  if (r.in_colibri && r.in_marketing) return "Colibri + questionnaire";
-  if (r.in_colibri) return "Colibri only";
-  if (r.in_marketing) return "Questionnaire only";
+  if (r.in_colibri && r.in_marketing) return tr("Colibri + questionnaire");
+  if (r.in_colibri) return tr("Colibri only");
+  if (r.in_marketing) return tr("Questionnaire only");
   return "—";
 }
-function queueChip(r) {
-  const q = QUEUE[r.queue_class] || QUEUE.clean;
-  let text;
-  if (r.queue_class === "conflict") {
-    text = r.conflict_fields + " differ" + (r.conflict_fields === 1 ? "s" : "") +
-      (r.gap_fields ? " · " + r.gap_fields + " to confirm" : "");
-  } else if (r.queue_class === "gap") {
-    text = r.gap_fields + " to confirm";
-  } else text = "Clean";
-  return chip(q, text);
+function statusChip(r) {
+  const key = r.review_status || (r.queue_class === "conflict" ? "decision" : r.queue_class === "gap" ? "confirm" : "clean");
+  const def = STATUS[key] || STATUS.clean;
+  let text = tr(def.label);
+  if (key === "decision") {
+    text = tr("{n} differ", { n: r.conflict_fields }) + (r.gap_fields ? " · " + tr("{n} to confirm", { n: r.gap_fields }) : "");
+  } else if (key === "confirm") text = tr("{n} to confirm", { n: r.gap_fields });
+  else if (key === "merged" && r.merged_into) text = tr("Merged") + " " + tr("into {id}", { id: r.merged_into });
+  return chip(def, text);
 }
 function ownerCell(r) {
   if (blank(r.client_owner)) return el("span", { class: "muted", text: "—" });
-  const kids = [el("span", { text: r.client_owner })];
-  if (ownerHasLeft(r.client_owner, r.owner_active)) kids.push(el("span", { class: "left-mark", text: "has left" }));
+  const kids = [el("span", { text: who(r.client_owner) })];
+  if (ownerHasLeft(r.client_owner, r.owner_active)) kids.push(el("span", { class: "left-mark", text: tr("has left") }));
   return el("span", {}, kids);
 }
+const dncChip = () => chip({ glyph: "⊘", tone: "critical" }, tr("Do not contact"), "dnc");
 function renderRow(r) {
   const open = () => openCard(r.client_id);
-  return el("tr", { tabindex: S.locked ? null : "0", "data-id": r.client_id, "aria-label": "Open " + r.client_id,
+  const name = blank(r.display_name) ? tr("Unnamed record") : r.display_name;
+  return el("tr", { tabindex: S.locked ? null : "0", "data-id": r.client_id, "aria-label": tr("Open {id}", { id: r.client_id }) + " — " + name,
+    class: r.review_status === "deleted" || r.review_status === "merged" ? "closed" : null,
     onclick: open, onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } } }, [
     el("td", { class: "col-ref" }, [
-      el("div", { class: "ref" }, [r.client_id,
-        r.related_party ? el("span", { style: "margin-left:7px" }, [chip({ glyph: "◇", tone: "" }, "Related", "dashed")]) : null,
-        r.record_type === "prospect" ? el("span", { style: "margin-left:7px" }, [chip({ glyph: "○", tone: "" }, "Prospect")]) : null]),
+      el("div", { class: "nm", text: name }),
+      el("div", { class: "ref" }, [el("span", { class: "id", text: r.client_id }),
+        r.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related"), "dashed") : null,
+        r.record_type === "prospect" ? chip({ glyph: "○", tone: "" }, tr("Prospect")) : null,
+        r.do_not_contact ? dncChip() : null]),
       el("div", { class: "src", text: sourceLine(r) }),
     ]),
-    el("td", { class: "col-review" }, [queueChip(r)]),
+    el("td", { class: "col-review" }, [statusChip(r)]),
     el("td", { class: "col-abc" }, [r.abc_class ? el("span", { class: "abc", "data-c": r.abc_class, text: r.abc_class }) : el("span", { class: "muted", text: "—" })]),
-    el("td", { class: "col-seg", text: r.rfm_segment || "—" }),
-    el("td", { class: "col-life", text: r.lifecycle_status || "—" }),
+    el("td", { class: "col-seg", text: trv(r.rfm_segment) }),
+    el("td", { class: "col-life", text: trv(r.lifecycle_status) }),
     el("td", { class: "col-owner" }, [ownerCell(r)]),
     el("td", { class: "col-last num", text: fmtDate(r.last_purchase_at) }),
     el("td", { class: "col-spend num", title: fullUZS(r.lifetime_spend_uzs), text: fmtUZS(r.lifetime_spend_uzs) }),
     el("td", { class: "col-meta" }, [
-      r.abc_class ? el("span", { text: "Class " + r.abc_class }) : null,
-      r.lifecycle_status ? el("span", { text: r.lifecycle_status }) : null,
+      r.abc_class ? el("span", { text: tr("Class {c}", { c: r.abc_class }) }) : null,
+      r.lifecycle_status ? el("span", { text: tr(r.lifecycle_status) }) : null,
       !blank(r.client_owner) ? el("span", {}, [ownerCell(r)]) : null,
-      r.last_purchase_at ? el("span", { text: "Last " + fmtDate(r.last_purchase_at) }) : null,
+      r.last_purchase_at ? el("span", { text: tr("Last {d}", { d: fmtDate(r.last_purchase_at) }) }) : null,
     ]),
   ]);
 }
@@ -860,7 +1403,7 @@ function renderListHost() {
 
   const from = S.total ? S.f.offset + 1 : 0, to = Math.min(S.f.offset + PAGE, S.total);
   host.appendChild(el("div", { class: "listbar", role: "status", "aria-live": "polite" }, S.locked ? [] : [
-    el("span", {}, [S.loading ? "Loading… " : "", "Showing ", el("b", { text: from + "–" + to }), " of ", el("b", { text: String(S.total) })]),
+    el("span", {}, [S.loading ? tr("Loading…") + " " : "", tr("Showing") + " ", el("b", { text: from + "–" + to }), " " + tr("of") + " ", el("b", { text: String(S.total) })]),
     el("span", { class: "scope", text: describeFilters() }),
   ]));
 
@@ -868,25 +1411,25 @@ function renderListHost() {
   if (S.error && !S.locked) {
     panel.appendChild(el("div", { class: "err-box" }, [
       el("p", { text: S.error }),
-      el("button", { class: "btn", type: "button", onclick: loadList, text: "Try again" }),
+      el("button", { class: "btn", type: "button", onclick: loadList, text: tr("Try again") }),
     ]));
   } else if (!S.rows.length && !S.locked) {
     panel.appendChild(el("div", { class: "empty" }, [
-      el("p", { text: "No records match these filters." }),
-      el("button", { class: "btn", type: "button", onclick: resetFilters, text: "Clear filters" }),
+      el("p", { text: tr("No records match these filters.") }),
+      el("button", { class: "btn", type: "button", onclick: resetFilters, text: tr("Clear filters") }),
     ]));
   } else {
     const table = el("table", { class: "clients" + (S.loading ? " loading-list" : "") }, [
-      el("caption", { class: "sr-only", text: "Client records" }),
+      el("caption", { class: "sr-only", text: tr("Client records") }),
       el("thead", {}, [el("tr", {}, [
-        el("th", { scope: "col", text: "Client" }),
-        el("th", { scope: "col", text: "Review" }),
+        el("th", { scope: "col", text: tr("Client") }),
+        el("th", { scope: "col", text: tr("Status") }),
         el("th", { scope: "col", class: "col-abc", text: "ABC" }),
-        el("th", { scope: "col", class: "col-seg", text: "Segment" }),
-        el("th", { scope: "col", class: "col-life", text: "Lifecycle" }),
-        el("th", { scope: "col", class: "col-owner", text: "Owner" }),
-        el("th", { scope: "col", class: "col-last num", text: "Last purchase" }),
-        el("th", { scope: "col", class: "num", text: "Lifetime spend" }),
+        el("th", { scope: "col", class: "col-seg", text: tr("Segment") }),
+        el("th", { scope: "col", class: "col-life", text: tr("Lifecycle") }),
+        el("th", { scope: "col", class: "col-owner", text: tr("Owner") }),
+        el("th", { scope: "col", class: "col-last num", text: tr("Last purchase") }),
+        el("th", { scope: "col", class: "num", text: tr("Lifetime spend") }),
       ])]),
       el("tbody", {}, S.rows.map(renderRow)),
     ]);
@@ -894,10 +1437,10 @@ function renderListHost() {
     if (!S.locked && S.total > PAGE) {
       panel.appendChild(el("div", { class: "pager" }, [
         el("button", { class: "btn sm", type: "button", disabled: S.f.offset === 0 ? true : null,
-          onclick: () => setFilter({ offset: Math.max(0, S.f.offset - PAGE) }), text: "← Previous" }),
-        el("span", { text: "Page " + (Math.floor(S.f.offset / PAGE) + 1) + " of " + Math.ceil(S.total / PAGE) }),
+          onclick: () => setFilter({ offset: Math.max(0, S.f.offset - PAGE) }), text: tr("← Previous") }),
+        el("span", { text: tr("Page {n} of {m}", { n: Math.floor(S.f.offset / PAGE) + 1, m: Math.ceil(S.total / PAGE) }) }),
         el("button", { class: "btn sm", type: "button", disabled: S.f.offset + PAGE >= S.total ? true : null,
-          onclick: () => setFilter({ offset: S.f.offset + PAGE }), text: "Next →" }),
+          onclick: () => setFilter({ offset: S.f.offset + PAGE }), text: tr("Next →") }),
       ]));
     }
   }
@@ -905,11 +1448,11 @@ function renderListHost() {
 }
 function describeFilters() {
   const f = S.f, parts = [];
-  if (f.queue_class) parts.push(QUEUE[f.queue_class].label.toLowerCase());
-  if (f.type) parts.push((TYPES.find((t) => t[0] === f.type) || ["", ""])[1].toLowerCase());
-  if (f.owner) parts.push("owner: " + ((ownerOptions().find((o) => o[0] === f.owner) || ["", f.owner])[1]).toLowerCase());
-  if (f.abc_class) parts.push("class " + f.abc_class);
-  if (f.lifecycle_status) parts.push(f.lifecycle_status.toLowerCase());
+  if (f.status) parts.push(tr((STATUS_OPTIONS.find((o) => o[0] === f.status) || ["", f.status])[1]).toLowerCase());
+  if (f.type) parts.push(tr((TYPES.find((t) => t[0] === f.type) || ["", ""])[1]).toLowerCase());
+  if (f.owner) parts.push(tr("owner: {o}", { o: ((ownerOptions().find((o) => o[0] === f.owner) || ["", f.owner])[1]).toLowerCase() }));
+  if (f.abc_class) parts.push(tr("class {c}", { c: f.abc_class }));
+  if (f.lifecycle_status) parts.push(tr(f.lifecycle_status).toLowerCase());
   if (f.q) parts.push("“" + f.q + "”");
   return parts.length ? "· " + parts.join(" · ") : "";
 }
@@ -917,8 +1460,8 @@ function describeFilters() {
 /* ------------------------------------------------------------------ drawer */
 async function openCard(id) {
   if (S.locked) return;
-  S.lastFocus = document.activeElement;
-  S.cardId = id; S.card = null; S.cardError = null;
+  if (!S.cardId) S.lastFocus = document.activeElement;
+  S.cardId = id; S.card = null; S.cardError = null; S.edit = null; S.formError = null;
   if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
   renderDrawer();
   try {
@@ -933,140 +1476,518 @@ async function openCard(id) {
 }
 function closeCard() {
   if (!S.cardId) return;
-  S.cardId = null; S.card = null; S.cardError = null;
+  const closedId = S.cardId;
+  S.cardId = null; S.card = null; S.cardError = null; S.edit = null; S.formError = null;
   const d = $("#drawer");
   d.classList.remove("open"); d.setAttribute("aria-hidden", "true");
   $("#scrim").classList.remove("open");
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-  const back = S.lastFocus && document.contains(S.lastFocus) ? S.lastFocus : null;
+  // The list may have been redrawn while the card was open (after a save), so
+  // fall back to the row for this record, then to the list itself.
+  let back = S.lastFocus && document.contains(S.lastFocus) ? S.lastFocus : null;
+  if (!back && S.lastFocus && S.lastFocus.dataset && S.lastFocus.dataset.id) {
+    back = document.querySelector('table.clients tr[data-id="' + S.lastFocus.dataset.id + '"]');
+  }
+  if (!back) back = document.querySelector('table.clients tr[data-id="' + closedId + '"]');
   if (back) back.focus();
 }
 function bestName(c) {
-  return c.name_confirmed || c.name_colibri || c.name_marketing || "Unnamed record";
+  return c.name_confirmed || c.name_colibri || c.name_marketing || tr("Unnamed record");
 }
-function flagChip(flag) { return chip(FLAG[flag] || FLAG.none); }
 function mappedValue(field, raw) {
   if (blank(raw)) return null;
   const m = ((S.ref && S.ref.value_mappings) || []).find((x) => x.field === field && x.raw_value === raw);
   return m || null;
 }
+const recordClosed = (c) => c.record_state === "merged" || c.record_state === "deleted" || c.record_state === "to_delete";
+const editable = (c) => canEdit() && !recordClosed(c);
 
-function sectionCompare(c) {
+/* ---- writes: one at a time, the card redraws from the server's answer ---- */
+async function act(action, payload, okMsg) {
+  if (S.busy) return;
+  S.busy = true; S.formError = null;
+  renderDrawer();
+  try {
+    const data = await call(action, { id: S.cardId, ...payload });
+    S.card = data;
+    if (data.client && data.client.client_id !== S.cardId) {
+      S.cardId = data.client.client_id;
+      history.replaceState(null, "", "#" + S.cardId);
+    }
+    S.edit = null;
+    toast(okMsg || tr("Saved."));
+    refreshBehind();
+  } catch (e) {
+    S.formError = e.message;
+  }
+  S.busy = false;
+  renderDrawer();
+  const h = $("#drawer-title");
+  if (h && !S.edit) h.focus();
+}
+function startEdit(edit) {
+  S.edit = edit; S.formError = null;
+  renderDrawer();
+  const first = $("#drawer .editor input:not([type=radio]), #drawer .editor textarea, #drawer .editor select, #drawer .editor input[type=radio]");
+  if (first) first.focus();
+}
+function cancelEdit() { S.edit = null; S.formError = null; renderDrawer(); }
+function formError() {
+  return S.formError ? el("p", { class: "form-err", role: "alert", text: S.formError }) : null;
+}
+function formButtons(saveLabel, onSave, danger) {
+  return el("div", { class: "form-actions" }, [
+    el("button", { class: "btn " + (danger ? "danger" : "primary"), type: "submit", disabled: S.busy ? true : null,
+      text: S.busy ? tr("Saving…") : saveLabel }),
+    el("button", { class: "btn subtle", type: "button", onclick: cancelEdit, disabled: S.busy ? true : null, text: tr("Cancel") }),
+  ]);
+}
+function radio(name, value, checked, label, onpick, extra) {
+  return el("label", { class: "opt" }, [
+    el("input", { type: "radio", name, value, checked: checked ? true : null, onchange: () => onpick(value) }),
+    el("span", {}, [label, extra || null]),
+  ]);
+}
+
+/* ------------------------------------------------------------ card: status */
+function sectionReview(data) {
+  const c = data.client, q = data.queue || {};
+  const status = q.review_status;
+  const kids = [];
   const flags = [c.name_flag, c.phone_flag, c.gender_flag, c.dob_flag];
   const nConf = flags.filter((f) => f === "conflict").length;
   const nGap = flags.filter((f) => f === "gap").length;
-  const summary = nConf || nGap
-    ? el("p", { class: "summary-line" }, [
-        nConf ? plural(nConf, "field needs a decision", "fields need a decision") : "",
-        nConf && nGap ? " · " : "",
-        nGap ? plural(nGap, "field needs confirming", "fields need confirming") : ""])
-    : el("p", { class: "summary-line ok", text: "Everything on file matches across both sources." });
 
-  const fieldCell = (label, flag) => el("td", { class: "f" }, [
-    el("span", { class: "fl", text: label }), el("span", { class: "st-inline" }, [flagChip(flag)])]);
-  const row = (label, a, b, flag) => el("tr", { class: flag === "conflict" ? "diff" : null }, [
-    fieldCell(label, flag),
-    el("td", { text: blank(a) ? "—" : a }),
-    el("td", { text: blank(b) ? "—" : b }),
-    el("td", { class: "st" }, [flagChip(flag)]),
+  if (c.record_state === "merged") {
+    kids.push(el("div", { class: "banner" }, [
+      el("span", { text: tr("This record was merged into {id}.", { id: c.merged_into }) + " " }),
+      el("a", { href: "#" + c.merged_into, text: tr("Open {id}", { id: c.merged_into }) }),
+    ]));
+    return el("section", { class: "drawer-section review" }, kids);
+  }
+  if (c.record_state === "deleted" || c.record_state === "to_delete") {
+    kids.push(el("div", { class: "banner critical" }, [
+      el("b", { text: tr("Deleted by {by}, {d}", { by: who(c.state_by) || "—", d: fmtDate(c.state_at) }) }),
+      c.state_reason ? el("span", { text: " — " + c.state_reason }) : null,
+    ]));
+    if (canEdit()) kids.push(el("div", { class: "actions" }, [
+      el("button", { class: "btn", type: "button", disabled: S.busy ? true : null,
+        onclick: () => act("set_state", { state: "open" }, tr("Restored.")), text: tr("Restore") })]));
+    kids.push(formError());
+    return el("section", { class: "drawer-section review" }, kids);
+  }
+
+  const line = nConf || nGap
+    ? [nConf ? tr(nConf === 1 ? "{n} field needs a decision" : "{n} fields need a decision", { n: nConf }) : "",
+       nConf && nGap ? " · " : "",
+       nGap ? tr(nGap === 1 ? "{n} field needs confirming" : "{n} fields need confirming", { n: nGap }) : ""].join("")
+    : tr("Every field is settled.");
+  kids.push(el("div", { class: "review-head" }, [
+    el("h3", { text: tr("Review") }),
+    status ? statusChip(q) : null,
+  ]));
+  kids.push(el("p", { class: "summary-line" + (nConf || nGap ? "" : " ok"), text: line }));
+  if (c.record_state === "confirmed") {
+    kids.push(el("p", { class: "meta-line", text: tr("Checked by {by}, {d}", { by: who(c.reviewed_by || c.state_by) || "—", d: fmtDate(c.reviewed_at || c.state_at) }) }));
+  }
+  if (c.record_state === "parked") {
+    kids.push(el("div", { class: "banner" }, [
+      el("b", { text: tr("Set aside by {by}, {d}", { by: who(c.state_by) || "—", d: fmtDate(c.state_at) }) }),
+      c.state_reason ? el("span", { text: " — " + c.state_reason }) : null,
+    ]));
+  }
+
+  if (!canEdit()) {
+    kids.push(el("p", { class: "readonly-note", text: tr("View only. Ask Alex if you need to change records.") }));
+    return el("section", { class: "drawer-section review" }, kids);
+  }
+
+  const b = (label, onclick, opts = {}) => el("button", { class: "btn" + (opts.cls ? " " + opts.cls : ""), type: "button",
+    disabled: S.busy || opts.disabled ? true : null, title: opts.title || null, onclick, text: label });
+  const actions = [];
+  if (nGap) actions.push(b(tr("Accept single-source values ({n})", { n: nGap }),
+    () => act("accept_single_source", {}, tr("Saved.")),
+    { title: tr("Takes each value held by only one source as it is. You can change any of them afterwards.") }));
+  if (c.record_state === "open") {
+    actions.push(b(tr("Mark as checked"), () => act("set_state", { state: "confirmed" }, tr("Marked as checked.")),
+      { cls: "primary", disabled: nConf > 0, title: nConf ? tr("Settle the fields where the sources differ first.") : null }));
+    actions.push(b(tr("Set aside…"), () => startEdit({ kind: "park", reason: "" }), { cls: "subtle" }));
+  } else {
+    actions.push(b(tr("Reopen"), () => act("set_state", { state: "open" }, tr("Reopened.")), { cls: "subtle" }));
+  }
+  actions.push(b(tr("Delete…"), () => startEdit({ kind: "delete", reason: "" }), { cls: "subtle danger-text" }));
+  kids.push(el("div", { class: "actions" }, actions));
+
+  if (S.edit && (S.edit.kind === "park" || S.edit.kind === "delete")) {
+    const del = S.edit.kind === "delete";
+    const input = el("input", { type: "text", id: "state-reason", maxlength: "300", value: S.edit.reason,
+      placeholder: tr(del ? "Why delete it? E.g. test entry, not a client" : "Why is it set aside? E.g. client not reachable"),
+      oninput: (e) => { S.edit.reason = e.target.value; } });
+    kids.push(el("form", { class: "editor", onsubmit: (e) => { e.preventDefault();
+      act("set_state", { state: del ? "deleted" : "parked", reason: S.edit.reason }, tr(del ? "Deleted." : "Set aside.")); } }, [
+      el("label", { for: "state-reason", class: "lbl", text: tr("Reason") }), input,
+      del ? el("p", { class: "hint", text: tr("Deleted records drop out of every list and figure. They can be restored.") }) : null,
+      formError(),
+      formButtons(tr(del ? "Delete…" : "Set aside…").replace("…", ""), null, del),
+    ]));
+  } else if (!S.edit || S.edit.kind === "park" || S.edit.kind === "delete") {
+    kids.push(formError());
+  }
+  return el("section", { class: "drawer-section review" }, kids);
+}
+
+/* ---------------------------------------------------------- card: identity */
+function flagChip(flag) { return chip(FLAG[flag] || FLAG.none); }
+// On a phone the status column folds under the field name, so rows that span
+// the table span three columns, not four.
+const spanAll = () => (window.matchMedia("(max-width: 720px)").matches ? "3" : "4");
+function fieldValues(c, field) {
+  if (field === "name") return [c.name_colibri, c.name_marketing];
+  if (field === "gender") return [c.gender_colibri ? fmtGender(c.gender_colibri) : "", c.gender_marketing ? fmtGender(c.gender_marketing) : ""];
+  if (field === "dob") return [c.dob_colibri ? fmtDate(c.dob_colibri) : "", c.dob_marketing ? fmtDate(c.dob_marketing) : ""];
+  return ["", ""];
+}
+function confirmedValue(c, field) {
+  if (field === "name") return c.name_confirmed;
+  if (field === "gender") return c.gender_confirmed ? fmtGender(c.gender_confirmed) : "";
+  if (field === "dob") return c.dob_confirmed ? fmtDate(c.dob_confirmed) : "";
+  return "";
+}
+function fieldAction(c, field, flag) {
+  if (!editable(c)) return null;
+  if (S.edit && S.edit.kind === "field" && S.edit.field === field) return null;
+  if (field === "phone" && (flag === "none")) return null;
+  const hasCol = field === "phone" ? c.phone_flag !== "none" : !blank(fieldValues(c, field)[0]);
+  const hasMkt = !blank(fieldValues(c, field)[1]);
+  const label = flag === "conflict" ? tr("Decide") : flag === "gap" ? tr("Confirm") : flag === "none" ? tr("Add") : tr("Change");
+  const preset = flag === "gap" && field !== "phone" ? (hasCol ? "colibri" : hasMkt ? "marketing" : "") : "";
+  return el("button", { class: "btn sm" + (flag === "conflict" || flag === "gap" ? "" : " subtle"), type: "button",
+    disabled: S.busy ? true : null, "data-field": field,
+    onclick: () => startEdit({ kind: "field", field, source: flag === "none" ? "value" : preset, value: "", basis: "" }), text: label });
+}
+function fieldEditor(c, field, flag, meta) {
+  const e = S.edit;
+  const [col, mkt] = fieldValues(c, field);
+  const opts = [];
+  const pick = (v) => { e.source = v; const other = $("#fe-other"); if (other) other.disabled = v !== "value"; };
+  if (field === "phone") {
+    const both = flag === "conflict";
+    if (both) {
+      opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("The number in Colibri"), pick));
+      opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("The number in the questionnaire"), pick));
+    } else {
+      // one number on file: confirm it from whichever source holds it
+      if (!e.source) e.source = c.phone_in_colibri || !c.phone_in_marketing ? "colibri" : "marketing";
+      opts.push(radio("fe-src", e.source, true, tr("The number on file"), pick));
+    }
+  } else {
+    if (!blank(col)) opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("From Colibri") + ": ", pick, el("b", { text: col })));
+    if (!blank(mkt)) opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("From the questionnaire") + ": ", pick, el("b", { text: mkt })));
+    let other;
+    if (field === "gender") {
+      other = el("select", { id: "fe-other", disabled: e.source !== "value" ? true : null, onchange: (ev) => { e.value = ev.target.value; } }, [
+        el("option", { value: "", text: "—" }), el("option", { value: "F", text: tr("Female") }), el("option", { value: "M", text: tr("Male") })]);
+      other.value = e.value || "";
+    } else if (field === "dob") {
+      other = el("input", { id: "fe-other", type: "date", min: "1920-01-01", value: e.value || "", disabled: e.source !== "value" ? true : null,
+        oninput: (ev) => { e.value = ev.target.value; } });
+    } else {
+      other = el("input", { id: "fe-other", type: "text", maxlength: "120", value: e.value || "", disabled: e.source !== "value" ? true : null,
+        oninput: (ev) => { e.value = ev.target.value; } });
+    }
+    opts.push(el("div", { class: "opt other" }, [
+      radio("fe-src", "value", e.source === "value", tr("Something else"), pick), other]));
+  }
+  const bases = [
+    radio("fe-basis", "client", e.basis === "client", tr("The client confirmed it"), (v) => { e.basis = v; }),
+    radio("fe-basis", "delardi", e.basis === "delardi", tr("From our own records"), (v) => { e.basis = v; }),
+  ];
+  const settled = HUMAN_FLAGS.includes(flag);
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!e.source || (e.source === "value" && blank(e.value))) { S.formError = tr("Choose a value."); renderDrawer(); return; }
+    if (!e.basis) { S.formError = tr("Say how you know."); renderDrawer(); return; }
+    act("resolve_field", { field, source: e.source, value: e.source === "value" ? e.value : null, basis: e.basis }, tr("Saved."));
+  };
+  return el("tr", { class: "editor-row" }, [el("td", { colspan: spanAll() }, [
+    el("form", { class: "editor", onsubmit: submit }, [
+      el("fieldset", {}, [el("legend", { text: tr("Which value is right?") }), ...opts]),
+      el("fieldset", {}, [el("legend", { text: tr("How do you know?") }), ...bases]),
+      formError(),
+      formButtons(tr("Save")),
+      settled ? el("button", { class: "btn subtle sm reset-field", type: "button", disabled: S.busy ? true : null,
+        onclick: () => act("reset_field", { field }, tr("Saved.")), text: tr("Back to the automatic comparison") }) : null,
+    ]),
+  ])]);
+}
+function metaLine(meta) {
+  if (!meta) return null;
+  return el("span", { class: "by", text: tr("{by}, {d}", { by: who(meta.by) || "—", d: fmtDate(meta.at) }) });
+}
+function sectionCompare(data) {
+  const c = data.client, meta = data.field_meta || {};
+  const fieldCell = (field, label, flag) => el("td", { class: "f" }, [
+    el("span", { class: "fl", text: label }), el("span", { class: "st-inline" }, [
+      flagChip(flag),
+      HUMAN_FLAGS.includes(flag) ? metaLine(meta[field]) : null,
+      fieldAction(c, field, flag),
+    ])]);
+  const statusCell = (field, flag) => el("td", { class: "st" }, [
+    flagChip(flag),
+    HUMAN_FLAGS.includes(flag) ? metaLine(meta[field]) : null,
+    fieldAction(c, field, flag),
   ]);
+  const rows = [];
+  const add = (field) => {
+    const flag = c[field + "_flag"] || "none";
+    const settled = HUMAN_FLAGS.includes(flag) && field !== "phone";
+    let cells;
+    if (field === "phone") {
+      cells = [el("td", { colspan: "2", class: "muted", text: flag === "none" ? tr("No number on file") : tr("Held, not shown here") })];
+    } else {
+      const [a, b] = fieldValues(c, field);
+      cells = [el("td", { text: blank(a) ? "—" : a }), el("td", { text: blank(b) ? "—" : b })];
+    }
+    rows.push(el("tr", { class: flag === "conflict" ? "diff" : null, "data-row": field }, [
+      fieldCell(field, tr(FIELD_LABEL[field]), flag), ...cells, statusCell(field, flag)]));
+    if (settled && !blank(confirmedValue(c, field))) {
+      rows.push(el("tr", { class: "confirmed-row" }, [el("td", { colspan: spanAll() }, [
+        el("span", { class: "muted", text: "→ " }), el("b", { text: confirmedValue(c, field) })])]));
+    }
+    if (S.edit && S.edit.kind === "field" && S.edit.field === field) rows.push(fieldEditor(c, field, flag, meta[field]));
+  };
+  ["name", "phone", "gender", "dob"].forEach(add);
   return el("section", { class: "drawer-section" }, [
-    el("h3", {}, ["Identity — Colibri against the questionnaire"]),
-    summary,
+    el("h3", {}, [tr("Identity — Colibri against the questionnaire")]),
     el("table", { class: "compare" }, [
       el("thead", {}, [el("tr", {}, [
-        el("th", { scope: "col", text: "Field" }), el("th", { scope: "col", text: "Colibri" }),
-        el("th", { scope: "col", text: "Questionnaire" }), el("th", { scope: "col", class: "st", text: "Status" })])]),
-      el("tbody", {}, [
-        row("Name", c.name_colibri, c.name_marketing, c.name_flag),
-        el("tr", {}, [
-          fieldCell("Phone", c.phone_flag),
-          el("td", { colspan: "2", class: "muted", text: c.phone_flag === "none" ? "No number on file" : "Held, not shown here" }),
-          el("td", { class: "st" }, [flagChip(c.phone_flag)]),
-        ]),
-        row("Gender", c.gender_colibri ? fmtGender(c.gender_colibri) : "", c.gender_marketing ? fmtGender(c.gender_marketing) : "", c.gender_flag),
-        row("Date of birth", c.dob_colibri ? fmtDate(c.dob_colibri) : "", c.dob_marketing ? fmtDate(c.dob_marketing) : "", c.dob_flag),
-      ]),
+        el("th", { scope: "col", text: tr("Field") }), el("th", { scope: "col", text: "Colibri" }),
+        el("th", { scope: "col", text: tr("Questionnaire") }), el("th", { scope: "col", class: "st", text: tr("Status") })])]),
+      el("tbody", {}, rows),
     ]),
-    el("p", { class: "note", text: "Phone numbers are matched between the two sources on the server; the numbers themselves are not sent to this page." }),
+    el("p", { class: "note", text: tr("Phone numbers are matched between the two sources on the server; the numbers themselves are not sent to this page.") }),
   ]);
 }
+
+/* -------------------------------------------------------- card: duplicates */
+function mergeForm(c, other) {
+  const e = S.edit;
+  if (!e.keep) e.keep = Number(other.lifetime_spend_uzs || 0) > Number(c.lifetime_spend_uzs || 0) ? "other" : "this";
+  const keepId = e.keep === "this" ? c.client_id : other.client_id;
+  const dropId = e.keep === "this" ? other.client_id : c.client_id;
+  const reason = el("input", { type: "text", id: "merge-reason", maxlength: "300", value: e.reason || "",
+    oninput: (ev) => { e.reason = ev.target.value; } });
+  return el("form", { class: "editor merge", onsubmit: (ev) => { ev.preventDefault();
+    act("merge", { keep: keepId, drop: dropId, reason: e.reason }, tr("Merged. {id} now holds both records.", { id: keepId })); } }, [
+    el("h4", { text: tr("Merge two records") }),
+    el("fieldset", {}, [el("legend", { text: tr("Which record should stay?") }),
+      radio("merge-keep", "this", e.keep === "this", tr("This one ({id})", { id: c.client_id }), (v) => { e.keep = v; renderDrawer(); },
+        el("span", { class: "muted", text: " · " + fmtUZS(c.lifetime_spend_uzs) })),
+      radio("merge-keep", "other", e.keep === "other", tr("The other one ({id})", { id: other.client_id }), (v) => { e.keep = v; renderDrawer(); },
+        el("span", { class: "muted", text: " · " + (other.display_name || "") + " · " + fmtUZS(other.lifetime_spend_uzs) })),
+    ]),
+    el("label", { for: "merge-reason", class: "lbl", text: tr("Note (optional)") }), reason,
+    el("p", { class: "hint", text: tr("The kept record takes the other's purchases and fills its blanks from it. The other record is closed and points to the kept one. This cannot be undone here — ask Alex if a merge was wrong.") }),
+    formError(),
+    formButtons(tr("Merge"), null, true),
+  ]);
+}
+function dupCard(d) {
+  return el("div", { class: "dup-card" }, [
+    el("div", {}, [el("a", { href: "#" + d.client_id, text: d.client_id }), " · ", el("b", { text: d.display_name || tr("Unnamed record") })]),
+    el("div", { class: "muted", text: [fmtUZS(d.lifetime_spend_uzs), d.last_purchase_at ? tr("Last {d}", { d: fmtDate(d.last_purchase_at) }) : null,
+      d.client_owner ? who(d.client_owner) : null].filter(Boolean).join(" · ") }),
+  ]);
+}
+function sectionDuplicates(data) {
+  const c = data.client, dups = data.duplicates || [];
+  if (!editable(c) && !dups.length) return null;
+  const kids = [el("h3", { text: tr("Possible duplicate") })];
+  for (const d of dups) {
+    kids.push(el("div", { class: "dup" }, [
+      el("p", { class: "hint", text: tr("Same phone number as this record. Check whether they are one person.") }),
+      dupCard(d),
+      editable(c) && !(S.edit && S.edit.kind === "merge" && S.edit.other === d.client_id)
+        ? el("div", { class: "actions" }, [
+            el("button", { class: "btn sm", type: "button", disabled: S.busy ? true : null,
+              onclick: () => startEdit({ kind: "merge", other: d.client_id, peek: d, keep: "", reason: "" }), text: tr("Same person — merge…") }),
+            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+              onclick: () => act("clear_duplicate", { other: d.client_id }, tr("Saved.")), text: tr("Different people") }),
+          ]) : null,
+      S.edit && S.edit.kind === "merge" && S.edit.other === d.client_id ? mergeForm(c, d) : null,
+    ]));
+  }
+  if (editable(c)) {
+    const e = S.edit;
+    if (e && e.kind === "lookup") {
+      const input = el("input", { type: "text", id: "lookup-ref", placeholder: "DLD-0000", value: e.ref || "", maxlength: "8",
+        oninput: (ev) => { e.ref = ev.target.value.toUpperCase().trim(); } });
+      kids.push(el("form", { class: "editor", onsubmit: async (ev) => {
+        ev.preventDefault();
+        S.formError = null;
+        try {
+          const r = await call("peek", { id: e.ref });
+          if (r.record.client_id === c.client_id) throw new Error(tr("Choose two different records."));
+          S.edit = { kind: "merge", other: r.record.client_id, peek: r.record, keep: "", reason: "", looked: true };
+        } catch (err) { S.formError = err.message; }
+        renderDrawer();
+      } }, [
+        el("label", { for: "lookup-ref", class: "lbl", text: tr("Reference of the other record") }), input,
+        formError(), formButtons(tr("Look up")),
+      ]));
+    } else if (e && e.kind === "merge" && e.looked) {
+      kids.push(el("div", { class: "dup" }, [dupCard(e.peek), mergeForm(c, e.peek)]));
+    } else if (!(e && e.kind === "merge")) {
+      kids.push(el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+        onclick: () => startEdit({ kind: "lookup", ref: "" }), text: tr("Merge with another record…") }));
+    }
+  }
+  if (kids.length === 1) return null;
+  return el("section", { class: "drawer-section dups" + (dups.length ? " flagged" : "") }, kids);
+}
+
+/* -------------------------------------------------------- card: commercial */
 function kv(label, value, extra) {
   return el("div", {}, [el("dt", { text: label }), el("dd", {}, [blank(value) ? "—" : String(value), extra || null])]);
 }
-function sectionCommercial(c) {
-  if (c.record_type === "prospect") {
-    return el("section", { class: "drawer-section" }, [
-      el("h3", { text: "Purchases" }),
-      el("p", { class: "muted", text: "A prospect: completed the questionnaire but has no purchase on record in Colibri." }),
-    ]);
-  }
-  const owner = blank(c.client_owner) ? "—" : c.client_owner + (ownerHasLeft(c.client_owner, c.owner_active) ? " (has left)" : "");
-  const repActive = (label) => ((S.ref && S.ref.sales_reps) || []).some((r) => r.label === label && r.active);
-  const previous = !blank(c.historic_owner) && c.historic_owner !== c.client_owner
-    ? c.historic_owner + (ownerHasLeft(c.historic_owner, repActive(c.historic_owner)) ? " (has left)" : "") : "";
-  const how = blank(c.assigned_owner) ? "" : [
-    blank(c.assignment_reason) ? "Assigned" : sentence(String(c.assignment_reason).replace(/^rule:\s*/, "")),
-    [c.assigned_by, c.assigned_at ? fmtDate(c.assigned_at) : ""].filter(Boolean).join(", "),
-  ].filter(Boolean).join(" · ");
-  return el("section", { class: "drawer-section" }, [
-    el("h3", { text: "Commercial" }),
-    el("dl", { class: "kv" }, [
-      el("div", {}, [el("dt", { text: "Lifetime spend" }), el("dd", { title: fullUZS(c.lifetime_spend_uzs), text: fmtUZS(c.lifetime_spend_uzs) + " UZS" })]),
-      kv("Purchase occasions", c.purchase_occasions),
-      kv("Items bought", c.items_bought),
-      kv("First purchase", fmtDate(c.first_purchase_at)),
-      kv("Last purchase", fmtDate(c.last_purchase_at)),
-      kv("ABC class", c.abc_class),
-      kv("Segment", c.rfm_segment),
-      kv("Lifecycle", c.lifecycle_status),
-      kv("Owner", owner),
-      how ? kv("How assigned", how) : null,
-      previous ? kv("Previous owner", previous) : null,
-      kv("Sales people seen", c.advisors_seen),
-      kv("Related party", c.related_party ? "Yes — kept out of retail figures" : "No"),
-    ]),
+function reasonText(r) {
+  const s = String(r || "").replace(/^rule:\s*/, "").replace(/^manual:?\s*/, "");
+  const known = { "balanced by spend": "Balanced by spend", "lapsed or dormant — shared win-back list": "Lapsed or dormant — shared win-back list",
+    "continuity — this rep has served the client before": "Continuity — this rep has served the client before" };
+  if (known[s.toLowerCase()]) return tr(known[s.toLowerCase()]);
+  if (/^manual/.test(String(r || ""))) return tr("Manual") + (s ? ": " + s : "");
+  return sentence(s);
+}
+function ownerEditor(c) {
+  const e = S.edit;
+  const reps = ((S.ref && S.ref.sales_reps) || []).filter((r) => r.active);
+  const sel = el("select", { id: "owner-new", onchange: (ev) => { e.owner = ev.target.value; } },
+    [el("option", { value: "", text: "—" })].concat(reps.map((r) => el("option", { value: r.label, text: who(r.label) }))));
+  sel.value = e.owner || "";
+  const reason = el("input", { type: "text", id: "owner-reason", maxlength: "300", value: e.reason || "",
+    oninput: (ev) => { e.reason = ev.target.value; } });
+  return el("form", { class: "editor", onsubmit: (ev) => { ev.preventDefault();
+    if (!e.owner) { S.formError = tr("Choose a current sales rep or the shared list."); renderDrawer(); return; }
+    act("assign_owner", { owner: e.owner, reason: e.reason }, tr("Saved.")); } }, [
+    el("label", { for: "owner-new", class: "lbl", text: tr("New owner") }), sel,
+    el("label", { for: "owner-reason", class: "lbl", text: tr("Why? (optional)") }), reason,
+    formError(), formButtons(tr("Save")),
   ]);
 }
+function sectionCommercial(c) {
+  const ownerKids = [];
+  if (c.record_type === "prospect") {
+    ownerKids.push(el("p", { class: "muted", text: tr("A prospect: completed the questionnaire but has no purchase on record in Colibri.") }));
+  }
+  const owner = blank(c.client_owner) ? "—" : who(c.client_owner) + (ownerHasLeft(c.client_owner, c.owner_active) ? " (" + tr("has left") + ")" : "");
+  const repActive = (label) => ((S.ref && S.ref.sales_reps) || []).some((r) => r.label === label && r.active);
+  const previous = !blank(c.historic_owner) && c.historic_owner !== c.client_owner
+    ? who(c.historic_owner) + (ownerHasLeft(c.historic_owner, repActive(c.historic_owner)) ? " (" + tr("has left") + ")" : "") : "";
+  const how = blank(c.assigned_owner) ? "" : [
+    blank(c.assignment_reason) ? tr("Assigned") : reasonText(c.assignment_reason),
+    [who(c.assigned_by), c.assigned_at ? fmtDate(c.assigned_at) : ""].filter(Boolean).join(", "),
+  ].filter(Boolean).join(" · ");
+  const editingOwner = S.edit && S.edit.kind === "owner";
+  const changeBtn = editable(c) && !editingOwner
+    ? el("button", { class: "btn sm subtle inline-btn", type: "button", disabled: S.busy ? true : null,
+        onclick: () => startEdit({ kind: "owner", owner: "", reason: "" }), text: tr("Change owner") }) : null;
+  const purchases = c.record_type === "prospect" ? [] : [
+    el("div", {}, [el("dt", { text: tr("Lifetime spend") }), el("dd", { title: fullUZS(c.lifetime_spend_uzs), text: fmtUZS(c.lifetime_spend_uzs) + " UZS" })]),
+    kv(tr("Purchase occasions"), c.purchase_occasions),
+    kv(tr("Items bought"), c.items_bought),
+    kv(tr("First purchase"), fmtDate(c.first_purchase_at)),
+    kv(tr("Last purchase"), fmtDate(c.last_purchase_at)),
+    kv(tr("ABC class"), c.abc_class),
+    kv(tr("Segment"), trv(c.rfm_segment)),
+    kv(tr("Lifecycle"), trv(c.lifecycle_status)),
+  ];
+  return el("section", { class: "drawer-section" }, [
+    el("h3", { text: tr(c.record_type === "prospect" ? "Purchases" : "Commercial") }),
+    ...ownerKids,
+    el("dl", { class: "kv" }, [
+      ...purchases,
+      kv(tr("Owner"), owner, changeBtn),
+      how ? kv(tr("How assigned"), how) : null,
+      previous ? kv(tr("Previous owner"), previous) : null,
+      c.record_type === "prospect" ? null : kv(tr("Sales people seen"), c.advisors_seen),
+      kv(tr("Related party"), c.related_party ? tr("Yes — kept out of retail figures") : tr("No")),
+    ]),
+    editingOwner ? ownerEditor(c) : null,
+  ]);
+}
+
+/* ----------------------------------------------------------- card: contact */
+function sectionContact(c) {
+  const e = S.edit && S.edit.kind === "contact" ? S.edit : null;
+  const kids = [el("h3", {}, [tr("Contact"),
+    editable(c) && !e ? el("button", { class: "btn sm subtle aside-btn", type: "button", disabled: S.busy ? true : null,
+      onclick: () => startEdit({ kind: "contact", dnc: !!c.do_not_contact, note: c.contact_note || "", ref: c.referred_by || "" }), text: tr("Edit") }) : null])];
+  if (!e) {
+    kids.push(el("dl", { class: "kv" }, [
+      kv(tr("Do not contact"), c.do_not_contact ? tr("Yes") : tr("No"), c.do_not_contact ? dncChip() : null),
+      kv(tr("Contact note"), c.contact_note),
+      kv(tr("Referred by"), c.referred_by),
+    ]));
+    return el("section", { class: "drawer-section" }, kids);
+  }
+  kids.push(el("form", { class: "editor", onsubmit: (ev) => { ev.preventDefault();
+    act("set_contact", { do_not_contact: e.dnc, contact_note: e.note, referred_by: e.ref }, tr("Saved.")); } }, [
+    el("label", { class: "opt check" }, [
+      el("input", { type: "checkbox", id: "dnc", checked: e.dnc ? true : null, onchange: (ev) => { e.dnc = ev.target.checked; } }),
+      el("span", { text: tr("The client has asked not to be contacted") })]),
+    el("label", { for: "contact-note", class: "lbl", text: tr("Contact note") }),
+    el("input", { type: "text", id: "contact-note", maxlength: "300", value: e.note, placeholder: tr("E.g. calls only after 18:00, prefers Telegram"),
+      oninput: (ev) => { e.note = ev.target.value; } }),
+    el("label", { for: "referred-by", class: "lbl", text: tr("Referred by") }),
+    el("input", { type: "text", id: "referred-by", maxlength: "120", value: e.ref, placeholder: tr("A client reference or a name"),
+      oninput: (ev) => { e.ref = ev.target.value; } }),
+    formError(), formButtons(tr("Save")),
+  ]));
+  return el("section", { class: "drawer-section" }, kids);
+}
+
+/* ----------------------------------------------------- card: questionnaire */
 function sectionQuestionnaire(c) {
   if (!c.in_marketing) {
     return el("section", { class: "drawer-section" }, [
-      el("h3", { text: "Questionnaire" }),
-      el("p", { class: "muted", text: "Not in the questionnaire. Everything above comes from Colibri alone." }),
+      el("h3", { text: tr("Questionnaire") }),
+      el("p", { class: "muted", text: tr("Not in the questionnaire. Everything above comes from Colibri alone.") }),
     ]);
   }
   const mappedKV = (label, col) => {
     const raw = c[col];
     if (blank(raw)) return kv(label, "");
     const m = mappedValue(MAPPED[col], raw);
-    const tag = m ? "→ " + m.db_value : "→ not mapped yet";
+    const tag = m ? "→ " + m.db_value : tr("→ not mapped yet");
     return kv(label, raw, el("span", { class: "mapped", text: tag }));
   };
   const channel = mappedValue("contact_channel", c.channel_raw);
-  const consent = channel && !blank(channel.extra) ? channel.extra : (blank(c.channel_raw) ? "" : "Not stated");
+  const consent = channel && !blank(channel.extra) ? tr(channel.extra) : (blank(c.channel_raw) ? "" : tr("Not stated"));
   return el("section", { class: "drawer-section" }, [
-    el("h3", {}, ["Questionnaire", el("span", { class: "aside", text: "submitted " + fmtDateTime(c.form_submitted_at) })]),
+    el("h3", {}, [tr("Questionnaire"), el("span", { class: "aside", text: tr("submitted {d}", { d: fmtDateTime(c.form_submitted_at) }) })]),
     el("dl", { class: "kv" }, [
-      kv("Patronymic", c.patronymic),
-      kv("Email or handle", c.email),
-      mappedKV("Preferred channel", "channel_raw"),
-      kv("Marketing consent", consent),
-      mappedKV("Buying for", "purchase_for_raw"),
-      mappedKV("How they heard of us", "awareness_source_raw"),
-      mappedKV("Would buy online", "online_interest_raw"),
-      mappedKV("Brand preference", "brand_preference_raw"),
-      kv("Duplicate form", c.form_duplicate ? "Yes — submitted more than once" : "No"),
+      kv(tr("Patronymic"), c.patronymic),
+      kv(tr("Email or handle"), c.email),
+      mappedKV(tr("Preferred channel"), "channel_raw"),
+      kv(tr("Marketing consent"), consent),
+      mappedKV(tr("Buying for"), "purchase_for_raw"),
+      mappedKV(tr("How they heard of us"), "awareness_source_raw"),
+      mappedKV(tr("Would buy online"), "online_interest_raw"),
+      mappedKV(tr("Brand preference"), "brand_preference_raw"),
+      kv(tr("Duplicate form"), c.form_duplicate ? tr("Yes — submitted more than once") : tr("No")),
     ]),
   ]);
 }
+
+/* --------------------------------------------------------- card: purchases */
 function sectionPurchases(data) {
   const lines = data.transactions || [];
   if (!lines.length) return null;
   const brands = Object.entries(data.rollup.by_brand).sort((a, b) => b[1].net - a[1].net);
   return el("section", { class: "drawer-section" }, [
-    el("h3", {}, ["Purchases", el("span", { class: "aside", text: plural(lines.length, "line") + " · " + fmtUZS(data.rollup.net) + " UZS" })]),
+    el("h3", {}, [tr("Purchases"), el("span", { class: "aside", text: pl(lines.length, "line") + " · " + fmtUZS(data.rollup.net) + " UZS" })]),
     brands.length > 1 ? el("table", { class: "mini", style: "margin-bottom:14px" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "Brand" }), el("th", { class: "num", text: "Lines" }), el("th", { class: "num", text: "Net" })])]),
+      el("thead", {}, [el("tr", {}, [el("th", { text: tr("Brand") }), el("th", { class: "num", text: tr("Lines") }), el("th", { class: "num", text: tr("Net") })])]),
       el("tbody", {}, brands.map(([b, v]) => el("tr", {}, [
         el("td", { text: b }), el("td", { class: "num", text: String(v.lines) }),
         el("td", { class: "num", title: fullUZS(v.net), text: fmtUZS(v.net) })]))),
@@ -1076,75 +1997,134 @@ function sectionPurchases(data) {
       const disc = Number(l.discount_pct || 0);
       return el("li", {}, [
         el("div", { class: "l1" }, [fmtDate(l.sold_at), " · ", el("b", { text: l.brand || "—" }), " · ", l.category || "—",
-          l.advisor ? " · " + l.advisor : ""]),
+          l.advisor ? " · " + who(l.advisor) : ""]),
         el("div", { class: "amt" + (ret ? " ret" : ""), title: fullUZS(l.net_uzs) }, [
           fmtUZS(l.net_uzs),
-          el("span", { class: "d", text: ret ? "Return" : disc > 0 ? "−" + Math.round(disc * 1000) / 10 + "%" : "Full price" }),
+          el("span", { class: "d", text: ret ? tr("Return") : disc > 0 ? "−" + Math.round(disc * 1000) / 10 + "%" : tr("Full price") }),
         ]),
-        el("div", { class: "item", text: blank(l.item) ? "No description in Colibri" : l.item }),
+        el("div", { class: "item", text: blank(l.item) ? tr("No description in Colibri") : l.item }),
       ]);
     })),
   ]);
 }
-function sectionEvents(data) {
-  const ev = (data.events || []).filter((e) => e.client_id);
-  if (!ev.length) return null;
-  return el("section", { class: "drawer-section" }, [
-    el("h3", { text: "Notes on this record" }),
-    el("ul", { class: "events" }, ev.map((e) => el("li", {}, [
-      el("span", { class: "when", text: fmtDateTime(e.at) + " · " + (e.actor === "system" ? "flagged at load" : e.actor) }),
-      el("b", { text: (EVENT_LABEL[e.action] || e.action) + ". " }),
-      e.field === "owner" && (e.old_value || e.new_value)
-        ? el("span", { class: "move", text: (e.old_value || "—") + " → " + (e.new_value || "—") + ". " }) : null,
-      e.note || "",
-    ]))),
-  ]);
+
+/* ------------------------------------------------------------- card: notes */
+function eventText(e) {
+  const f = e.field && FIELD_LABEL[e.field] ? tr(FIELD_LABEL[e.field]) : e.field;
+  switch (e.action) {
+    case "field_resolved": {
+      const [basis, source] = String(e.note || "").split(":");
+      const how = [basis === "client" ? tr("the client confirmed it") : basis === "delardi" ? tr("from our own records") : "",
+        source === "colibri" ? tr("from Colibri") : source === "marketing" ? tr("from the questionnaire") : source === "value" ? tr("typed in") : ""]
+        .filter(Boolean).join(", ");
+      const val = e.field === "gender" ? fmtGender(e.new_value) : e.field === "dob" ? fmtDate(e.new_value) : e.field === "phone" ? "" : e.new_value;
+      return [el("b", { text: tr("{field} confirmed", { field: f }) + (val ? ": " : ". ") }), val ? "“" + val + "”. " : "", how ? sentence(how) + "." : ""];
+    }
+    case "field_reset": return [el("b", { text: tr("{field} handed back to the automatic comparison", { field: f }) + "." })];
+    case "single_source_accepted":
+      return [el("b", { text: tr("Accepted as held by one source") + ": " }),
+        String(e.new_value || "").split(",").filter(Boolean).map((x) => tr(FIELD_LABEL[x] || x)).join(", ") + "."];
+    case "state_changed": {
+      const m = { confirmed: "Marked as checked.", parked: "Set aside.", deleted: "Deleted.",
+        open: e.old_value === "deleted" ? "Restored." : "Reopened." };
+      return [el("b", { text: tr(m[e.new_value] || e.new_value) + (e.note ? " " : "") }), e.note || ""];
+    }
+    case "owner_assigned":
+      return [el("b", { text: tr("Owner assigned") + ". " }),
+        (e.old_value || e.new_value) ? el("span", { class: "move", text: (who(e.old_value) || "—") + " → " + (who(e.new_value) || "—") + ". " }) : null,
+        e.note || ""];
+    case "do_not_contact_set":
+      return [el("b", { text: tr(e.new_value === "true" ? "Do not contact: on" : "Do not contact: off") + (e.note ? ". " : ".") }), e.note || ""];
+    case "contact_note_set": return [el("b", { text: tr("Contact note changed") + (e.new_value ? ": " : ".") }), e.new_value || ""];
+    case "referred_by_set": return [el("b", { text: tr("Referred by changed") + (e.new_value ? ": " : ".") }), e.new_value || ""];
+    case "note": return [el("b", { text: tr("Note") + ". " }), e.note || ""];
+    case "duplicate_cleared": return [el("b", { text: tr("Not the same person as {id}", { id: e.new_value }) + "." })];
+    case "merged_into": return [el("b", { text: tr("Merged into {id}", { id: e.new_value }) + ". " }), e.note && !/^Same person as/.test(e.note) ? e.note : ""];
+    case "merged_from": return [el("b", { text: tr("Merged {id} into this record", { id: e.new_value }) + ". " }), e.note || ""];
+    case "duplicate_suspect": return [el("b", { text: tr("Possible duplicate") + ". " }), e.note || ""];
+    case "name_carries_note": return [el("b", { text: tr("Name field carries a note") + ". " }), e.note || ""];
+    case "related_party_set": return [el("b", { text: tr("Marked as related party") + ". " }), e.note || ""];
+    default: return [el("b", { text: e.action + ". " }), e.note || ""];
+  }
 }
+function sectionEvents(data) {
+  const c = data.client;
+  const ev = (data.events || []).filter((e) => e.client_id);
+  const e = S.edit && S.edit.kind === "note" ? S.edit : null;
+  const kids = [el("h3", { text: tr("Notes and history") })];
+  if (editable(c) || (canEdit() && c.record_state !== "merged")) {
+    if (e) {
+      kids.push(el("form", { class: "editor", onsubmit: (x) => { x.preventDefault(); act("add_note", { note: e.note }, tr("Saved.")); } }, [
+        el("label", { for: "note-text", class: "lbl", text: tr("Add a note") }),
+        el("textarea", { id: "note-text", rows: "3", maxlength: "1000", placeholder: tr("E.g. called, will visit on Saturday"),
+          oninput: (x) => { e.note = x.target.value; } }, []),
+        formError(), formButtons(tr("Add note")),
+      ]));
+    } else {
+      kids.push(el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+        onclick: () => startEdit({ kind: "note", note: "" }), text: tr("Add a note") }));
+    }
+  }
+  if (ev.length) {
+    kids.push(el("ul", { class: "events" }, ev.map((x) => el("li", {}, [
+      el("span", { class: "when", text: fmtDateTime(x.at) + " · " + (x.actor === "system" ? tr("flagged at load") : who(x.actor)) }),
+      ...eventText(x),
+    ]))));
+  }
+  if (kids.length === 1) return null;
+  return el("section", { class: "drawer-section" }, kids);
+}
+
 function renderDrawer() {
   const d = $("#drawer");
   const scrim = $("#scrim");
   if (!S.cardId) return;
+  const keepScroll = d.querySelector(".drawer-body") ? d.querySelector(".drawer-body").scrollTop : 0;
   d.innerHTML = "";
-  const close = el("button", { class: "btn subtle close", type: "button", "aria-label": "Close", onclick: closeCard, text: "×" });
+  const close = el("button", { class: "btn subtle close", type: "button", "aria-label": tr("Close"), onclick: closeCard, text: "×" });
   const data = S.card, c = data && data.client;
+  const q = data && data.queue;
   const head = el("div", { class: "drawer-head" }, [
     el("div", { style: "flex:1;min-width:0" }, [
-      el("div", { class: "eyebrow", text: S.cardId + (c ? " · " + (c.record_type === "prospect" ? "Prospect" : "Client") : "") }),
-      el("h2", { id: "drawer-title", text: c ? bestName(c) : (S.cardError ? "Could not open this record" : "Loading…") }),
+      el("div", { class: "eyebrow", text: S.cardId + (c ? " · " + (c.record_type === "prospect" ? tr("Prospect") : tr("Client")) : "") }),
+      el("h2", { id: "drawer-title", tabindex: "-1", text: c ? bestName(c) : (S.cardError ? tr("Could not open this record") : tr("Loading…")) }),
       c ? el("div", { class: "chips" }, [
-        data.queue ? queueChip(data.queue) : null,
-        c.abc_class ? chip({ glyph: "▪", tone: "" }, "Class " + c.abc_class) : null,
-        c.lifecycle_status ? chip({ glyph: "•", tone: "" }, c.lifecycle_status) : null,
-        c.related_party ? chip({ glyph: "◇", tone: "" }, "Related party", "dashed") : null,
+        q ? statusChip(q) : null,
+        c.abc_class ? chip({ glyph: "▪", tone: "" }, tr("Class {c}", { c: c.abc_class })) : null,
+        c.lifecycle_status ? chip({ glyph: "•", tone: "" }, tr(c.lifecycle_status)) : null,
+        c.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related party"), "dashed") : null,
+        c.do_not_contact ? dncChip() : null,
       ]) : null,
     ]),
     close,
   ]);
-  const body = el("div", { class: "drawer-body" });
+  const body = el("div", { class: "drawer-body" + (S.busy ? " busy" : "") });
   if (S.cardError) body.appendChild(el("p", { class: "err-box", text: S.cardError }));
-  else if (!data) body.appendChild(el("div", { class: "drawer-loading", text: "Loading the record…" }));
+  else if (!data) body.appendChild(el("div", { class: "drawer-loading", text: tr("Loading the record…") }));
   else {
-    body.append(
-      sectionCompare(c),
-      sectionCommercial(c),
-      sectionQuestionnaire(c),
-    );
+    body.append(sectionReview(data), sectionCompare(data));
+    const dups = sectionDuplicates(data); if (dups) body.appendChild(dups);
+    body.append(sectionCommercial(c), sectionContact(c), sectionQuestionnaire(c));
     const p = sectionPurchases(data); if (p) body.appendChild(p);
     const e = sectionEvents(data); if (e) body.appendChild(e);
-    body.appendChild(el("p", { class: "readonly-note",
-      text: "Read-only for now. Confirming values, correcting records and assigning owners arrive with the review queue." }));
   }
   d.append(head, body);
+  body.scrollTop = keepScroll;
   d.classList.add("open"); d.setAttribute("aria-hidden", "false");
+  d.setAttribute("aria-busy", S.busy ? "true" : "false");
   scrim.classList.add("open");
   if (!d.contains(document.activeElement)) close.focus();
 }
 // Keep keyboard focus inside the open card.
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && S.cardId) { e.preventDefault(); closeCard(); return; }
+  if (e.key === "Escape" && S.cardId) {
+    e.preventDefault();
+    if (S.edit && !S.busy) { cancelEdit(); return; }
+    closeCard(); return;
+  }
   if (e.key !== "Tab" || !S.cardId) return;
   const d = $("#drawer");
-  const focusables = [...d.querySelectorAll("button, a[href], input, select, [tabindex]:not([tabindex='-1'])")]
+  const focusables = [...d.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
     .filter((n) => !n.disabled && n.offsetParent !== null);
   if (!focusables.length) return;
   const first = focusables[0], last = focusables[focusables.length - 1];
@@ -1159,13 +2139,13 @@ function renderGate(message) {
   if (!S.locked) { if (existing) existing.remove(); return; }
   if (existing) existing.remove();
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
-  const err = el("p", { class: "err", role: "alert", style: message ? null : "display:none", text: message || "" });
-  const btn = el("button", { class: "btn primary", type: "submit", text: "Open the instrument" });
+  const err = el("p", { class: "err", role: "alert", style: message ? null : "display:none", text: message ? tr(message) : "" });
+  const btn = el("button", { class: "btn primary", type: "submit", text: tr("Open the instrument") });
   const go = async (ev) => {
     ev.preventDefault();
     err.style.display = "none";
-    if (!pass.value.trim()) { err.textContent = "Enter your passcode."; err.style.display = "block"; return; }
-    btn.disabled = true; btn.textContent = "Checking…";
+    if (!pass.value.trim()) { err.textContent = tr("Enter your passcode."); err.style.display = "block"; return; }
+    btn.disabled = true; btn.textContent = tr("Checking…");
     try {
       const r = await call("unlock", { passcode: pass.value });
       S.session = { token: r.token, name: r.name, expires_at: r.expires_at, can_edit: !!r.can_edit };
@@ -1173,28 +2153,27 @@ function renderGate(message) {
       await loadAll();
       S.locked = false;
       renderAll();
-      toast("Welcome, " + r.name + " — open until " +
-        new Date(r.expires_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      toast(tr("Welcome, {name} — open until {time}", { name: r.name, time: fmtTime(r.expires_at) }));
       openFromHash();
     } catch (e) {
       err.textContent = e.message; err.style.display = "block";
-      btn.disabled = false; btn.textContent = "Open the instrument";
+      btn.disabled = false; btn.textContent = tr("Open the instrument");
       pass.value = ""; pass.focus();
     }
   };
   const card = el("form", { class: "gate-card", onsubmit: go }, [
     el("div", { class: "gate-mast" }, [
       el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
-      el("a", { class: "gate-home", href: "../", text: "All tools" }),
+      el("div", { class: "gate-tools" }, [langSwitch(), el("a", { class: "gate-home", href: "../", text: tr("All tools") })]),
     ]),
-    el("h2", { text: "Client Instrument" }),
-    el("p", { class: "lead", text: "Client records are private. Enter your personal passcode to open them." }),
+    el("h2", { text: tr("Client Instrument") }),
+    el("p", { class: "lead", text: tr("Client records are private. Enter your personal passcode to open them.") }),
     err,
-    el("label", { for: "gate-pass" }, [el("span", { text: "Your passcode" }), pass]),
+    el("label", { for: "gate-pass" }, [el("span", { text: tr("Your passcode") }), pass]),
     btn,
-    el("p", { class: "gate-foot", text: "Nothing behind this card is real. The instrument loads no data until your passcode is accepted, and a Weekly Board passcode opens it only if you have been given client access." }),
+    el("p", { class: "gate-foot", text: tr("Nothing behind this card is real. The instrument loads no data until your passcode is accepted, and a Weekly Board passcode opens it only if you have been given client access.") }),
   ]);
-  document.body.appendChild(el("div", { class: "gate", id: "gate", role: "dialog", "aria-modal": "true", "aria-label": "Unlock" }, [card]));
+  document.body.appendChild(el("div", { class: "gate", id: "gate", role: "dialog", "aria-modal": "true", "aria-label": tr("Unlock") }, [card]));
   setTimeout(() => pass.focus(), 80);
 }
 function lockDown(message) {
@@ -1205,7 +2184,7 @@ function lockDown(message) {
   if (S.cardId) closeCard();
   renderAll(message);
 }
-function lockNow() { lockDown(); toast("Locked."); }
+function lockNow() { lockDown(); toast(tr("Locked.")); }
 
 /* ------------------------------------------------------------------- theme */
 function applyTheme() {
@@ -1228,14 +2207,17 @@ function toggleTheme() {
 /* -------------------------------------------------------------------- init */
 function renderAll(gateMessage) {
   const app = $("#app");
+  document.documentElement.lang = LANG;
+  document.title = "Delardi " + tr("Client Instrument");
   app.innerHTML = "";
   app.className = S.locked ? "gated" : "";
   app.setAttribute("aria-hidden", S.locked ? "true" : "false");
   app.append(
     el("header", { class: "top" }, [renderHeader(), el("div", { class: "scoreboard", id: "scoreboard" })]),
-    el("main", {}, [renderToolbar(), el("div", { class: "list-wrap", id: "list-host" })]),
+    el("main", {}, [el("div", { class: "progress", id: "progress" }), renderToolbar(), el("div", { class: "list-wrap", id: "list-host" })]),
   );
   renderScoreboard();
+  renderProgress();
   renderListHost();
   renderGate(gateMessage);
 }
@@ -1249,14 +2231,15 @@ function restoreSession() {
 }
 function openFromHash() {
   const m = /^#((?:DLD|PRS)-\d{3,4})$/.exec(location.hash);
-  if (m && !S.locked) openCard(m[1]);
+  if (m && !S.locked && m[1] !== S.cardId) openCard(m[1]);
 }
-$("#scrim").addEventListener("click", closeCard);
+$("#scrim").addEventListener("click", () => { if (!S.busy) closeCard(); });
 window.addEventListener("hashchange", () => { if (!S.locked) { if (location.hash) openFromHash(); } });
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
 (async function boot() {
   applyTheme();
+  document.documentElement.lang = LANG;
   restoreSession();
   if (S.session) {
     try { await loadAll(); S.locked = false; }
