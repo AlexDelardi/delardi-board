@@ -49,6 +49,24 @@ Pick something not derived from the company name — the passcode is the only
 control on the whole board, and company-plus-year is the first thing a targeted
 guesser tries.
 
+## The Client Instrument (`crm/`)
+
+A second page in the same repository, for the CRM spring clean: the client list,
+each client's card, and what needs checking between Colibri and the marketing
+questionnaire. Read-only for now.
+
+It follows the same model as the board, with its own API and its own right:
+
+- Its data comes only from the `crm-api` edge function. This page, like the
+  board, holds no key of any kind.
+- A board passcode opens it **only** if that person has been given client access
+  (`can_view_crm`). Editing is a further, separate right (`can_edit_crm`).
+- Phone numbers are held in the database for matching but never sent to the
+  page. Sales people appear only as "Sales rep N".
+- Every retail client has one owner: a current sales rep, or "Shared (store)"
+  for lapsed and dormant clients the whole team works. The card keeps the
+  previous owner and says how the current one was assigned.
+
 ## Updating the page
 
 Edit `index.html`, commit, push. GitHub Pages redeploys within a minute or two.
