@@ -91,6 +91,15 @@ It follows the same model as the board, with its own API and its own right:
   Tashkent (`crm_recompute_segments()`, scheduled with pg_cron), and after a
   merge or a delete. ABC is cut on retail clients only; related parties keep
   their own class. Each change is written to the client's history.
+- The **Data** tab (`crm/?view=data`) shows how clean the file is: where the
+  review stands, a progress line that gains a point every night (00:10
+  Tashkent, `crm_health_snapshot()`), how settled each field is, and a short
+  list of what needs a person. Every item opens the records behind it.
+- The **monthly Colibri refresh** also lives on the Data tab, for whoever holds
+  the refresh right (`can_import_crm`, Alex only). The month's three exports go
+  into the CRM source-files folder and Claude stages them; nothing changes in
+  the client file until the refresh is reviewed and applied here. The latest
+  applied refresh can be undone. No client data is kept in this repository.
 
 ## Updating a page
 
