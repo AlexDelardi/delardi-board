@@ -91,6 +91,7 @@ a { color: inherit; }
 }
 .brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
 .brand .mark { height: 36px; width: auto; display: block; }
+.brand .home { display: block; flex: none; border-radius: 3px; }
 .brand .rule { width: 1px; height: 34px; background: var(--header-line); flex: none; }
 .brand .title { font-family: var(--serif); font-size: 17px; line-height: 1.25; letter-spacing: .015em; }
 .brand .sub {
@@ -298,7 +299,10 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
 #app.gated { filter: blur(9px) saturate(.9); pointer-events: none; user-select: none; }
 .gate { position: fixed; inset: 0; z-index: 85; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,26,74,.34); }
 .gate-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; width: min(400px, 100%); box-shadow: var(--shadow); overflow: hidden; }
-.gate-mast { background: var(--navy); padding: 17px 22px; }
+.gate-mast { background: var(--navy); padding: 17px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gate-home { color: #B9C6DE; font-size: 12.5px; text-decoration: none; white-space: nowrap; padding: 4px 2px; }
+.gate-home:hover { color: #FFFFFF; text-decoration: underline; }
+.gate-home:focus-visible { outline-color: #FFFFFF; }
 .gate-mast img { height: 34px; width: auto; display: block; }
 .gate-card h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 20px 22px 5px; }
 .gate-card p.lead { margin: 0 22px 18px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
@@ -639,7 +643,7 @@ function skeleton() {
 /* ------------------------------------------------------------------ header */
 function renderHeader() {
   const right = [];
-  right.push(el("a", { class: "btn subtle hide-sm", href: "../", text: "Weekly board" }));
+  right.push(el("a", { class: "btn subtle hide-sm", href: "../board/", text: "Weekly board" }));
   right.push(el("button", { class: "btn subtle", type: "button", "aria-label": "Switch between light and dark",
     title: "Light / dark", onclick: toggleTheme }, [themeIcon()]));
   if (S.session && !S.locked) {
@@ -652,7 +656,8 @@ function renderHeader() {
   }
   return el("div", { class: "top-row" }, [
     el("div", { class: "brand" }, [
-      el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi" }),
+      el("a", { class: "home", href: "../", title: "All Delardi tools" }, [
+        el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — all tools" })]),
       el("span", { class: "rule", "aria-hidden": "true" }),
       el("div", {}, [
         el("div", { class: "title", text: "Client Instrument" }),
@@ -1178,7 +1183,10 @@ function renderGate(message) {
     }
   };
   const card = el("form", { class: "gate-card", onsubmit: go }, [
-    el("div", { class: "gate-mast" }, [el("img", { src: LOGO_WORDMARK, alt: "Delardi" })]),
+    el("div", { class: "gate-mast" }, [
+      el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
+      el("a", { class: "gate-home", href: "../", text: "All tools" }),
+    ]),
     el("h2", { text: "Client Instrument" }),
     el("p", { class: "lead", text: "Client records are private. Enter your personal passcode to open them." }),
     err,

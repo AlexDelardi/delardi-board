@@ -1,11 +1,18 @@
-# Delardi Weekly Board
+# Delardi internal tools
 
-A private page for the weekly leadership meeting: topics tracked across
-**Marketing · Retail · Operations · Company Steering**, with a week-by-week
-record of what was said about each one.
+One repository, three pages:
 
-The address is deliberately not published here. Ask Alex for the link and the
-team passcode.
+| Path | Page |
+|---|---|
+| `/` — `index.html` | **Landing page.** Links to the two tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
+| `/board/` — `board/index.html` | **Weekly Board.** A private page for the weekly leadership meeting: topics tracked across **Marketing · Retail · Operations · Company Steering**, with a week-by-week record of what was said about each one. |
+| `/crm/` — `crm/index.html` | **Client Instrument.** The CRM spring clean — see below. |
+
+The board lived at the root until 21 September 2026. The old address now opens
+the landing page, one click from the board.
+
+The address is deliberately not published here. Ask Alex for the link and a
+passcode.
 
 ## How it is put together
 
@@ -13,7 +20,7 @@ team passcode.
 |---|---|
 | Data | Supabase Postgres (project `hugduzqwyqwryicfzipu`, EU-West) |
 | API | `board-api` edge function — the only route to the data, in either direction |
-| Page | `index.html` — one self-contained file, no build step, no dependencies |
+| Page | `board/index.html` — one self-contained file, no build step, no dependencies |
 | Hosting | GitHub Pages from `main` |
 
 ## The security model
@@ -67,9 +74,10 @@ It follows the same model as the board, with its own API and its own right:
   for lapsed and dormant clients the whole team works. The card keeps the
   previous owner and says how the current one was assigned.
 
-## Updating the page
+## Updating a page
 
-Edit `index.html`, commit, push. GitHub Pages redeploys within a minute or two.
+Edit the page's `index.html` — `board/`, `crm/`, or the landing page at the
+root — commit, push. GitHub Pages redeploys within a minute or two.
 
 ## If the board will not load
 
