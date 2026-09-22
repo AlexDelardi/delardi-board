@@ -179,7 +179,7 @@ input[type=text], input[type=search], input[type=password], input[type=date], se
   padding: 7px 10px; font-size: 13.5px; min-width: 0; color: var(--ink);
 }
 select { padding-right: 26px; }
-.toolbar .search input { width: 170px; }
+.toolbar .search input { width: 215px; }
 .toolbar select { max-width: 190px; }
 .filters-toggle { display: none; }
 .toolbar .filters { display: contents; }
@@ -1163,6 +1163,102 @@ body.offline .drawer, body.offline .nav-drawer, body.offline .sheet.full { top: 
 @media (min-width: 721px) { table.clients td.col-meta { display: none; } }
 @media (prefers-reduced-motion: reduce) { .drawer, .scrim, .toast { transition: none; } }
 @media print { .top, .toolbar, .drawer, .scrim, .pager { display: none !important; } }
+
+/* ============ v11: phones, the contact log, personal data, the sortable list */
+/* phones on the glance */
+dl.glance-facts .fact.phones dd { font-weight: 400; }
+.ph-row + .ph-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--grid); }
+.ph-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.ph-num { font-size: 16px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; text-decoration: none; white-space: nowrap; }
+a.ph-num:hover { text-decoration: underline; }
+.ph-src { font-size: 12px; color: var(--muted); }
+.ph-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ph-acts .btn { text-decoration: none; }
+table.compare td.ph-cell { font-variant-numeric: tabular-nums; }
+/* the contact log */
+.clog { list-style: none; margin: 0; padding: 0; }
+.clog li { padding: 8px 0; border-top: 1px solid var(--grid); font-size: 14px; }
+.clog li:first-child { border-top: 0; padding-top: 2px; }
+.clog .cnote { color: var(--ink-2); font-size: 13.5px; margin-top: 2px; overflow-wrap: anywhere; }
+.clog .cmeta { font-size: 12px; margin-top: 2px; }
+.clog .actions { margin-top: 6px; }
+.contact-log .show-all { margin-top: 6px; font-size: 13px; }
+.confirm-row { align-items: center; }
+.confirm-row > span { font-size: 13px; font-weight: 600; }
+/* personal data */
+.pgroup + .pgroup { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grid); }
+.pg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.pg-head h4 { font-size: 14px; color: var(--ink); font-weight: 600; margin: 0; }
+.pgroup > .muted { margin: 0; font-size: 13.5px; }
+.pg-meta { margin: 6px 0 0; font-size: 12px; }
+.ptext { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.pdates { list-style: none; margin: 0; padding: 0; }
+.pdates li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; padding: 5px 0; font-size: 14px; }
+.pdates li + li { border-top: 1px solid var(--grid); }
+.pdates .soon, .glance .soon { color: var(--serious); font-weight: 600; }
+.dt-x { font-size: 18px; line-height: 1; padding: 2px 8px; }
+.pgroup .editor { margin-bottom: 8px; }
+/* forms */
+.editor fieldset.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.editor fieldset.opt-grid > legend { margin-bottom: 4px; }
+.editor .when-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.editor .when-row input { width: 130px; flex: none; }
+.ring-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.qchip.ring { min-width: 50px; justify-content: center; font-variant-numeric: tabular-nums; }
+.editor .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.editor .two > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.editor .use-q { align-self: flex-start; white-space: normal; text-align: left; line-height: 1.35; }
+/* the foot: log a contact beside add a note */
+.drawer-foot { gap: 8px; }
+.drawer-foot .log-contact span { font-size: 18px; line-height: 1; margin-right: 2px; }
+/* the list: sortable headers and checklists */
+table.clients th .th-in { display: flex; align-items: center; gap: 2px; }
+table.clients th.num .th-in { justify-content: flex-end; }
+.th-sort { background: none; border: 0; padding: 2px 0; margin: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.th-sort:hover, th.sorted .th-sort { color: var(--ink); }
+.th-sort .arr { opacity: .35; font-size: 11px; }
+th.sorted .th-sort .arr { opacity: 1; }
+.th-filter { background: none; border: 1px solid transparent; border-radius: 4px; padding: 0 4px; margin-left: 2px; color: var(--muted); cursor: pointer; font-size: 11px; line-height: 18px; }
+.th-filter:hover { border-color: var(--line); color: var(--ink); }
+.th-filter.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.facet-pop { position: absolute; z-index: 65; width: 270px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.facet-pop .fp-q { width: 100%; }
+.fp-list { display: flex; flex-direction: column; max-height: 260px; overflow-y: auto; }
+.fp-row { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 2px 4px; border-radius: 6px; cursor: pointer; }
+.fp-row:hover { background: var(--surface-2); }
+.fp-row input { width: 16px; height: 16px; margin: 0; flex: none; accent-color: var(--navy-2); }
+.fp-row .fp-l { min-width: 0; overflow-wrap: anywhere; }
+.fp-row .fp-n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.fp-all { border-bottom: 1px solid var(--grid); border-radius: 0; font-weight: 600; }
+.fp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.fp-msg { margin: 4px; }
+.nav-facets { margin-top: 4px; }
+.nav-sub { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; margin: 4px 0 2px; }
+.nav-facet .nf-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.nav-facet .nf-head h3 { margin: 0; font-size: 16px; }
+.nav-facet .fp-list { max-height: none; overflow: visible; }
+@media (max-width: 1280px) { table.clients .col-contact { display: none; } }
+.toolbar .seg-field { display: none; }
+.facet-btn { justify-content: space-between; gap: 10px; min-width: 110px; font-weight: 400; background: var(--surface); border: 1px solid var(--line); }
+@media (max-width: 1180px) { .toolbar .seg-field { display: flex; } }
+@media (max-width: 720px), (pointer: coarse) {
+  .fp-row { min-height: 44px; }
+  .fp-row input { width: 20px; height: 20px; }
+  .th-sort, .th-filter { min-height: 44px; }
+  .th-filter { min-width: 36px; font-size: 13px; }
+  .dt-x { min-height: 44px; }
+  .ph-num { display: inline-flex; align-items: center; min-height: 44px; }
+  .editor fieldset.opt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  table.clients td.col-contact { display: none; }
+  .drawer-foot .log-contact { flex: 1; justify-content: center; }
+  .editor .when-row input { flex: 1 1 130px; }
+}
+@media (min-width: 721px) and (orientation: portrait) and (pointer: coarse) { table.clients td.col-contact { display: none; } }
+body.split table.clients td.col-contact { display: none; }
 </style>
 </head>
 <body>
@@ -1387,9 +1483,6 @@ const RU = {
   "Female": "Женский",
   "Male": "Мужской",
   "No number on file": "Номера нет",
-  "Held, not shown here": "Есть, но здесь не показывается",
-  "Phone numbers are matched between the two sources on the server; the numbers themselves are not sent to this page.":
-    "Номера телефонов сравниваются на сервере; сами номера на эту страницу не передаются.",
   "Match": "Совпадает",
   "One source only": "Только один источник",
   "Sources differ": "Источники расходятся",
@@ -1408,9 +1501,6 @@ const RU = {
   "dd.mm.yyyy": "дд.мм.гггг",
   "Date of birth, dd.mm.yyyy": "Дата рождения, дд.мм.гггг",
   "Enter the date as dd.mm.yyyy, for example 14.03.1988.": "Введите дату как дд.мм.гггг, например 14.03.1988.",
-  "The number in Colibri": "Номер из Colibri",
-  "The number in the questionnaire": "Номер из анкеты",
-  "The number on file": "Номер, который есть",
   "How do you know?": "Откуда известно?",
   "The client confirmed it": "Подтвердил клиент",
   "From our own records": "По нашим данным",
@@ -1627,7 +1717,7 @@ const MAPPED = {
   awareness_source_raw: "awareness_source", online_interest_raw: "online_interest",
   brand_preference_raw: "brand_preference",
 };
-const READ_ACTIONS = ["reference", "stats", "clients", "client", "ping", "peek", "insights", "data_health"];
+const READ_ACTIONS = ["reference", "stats", "clients", "client", "ping", "peek", "insights", "data_health", "facets"];
 
 /* ------------------------------------------------------------------- state */
 const blankFilters = () => ({
@@ -1635,6 +1725,8 @@ const blankFilters = () => ({
   drill: null,         // { label, params } when the list was opened from Insights
   quick: "",           // a shortcut chip: "bday" | "cannot" | "shared"
   dnc_out: false,      // leave out do-not-contact clients
+  multi: { status: [], abc: [], segment: [], lifecycle: [], owner: [] },   // column checklists (listx.js)
+  contact: "",         // not contacted in 30 / 60 / 90 days
 });
 const S = {
   locked: true, session: null,
@@ -1785,6 +1877,7 @@ function listParams() {
   else if (f.type === "prospect") p.record_type = "prospect";
   else if (f.type === "related") p.related = "only";
   quickParams(f, p);
+  listParamsX(f, p);
   if (f.drill && f.drill.params) Object.assign(p, f.drill.params);
   return p;
 }
@@ -1794,7 +1887,8 @@ async function loadAll() {
     call("reference"), call("stats"), call("clients", listParams()),
   ]);
   S.ref = ref; S.stats = stats;
-  S.rows = list.rows || []; S.total = list.total || 0; S.error = null;
+  const rows = myClientsDefault() ? await call("clients", listParams()) : list;
+  S.rows = rows.rows || []; S.total = rows.total || 0; S.error = null;
   loadRecent();
 }
 
@@ -1827,6 +1921,7 @@ async function refreshBehind() {
   loadList();
 }
 function setFilter(patch) {
+  patch = multiPatch(patch);
   if (Object.keys(patch).some((k) => k !== "offset")) S.walkId = null;   // a different list: the card's place in it is unknown
   Object.assign(S.f, patch, { offset: "offset" in patch ? patch.offset : 0 });
   renderToolbarValues();
@@ -2004,17 +2099,17 @@ function selectField(label, key, options) {
   const s = el("select", { "data-key": key, "aria-label": label,
     onchange: (e) => setFilter({ [key]: e.target.value }) },
     options.map(([v, t]) => el("option", { value: v, text: t })));
-  s.value = S.f[key];
+  s.value = selectValue(key);
   return el("label", { class: "field" }, [el("span", { text: label }), s]);
 }
 const FILTER_KEYS = ["status", "owner", "type", "abc_class", "lifecycle_status"];
 let searchTimer = null;
 function renderToolbar() {
   if (isPhone()) return renderSearchPhone();
-  const q = el("input", { type: "search", placeholder: tr("Name or reference"), value: S.f.q,
-    "aria-label": tr("Search by name or client reference"),
+  const q = el("input", { type: "search", placeholder: tr("Name, reference or phone"), value: S.f.q,
+    "aria-label": tr("Search by name, client reference or phone number"),
     oninput: (e) => { clearTimeout(searchTimer); const v = e.target.value.trim(); searchTimer = setTimeout(() => setFilter({ q: v }), 280); } });
-  const activeCount = FILTER_KEYS.filter((k) => S.f[k]).length + (S.f.drill ? 1 : 0);
+  const activeCount = activeFilterCount();
   const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
     el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
@@ -2024,22 +2119,24 @@ function renderToolbar() {
         $(".filters-toggle").setAttribute("aria-expanded", S.filtersOpen ? "true" : "false"); },
       text: activeCount ? tr("Filters ({n})", { n: activeCount }) : tr("Filters") }),
     el("div", { class: "filters", id: "filters" }, [
-      selectField(tr("Status"), "status", tx(STATUS_OPTIONS)),
-      selectField(tr("Owner"), "owner", ownerOptions()),
+      selectField(tr("Status"), "status", withMulti("status", tx(STATUS_OPTIONS))),
+      selectField(tr("Owner"), "owner", withMulti("owner", ownerOptions())),
       selectField(tr("Records"), "type", tx(TYPES)),
-      selectField(tr("ABC"), "abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]]),
-      selectField(tr("Lifecycle"), "lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)]))),
-      selectField(tr("Sort"), "sort", tx(SORTS)),
+      selectField(tr("ABC"), "abc_class", withMulti("abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]])),
+      selectField(tr("Lifecycle"), "lifecycle_status", withMulti("lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)])))),
+      segmentField(),
+      selectField(tr("Not contacted"), "contact", tx(CONTACT_FILTER)),
+      selectField(tr("Sort"), "sort", sortOptions()),
       el("div", { class: "field reset" }, [el("span", { "aria-hidden": "true", text: " " }),
         el("button", { class: "btn subtle", type: "button", onclick: resetFilters, text: tr("Reset") })]),
     ]),
   ]);
 }
 function renderToolbarValues() {
-  document.querySelectorAll("select[data-key]").forEach((s) => { s.value = S.f[s.dataset.key]; });
+  refreshSelects();
   const btn = $(".filters-toggle");
   if (btn) {
-    const n = FILTER_KEYS.filter((k) => S.f[k]).length + (S.f.drill ? 1 : 0);
+    const n = activeFilterCount();
     btn.textContent = n ? tr("Filters ({n})", { n }) : tr("Filters");
   }
   renderScoreboard();
@@ -2101,18 +2198,21 @@ function renderRow(r) {
     el("td", { class: "col-life", text: trv(r.lifecycle_status) }),
     el("td", { class: "col-owner" }, [ownerCell(r)]),
     el("td", { class: "col-last num", text: fmtDate(r.last_purchase_at) }),
+    contactCell(r),
     el("td", { class: "col-spend num", title: fullUZS(r.lifetime_spend_uzs), text: fmtUZS(r.lifetime_spend_uzs) }),
     el("td", { class: "col-meta" }, [
       r.abc_class ? el("span", { text: tr("Class {c}", { c: r.abc_class }) }) : null,
       r.lifecycle_status ? el("span", { text: tr(r.lifecycle_status) }) : null,
       !blank(r.client_owner) ? el("span", {}, [ownerCell(r)]) : null,
       r.last_purchase_at ? el("span", { text: tr("Last {d}", { d: fmtDate(r.last_purchase_at) }) }) : null,
+      r.last_contact_on ? el("span", { class: "m-contact", text: tr("Contacted {d}", { d: fmtDate(r.last_contact_on) }) }) : null,
     ]),
   ]);
 }
 function renderListHost() {
   const host = $("#list-host");
   if (!host) return;
+  const headFocus = headFocusKey();
   host.innerHTML = "";
   host.setAttribute("aria-busy", S.loading ? "true" : "false");
 
@@ -2142,16 +2242,7 @@ function renderListHost() {
   } else {
     const table = el("table", { class: "clients" + (S.loading ? " loading-list" : "") }, [
       el("caption", { class: "sr-only", text: tr("Client records") }),
-      el("thead", {}, [el("tr", {}, [
-        el("th", { scope: "col", text: tr("Client") }),
-        el("th", { scope: "col", text: tr("Status") }),
-        el("th", { scope: "col", class: "col-abc", text: "ABC" }),
-        el("th", { scope: "col", class: "col-seg", text: tr("Segment") }),
-        el("th", { scope: "col", class: "col-life", text: tr("Lifecycle") }),
-        el("th", { scope: "col", class: "col-owner", text: tr("Owner") }),
-        el("th", { scope: "col", class: "col-last num", text: tr("Last purchase") }),
-        el("th", { scope: "col", class: "num", text: tr("Lifetime spend") }),
-      ])]),
+      el("thead", {}, [listHeader()]),
       el("tbody", {}, S.rows.map(renderRow)),
     ]);
     panel.appendChild(table);
@@ -2166,6 +2257,7 @@ function renderListHost() {
     }
   }
   host.appendChild(panel);
+  restoreHeadFocus(headFocus);
 }
 function describeFilters() {
   const f = S.f, parts = [];
@@ -2174,6 +2266,7 @@ function describeFilters() {
   if (f.owner) parts.push(tr("owner: {o}", { o: ((ownerOptions().find((o) => o[0] === f.owner) || ["", f.owner])[1]).toLowerCase() }));
   if (f.abc_class) parts.push(tr("class {c}", { c: f.abc_class }));
   if (f.lifecycle_status) parts.push(tr(f.lifecycle_status).toLowerCase());
+  parts.push(...describeFiltersX());
   if (f.quick && QUICK_SCOPE[f.quick]) parts.push(tr(QUICK_SCOPE[f.quick]));
   if (f.dnc_out) parts.push(tr("do-not-contact left out"));
   if (f.q) parts.push("“" + f.q + "”");
@@ -2400,19 +2493,20 @@ function confirmedValue(c, field) {
   if (field === "name") return c.name_confirmed;
   if (field === "gender") return c.gender_confirmed ? fmtGender(c.gender_confirmed) : "";
   if (field === "dob") return c.dob_confirmed ? fmtDate(c.dob_confirmed) : "";
+  if (field === "phone") return fmtPhone(c.phone_confirmed);
   return "";
 }
 function fieldAction(c, field, flag) {
   if (!editable(c)) return null;
   if (S.edit && S.edit.kind === "field" && S.edit.field === field) return null;
-  if (field === "phone" && (flag === "none")) return null;
-  const hasCol = field === "phone" ? c.phone_flag !== "none" : !blank(fieldValues(c, field)[0]);
+  const hasCol = !blank(fieldValues(c, field)[0]);
   const hasMkt = !blank(fieldValues(c, field)[1]);
   const label = flag === "conflict" ? tr("Decide") : flag === "gap" ? tr("Confirm") : flag === "none" ? tr("Add") : tr("Change");
-  const preset = flag === "gap" && field !== "phone" ? (hasCol ? "colibri" : hasMkt ? "marketing" : "") : "";
+  const preset = field === "phone" ? (flag === "gap" || flag === "none" ? phonePreset(c, flag) : "")
+    : flag === "gap" ? (hasCol ? "colibri" : hasMkt ? "marketing" : "") : "";
   return el("button", { class: "btn sm" + (flag === "conflict" || flag === "gap" ? "" : " subtle"), type: "button",
     disabled: S.busy ? true : null, "data-field": field,
-    onclick: () => startEdit({ kind: "field", field, source: flag === "none" ? "value" : preset, value: "", basis: "" }), text: label });
+    onclick: () => startEdit({ kind: "field", field, source: flag === "none" && field !== "phone" ? "value" : preset, value: "", basis: "" }), text: label });
 }
 // dd.mm.yyyy on screen, ISO to the server.
 function maskDmy(v) {
@@ -2440,15 +2534,7 @@ function fieldForm(c, field, flag, meta) {
   const opts = [];
   const pick = (v) => { e.source = v; const other = $("#fe-other"); if (other) other.disabled = v !== "value"; };
   if (field === "phone") {
-    const both = flag === "conflict";
-    if (both) {
-      opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("The number in Colibri"), pick));
-      opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("The number in the questionnaire"), pick));
-    } else {
-      // one number on file: confirm it from whichever source holds it
-      if (!e.source) e.source = c.phone_in_colibri || !c.phone_in_marketing ? "colibri" : "marketing";
-      opts.push(radio("fe-src", e.source, true, tr("The number on file"), pick));
-    }
+    opts.push(...phoneOptions(c, e, pick));
   } else {
     if (!blank(col)) opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("From Colibri") + ": ", pick, el("b", { text: col })));
     if (!blank(mkt)) opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("From the questionnaire") + ": ", pick, el("b", { text: mkt })));
@@ -2481,6 +2567,7 @@ function fieldForm(c, field, flag, meta) {
     ev.preventDefault();
     if (field === "dob" && e.source === "value" && !blank(e.text) && !e.value) { S.formError = tr("Enter the date as dd.mm.yyyy, for example 14.03.1988."); renderDrawer(); return; }
     if (!e.source || (e.source === "value" && blank(e.value))) { S.formError = tr("Choose a value."); renderDrawer(); return; }
+    if (field === "phone" && phoneTypedError(e)) { S.formError = phoneTypedError(e); renderDrawer(); return; }
     if (!e.basis) { S.formError = tr("Say how you know."); renderDrawer(); return; }
     act("resolve_field", { field, source: e.source, value: e.source === "value" ? e.value : null, basis: e.basis }, tr("Saved."));
   };
@@ -2513,10 +2600,10 @@ function sectionCompare(data) {
   const rows = [];
   const add = (field) => {
     const flag = c[field + "_flag"] || "none";
-    const settled = HUMAN_FLAGS.includes(flag) && field !== "phone";
+    const settled = HUMAN_FLAGS.includes(flag);
     let cells;
     if (field === "phone") {
-      cells = [el("td", { colspan: "2", class: "muted", text: flag === "none" ? (c.phone_in_telegram ? tr("From Telegram, not shown here") : tr("No number on file")) : tr("Held, not shown here") })];
+      cells = phoneCells(c);
     } else {
       const [a, b] = fieldValues(c, field);
       cells = [el("td", { text: blank(a) ? "—" : a }), el("td", { text: blank(b) ? "—" : b })];
@@ -2538,7 +2625,6 @@ function sectionCompare(data) {
         el("th", { scope: "col", text: tr("Questionnaire") }), el("th", { scope: "col", class: "st", text: tr("Status") })])]),
       el("tbody", {}, rows),
     ]),
-    el("p", { class: "note", text: tr("Phone numbers are matched between the two sources on the server; the numbers themselves are not sent to this page.") }),
   ]);
 }
 
@@ -2719,10 +2805,10 @@ function sectionContact(c) {
       kv(tr("Contact note"), c.contact_note),
       kv(tr("Referred by"), c.referred_by),
     ]));
-    return el("section", { class: "drawer-section" }, kids);
+    return el("section", { class: "drawer-section contact-sec" }, kids);
   }
   kids.push(contactForm(c, e));
-  return el("section", { class: "drawer-section" }, kids);
+  return el("section", { class: "drawer-section contact-sec" }, kids);
 }
 function contactForm(c, e) {
   return el("form", { class: "editor", onsubmit: (ev) => { ev.preventDefault();
@@ -2779,16 +2865,18 @@ function sectionQuestionnaire(c) {
 
 /* ------------------------------------------------------------- card: notes */
 function eventText(e) {
-  const tg = tgEventText(e);
+  const tg = tgEventText(e) || personalEventText(e);
   if (tg) return tg;
   const f = e.field && FIELD_LABEL[e.field] ? tr(FIELD_LABEL[e.field]) : e.field;
   switch (e.action) {
     case "field_resolved": {
       const [basis, source] = String(e.note || "").split(":");
       const how = [basis === "client" ? tr("the client confirmed it") : basis === "delardi" ? tr("from our own records") : "",
-        source === "colibri" ? tr("from Colibri") : source === "marketing" ? tr("from the questionnaire") : source === "value" ? tr("typed in") : ""]
+        source === "colibri" ? tr("from Colibri") : source === "marketing" ? tr("from the questionnaire") : source === "telegram" ? tr("from Telegram")
+          : source === "value" ? tr("typed in") : ""]
         .filter(Boolean).join(", ");
-      const val = e.field === "gender" ? fmtGender(e.new_value) : e.field === "dob" ? fmtDate(e.new_value) : e.field === "phone" ? "" : e.new_value;
+      const val = e.field === "gender" ? fmtGender(e.new_value) : e.field === "dob" ? fmtDate(e.new_value)
+        : e.field === "phone" ? (phoneParts(e.new_value) ? fmtPhone(e.new_value) : "") : e.new_value;
       return [el("b", { text: tr("{field} confirmed", { field: f }) + (val ? ": " : ". ") }), val ? "“" + val + "”. " : "", how ? sentence(how) + "." : ""];
     }
     case "field_reset": return [el("b", { text: tr("{field} handed back to the automatic comparison", { field: f }) + "." })];
@@ -2826,7 +2914,9 @@ function eventText(e) {
       return [el("b", { text: tr("Purchase lines added by the Colibri refresh: {n}", { n: e.new_value || "—" }) + ". " }), refreshPeriod(e.note)];
     case "became_client": return [el("b", { text: tr("First purchase in Colibri: now a client") + ". " }), refreshPeriod(e.note)];
     case "colibri_changed": {
-      if (e.field === "phone") return [el("b", { text: tr("Phone number changed in Colibri") + ". " }), refreshPeriod(e.note)];
+      if (e.field === "phone") return [el("b", { text: tr("Phone number changed in Colibri") + ". " }),
+        phoneParts(e.old_value) || phoneParts(e.new_value) ? el("span", { class: "move", text: (fmtPhone(e.old_value) || "—") + " → " + (fmtPhone(e.new_value) || "—") + ". " }) : null,
+        refreshPeriod(e.note)];
       const v = (x) => e.field === "gender" ? fmtGender(x) : e.field === "dob" ? fmtDate(x) : (blank(x) ? "—" : x);
       return [el("b", { text: tr("{field} changed in Colibri", { field: e.field === "patronymic" ? tr("Patronymic") : f }) + ": " }),
         el("span", { class: "move", text: v(e.old_value) + " → " + v(e.new_value) + ". " }), refreshPeriod(e.note)];
@@ -2900,7 +2990,7 @@ function renderDrawer() {
   else {
     const t = S.cardTab;
     if (t === "overview") {
-      body.append(sectionGlance(data));
+      body.append(sectionGlance(data), sectionContactLog(data), sectionPersonal(data));
       const tgs = sectionTelegram(data); if (tgs) body.append(tgs);
       body.append(sectionCommercial(c), sectionContact(c), sectionQuestionnaire(c));
     } else if (t === "purchases") {
@@ -4450,7 +4540,8 @@ function renderData() {
      opened on this device (kept as references only; names are fetched).
    - iPad: client cards in two columns in portrait; in landscape the list and
      the open card sit side by side.
-   Nothing here changes the data rules: no phone numbers, sellers as labels.
+   Nothing here changes the data rules: sellers as labels. (Phone numbers
+   reach the page since v11, for everyone with CRM access: see personal.js.)
    ========================================================================= */
 Object.assign(RU, {
   "Menu": "Меню",
@@ -4682,7 +4773,7 @@ function openNav(section) {
 }
 function closeNav(fromHistory, then) {
   if (!S.navOpen) { if (then) then(); return; }
-  S.navOpen = false;
+  S.navOpen = false; S.navFacet = null;
   const d = $("#nav");
   d.classList.remove("open"); d.setAttribute("aria-hidden", "true");
   $("#nav-scrim").classList.remove("open");
@@ -4709,16 +4800,21 @@ function renderNav() {
         navRow(tr(VIEW_TITLES[v]), S.view === v, () => go(v)))),
     ]),
   ];
-  if (S.view === "clients") {
+  if (S.view === "clients" && S.navFacet) {
+    sections.length = 0;                                  // a checklist takes the menu until Back
+    sections.push(navFacetSection());
+  } else if (S.view === "clients") {
     sections.push(el("div", { class: "nav-section", "data-section": "filters" }, [
-      el("h3", { text: tr("Filters") }),
+      el("h3", { text: tr("Sort and filter") }),
       el("div", { class: "nav-filters" }, [
-        selectField(tr("Status"), "status", tx(STATUS_OPTIONS)),
-        selectField(tr("Owner"), "owner", ownerOptions()),
+        selectField(tr("Sort"), "sort", sortOptions()),
+        selectField(tr("Status"), "status", withMulti("status", tx(STATUS_OPTIONS))),
+        selectField(tr("Owner"), "owner", withMulti("owner", ownerOptions())),
         selectField(tr("Records"), "type", tx(TYPES)),
-        selectField(tr("ABC"), "abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]]),
-        selectField(tr("Lifecycle"), "lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)]))),
-        selectField(tr("Sort"), "sort", tx(SORTS)),
+        selectField(tr("ABC"), "abc_class", withMulti("abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]])),
+        selectField(tr("Lifecycle"), "lifecycle_status", withMulti("lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)])))),
+        selectField(tr("Not contacted"), "contact", tx(CONTACT_FILTER)),
+        navFacetRows(),
         el("button", { class: "btn", type: "button", onclick: () => { resetFilters(); renderNav(); }, text: tr("Reset") }),
       ]),
     ]));
@@ -4726,7 +4822,7 @@ function renderNav() {
   let themeNow = "auto";
   try { themeNow = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* ignore */ }
   const dark = themeNow === "dark" || (themeNow === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  sections.push(el("div", { class: "nav-section", "data-section": "settings" }, [
+  if (!S.navFacet) sections.push(el("div", { class: "nav-section", "data-section": "settings" }, [
     el("h3", { text: tr("Settings") }),
     el("div", { class: "nav-list" }, [
       el("div", { class: "nav-row static" }, [el("span", { text: tr("Language") }), langSwitch()]),
@@ -4776,10 +4872,11 @@ function renderNav() {
 /* --------------------------------------------------------- finding a client */
 const QUICK = [["bday", "Birthdays this week"], ["cannot", "Cannot lose"], ["shared", "Shared list"],
   ["missed", "Missed requests"], ["leads", "Telegram leads"]];
-const QUICK_SCOPE = { bday: "birthdays in the next 7 days", cannot: "cannot lose", shared: "shared list",
+const QUICK_SCOPE = { mine: "my clients", bday: "birthdays in the next 7 days", cannot: "cannot lose", shared: "shared list",
   missed: "missed requests", leads: "telegram leads" };
 function quickParams(f, p) {
-  if (f.quick === "bday") p.birthday_within = 7;
+  if (f.quick === "mine" && S.ref && S.ref.my_rep) { p.client_owner = S.ref.my_rep; delete p.owner_status; }
+  else if (f.quick === "bday") p.birthday_within = 7;
   else if (f.quick === "missed") p.missed = "any";
   else if (f.quick === "leads") p.status = "lead";
   else if (f.quick === "cannot") p.rfm_segment = "Cannot lose";
@@ -4788,10 +4885,10 @@ function quickParams(f, p) {
   return p;
 }
 function renderSearchPhone() {
-  const q = el("input", { type: "search", id: "find-q", placeholder: tr("Name or reference"), value: S.f.q, enterkeyhint: "search",
-    autocomplete: "off", "aria-label": tr("Search by name or client reference"),
+  const q = el("input", { type: "search", id: "find-q", placeholder: tr("Name, reference or phone"), value: S.f.q, enterkeyhint: "search",
+    autocomplete: "off", "aria-label": tr("Search by name, client reference or phone number"),
     oninput: (e) => { clearTimeout(searchTimer); const v = e.target.value.trim(); searchTimer = setTimeout(() => setFilter({ q: v }), 280); } });
-  const n = FILTER_KEYS.filter((k) => S.f[k]).length + (S.f.drill ? 1 : 0);
+  const n = activeFilterCount();
   return el("div", { class: "find", id: "toolbar" }, [
     el("label", { class: "find-q" }, [el("span", { class: "sr-only", text: tr("Search a client") }), q]),
     el("button", { class: "btn filters-toggle m", type: "button", onclick: () => openNav("filters"),
@@ -4805,7 +4902,8 @@ function renderQuick() {
   if (S.locked) return;
   const qchip = (label, pressed, onclick) => el("button", { type: "button", class: "qchip", "aria-pressed": pressed ? "true" : "false", onclick, text: label });
   host.append(el("div", { class: "qchips", role: "group", "aria-label": tr("Shortcuts") }, [
-    ...QUICK.map(([k, label]) => qchip(tr(label), S.f.quick === k, () => setFilter({ quick: S.f.quick === k ? "" : k }))),
+    ...(S.ref && S.ref.my_rep ? [["mine", "My clients"]] : []).concat(QUICK)
+      .map(([k, label]) => qchip(tr(label), S.f.quick === k, () => setFilter({ quick: S.f.quick === k ? "" : k }))),
     qchip(tr("Do-not-contact left out"), S.f.dnc_out, () => setFilter({ dnc_out: !S.f.dnc_out })),
   ]));
   const rows = S.recentRows || [];
@@ -4933,10 +5031,11 @@ function sectionGlance(data) {
     kids.push(el("div", { class: "banner critical dnc-banner", role: "note" }, [
       el("b", { text: tr("Do not contact") }), c.contact_note ? el("span", { text: " — " + c.contact_note }) : null]));
   }
-  const facts = [];
+  const facts = [phoneFact(data)];
   const owner = blank(c.client_owner) ? "—" : who(c.client_owner) + (ownerHasLeft(c.client_owner, c.owner_active) ? " (" + tr("has left") + ")" : "");
   facts.push(fact(tr("Owner"), owner));
   facts.push(fact(tr("Birthday"), birthdayLine(c)));
+  facts.push(contactGlanceFact(data));
   const tgNote = tgGlanceNote(data);
   if (tgNote) {
     kids.push(tgNote);
@@ -4959,7 +5058,7 @@ function sectionGlance(data) {
     }
   }
   if (!blank(c.brand_preference_raw)) facts.push(fact(tr("Brand preference"), c.brand_preference_raw));
-  facts.push(...tgGlanceFacts(data));
+  facts.push(...tgGlanceFacts(data), ...personalGlanceFacts(data));
   kids.push(el("dl", { class: "glance-facts" }, facts));
   const notes = (data.events || []).filter((e) => e.action === "note" && !blank(e.note)).slice(0, 2);
   kids.push(el("div", { class: "glance-notes" }, [
@@ -5100,6 +5199,7 @@ function sheetTitle(c) {
   if (e.kind === "lookup") return tr("Merge with another record");
   if (e.kind === "owner") return tr("Change owner");
   if (e.kind === "contact") return tr("Contact");
+  if (PERSONAL_KINDS.includes(e.kind)) return personalSheetTitle();
   return tr("Add a note");
 }
 // The record the panel is about, in one line, for the full-screen steps.
@@ -5116,6 +5216,7 @@ function renderSheet(data) {
   else if (e.kind === "lookup") body = [sheetContext(c), lookupForm(c, e)];
   else if (e.kind === "owner") body = [ownerEditor(c)];
   else if (e.kind === "contact") body = [contactForm(c, e)];
+  else if (PERSONAL_KINDS.includes(e.kind)) body = personalSheetBody(data);
   else body = [noteForm(e)];
   return [
     el("div", { class: "sheet-scrim", onclick: () => { if (!S.busy) cancelEdit(); } }),
@@ -5216,6 +5317,8 @@ function cardFoot(data) {
   const canNote = editable(c) || (canEdit() && c.record_state !== "merged");
   if (!canNote) return null;
   return el("div", { class: "drawer-foot" }, [
+    editable(c) ? el("button", { class: "btn log-contact", type: "button", disabled: S.busy ? true : null, onclick: logContactFromFoot }, [
+      el("span", { "aria-hidden": "true", text: "+" }), tr("Log contact")]) : null,
     el("button", { class: "btn primary add-note", type: "button", disabled: S.busy ? true : null, onclick: addNoteFromFoot }, [
       el("span", { "aria-hidden": "true", text: "+" }), tr("Add note")]),
   ]);
@@ -5375,8 +5478,8 @@ if (navigator.onLine === false) S.offline = true;
      nor the questionnaire) and records with an open missed request.
    - In Insights: the leads by when they last wrote, and the missed demand by
      kind, by brand we don't carry and by year.
-   Telegram IDs and phone numbers never reach this page: the server sends a
-   flag and a chat reference instead.
+   Telegram IDs never reach this page: the server sends a chat reference
+   instead. Since v11 the chat's phone number does (see personal.js).
    ========================================================================= */
 Object.assign(RU, {
   // list and filters
@@ -5418,7 +5521,6 @@ Object.assign(RU, {
   "Linked by the phone number.": "Связан по номеру телефона.",
   "Created from this chat.": "Создан из этого чата.",
   "Confirmed by {by}, {d}.": "Подтвердил(а) {by}, {d}.",
-  "A phone number from Telegram is held on the server, not shown here.": "Номер из Telegram хранится на сервере, здесь не показывается.",
   "A Telegram chat may belong to this client. See Clean-up.": "Возможно, этому клиенту принадлежит чат в Telegram. См. «Проверка».",
   "Cold lead": "Холодный лид",
   "Warm lead": "Тёплый лид",
@@ -5452,7 +5554,6 @@ Object.assign(RU, {
   "A similar name in Telegram.": "Похожее имя в Telegram.",
   "Till: {n} items, last {d}": "Касса: изделий {n}, последняя покупка {d}",
   "{n} would move to this record.": "В эту запись перейдут: {n}.",
-  "Brings a phone number (kept on the server).": "Добавит номер телефона (хранится на сервере).",
   "Same client — link": "Тот же клиент — связать",
   "Not this client": "Не этот клиент",
   "Link this chat to {id}?": "Связать этот чат с {id}?",
@@ -5482,7 +5583,6 @@ Object.assign(RU, {
   // history
   "Linked to a Telegram chat by phone number.": "Связан с чатом Telegram по номеру телефона.",
   "Telegram chat confirmed as this client.": "Чат Telegram подтверждён как этот клиент.",
-  "A phone number from the chat is now on file (not shown here).": "Номер из чата теперь в записи (здесь не показывается).",
   "Suggested Telegram chat: not this client.": "Предложенный чат Telegram: не этот клиент.",
   "Created from the Telegram chats": "Создан из чатов Telegram",
   "the chat suggests a purchase": "по переписке была покупка",
@@ -5504,7 +5604,6 @@ Object.assign(RU, {
   "Wrote in the last 30 days": "Писали за последние 30 дней",
   "Wrote 31–180 days ago": "Писали 31–180 дней назад",
   "Wrote more than 180 days ago": "Писали более 180 дней назад",
-  "{n} have a phone number (kept on the server). Days are counted to today; the summary is as of {d}.": "У {n} есть номер телефона (хранится на сервере). Дни считаются до сегодня; сводка на {d}.",
   "Open the {n} leads": "Открыть лиды ({n})",
   "What clients asked for and did not get": "Что клиенты просили и не получили",
   "{total} times between {a} and {b} a client asked for something the boutique could not offer, or waited more than a day for a reply: {clients} people, {in_file} of them in the client file.": "{total} раз с {a} по {b} клиент просил то, чего бутик не мог предложить, или ждал ответа больше суток: {clients} человек, из них в базе — {in_file}.",
@@ -5524,7 +5623,6 @@ Object.assign(RU, {
   "Telegram chats to confirm": "Чаты Telegram на подтверждение",
   "A chat in the boutique's Telegram may be this client. Link it, or say it is not.": "Чат в Telegram бутика может принадлежать этому клиенту. Свяжите его или отметьте, что это не он.",
   "Neither Colibri, the questionnaire nor Telegram has a number.": "Номера нет ни в Colibri, ни в анкете, ни в Telegram.",
-  "From Telegram, not shown here": "Из Telegram, здесь не показывается",
   // server messages
   "This Telegram chat was not suggested for this record.": "Этот чат Telegram не предлагался для этой записи.",
   "This Telegram chat is already linked to a record.": "Этот чат Telegram уже связан с записью.",
@@ -5632,14 +5730,14 @@ function sectionTelegram(data) {
       (ch.interest_brands || []).length ? kv(tr("Brands mentioned"), ch.interest_brands.join(", ")) : null,
       ch.max_discount_pct ? kv(tr("Largest discount offered"), Math.round(Number(ch.max_discount_pct) * 10) / 10 + "%") : null,
       (ch.flags || []).length ? kv(tr("Noted in the chat"), ch.flags.map((f) => tr(f)).join(", ")) : null,
+      ch.phone ? kv(tr("Phone in the chat"), fmtPhone(ch.phone)) : null,
     ]),
   ];
   if (!blank(ch.last_client_excerpt)) {
     kids.push(el("div", { class: "tg-quote" }, [el("span", { class: "muted", text: tr("Last message from the client") + ": " }),
       el("q", { text: ch.last_client_excerpt })]));
   }
-  const notes = [how, c.phone_in_telegram ? tr("A phone number from Telegram is held on the server, not shown here.") : ""].filter(Boolean);
-  if (notes.length) kids.push(el("p", { class: "note", text: notes.join(" ") }));
+  if (how) kids.push(el("p", { class: "note", text: how }));
   return el("section", { class: "drawer-section tg" }, kids);
 }
 
@@ -5666,7 +5764,7 @@ function sectionTgSuggest(data) {
       s.pos_items ? tr("Till: {n} items, last {d}", { n: s.pos_items, d: fmtDate(s.last_pos_purchase) }) +
         ((s.pos_brands || []).length ? " · " + s.pos_brands.join(", ") : "") + (s.pos_revenue_uzs ? " · " + fmtUZS(s.pos_revenue_uzs) : "") : null,
       s.missed_requests ? tr("{n} would move to this record.", { n: pl(s.missed_requests, "request") }) : null,
-      s.has_phone && !hasPhone ? tr("Brings a phone number (kept on the server).") : null,
+      s.phone && !hasPhone ? tr("Brings a phone number: {p}.", { p: fmtPhone(s.phone) }) : s.phone ? tr("Phone number in the chat: {p}", { p: fmtPhone(s.phone) }) : null,
     ].filter(Boolean);
     const confirming = S.tgConfirm === s.ref;
     kids.push(el("div", { class: "dup", "data-chat": String(s.ref) }, [
@@ -5731,7 +5829,7 @@ function tgEventText(e) {
     case "telegram_linked":
       if (e.new_value === "confirmed") {
         return [el("b", { text: tr("Telegram chat confirmed as this client.") + " " }),
-          e.note === "phone_added" ? tr("A phone number from the chat is now on file (not shown here).") : ""];
+          e.note === "phone_added" ? tr("A phone number from the chat is now on file.") : ""];
       }
       return [el("b", { text: tr("Linked to a Telegram chat by phone number.") })];
     case "telegram_rejected": return [el("b", { text: tr("Suggested Telegram chat: not this client.") })];
@@ -5772,7 +5870,7 @@ function telegramInsights(t) {
       { total: num(L.total), buyers: num(L.buyers) })),
     barList(leadItems),
     el("p", { class: "note", text: tr("Each lead is counted once: those who bought first, the rest by when they last wrote.") + " " +
-      tr("{n} have a phone number (kept on the server). Days are counted to today; the summary is as of {d}.", { n: num(L.with_phone), d: fmtDate(t.as_of) }) }),
+      tr("{n} have a phone number. Days are counted to today; the summary is as of {d}.", { n: num(L.with_phone), d: fmtDate(t.as_of) }) }),
     el("div", { class: "actions" }, [el("button", { class: "btn sm", type: "button", onclick: leadDrill, text: tr("Open the {n} leads", { n: num(L.total) }) })]),
   ]);
   const kinds = (t.by_kind || []).slice();
@@ -5801,6 +5899,1067 @@ function telegramInsights(t) {
     numbers([tr("Year"), tr("Requests we could not meet"), tr("Replies after more than a day")], years.map((y) => [String(y.year), String(num(y.requests)), String(num(y.late))])),
   ]);
   return [scoreboard, el("div", { class: "ins-grid" }, [leads, missed, brands, byYear])];
+}
+
+/* ===========================================================================
+   Phones, the contact log and personal data (API v11)
+   - Phone numbers reach the page for everyone with CRM access (Alex, 22
+     Sept): on the card with Call, Telegram and WhatsApp; in the clean-up
+     table; when settling the phone field, typed or taken from a source; and
+     in the search box. They are hidden with the amounts in discreet mode.
+   - Step 9, the contact log: every contact is kept (date, how, by whom, a
+     note); the latest shows on the card and in the list. "Log contact" sits
+     in the card's foot. The one who logged a contact can take it back for 15
+     minutes.
+   - Step 8, personal data: sizes, preferences, important dates, address and
+     a free "about the client", each group edited on its own, with who and
+     when. Every change goes into the client's history.
+   ========================================================================= */
+Object.assign(RU, {
+  // phones
+  "Call": "Позвонить",
+  "WhatsApp": "WhatsApp",
+  "Call {p}": "Позвонить {p}",
+  "Write to {p} in Telegram": "Написать {p} в Telegram",
+  "Write to {p} in WhatsApp": "Написать {p} в WhatsApp",
+  "confirmed": "подтверждён",
+  "Colibri": "Colibri",
+  "questionnaire": "анкета",
+  "Telegram chat": "чат Telegram",
+  "Check this number: it looks like several run together.": "Проверьте номер: похоже, несколько номеров слиты в один.",
+  "From Telegram": "Из Telegram",
+  "From Telegram: ": "Из Telegram: ",
+  "from Telegram": "из Telegram",
+  "The phone number, e.g. +998 90 123 45 67": "Номер, например +998 90 123 45 67",
+  "Enter the phone number, for example +998 90 123 45 67.": "Введите номер, например +998 90 123 45 67.",
+  "Phone in the chat": "Телефон в чате",
+  "Brings a phone number: {p}.": "Добавит номер телефона: {p}.",
+  "Phone number in the chat: {p}": "Номер в чате: {p}",
+  "A phone number from the chat is now on file.": "Номер из чата теперь в записи.",
+  "{n} have a phone number. Days are counted to today; the summary is as of {d}.": "У {n} есть номер телефона. Дни считаются до сегодня; сводка на {d}.",
+  "Name, reference or phone": "Имя, номер карты или телефон",
+  "Search by name, client reference or phone number": "Поиск по имени, номеру клиента или телефону",
+  // contact log
+  "Contact log": "Контакты с клиентом",
+  "Last contact": "Последний контакт",
+  "none logged yet": "пока не отмечен",
+  "No contact logged yet.": "Контактов пока нет.",
+  "Log a contact": "Отметить контакт",
+  "Log contact": "Отметить контакт",
+  "Visit": "Визит",
+  "Phone call": "Звонок",
+  "Email": "Эл. почта",
+  "Other": "Другое",
+  "When": "Когда",
+  "How": "Как",
+  "By": "Кто",
+  "Me ({name})": "Я ({name})",
+  "Today": "Сегодня",
+  "Yesterday": "Вчера",
+  "Note (optional)": "Заметка (необязательно)",
+  "E.g. called about the new collection, will visit on Saturday": "Например: позвонили про новую коллекцию, придёт в субботу",
+  "Say how the contact was made.": "Укажите, как был контакт.",
+  "Enter the date as dd.mm.yyyy.": "Введите дату в формате дд.мм.гггг.",
+  "A contact cannot be in the future.": "Контакт не может быть в будущем.",
+  "Contact logged.": "Контакт отмечен.",
+  "Contact removed.": "Контакт удалён.",
+  "Remove": "Удалить",
+  "Remove this contact?": "Удалить этот контакт?",
+  "Yes, remove": "Да, удалить",
+  "logged by {by}": "отметил(а) {by}",
+  "Show all {n}": "Показать все ({n})",
+  "Show fewer": "Свернуть",
+  "{d} · {how} · {by}": "{d} · {how} · {by}",
+  "Contact logged: {how}, {d}.": "Контакт: {how}, {d}.",
+  "Contact removed: {how}, {d}.": "Контакт удалён: {how}, {d}.",
+  "Contacted {d}": "Контакт {d}",
+  // personal data
+  "Personal data": "Личные данные",
+  "Sizes": "Размеры",
+  "Preferences": "Предпочтения",
+  "Important dates": "Важные даты",
+  "Address": "Адрес",
+  "About the client": "О клиенте",
+  "Not recorded yet.": "Пока не записано.",
+  "No dates yet.": "Дат пока нет.",
+  "Add a date": "Добавить дату",
+  "Ring size": "Размер кольца",
+  "Wrist": "Запястье",
+  "Necklace": "Колье",
+  "{n} cm": "{n} см",
+  "Metal": "Металл",
+  "Stones": "Камни",
+  "Style": "Стиль",
+  "Favourite brands and collections": "Любимые бренды и коллекции",
+  "Dislikes": "Не нравится",
+  "Yellow gold": "Жёлтое золото",
+  "White gold": "Белое золото",
+  "Rose gold": "Розовое золото",
+  "Platinum": "Платина",
+  "Steel": "Сталь",
+  "Diamonds": "Бриллианты",
+  "Coloured stones": "Цветные камни",
+  "Pearls": "Жемчуг",
+  "No stones": "Без камней",
+  "Classic": "Классика",
+  "Modern": "Современный",
+  "Statement": "Яркий, заметный",
+  "From the questionnaire": "Из анкеты",
+  "Use the questionnaire's answer": "Взять ответ из анкеты",
+  "{by}, {d}": "{by}, {d}",
+  "Ring size — tap every size that fits": "Размер кольца — отметьте все подходящие",
+  "Other sizes": "Другие размеры",
+  "E.g. 12.5 or 23": "Например, 12,5 или 23",
+  "Wrist, cm": "Запястье, см",
+  "Necklace length": "Длина колье",
+  "E.g. wears rings on the index finger": "Например, носит кольца на указательном пальце",
+  "E.g. Messika Move, Bulgari Serpenti": "Например, Messika Move, Bulgari Serpenti",
+  "E.g. no yellow gold, nothing too large": "Например, не любит жёлтое золото, ничего крупного",
+  "E.g. prefers delicate pieces for every day": "Например, предпочитает тонкие изделия на каждый день",
+  "For deliveries, gifts and invitations": "Для доставки, подарков и приглашений",
+  "What the team should know: family, interests, how they like to be served…": "Что важно знать команде: семья, интересы, как предпочитает обслуживание…",
+  "Wedding anniversary": "Годовщина свадьбы",
+  "Partner's birthday": "День рождения партнёра",
+  "Child's birthday": "День рождения ребёнка",
+  "What is the date?": "Что за дата?",
+  "Name or note (optional)": "Имя или пояснение (необязательно)",
+  "Name the date": "Название даты",
+  "E.g. husband Rustam": "Например, муж Рустам",
+  "E.g. son Daniyar": "Например, сын Данияр",
+  "E.g. first purchase together": "Например, первая совместная покупка",
+  "Date": "Дата",
+  "dd.mm or dd.mm.yyyy": "дд.мм или дд.мм.гггг",
+  "Enter the date as dd.mm or dd.mm.yyyy.": "Введите дату как дд.мм или дд.мм.гггг.",
+  "That is not a real date.": "Такой даты не существует.",
+  "Name the date.": "Назовите дату.",
+  "Choose what the date is.": "Выберите, что это за дата.",
+  "Remove this date?": "Удалить эту дату?",
+  "Date added.": "Дата добавлена.",
+  "Date removed.": "Дата удалена.",
+  "Choose up to six ring sizes.": "Не больше шести размеров кольца.",
+  "Ring sizes run from 12 to 25, in halves.": "Размеры колец — от 12 до 25, с шагом 0,5.",
+  "A wrist is 12 to 25 cm.": "Запястье — от 12 до 25 см.",
+  "Coming up": "Скоро",
+  "{what} · {when}": "{what} · {when}",
+  "Personal data — {group} updated": "Личные данные — изменено: {group}",
+  "sizes": "размеры",
+  "preferences": "предпочтения",
+  "address": "адрес",
+  "about the client": "о клиенте",
+  "ring size": "размер кольца",
+  "wrist": "запястье",
+  "necklace": "колье",
+  "note": "заметка",
+  "metal": "металл",
+  "stones": "камни",
+  "style": "стиль",
+  "favourite brands": "любимые бренды",
+  "dislikes": "не нравится",
+  "Important date added: {what}": "Добавлена важная дата: {what}",
+  "Important date removed: {what}": "Удалена важная дата: {what}",
+  // server messages
+  "Say when the contact was.": "Укажите, когда был контакт.",
+  "Say when the contact was, as YYYY-MM-DD.": "Укажите дату контакта.",
+  "That date is too far back.": "Слишком давняя дата.",
+  "Say who made the contact.": "Укажите, кто связался с клиентом.",
+  "Choose yourself or a current sales rep.": "Выберите себя или действующего продавца.",
+  "Keep the note under 500 characters.": "Заметка — не длиннее 500 символов.",
+  "No such contact on this record.": "У этой записи нет такого контакта.",
+  "Only the person who logged a contact can remove it.": "Удалить контакт может только тот, кто его отметил.",
+  "A contact can be removed only within 15 minutes of logging it.": "Контакт можно удалить только в течение 15 минут.",
+  "Sizes must be numbers.": "Размеры должны быть числами.",
+  "Keep it to six ring sizes.": "Не больше шести размеров кольца.",
+  "A necklace length is 35 to 100 cm.": "Длина колье — от 35 до 100 см.",
+  "Keep the note under 200 characters.": "Заметка — не длиннее 200 символов.",
+  "Unknown metal.": "Неизвестный металл.",
+  "Unknown stone choice.": "Неизвестный вариант камней.",
+  "Unknown style.": "Неизвестный стиль.",
+  "Keep each line under 300 characters.": "Каждая строка — не длиннее 300 символов.",
+  "Keep the address under 500 characters.": "Адрес — не длиннее 500 символов.",
+  "Keep it under 2,000 characters.": "Не длиннее 2000 символов.",
+  "Say what the date is.": "Укажите, что это за дата.",
+  "Keep the name under 80 characters.": "Название — не длиннее 80 символов.",
+  "That year is out of range.": "Год вне допустимого диапазона.",
+  "Keep it to twelve dates per client.": "Не больше двенадцати дат на клиента.",
+  "No such date on this record.": "У этой записи нет такой даты.",
+  "That is not a phone number.": "Это не номер телефона.",
+  "Only a phone number can come from Telegram.": "Из Telegram можно взять только номер телефона.",
+});
+Object.assign(PL, {
+  contact: { en: ["contact", "contacts"], ru: ["контакт", "контакта", "контактов"] },
+});
+
+/* ------------------------------------------------------------------- phones */
+// Numbers arrive as +digits. Nine digits are a local Uzbek number.
+function phoneParts(raw) {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (d.length < 7) return null;
+  const digits = d.length === 9 ? "998" + d : d;
+  let text = "+" + digits;
+  if (/^998\d{9}$/.test(digits)) text = `+998 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)} ${digits.slice(10)}`;
+  else if (/^7\d{10}$/.test(digits)) text = `+7 ${digits.slice(1, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 9)} ${digits.slice(9)}`;
+  return { digits, e164: "+" + digits, text, callable: digits.length <= 15 };
+}
+// Discreet mode hides the middle of a number the way it hides amounts.
+function phoneShown(p) {
+  if (!p) return "";
+  if (!S.discreet) return p.text;
+  const parts = p.text.split(" ");
+  if (parts.length >= 4) return parts.map((x, i) => (i < 2 || i === parts.length - 1 ? x : x.replace(/\d/g, "•"))).join(" ");
+  return p.text.slice(0, 4) + p.text.slice(4, -2).replace(/\d/g, "•") + p.text.slice(-2);
+}
+const fmtPhone = (raw) => { const p = phoneParts(raw); return p ? phoneShown(p) : (blank(raw) ? "" : String(raw)); };
+const colibriPhones = (c) => String(c.phone_colibri || "").split(";").map((x) => x.trim()).filter(Boolean);
+// Every number the record holds, once each, with where it came from.
+function cardPhones(data) {
+  const c = data.client, out = [];
+  const add = (raw, src) => {
+    const p = phoneParts(raw);
+    if (!p) return;
+    const had = out.find((x) => x.p.digits === p.digits);
+    if (had) { if (!had.src.includes(src)) had.src.push(src); } else out.push({ p, src: [src] });
+  };
+  if (c.phone_confirmed) add(c.phone_confirmed, "confirmed");
+  colibriPhones(c).forEach((x) => add(x, "colibri"));
+  if (c.phone_marketing) add(c.phone_marketing, "marketing");
+  if (c.phone_telegram) add(c.phone_telegram, "telegram");
+  const ch = tgChat(data);
+  if (ch && ch.phone) add(ch.phone, "chat");
+  return out;
+}
+const PHONE_SRC = { confirmed: "confirmed", colibri: "Colibri", marketing: "questionnaire", telegram: "Telegram", chat: "Telegram chat" };
+function phoneActions(p) {
+  if (!p.callable) return null;
+  const shown = phoneShown(p);
+  return el("div", { class: "ph-acts" }, [
+    el("a", { class: "btn sm", href: "tel:" + p.e164, "aria-label": tr("Call {p}", { p: shown }) }, [tr("Call")]),
+    el("a", { class: "btn sm subtle", href: "https://t.me/" + p.e164, target: "_blank", rel: "noopener",
+      "aria-label": tr("Write to {p} in Telegram", { p: shown }) }, ["Telegram"]),
+    el("a", { class: "btn sm subtle", href: "https://wa.me/" + p.digits, target: "_blank", rel: "noopener",
+      "aria-label": tr("Write to {p} in WhatsApp", { p: shown }) }, ["WhatsApp"]),
+  ]);
+}
+function phoneFact(data) {
+  const list = cardPhones(data).slice(0, 4);
+  if (!list.length) return fact(tr("Phone"), el("span", { class: "muted", text: tr("No number on file") }));
+  return el("div", { class: "fact wide phones" }, [el("dt", { text: tr("Phone") }), el("dd", {}, list.map(({ p, src }, i) =>
+    el("div", { class: "ph-row" + (i ? " more" : ""), "data-phone": p.digits }, [
+      el("div", { class: "ph-line" }, [
+        p.callable ? el("a", { class: "ph-num", href: "tel:" + p.e164, text: phoneShown(p) }) : el("span", { class: "ph-num", text: phoneShown(p) }),
+        el("span", { class: "ph-src", text: src.map((s) => tr(PHONE_SRC[s] || s)).join(" · ") }),
+      ]),
+      p.callable ? null : el("span", { class: "fsub", text: tr("Check this number: it looks like several run together.") }),
+      phoneActions(p),
+    ])))]);
+}
+// The clean-up table: each source's number in its own column.
+function phoneCells(c) {
+  const col = colibriPhones(c).map(fmtPhone).filter(Boolean);
+  const mkt = fmtPhone(c.phone_marketing);
+  if (!col.length && !mkt) {
+    const tg = fmtPhone(c.phone_telegram);
+    return [el("td", { colspan: "2", class: tg ? null : "muted", text: tg ? tr("From Telegram: ") + tg : tr("No number on file") })];
+  }
+  return [el("td", { class: "ph-cell", text: col.length ? col.join(", ") : "—" }), el("td", { class: "ph-cell", text: mkt || "—" })];
+}
+// Which source a phone form starts on.
+function phonePreset(c, flag) {
+  if (flag === "conflict") return "";
+  if (colibriPhones(c).length) return "colibri";
+  if (c.phone_marketing) return "marketing";
+  if (c.phone_telegram) return "telegram";
+  return "value";
+}
+function phoneOptions(c, e, pick) {
+  const opts = [];
+  const col = colibriPhones(c)[0];
+  if (col) opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("From Colibri") + ": ", pick, el("b", { text: fmtPhone(col) })));
+  if (c.phone_marketing) opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("From the questionnaire") + ": ", pick, el("b", { text: fmtPhone(c.phone_marketing) })));
+  if (c.phone_telegram) opts.push(radio("fe-src", "telegram", e.source === "telegram", tr("From Telegram: "), pick, el("b", { text: fmtPhone(c.phone_telegram) })));
+  const other = el("input", { id: "fe-other", type: "tel", inputmode: "tel", autocomplete: "off", maxlength: "24",
+    placeholder: "+998 90 123 45 67", "aria-label": tr("The phone number, e.g. +998 90 123 45 67"),
+    value: e.value || "", disabled: e.source !== "value" ? true : null, oninput: (ev) => { e.value = ev.target.value; } });
+  opts.push(el("div", { class: "opt other" }, [radio("fe-src", "value", e.source === "value", tr("Something else"), pick), other]));
+  return opts;
+}
+function phoneTypedError(e) {
+  if (e.source !== "value") return null;
+  const d = String(e.value || "").replace(/\D/g, "");
+  return d.length < 7 || d.length > 15 ? tr("Enter the phone number, for example +998 90 123 45 67.") : null;
+}
+
+/* -------------------------------------------------------------- contact log */
+const CONTACT_CHANNELS = [["visit", "Visit"], ["call", "Phone call"], ["telegram", "Telegram"], ["whatsapp", "WhatsApp"], ["email", "Email"], ["other", "Other"]];
+const channelLabel = (ch) => tr((CONTACT_CHANNELS.find((x) => x[0] === ch) || ["", ch || "—"])[1]);
+const todayIso = () => new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);     // Tashkent
+const isoMinusDays = (iso, n) => new Date(Date.parse(iso + "T00:00:00Z") - n * 86400e3).toISOString().slice(0, 10);
+const cardContacts = (data) => (data && data.contacts) || [];
+Object.assign(S, { ctConfirm: null, ctAll: false, dtConfirm: null });
+
+function contactLine(x) {
+  return tr("{d} · {how} · {by}", { d: fmtDate(x.contacted_on), how: channelLabel(x.channel), by: who(x.by) || "—" });
+}
+function contactGlanceFact(data) {
+  const x = cardContacts(data)[0];
+  if (!x) return fact(tr("Last contact"), el("span", { class: "muted", text: tr("none logged yet") }));
+  return fact(tr("Last contact"), fmtDate(x.contacted_on), channelLabel(x.channel) + " · " + (who(x.by) || "—"));
+}
+function startLogContact() {
+  startEdit({ kind: "logcontact", text: isoToDmy(todayIso()), on: todayIso(), channel: "", by: "me", note: "" });
+}
+function logContactFromFoot() {
+  if (S.cardTab !== "overview") S.cardTab = "overview";     // not remembered: only a tab the person picks is
+  startLogContact();
+  const f = $("#drawer .contact-log .editor");
+  if (f && f.scrollIntoView) f.scrollIntoView({ block: "nearest" });
+}
+function sectionContactLog(data) {
+  const c = data.client, list = cardContacts(data);
+  const e = S.edit && S.edit.kind === "logcontact" ? S.edit : null;
+  const kids = [el("h3", {}, [tr("Contact log"),
+    list.length ? el("span", { class: "aside", text: pl(list.length, "contact") }) : null,
+    editable(c) && !e ? el("button", { class: "btn sm subtle aside-btn", type: "button", "data-act": "log-contact", disabled: S.busy ? true : null,
+      onclick: startLogContact, text: tr("Log a contact") }) : null])];
+  if (e && !sheetMode()) kids.push(contactLogForm(c, e));
+  if (!list.length) {
+    kids.push(el("p", { class: "muted", text: tr("No contact logged yet.") }));
+    return el("section", { class: "drawer-section contact-log" }, kids);
+  }
+  const shown = S.ctAll ? list : list.slice(0, 3);
+  kids.push(el("ul", { class: "clog" }, shown.map((x) => {
+    const confirming = S.ctConfirm === x.id;
+    return el("li", { "data-contact": String(x.id) }, [
+      el("div", { class: "cl1" }, [el("b", { text: fmtDate(x.contacted_on) }), " · " + channelLabel(x.channel) + " · " + (who(x.by) || "—")]),
+      !blank(x.note) ? el("div", { class: "cnote", text: x.note }) : null,
+      x.logged_by && x.logged_by !== x.by ? el("div", { class: "cmeta muted", text: tr("logged by {by}", { by: who(x.logged_by) }) }) : null,
+      x.can_remove && editable(c) ? (confirming
+        ? el("div", { class: "actions confirm-row" }, [
+            el("span", { text: tr("Remove this contact?") }),
+            el("button", { class: "btn sm danger", type: "button", "data-act": "ct-yes", disabled: S.busy ? true : null,
+              onclick: () => { S.ctConfirm = null; act("contact_remove", { contact: x.id }, tr("Contact removed.")); }, text: tr("Yes, remove") }),
+            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+              onclick: () => { S.ctConfirm = null; renderDrawer(); }, text: tr("Cancel") })])
+        : el("div", { class: "actions" }, [el("button", { class: "btn sm subtle", type: "button", "data-act": "ct-remove", disabled: S.busy ? true : null,
+            onclick: () => { S.ctConfirm = x.id; renderDrawer(); const y = $('#drawer [data-act="ct-yes"]'); if (y) y.focus(); }, text: tr("Remove") })])) : null,
+    ]);
+  })));
+  if (list.length > 3) {
+    kids.push(el("button", { type: "button", class: "linkish show-all", onclick: () => { S.ctAll = !S.ctAll; renderDrawer(); },
+      text: S.ctAll ? tr("Show fewer") : tr("Show all {n}", { n: list.length }) }));
+  }
+  return el("section", { class: "drawer-section contact-log" }, kids);
+}
+function contactByOptions() {
+  const mine = S.ref && S.ref.my_rep;
+  const me = mine ? who(mine) : (S.session ? S.session.name : "");
+  const reps = ((S.ref && S.ref.sales_reps) || []).filter((r) => r.active && !isShared(r.label) && r.label !== mine);
+  return [["me", tr("Me ({name})", { name: me })]].concat(reps.map((r) => [r.label, who(r.label)]));
+}
+function contactLogForm(c, e) {
+  const setDate = (iso) => { e.on = iso; e.text = isoToDmy(iso); renderDrawer(); };
+  const when = el("input", { type: "text", id: "ct-on", inputmode: "numeric", autocomplete: "off", maxlength: "10",
+    placeholder: tr("dd.mm.yyyy"), value: e.text || "",
+    oninput: (ev) => { const t = maskDmy(ev.target.value); if (t !== ev.target.value) ev.target.value = t; e.text = t; e.on = dmyToIso(t) || ""; } });
+  const by = el("select", { id: "ct-by", onchange: (ev) => { e.by = ev.target.value; } },
+    contactByOptions().map(([v, t]) => el("option", { value: v, text: t })));
+  by.value = e.by || "me";
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!e.on) { S.formError = tr("Enter the date as dd.mm.yyyy."); renderDrawer(); return; }
+    if (e.on > todayIso()) { S.formError = tr("A contact cannot be in the future."); renderDrawer(); return; }
+    if (!e.channel) { S.formError = tr("Say how the contact was made."); renderDrawer(); return; }
+    act("contact_add", { on: e.on, channel: e.channel, by: e.by || "me", note: e.note }, tr("Contact logged."));
+  };
+  return el("form", { class: "editor ct-form", onsubmit: submit }, [
+    el("label", { for: "ct-on", class: "lbl", text: tr("When") }),
+    el("div", { class: "when-row" }, [when,
+      el("button", { type: "button", class: "qchip", "aria-pressed": e.on === todayIso() ? "true" : "false", onclick: () => setDate(todayIso()), text: tr("Today") }),
+      el("button", { type: "button", class: "qchip", "aria-pressed": e.on === isoMinusDays(todayIso(), 1) ? "true" : "false",
+        onclick: () => setDate(isoMinusDays(todayIso(), 1)), text: tr("Yesterday") })]),
+    el("fieldset", { class: "opt-grid" }, [el("legend", { text: tr("How") }),
+      ...CONTACT_CHANNELS.map(([v, l]) => radio("ct-ch", v, e.channel === v, tr(l), (x) => { e.channel = x; }))]),
+    el("label", { for: "ct-by", class: "lbl", text: tr("By") }), by,
+    el("label", { for: "ct-note", class: "lbl", text: tr("Note (optional)") }),
+    el("input", { type: "text", id: "ct-note", maxlength: "500", value: e.note || "",
+      placeholder: tr("E.g. called about the new collection, will visit on Saturday"), oninput: (ev) => { e.note = ev.target.value; } }),
+    formError(), formButtons(tr("Log contact")),
+  ]);
+}
+
+/* ------------------------------------------------------------ personal data */
+const METALS = [["yellow_gold", "Yellow gold"], ["white_gold", "White gold"], ["rose_gold", "Rose gold"], ["platinum", "Platinum"], ["steel", "Steel"]];
+const STONES = [["diamonds", "Diamonds"], ["coloured_stones", "Coloured stones"], ["pearls", "Pearls"], ["no_stones", "No stones"]];
+const STYLES = [["classic", "Classic"], ["modern", "Modern"], ["statement", "Statement"]];
+const DATE_KINDS = [["anniversary", "Wedding anniversary"], ["partner_birthday", "Partner's birthday"], ["child_birthday", "Child's birthday"], ["other", "Other"]];
+const RING_CHIPS = Array.from({ length: 17 }, (_, i) => 14 + i / 2);
+const NECKLACES = [38, 40, 42, 45, 50, 55, 60, 70, 80, 90];
+const PERSONAL_GROUPS = [["sizes", "Sizes"], ["prefs", "Preferences"], ["dates", "Important dates"], ["address", "Address"], ["about", "About the client"]];
+const PERSONAL_KINDS = ["logcontact", "personal", "impdate"];
+const pickLabels = (list, vals) => (vals || []).map((v) => tr((list.find((x) => x[0] === v) || ["", v])[1]));
+const numText = (n) => Number(n).toLocaleString(LOC(), { maximumFractionDigits: 1 });
+const personalOf = (data) => (data && data.personal) || {};
+const datesOf = (data) => (data && data.important_dates) || [];
+function dateText(d) {
+  const x = new Date(Date.UTC(d.year || 2000, d.month - 1, d.day));
+  const opts = { day: "numeric", month: "long", timeZone: "UTC" };
+  if (d.year) opts.year = "numeric";
+  return x.toLocaleDateString(LOC(), opts);
+}
+function dateWhat(d) {
+  const k = tr((DATE_KINDS.find((x) => x[0] === d.kind) || ["", d.kind])[1]);
+  return d.kind === "other" ? (d.label || k) : k + (blank(d.label) ? "" : " (" + d.label + ")");
+}
+function daysUntil(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return nextBirthday("2000-" + pad(d.month) + "-" + pad(d.day));
+}
+function soonText(n) {
+  return n === 0 ? tr("today") : n === 1 ? tr("tomorrow") : n !== null && n <= 60 ? tr("in {n} days", { n }) : "";
+}
+// The glance: sizes if any, and an important date in the next 30 days.
+function personalGlanceFacts(data) {
+  const p = personalOf(data), out = [];
+  const sizes = [];
+  if ((p.ring_sizes || []).length) sizes.push(tr("Ring size") + " " + p.ring_sizes.map(numText).join(" · "));
+  if (p.wrist_cm != null) sizes.push(tr("Wrist") + " " + tr("{n} cm", { n: numText(p.wrist_cm) }));
+  if (p.necklace_cm != null) sizes.push(tr("Necklace") + " " + tr("{n} cm", { n: numText(p.necklace_cm) }));
+  if (sizes.length) out.push(fact(tr("Sizes"), sizes.join(", ")));
+  const soon = datesOf(data).map((d) => ({ d, n: daysUntil(d) })).filter((x) => x.n !== null && x.n <= 30).sort((a, b) => a.n - b.n)[0];
+  if (soon) out.push(fact(tr("Coming up"), el("span", {}, [dateWhat(soon.d) + " ", el("b", { class: "soon", text: "· " + soonText(soon.n) })])));
+  return out;
+}
+function metaBy(by, at) {
+  return by ? el("p", { class: "pg-meta muted", text: tr("{by}, {d}", { by: who(by), d: fmtDate(at) }) }) : null;
+}
+function pgroup(key, title, c, body, btnLabel, onEdit) {
+  const e = S.edit;
+  const editing = e && ((e.kind === "personal" && e.group === key) || (e.kind === "impdate" && key === "dates"));
+  return el("div", { class: "pgroup", "data-group": key }, [
+    el("div", { class: "pg-head" }, [el("h4", { text: title }),
+      editable(c) && !editing ? el("button", { class: "btn sm subtle", type: "button", "data-act": "edit-" + key, disabled: S.busy ? true : null,
+        onclick: onEdit, text: btnLabel }) : null]),
+    ...(editing && !sheetMode() ? [personalFormFor(c)] : []),
+    ...(editing && !sheetMode() && key !== "dates" ? [] : body),
+  ]);
+}
+function startPersonal(group, data) {
+  const p = personalOf(data);
+  if (group === "sizes") startEdit({ kind: "personal", group, rings: (p.ring_sizes || []).map(Number), other: "", wrist: p.wrist_cm != null ? numText(p.wrist_cm) : "",
+    neck: p.necklace_cm != null ? String(p.necklace_cm) : "", note: p.sizes_note || "" });
+  else if (group === "prefs") startEdit({ kind: "personal", group, metals: (p.metals || []).slice(), stones: (p.stones || []).slice(), styles: (p.styles || []).slice(),
+    fav: p.fav_brands || "", dislikes: p.dislikes || "", note: p.prefs_note || "" });
+  else if (group === "address") startEdit({ kind: "personal", group, text: p.address || "" });
+  else startEdit({ kind: "personal", group, text: p.about || "" });
+}
+function sectionPersonal(data) {
+  const c = data.client, p = personalOf(data);
+  const empty = () => [el("p", { class: "muted", text: tr("Not recorded yet.") })];
+  const kvs = (rows) => { const r = rows.filter((x) => x); return r.length ? [el("dl", { class: "kv" }, r)] : empty(); };
+  const sizes = kvs([
+    (p.ring_sizes || []).length ? kv(tr("Ring size"), p.ring_sizes.map(numText).join(" · ")) : null,
+    p.wrist_cm != null ? kv(tr("Wrist"), tr("{n} cm", { n: numText(p.wrist_cm) })) : null,
+    p.necklace_cm != null ? kv(tr("Necklace"), tr("{n} cm", { n: numText(p.necklace_cm) })) : null,
+    !blank(p.sizes_note) ? kv(tr("Note"), p.sizes_note) : null,
+  ]).concat([metaBy(p.sizes_by, p.sizes_at)]);
+  const suggestion = blank(p.fav_brands) && !blank(c.brand_preference_raw) ? kv(tr("From the questionnaire"), c.brand_preference_raw) : null;
+  const prefs = kvs([
+    (p.metals || []).length ? kv(tr("Metal"), pickLabels(METALS, p.metals).join(", ")) : null,
+    (p.stones || []).length ? kv(tr("Stones"), pickLabels(STONES, p.stones).join(", ")) : null,
+    (p.styles || []).length ? kv(tr("Style"), pickLabels(STYLES, p.styles).join(", ")) : null,
+    !blank(p.fav_brands) ? kv(tr("Favourite brands and collections"), p.fav_brands) : suggestion,
+    !blank(p.dislikes) ? kv(tr("Dislikes"), p.dislikes) : null,
+    !blank(p.prefs_note) ? kv(tr("Note"), p.prefs_note) : null,
+  ]).concat([metaBy(p.prefs_by, p.prefs_at)]);
+  const dl = datesOf(data);
+  const dates = dl.length ? [el("ul", { class: "pdates" }, dl.map((d) => {
+    const n = daysUntil(d), soon = n !== null && n <= 60 ? soonText(n) : "";
+    const confirming = S.dtConfirm === d.id;
+    return el("li", { "data-date": String(d.id) }, [
+      el("div", { class: "pd1" }, [el("b", { text: dateWhat(d) }), " · " + dateText(d), soon ? el("span", { class: "soon", text: " · " + soon }) : null]),
+      editable(c) ? (confirming
+        ? el("div", { class: "actions confirm-row" }, [el("span", { text: tr("Remove this date?") }),
+            el("button", { class: "btn sm danger", type: "button", "data-act": "dt-yes", disabled: S.busy ? true : null,
+              onclick: () => { S.dtConfirm = null; act("date_remove", { date: d.id }, tr("Date removed.")); }, text: tr("Yes, remove") }),
+            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null, onclick: () => { S.dtConfirm = null; renderDrawer(); }, text: tr("Cancel") })])
+        : el("button", { class: "btn sm subtle icon-btn dt-x", type: "button", "data-act": "dt-remove", "aria-label": tr("Remove") + ": " + dateWhat(d),
+            title: tr("Remove"), disabled: S.busy ? true : null,
+            onclick: () => { S.dtConfirm = d.id; renderDrawer(); const y = $('#drawer [data-act="dt-yes"]'); if (y) y.focus(); }, text: "×" })) : null,
+    ]);
+  }))] : [el("p", { class: "muted", text: tr("No dates yet.") })];
+  const text = (v, by, at) => (blank(v) ? empty() : [el("p", { class: "ptext", text: v })]).concat([metaBy(by, at)]);
+  return el("section", { class: "drawer-section personal" }, [
+    el("h3", { text: tr("Personal data") }),
+    pgroup("sizes", tr("Sizes"), c, sizes, tr("Edit"), () => startPersonal("sizes", data)),
+    pgroup("prefs", tr("Preferences"), c, prefs, tr("Edit"), () => startPersonal("prefs", data)),
+    pgroup("dates", tr("Important dates"), c, dates, tr("Add a date"), () => startEdit({ kind: "impdate", dkind: "", label: "", text: "" })),
+    pgroup("address", tr("Address"), c, text(p.address, p.address_by, p.address_at), tr("Edit"), () => startPersonal("address", data)),
+    pgroup("about", tr("About the client"), c, text(p.about, p.about_by, p.about_at), tr("Edit"), () => startPersonal("about", data)),
+  ]);
+}
+function personalFormFor(c) {
+  const e = S.edit;
+  if (e.kind === "impdate") return dateForm(e);
+  if (e.group === "sizes") return sizesForm(e);
+  if (e.group === "prefs") return prefsForm(c, e);
+  return textForm(e);
+}
+const checkOpt = (name, v, on, label, toggle) => el("label", { class: "opt check" }, [
+  el("input", { type: "checkbox", name, value: v, checked: on ? true : null, onchange: (ev) => toggle(v, ev.target.checked) }), el("span", { text: label })]);
+const toggleIn = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+function sizesForm(e) {
+  const chips = RING_CHIPS.concat(e.rings.filter((r) => !RING_CHIPS.includes(r))).sort((a, b) => a - b);
+  const neckOpts = NECKLACES.concat(e.neck && !NECKLACES.includes(Number(e.neck)) ? [Number(e.neck)] : []).sort((a, b) => a - b);
+  const neck = el("select", { id: "ps-neck", onchange: (ev) => { e.neck = ev.target.value; } },
+    [el("option", { value: "", text: "—" })].concat(neckOpts.map((n) => el("option", { value: String(n), text: tr("{n} cm", { n }) }))));
+  neck.value = e.neck || "";
+  const submit = (ev) => {
+    ev.preventDefault();
+    // Typed sizes, with a point or a comma for the half: "12,5 23" or "12.5, 23".
+    const typed = String(e.other || "").match(/\d+(?:[.,]\d)?/g) || [];
+    const rings = [...new Set(e.rings.concat(typed.map((x) => Number(x.replace(",", ".")))))].sort((a, b) => a - b);
+    if (rings.some((r) => !Number.isFinite(r) || r < 12 || r > 25 || r * 2 !== Math.round(r * 2))) { S.formError = tr("Ring sizes run from 12 to 25, in halves."); renderDrawer(); return; }
+    if (rings.length > 6) { S.formError = tr("Choose up to six ring sizes."); renderDrawer(); return; }
+    const wrist = blank(e.wrist) ? null : Number(String(e.wrist).replace(",", "."));
+    if (wrist !== null && (!Number.isFinite(wrist) || wrist < 12 || wrist > 25)) { S.formError = tr("A wrist is 12 to 25 cm."); renderDrawer(); return; }
+    act("personal_set", { group: "sizes", values: { ring_sizes: rings, wrist_cm: wrist, necklace_cm: blank(e.neck) ? null : Number(e.neck), note: e.note } }, tr("Saved."));
+  };
+  return el("form", { class: "editor p-form", "data-form": "sizes", onsubmit: submit }, [
+    el("fieldset", {}, [el("legend", { text: tr("Ring size — tap every size that fits") }),
+      el("div", { class: "ring-chips" }, chips.map((r) => el("button", { type: "button", class: "qchip ring", "aria-pressed": e.rings.includes(r) ? "true" : "false",
+        onclick: (ev) => { toggleIn(e.rings, r, !e.rings.includes(r)); ev.currentTarget.setAttribute("aria-pressed", e.rings.includes(r) ? "true" : "false"); },
+        text: numText(r) })))]),
+    el("label", { for: "ps-other", class: "lbl", text: tr("Other sizes") }),
+    el("input", { type: "text", id: "ps-other", inputmode: "decimal", maxlength: "30", value: e.other || "", placeholder: tr("E.g. 12.5 or 23"),
+      oninput: (ev) => { e.other = ev.target.value; } }),
+    el("div", { class: "two" }, [
+      el("div", {}, [el("label", { for: "ps-wrist", class: "lbl", text: tr("Wrist, cm") }),
+        el("input", { type: "text", id: "ps-wrist", inputmode: "decimal", maxlength: "5", value: e.wrist || "", placeholder: "16",
+          oninput: (ev) => { e.wrist = ev.target.value; } })]),
+      el("div", {}, [el("label", { for: "ps-neck", class: "lbl", text: tr("Necklace length") }), neck]),
+    ]),
+    el("label", { for: "ps-note", class: "lbl", text: tr("Note") }),
+    el("input", { type: "text", id: "ps-note", maxlength: "200", value: e.note || "", placeholder: tr("E.g. wears rings on the index finger"),
+      oninput: (ev) => { e.note = ev.target.value; } }),
+    formError(), formButtons(tr("Save")),
+  ]);
+}
+function prefsForm(c, e) {
+  const group = (legend, name, list, arr) => el("fieldset", { class: "opt-grid" }, [el("legend", { text: legend }),
+    ...list.map(([v, l]) => checkOpt(name, v, arr.includes(v), tr(l), (x, on) => toggleIn(arr, x, on)))]);
+  const fav = el("input", { type: "text", id: "pp-fav", maxlength: "300", value: e.fav || "", placeholder: tr("E.g. Messika Move, Bulgari Serpenti"),
+    oninput: (ev) => { e.fav = ev.target.value; } });
+  const q = c.brand_preference_raw;
+  return el("form", { class: "editor p-form", "data-form": "prefs", onsubmit: (ev) => { ev.preventDefault();
+    act("personal_set", { group: "prefs", values: { metals: e.metals, stones: e.stones, styles: e.styles, fav_brands: e.fav, dislikes: e.dislikes, note: e.note } }, tr("Saved.")); } }, [
+    group(tr("Metal"), "pp-metal", METALS, e.metals),
+    group(tr("Stones"), "pp-stone", STONES, e.stones),
+    group(tr("Style"), "pp-style", STYLES, e.styles),
+    el("label", { for: "pp-fav", class: "lbl", text: tr("Favourite brands and collections") }), fav,
+    !blank(q) && blank(e.fav) ? el("button", { type: "button", class: "btn sm subtle use-q", onclick: () => { e.fav = String(q).slice(0, 300); renderDrawer(); } },
+      [tr("Use the questionnaire's answer") + ": ", el("b", { text: q })]) : null,
+    el("label", { for: "pp-dis", class: "lbl", text: tr("Dislikes") }),
+    el("input", { type: "text", id: "pp-dis", maxlength: "300", value: e.dislikes || "", placeholder: tr("E.g. no yellow gold, nothing too large"),
+      oninput: (ev) => { e.dislikes = ev.target.value; } }),
+    el("label", { for: "pp-note", class: "lbl", text: tr("Note") }),
+    el("input", { type: "text", id: "pp-note", maxlength: "300", value: e.note || "", placeholder: tr("E.g. prefers delicate pieces for every day"),
+      oninput: (ev) => { e.note = ev.target.value; } }),
+    formError(), formButtons(tr("Save")),
+  ]);
+}
+function textForm(e) {
+  const addr = e.group === "address";
+  return el("form", { class: "editor p-form", "data-form": e.group, onsubmit: (ev) => { ev.preventDefault();
+    act("personal_set", { group: e.group, values: addr ? { address: e.text } : { about: e.text } }, tr("Saved.")); } }, [
+    el("label", { for: "pt-text", class: "lbl", text: tr(addr ? "Address" : "About the client") }),
+    el("textarea", { id: "pt-text", rows: addr ? "3" : "6", maxlength: addr ? "500" : "2000", value: e.text || "",
+      placeholder: tr(addr ? "For deliveries, gifts and invitations" : "What the team should know: family, interests, how they like to be served…"),
+      oninput: (ev) => { e.text = ev.target.value; } }, []),
+    formError(), formButtons(tr("Save")),
+  ]);
+}
+// dd.mm, or dd.mm.yyyy when the year is known.
+function parseDm(t) {
+  const m = /^(\d{2})\.(\d{2})(?:\.(\d{4}))?$/.exec(String(t || ""));
+  if (!m) return null;
+  const day = +m[1], month = +m[2], year = m[3] ? +m[3] : null;
+  const x = new Date(Date.UTC(year || 2000, month - 1, day));
+  if (x.getUTCMonth() !== month - 1 || x.getUTCDate() !== day) return { bad: true };
+  return { day, month, year };
+}
+function dateForm(e) {
+  const ph = { partner_birthday: "E.g. husband Rustam", child_birthday: "E.g. son Daniyar", other: "E.g. first purchase together" };
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!e.dkind) { S.formError = tr("Choose what the date is."); renderDrawer(); return; }
+    if (e.dkind === "other" && blank(e.label)) { S.formError = tr("Name the date."); renderDrawer(); return; }
+    const d = parseDm(e.text);
+    if (!d) { S.formError = tr("Enter the date as dd.mm or dd.mm.yyyy."); renderDrawer(); return; }
+    if (d.bad) { S.formError = tr("That is not a real date."); renderDrawer(); return; }
+    act("date_add", { kind: e.dkind, label: e.label, month: d.month, day: d.day, year: d.year }, tr("Date added."));
+  };
+  return el("form", { class: "editor p-form", "data-form": "date", onsubmit: submit }, [
+    el("fieldset", { class: "opt-grid" }, [el("legend", { text: tr("What is the date?") }),
+      ...DATE_KINDS.map(([v, l]) => radio("pd-kind", v, e.dkind === v, tr(l), (x) => { e.dkind = x; renderDrawer(); }))]),
+    el("label", { for: "pd-label", class: "lbl", text: tr(e.dkind === "other" ? "Name the date" : "Name or note (optional)") }),
+    el("input", { type: "text", id: "pd-label", maxlength: "80", value: e.label || "", placeholder: ph[e.dkind] ? tr(ph[e.dkind]) : "",
+      oninput: (ev) => { e.label = ev.target.value; } }),
+    el("label", { for: "pd-date", class: "lbl", text: tr("Date") }),
+    el("input", { type: "text", id: "pd-date", inputmode: "numeric", autocomplete: "off", maxlength: "10", placeholder: tr("dd.mm or dd.mm.yyyy"),
+      value: e.text || "", oninput: (ev) => { const t = maskDmy(ev.target.value); if (t !== ev.target.value) ev.target.value = t; e.text = t; } }),
+    formError(), formButtons(tr("Add")),
+  ]);
+}
+
+/* -------------------------------------------------------- phone panels, tabs */
+Object.assign(EDIT_TAB, { logcontact: "overview", personal: "overview", impdate: "overview" });
+SHEET_KINDS.push(...PERSONAL_KINDS);
+function personalSheetTitle() {
+  const e = S.edit;
+  if (e.kind === "logcontact") return tr("Log a contact");
+  if (e.kind === "impdate") return tr("Add a date");
+  if (e.kind === "personal") return tr((PERSONAL_GROUPS.find((g) => g[0] === e.group) || ["", "Personal data"])[1]);
+  return null;
+}
+function personalSheetBody(data) {
+  const c = data.client, e = S.edit;
+  return [e.kind === "logcontact" ? contactLogForm(c, e) : personalFormFor(c)];
+}
+
+/* -------------------------------------------------------------- history text */
+const PERSONAL_KEY = { ring_sizes: "ring size", wrist_cm: "wrist", necklace_cm: "necklace", sizes_note: "note", metals: "metal", stones: "stones",
+  styles: "style", fav_brands: "favourite brands", dislikes: "dislikes", prefs_note: "note" };
+const GROUP_WORD = { sizes: "sizes", prefs: "preferences", address: "address", about: "about the client" };
+function personalEventText(e) {
+  switch (e.action) {
+    case "contact_logged":
+      return [el("b", { text: tr("Contact logged: {how}, {d}.", { how: channelLabel(e.new_value), d: fmtDate(e.note) }) })];
+    case "contact_removed":
+      return [el("b", { text: tr("Contact removed: {how}, {d}.", { how: channelLabel(e.new_value), d: fmtDate(e.note) }) })];
+    case "personal_set": {
+      const keys = String(e.note || "").split(",").filter((k) => PERSONAL_KEY[k]).map((k) => tr(PERSONAL_KEY[k]));
+      return [el("b", { text: tr("Personal data — {group} updated", { group: tr(GROUP_WORD[e.field] || e.field || "") }) + (keys.length ? ": " : ".") }),
+        keys.length ? [...new Set(keys)].join(", ") + "." : ""];
+    }
+    case "date_added":
+    case "date_removed": {
+      const what = dateWhat({ kind: e.new_value, label: e.note });
+      return [el("b", { text: tr(e.action === "date_added" ? "Important date added: {what}" : "Important date removed: {what}", { what }) + "." })];
+    }
+    default: return null;
+  }
+}
+
+/* ===========================================================================
+   The list, Step 1b (API v11)
+   - Click a column header to sort by it on the server; click again to
+     reverse. An arrow and aria-sort show the current sort.
+   - A ▾ beside Status, ABC, Segment, Lifecycle and Owner opens a checklist
+     of that column's values with a count for each under the other filters,
+     like Excel: search, select all, Apply, Clear. Several values at once.
+     The filter bar's selects stay in step ("Several (n)").
+   - A "Last contact" column, and a filter for clients not contacted in 30,
+     60 or 90 days (or never).
+   - "My clients" for a login linked to a sales rep label: a shortcut, on by
+     default once per session.
+   - On a phone the same sorts and checklists sit in the ☰ menu under
+     "Sort and filter".
+   ========================================================================= */
+Object.assign(RU, {
+  "Sort and filter": "Сортировка и фильтры",
+  "Sort by {col}": "Сортировать: {col}",
+  "Filter {col}": "Фильтр: {col}",
+  "Several ({n})": "Несколько ({n})",
+  "Select all": "Выбрать все",
+  "Apply": "Применить",
+  "Clear filter": "Сбросить фильтр",
+  "Search the values": "Поиск по значениям",
+  "Loading the values…": "Загружаю значения…",
+  "No values under these filters.": "При этих фильтрах значений нет.",
+  "Nothing matches.": "Ничего не найдено.",
+  "Filter by column": "Фильтр по столбцу",
+  "{n} chosen": "выбрано: {n}",
+  "Not contacted": "Без контакта",
+  "Any time": "Неважно",
+  "30+ days": "30+ дней",
+  "60+ days": "60+ дней",
+  "90+ days": "90+ дней",
+  "not contacted in {n} days": "без контакта {n} дн.",
+  "{col}: {vals}": "{col}: {vals}",
+  "Name A–Z": "По имени, А–Я",
+  "Most recent contact": "Недавний контакт",
+  "Longest since contact": "Давно без контакта",
+  "By {col}, {dir}": "По столбцу «{col}», {dir}",
+  "ascending": "по возрастанию",
+  "descending": "по убыванию",
+  "My clients": "Мои клиенты",
+  "my clients": "мои клиенты",
+});
+
+/* -------------------------------------------------------------- the columns */
+// key, heading, cell class, first direction, checklist column
+const LIST_COLS = [
+  ["name", "Client", "", "asc", null],
+  ["status", "Status", "", "asc", "status"],
+  ["abc", "ABC", "col-abc", "asc", "abc"],
+  ["segment", "Segment", "col-seg", "asc", "segment"],
+  ["lifecycle", "Lifecycle", "col-life", "asc", "lifecycle"],
+  ["owner", "Owner", "col-owner", "asc", "owner"],
+  ["last", "Last purchase", "col-last num", "desc", null],
+  ["contact", "Last contact", "col-contact num", "desc", null],
+  ["spend", "Lifetime spend", "col-sp num", "desc", null],
+];
+const FACETS = ["status", "abc", "segment", "lifecycle", "owner"];
+// The select in the filter bar that each checklist stays in step with.
+const FACET_SELECT = { status: "status", abc: "abc_class", lifecycle: "lifecycle_status", owner: "owner" };
+const SELECT_FACET = { status: "status", abc_class: "abc", lifecycle_status: "lifecycle", owner: "owner" };
+const LEGACY_SORT = { spend: "spend.desc", spend_asc: "spend.asc", recent: "last.desc", oldest: "last.asc", id: "id.asc" };
+SORTS.push(["name.asc", "Name A–Z"], ["contact.desc", "Most recent contact"], ["contact.asc", "Longest since contact"]);
+FILTER_KEYS.push("contact");
+// Not contacted in N days, or never.
+const CONTACT_FILTER = [["", "Any time"], ["30", "30+ days"], ["60", "60+ days"], ["90", "90+ days"]];
+Object.assign(S, { facet: null, navFacet: null });
+
+function sortState() {
+  const s = LEGACY_SORT[S.f.sort] || S.f.sort || "spend.desc";
+  const [col, dir] = String(s).split(".");
+  return { col, dir: dir === "asc" ? "asc" : "desc" };
+}
+function sortKeyFor(col, dir) {
+  const k = col + "." + dir;
+  return Object.keys(LEGACY_SORT).find((x) => LEGACY_SORT[x] === k) || k;
+}
+function sortBy(col) {
+  const def = LIST_COLS.find((c) => c[0] === col);
+  const now = sortState();
+  const dir = now.col === col ? (now.dir === "asc" ? "desc" : "asc") : (def ? def[3] : "desc");
+  setFilter({ sort: sortKeyFor(col, dir) });
+}
+function sortOptions() {
+  const list = SORTS.map(([v, t]) => [v, tr(t)]);
+  if (!list.some((o) => o[0] === S.f.sort)) {
+    const { col, dir } = sortState();
+    const def = LIST_COLS.find((c) => c[0] === col);
+    list.push([S.f.sort, tr("By {col}, {dir}", { col: def ? tr(def[1]) : col, dir: tr(dir === "asc" ? "ascending" : "descending") })]);
+  }
+  return list;
+}
+// A select that stands for a column with several values chosen shows "Several (n)".
+function withMulti(key, options) {
+  const col = SELECT_FACET[key];
+  const n = col ? (S.f.multi[col] || []).length : 0;
+  return n ? options.concat([["__multi", tr("Several ({n})", { n })]]) : options;
+}
+function selectValue(key) {
+  const col = SELECT_FACET[key];
+  return col && (S.f.multi[col] || []).length ? "__multi" : S.f[key];
+}
+// The selects are drawn once; their options follow the sort and the checklists.
+function refreshSelects() {
+  document.querySelectorAll("select[data-key]").forEach((s) => {
+    const k = s.dataset.key;
+    let opts = null;
+    if (k === "sort") opts = sortOptions();
+    else if (SELECT_FACET[k]) opts = withMulti(k, [...s.options].filter((o) => o.value !== "__multi").map((o) => [o.value, o.textContent]));
+    if (opts) { s.innerHTML = ""; opts.forEach(([v, t]) => s.appendChild(el("option", { value: v, text: t }))); }
+    s.value = selectValue(k);
+  });
+  document.querySelectorAll(".facet-btn .fb-l").forEach((n) => { n.textContent = segmentLabel(); });
+}
+// Picking one value in a select clears that column's checklist, and back.
+function multiPatch(patch) {
+  const out = { ...patch };
+  for (const [k, col] of Object.entries(SELECT_FACET)) {
+    if (!(k in out)) continue;
+    if (out[k] === "__multi") { delete out[k]; continue; }
+    if (!("multi" in patch) && (S.f.multi[col] || []).length) out.multi = { ...(out.multi || S.f.multi), [col]: [] };
+  }
+  return out;
+}
+function activeFilterCount() {
+  const m = S.f.multi || {};
+  const multiOnly = ["segment"].filter((c) => (m[c] || []).length).length;
+  const multiSel = Object.keys(SELECT_FACET).filter((k) => !S.f[k] && (m[SELECT_FACET[k]] || []).length).length;
+  return FILTER_KEYS.filter((k) => S.f[k]).length + multiOnly + multiSel + (S.f.drill ? 1 : 0);
+}
+// What the list asks the server for, beyond the single-value filters.
+function listParamsX(f, p) {
+  const m = f.multi || {};
+  if ((m.status || []).length) { p.statuses = m.status.slice(); delete p.status; }
+  if ((m.abc || []).length) { p.abc_classes = m.abc.slice(); delete p.abc_class; }
+  if ((m.lifecycle || []).length) { p.lifecycles = m.lifecycle.slice(); delete p.lifecycle_status; }
+  if ((m.segment || []).length) { p.segments = m.segment.slice(); delete p.rfm_segment; }
+  if ((m.owner || []).length) { p.owners = m.owner.slice(); delete p.client_owner; }
+  if (f.contact) p.not_contacted = Number(f.contact);
+  if (/\./.test(f.sort || "")) {
+    const [col, dir] = f.sort.split(".");
+    p.order_by = col; p.dir = dir; delete p.sort;
+  }
+  return p;
+}
+function describeFiltersX() {
+  const f = S.f, m = f.multi || {}, parts = [];
+  for (const col of FACETS) {
+    const v = m[col] || [];
+    if (!v.length) continue;
+    const def = LIST_COLS.find((c) => c[0] === col);
+    parts.push(tr("{col}: {vals}", { col: tr(def[1]).toLowerCase(), vals: v.map((x) => facetLabel(col, x)).join(", ") }));
+  }
+  if (f.contact) parts.push(tr("not contacted in {n} days", { n: f.contact }));
+  return parts;
+}
+
+/* ----------------------------------------------------------- the list table */
+function listHeader() {
+  const { col: sc, dir } = sortState();
+  return el("tr", {}, LIST_COLS.map(([key, label, cls, , facet]) => {
+    const on = sc === key;
+    const text = key === "abc" ? "ABC" : tr(label);
+    const m = facet ? (S.f.multi[facet] || []) : [];
+    const selKey = facet && FACET_SELECT[facet];
+    const filtered = !!(m.length || (selKey && S.f[selKey]) || (facet === "segment" && S.f.quick === "cannot"));
+    return el("th", { scope: "col", class: [cls, on ? "sorted" : ""].join(" ").trim() || null, "aria-sort": on ? (dir === "asc" ? "ascending" : "descending") : null }, [
+      el("div", { class: "th-in" }, [
+        el("button", { type: "button", class: "th-sort", "data-sort": key, title: tr("Sort by {col}", { col: text }),
+          onclick: () => sortBy(key) }, [text, el("span", { class: "arr", "aria-hidden": "true", text: on ? (dir === "asc" ? "↑" : "↓") : "↕" })]),
+        facet ? el("button", { type: "button", class: "th-filter" + (filtered ? " on" : ""), "data-facet": facet, "aria-haspopup": "dialog",
+          "aria-expanded": S.facet && S.facet.col === facet ? "true" : "false", "aria-label": tr("Filter {col}", { col: text }), title: tr("Filter {col}", { col: text }),
+          onclick: (ev) => { ev.stopPropagation(); toggleFacet(facet, ev.currentTarget); } }, [el("span", { "aria-hidden": "true", text: "▾" })]) : null,
+      ]),
+    ]);
+  }));
+}
+// Sorting or filtering from a header redraws the table; the keyboard stays on
+// the same header button.
+function headFocusKey() {
+  const a = document.activeElement;
+  if (!a || !a.closest || !a.closest("table.clients thead")) return null;
+  return a.dataset.sort ? '[data-sort="' + a.dataset.sort + '"]' : a.dataset.facet ? '.th-filter[data-facet="' + a.dataset.facet + '"]' : null;
+}
+function restoreHeadFocus(sel) {
+  if (!sel) return;
+  const b = document.querySelector("table.clients thead " + sel);
+  if (b) b.focus();
+}
+// Segment has no select in the filter bar; where its column is hidden
+// (narrower screens, iPad) this button opens the same checklist.
+function segmentLabel() {
+  const n = (S.f.multi.segment || []).length;
+  return n ? tr("{n} chosen", { n }) : S.f.quick === "cannot" ? trv("Cannot lose") : tr("All");
+}
+function segmentField() {
+  return el("div", { class: "field seg-field" }, [el("span", { text: tr("Segment") }),
+    el("button", { type: "button", class: "btn facet-btn", "data-facet-btn": "segment", "aria-haspopup": "dialog", "aria-label": tr("Filter {col}", { col: tr("Segment") }),
+      onclick: (ev) => { ev.stopPropagation(); toggleFacet("segment", ev.currentTarget); } }, [el("span", { class: "fb-l", text: segmentLabel() }), el("span", { "aria-hidden": "true", text: "▾" })])]);
+}
+function contactCell(r) {
+  return el("td", { class: "col-contact num", title: r.last_contact_on ? [channelLabel(r.last_contact_channel), who(r.last_contact_by)].filter(Boolean).join(" · ") : null,
+    text: r.last_contact_on ? fmtDate(r.last_contact_on) : "—" });
+}
+
+/* ------------------------------------------------------------ the checklist */
+function facetLabel(col, v) {
+  if (col === "status") return tr((STATUS[v] || { label: v }).label);
+  if (col === "owner") {
+    const r = ((S.ref && S.ref.sales_reps) || []).find((x) => x.label === v);
+    return r && !r.active ? tr("{label} (left)", { label: who(v) }) : who(v);
+  }
+  if (col === "abc") return v;
+  return trv(v);
+}
+// What is chosen now, in the checklist's values.
+function facetChosen(col, values) {
+  const m = S.f.multi[col] || [];
+  if (m.length) return new Set(m);
+  const k = FACET_SELECT[col], v = k ? S.f[k] : "";
+  const all = values.map((x) => x.value);
+  if (col === "segment" && S.f.quick === "cannot") return new Set(all.filter((x) => x === "Cannot lose"));
+  if (!v) return new Set(all);
+  if (col === "status" && v === "done") return new Set(all.filter((x) => x === "clean" || x === "checked"));
+  if (col === "owner") {
+    const reps = (S.ref && S.ref.sales_reps) || [];
+    if (v === "__unassigned") return new Set(all.filter(isShared));
+    if (v === "__assignable") return new Set(all.filter((x) => reps.some((r) => r.label === x && r.active) && !isShared(x)));
+    if (v === "__orphaned") return new Set(all.filter((x) => reps.some((r) => r.label === x && !r.active)));
+  }
+  return new Set(all.filter((x) => x === v));
+}
+async function loadFacet(col) {
+  const p = listParams();
+  for (const k of ["sort", "order_by", "dir", "limit", "offset"]) delete p[k];
+  const r = await call("facets", { ...p, column: col });
+  return (r.values || []).filter((x) => !blank(x.value));
+}
+function toggleFacet(col, anchor) {
+  if (S.facet && S.facet.col === col) { closeFacet(); return; }
+  openFacet(col, anchor);
+}
+async function openFacet(col, anchor) {
+  closeFacet(true);
+  const f = { col, anchor, loading: true, error: null, values: [], chosen: new Set(), q: "" };
+  S.facet = f;
+  renderFacet();
+  try {
+    f.values = await loadFacet(col);
+    f.chosen = facetChosen(col, f.values);
+  } catch (e) { f.error = e.message; }
+  if (S.facet !== f) return;
+  f.loading = false;
+  renderFacet();
+  const first = $("#facet-pop input[type=search], #facet-pop input[type=checkbox]");
+  if (first) first.focus();
+}
+function closeFacet(quiet) {
+  const f = S.facet;
+  S.facet = null;
+  const pop = $("#facet-pop");
+  if (pop) pop.remove();
+  document.querySelectorAll(".th-filter[aria-expanded=true]").forEach((b) => b.setAttribute("aria-expanded", "false"));
+  if (!quiet && f && f.anchor) {
+    const again = shownAnchor(f);
+    if (again) again.focus();
+  }
+}
+// One value goes to the filter bar's select when it has one; several stay a
+// checklist; all of them is no filter at all.
+function applyFacet(col, chosen, all) {
+  const vals = [...chosen];
+  const selKey = FACET_SELECT[col];
+  const multi = { ...S.f.multi, [col]: [] };
+  const patch = {};
+  if (selKey) patch[selKey] = "";
+  if (col === "segment" && S.f.quick === "cannot") patch.quick = "";
+  if (vals.length && vals.length < all.length) {
+    const one = vals.length === 1 ? vals[0] : null;
+    if (one && col === "owner" && isShared(one)) patch.owner = "__unassigned";
+    else if (one && selKey && (col !== "lifecycle" || LIFECYCLES.includes(one))) patch[selKey] = one;
+    else multi[col] = vals;
+  }
+  patch.multi = multi;
+  setFilter(patch);
+}
+function facetBody(f, done) {
+  const def = LIST_COLS.find((c) => c[0] === f.col);
+  const title = f.col === "abc" ? "ABC" : tr(def[1]);
+  if (f.loading) return [el("p", { class: "muted fp-msg", text: tr("Loading the values…") })];
+  if (f.error) return [el("p", { class: "form-err", text: f.error })];
+  if (!f.values.length) return [el("p", { class: "muted fp-msg", text: tr("No values under these filters.") })];
+  const q = f.q.trim().toLowerCase();
+  const shown = f.values.filter((x) => !q || facetLabel(f.col, x.value).toLowerCase().includes(q) || String(x.value).toLowerCase().includes(q));
+  const allOn = shown.length > 0 && shown.every((x) => f.chosen.has(x.value));
+  // Redraw the checklist in place, keeping the keyboard on the same box.
+  const redraw = () => {
+    const a = document.activeElement, row = a && a.closest ? a.closest(".fp-row") : null;
+    const key = !row ? null : row.classList.contains("fp-all") ? ".fp-all input" : '.fp-row[data-value="' + CSS.escape(row.dataset.value || "") + '"] input';
+    if (S.navFacet) { const old = document.querySelector(".nav-facet"); if (old) old.replaceWith(navFacetSection()); else renderNav(); }
+    else renderFacet();
+    if (key) { const n = document.querySelector((S.navFacet ? ".nav-facet " : "#facet-pop ") + key); if (n) n.focus(); }
+  };
+  const kids = [];
+  if (f.values.length > 7) {
+    kids.push(el("input", { type: "search", class: "fp-q", placeholder: tr("Search the values"), "aria-label": tr("Search the values"), value: f.q,
+      oninput: (e) => { f.q = e.target.value; const pos = e.target.selectionStart; redraw();
+        const n = document.querySelector(".fp-q"); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { /* ignore */ } } } }));
+  }
+  kids.push(el("label", { class: "fp-row fp-all" }, [
+    el("input", { type: "checkbox", checked: allOn ? true : null, onchange: (e) => { shown.forEach((x) => (e.target.checked ? f.chosen.add(x.value) : f.chosen.delete(x.value))); redraw(); } }),
+    el("span", { text: tr("Select all") })]));
+  kids.push(el("div", { class: "fp-list", role: "group", "aria-label": title }, shown.length ? shown.map((x) => el("label", { class: "fp-row", "data-value": x.value }, [
+    el("input", { type: "checkbox", value: x.value, checked: f.chosen.has(x.value) ? true : null,
+      onchange: (e) => { if (e.target.checked) f.chosen.add(x.value); else f.chosen.delete(x.value); redraw(); } }),
+    el("span", { class: "fp-l", text: facetLabel(f.col, x.value) }),
+    el("span", { class: "fp-n", text: String(x.count) }),
+  ])) : [el("p", { class: "muted fp-msg", text: tr("Nothing matches.") })]));
+  kids.push(el("div", { class: "fp-actions" }, [
+    el("button", { type: "button", class: "btn sm primary", "data-act": "fp-apply", disabled: f.chosen.size ? null : true,
+      onclick: () => { applyFacet(f.col, f.chosen, f.values.map((x) => x.value)); done(); }, text: tr("Apply") }),
+    el("button", { type: "button", class: "btn sm subtle", "data-act": "fp-clear",
+      onclick: () => { applyFacet(f.col, new Set(f.values.map((x) => x.value)), f.values.map((x) => x.value)); done(); }, text: tr("Clear filter") }),
+  ]));
+  return kids;
+}
+// The button that opened the checklist, or its header's after the list redrew.
+function shownAnchor(f) {
+  if (f.anchor && f.anchor.isConnected && f.anchor.offsetParent !== null) return f.anchor;
+  const th = document.querySelector('.th-filter[data-facet="' + f.col + '"]');
+  return th && th.offsetParent !== null ? th : null;
+}
+function renderFacet() {
+  const f = S.facet;
+  let pop = $("#facet-pop");
+  if (!f) { if (pop) pop.remove(); return; }
+  if (!pop) { pop = el("div", { id: "facet-pop", class: "facet-pop", role: "dialog" }); document.body.appendChild(pop); }
+  const def = LIST_COLS.find((c) => c[0] === f.col);
+  pop.setAttribute("aria-label", tr("Filter {col}", { col: f.col === "abc" ? "ABC" : tr(def[1]) }));
+  pop.innerHTML = "";
+  pop.append(...facetBody(f, () => closeFacet()));
+  const btn = shownAnchor(f);
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  if (btn && btn.getBoundingClientRect) {
+    const r = btn.getBoundingClientRect(), w = 270;
+    pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - w - 8)) + "px";
+    pop.style.top = (r.bottom + window.scrollY + 4) + "px";
+  }
+}
+document.addEventListener("mousedown", (e) => {
+  if (!S.facet) return;
+  const pop = $("#facet-pop");
+  if (pop && pop.contains(e.target)) return;
+  if (e.target.closest && e.target.closest(".th-filter, .facet-btn")) return;
+  closeFacet(true);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.facet) { e.preventDefault(); e.stopImmediatePropagation(); closeFacet(); }
+}, true);
+window.addEventListener("resize", () => { if (S.facet) closeFacet(true); });
+
+/* ------------------------------------------------------------ on a phone */
+// The ☰ menu's "Sort and filter": the selects, then a row per checklist.
+function navFacetRows() {
+  return el("div", { class: "nav-list nav-facets" }, [el("h4", { class: "nav-sub", text: tr("Filter by column") })].concat(FACETS.map((col) => {
+    const def = LIST_COLS.find((c) => c[0] === col);
+    const m = S.f.multi[col] || [], k = FACET_SELECT[col], v = k ? S.f[k] : "";
+    const named = (list) => (list.find((o) => o[0] === v) || [0, facetLabel(col, v)])[1];
+    const val = m.length ? tr("{n} chosen", { n: m.length })
+      : v ? (col === "owner" ? named(ownerOptions()) : col === "status" ? tr(named(STATUS_OPTIONS)) : facetLabel(col, v))
+      : col === "segment" && S.f.quick === "cannot" ? trv("Cannot lose") : tr("All");
+    return navRow(col === "abc" ? "ABC" : tr(def[1]), false, () => openNavFacet(col), el("span", { class: "nav-val", text: val }));
+  })));
+}
+async function openNavFacet(col) {
+  const f = { col, loading: true, error: null, values: [], chosen: new Set(), q: "" };
+  S.navFacet = f;
+  renderNav();
+  try { f.values = await loadFacet(col); f.chosen = facetChosen(col, f.values); } catch (e) { f.error = e.message; }
+  if (S.navFacet !== f) return;
+  f.loading = false;
+  renderNav();
+}
+function navFacetSection() {
+  const f = S.navFacet;
+  const def = LIST_COLS.find((c) => c[0] === f.col);
+  const back = () => { S.navFacet = null; renderNav(); const t = document.querySelector('[data-section="filters"]'); if (t) t.scrollIntoView({ block: "start" }); };
+  return el("div", { class: "nav-section nav-facet", "data-section": "facet" }, [
+    el("div", { class: "nf-head" }, [
+      el("button", { type: "button", class: "btn subtle", "data-act": "nf-back", onclick: back, text: "‹ " + tr("Back") }),
+      el("h3", { text: f.col === "abc" ? "ABC" : tr(def[1]) })]),
+    ...facetBody(f, back),
+  ]);
+}
+
+/* -------------------------------------------------------------- my clients */
+// A login linked to a sales rep label opens on its own clients, once per
+// session; the shortcut stays for switching back.
+function myClientsDefault() {
+  const rep = S.ref && S.ref.my_rep;
+  if (!rep || !S.session) return false;
+  const tag = String(S.session.token || "").slice(0, 12);
+  let seen = null;
+  try { seen = sessionStorage.getItem("crm_mine_default"); } catch (e) { /* storage blocked */ }
+  if (seen === tag) return false;
+  try { sessionStorage.setItem("crm_mine_default", tag); } catch (e) { /* storage blocked */ }
+  if (S.f.quick || S.f.q || S.f.drill || activeFilterCount()) return false;
+  S.f.quick = "mine";
+  return true;
 }
 
 /* -------------------------------------------------------------------- init */

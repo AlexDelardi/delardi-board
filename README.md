@@ -76,8 +76,10 @@ It follows the same model as the board, with its own API and its own right:
 - Every change is made by a database function that writes the change and its
   line in `crm_events` together, with who and when. Merges also keep a full
   before-image in `crm_merge_log` so they can be undone by hand.
-- Phone numbers are held in the database for matching but never sent to the
-  page. Sales people appear only as "Sales rep N".
+- Phone numbers are shown to everyone with CRM access (since 22 Sept 2026): on
+  the card with call, Telegram and WhatsApp links, in the clean-up, and in
+  search. They are hidden with the amounts by the eye button, and never kept
+  in this repository. Sales people appear only as "Sales rep N".
 - Every retail client has one owner: a current sales rep, or "Shared (store)"
   for lapsed and dormant clients the whole team works. The card keeps the
   previous owner and says how the current one was assigned.
@@ -127,9 +129,18 @@ It follows the same model as the board, with its own API and its own right:
   theirs, to link or reject; the Purchases tab lists what they asked for that
   the boutique could not offer, in their own words, with a status. People who
   wrote but are in neither Colibri nor the questionnaire are "Telegram leads",
-  outside the clean-up. Insights has a Telegram section. Telegram IDs and phone
-  numbers stay on the server. On a phone the shortcut chips sit on one row that
-  swipes sideways.
+  outside the clean-up. Insights has a Telegram section. Telegram IDs stay on
+  the server. On a phone the shortcut chips sit on one row that swipes
+  sideways.
+- **Contacts and personal data:** every contact with a client is logged (when,
+  how, by whom, a note); the latest shows on the card and in the list, which
+  can be filtered to clients not contacted in 30, 60 or 90 days. The card has a
+  Personal data block: sizes, preferences, important dates, address and a free
+  "about the client". Each change goes into the client's history.
+- **The list:** click a column header to sort on it; the ▾ beside Status, ABC,
+  Segment, Lifecycle and Owner opens a checklist of that column's values with a
+  count for each, to pick several at once. On a phone these are in the menu
+  under "Sort and filter". A login linked to a sales rep opens on "My clients".
 
 ## Updating a page
 
