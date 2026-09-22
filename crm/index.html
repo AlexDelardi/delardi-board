@@ -408,6 +408,21 @@ table.compare td.st .btn, table.compare .st-inline .btn { margin-top: 6px; displ
 .dup-card .muted { font-size: 12px; margin-top: 2px; }
 .drawer-body.busy { cursor: progress; }
 .chip.dnc { white-space: nowrap; }
+/* Telegram (v10): the chat on the card, a chat to confirm, missed requests */
+.linkish { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.linkish:hover { color: var(--ink-2); }
+.tg-quote { font-size: 13px; margin-top: 8px; overflow-wrap: anywhere; line-height: 1.45; }
+.tg-quote q { font-style: italic; color: var(--ink-2); }
+.dup-card .tg-quote { margin-top: 6px; font-size: 12.5px; }
+.tg-sugg > .hint { font-size: 13px; color: var(--ink-2); margin: 0 0 10px; line-height: 1.45; }
+.tg-sugg .confirm-row { align-items: center; }
+.tg-sugg .confirm-row > span { font-size: 13px; font-weight: 600; }
+.missed-list li.done .l1, .missed-list li.done .item { color: var(--muted); }
+.missed-list .item { -webkit-line-clamp: 4; }
+.missed-list .mmeta { grid-column: 1 / -1; font-size: 12px; }
+.missed-list .mact { grid-column: 1 / -1; margin-top: 6px; }
+.tg-kpis { grid-template-columns: repeat(4, minmax(0,1fr)); margin-bottom: 14px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; box-shadow: var(--shadow); }
+.tg-kpis .stat .val { font-variant-numeric: normal; }
 
 
 /* ------------------------------------------------------------- view tabs */
@@ -819,6 +834,7 @@ body.split .toast { left: calc((100vw - var(--split-w)) / 2); }
   .icon-btn, .drawer .close { min-width: 44px; justify-content: center; }
   input[type=text], input[type=search], input[type=password], input[type=date], select, textarea { min-height: 44px; font-size: 16px; }
   .view-tab, .card-tab, .seg-ctl button, .qchip, .rchip { min-height: 44px; }
+  .linkish { min-height: 44px; padding: 0 4px; }
   .lang button { min-height: 44px; min-width: 44px; }
   .top-row .btn.subtle { min-width: 44px; justify-content: center; }
   .brand .home, .top-row .home { display: inline-flex; align-items: center; min-height: 44px; }
@@ -982,7 +998,7 @@ body.offline .drawer, body.offline .nav-drawer, body.offline .sheet.full { top: 
   /* two- and three-column tables stay tables: their headings wrap rather than push sideways */
   table.mini th, table.mini th.num, .icard table.mini tbody th { white-space: normal; }
   /* counts are a grid of two, not a sideways swipe */
-  .scoreboard, .scoreboard.ins-kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: visible; }
+  .scoreboard, .scoreboard.ins-kpis, .scoreboard.tg-kpis { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: visible; }
   .scoreboard .stat { min-width: 0; }
   .scoreboard > .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
   table.heatgrid thead th:first-child { color: transparent; }   /* the A / B / C chips say it; "Class" collided with the next heading */
@@ -999,6 +1015,7 @@ body.offline .drawer, body.offline .nav-drawer, body.offline .sheet.full { top: 
 @media (max-width: 1180px) {
   .scoreboard { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .ins-kpis { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .tg-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
   table.clients .col-seg { display: none; }
 }
 @media (max-width: 900px) {
@@ -1112,6 +1129,9 @@ body.offline .drawer, body.offline .nav-drawer, body.offline .sheet.full { top: 
   .top-row.m .lock-m .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
   .top-row.m .lang button { min-height: 36px; }
   .quick { padding: 0 13px 6px; }
+  .qchips:not(.pchips) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -13px; padding: 0 13px; }
+  .qchips:not(.pchips)::-webkit-scrollbar { display: none; }
+  .qchips:not(.pchips) .qchip { flex: 0 0 auto; }
   .rchip .rn { max-width: 150px; }
   .rollup-switch { display: inline-flex; }
   .rollups { grid-template-columns: minmax(0, 1fr); }
@@ -1578,6 +1598,7 @@ const STATUS = {
   set_aside: { label: "Set aside",        glyph: "‖", tone: "" },
   deleted:   { label: "Deleted",          glyph: "×", tone: "critical" },
   merged:    { label: "Merged",           glyph: "→", tone: "" },
+  lead:      { label: "Telegram lead",    glyph: "✈", tone: "" },
 };
 const FIELD_LABEL = { name: "Name", phone: "Phone", gender: "Gender", dob: "Date of birth" };
 const LIFECYCLES = ["Active", "At risk", "Lapsed", "Dormant"];
@@ -1593,7 +1614,7 @@ const TYPES = [
 const STATUS_OPTIONS = [
   ["", "Any status"], ["decision", "Needs a decision"], ["confirm", "Needs confirming"],
   ["done", "Done"], ["checked", "Checked"], ["clean", "Clean"],
-  ["set_aside", "Set aside"], ["deleted", "Deleted"], ["merged", "Merged"],
+  ["set_aside", "Set aside"], ["deleted", "Deleted"], ["merged", "Merged"], ["lead", "Telegram leads"],
 ];
 // The store's shared list. The API labels it "Shared (store)"; older responses
 // said "Unassigned", so both are recognised.
@@ -1957,7 +1978,8 @@ function renderProgress() {
       el("span", { class: "progress-text" }, [
         el("b", { text: tr("{done} of {total} records done", { done, total: t.records }) }),
         " · " + tr("{n} set aside", { n: aside }) + " · " + tr("{n} to go", { n: togo }) +
-        " · " + tr("{n} worked on this week", { n: pl(week, "record") }),
+        " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
+        (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : ""),
       ]),
     ]),
     el("div", { class: "progress-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(t.records),
@@ -2035,6 +2057,8 @@ function resetFilters() {
 
 /* ------------------------------------------------------------------- list */
 function sourceLine(r) {
+  const tg = sourceLineTg(r);
+  if (tg) return tg;
   if (r.in_colibri && r.in_marketing) return tr("Colibri + questionnaire");
   if (r.in_colibri) return tr("Colibri only");
   if (r.in_marketing) return tr("Questionnaire only");
@@ -2204,7 +2228,7 @@ function closeCard(fromHistory) {
   if (back) back.focus();
 }
 function bestName(c) {
-  return c.name_confirmed || c.name_colibri || c.name_marketing || tr("Unnamed record");
+  return c.name_confirmed || c.name_colibri || c.name_marketing || c.name_telegram || tr("Unnamed record");
 }
 function mappedValue(field, raw) {
   if (blank(raw)) return null;
@@ -2296,7 +2320,9 @@ function sectionReview(data) {
     return el("section", { class: "drawer-section review" }, kids);
   }
 
-  const line = nConf || nGap
+  const line = status === "lead"
+    ? tr("A Telegram lead, outside the identity review. If it is someone already in the file, merge it with their record; if it is not a client, delete it.")
+    : nConf || nGap
     ? [nConf ? tr(nConf === 1 ? "{n} field needs a decision" : "{n} fields need a decision", { n: nConf }) : "",
        nConf && nGap ? " · " : "",
        nGap ? tr(nGap === 1 ? "{n} field needs confirming" : "{n} fields need confirming", { n: nGap }) : ""].join("")
@@ -2305,7 +2331,7 @@ function sectionReview(data) {
     el("h3", { text: tr("Review") }),
     status ? statusChip(q) : null,
   ]));
-  kids.push(el("p", { class: "summary-line" + (nConf || nGap ? "" : " ok"), text: line }));
+  kids.push(el("p", { class: "summary-line" + (nConf || nGap || status === "lead" ? "" : " ok"), text: line }));
   if (c.record_state === "confirmed") {
     kids.push(el("p", { class: "meta-line", text: tr("Checked by {by}, {d}", { by: who(c.reviewed_by || c.state_by) || "—", d: fmtDate(c.reviewed_at || c.state_at) }) }));
   }
@@ -2490,7 +2516,7 @@ function sectionCompare(data) {
     const settled = HUMAN_FLAGS.includes(flag) && field !== "phone";
     let cells;
     if (field === "phone") {
-      cells = [el("td", { colspan: "2", class: "muted", text: flag === "none" ? tr("No number on file") : tr("Held, not shown here") })];
+      cells = [el("td", { colspan: "2", class: "muted", text: flag === "none" ? (c.phone_in_telegram ? tr("From Telegram, not shown here") : tr("No number on file")) : tr("Held, not shown here") })];
     } else {
       const [a, b] = fieldValues(c, field);
       cells = [el("td", { text: blank(a) ? "—" : a }), el("td", { text: blank(b) ? "—" : b })];
@@ -2640,7 +2666,9 @@ function ownerEditor(c) {
 function sectionCommercial(c) {
   const ownerKids = [];
   if (c.record_type === "prospect") {
-    ownerKids.push(el("p", { class: "muted", text: tr("A prospect: completed the questionnaire but has no purchase on record in Colibri.") }));
+    ownerKids.push(el("p", { class: "muted", text: c.in_telegram && !c.in_marketing && !c.in_colibri
+      ? tr("A Telegram lead: no purchase on record in Colibri.")
+      : tr("A prospect: completed the questionnaire but has no purchase on record in Colibri.") }));
   }
   const owner = blank(c.client_owner) ? "—" : who(c.client_owner) + (ownerHasLeft(c.client_owner, c.owner_active) ? " (" + tr("has left") + ")" : "");
   const repActive = (label) => ((S.ref && S.ref.sales_reps) || []).some((r) => r.label === label && r.active);
@@ -2717,7 +2745,7 @@ function sectionQuestionnaire(c) {
   if (!c.in_marketing) {
     return el("section", { class: "drawer-section" }, [
       el("h3", { text: tr("Questionnaire") }),
-      el("p", { class: "muted", text: tr("Not in the questionnaire. Everything above comes from Colibri alone.") }),
+      el("p", { class: "muted", text: tr(c.in_colibri ? "Not in the questionnaire. Everything above comes from Colibri alone." : "Not in the questionnaire.") }),
     ]);
   }
   const mappedKV = (label, col) => {
@@ -2751,6 +2779,8 @@ function sectionQuestionnaire(c) {
 
 /* ------------------------------------------------------------- card: notes */
 function eventText(e) {
+  const tg = tgEventText(e);
+  if (tg) return tg;
   const f = e.field && FIELD_LABEL[e.field] ? tr(FIELD_LABEL[e.field]) : e.field;
   switch (e.action) {
     case "field_resolved": {
@@ -2821,7 +2851,7 @@ function sectionEvents(data) {
   }
   if (ev.length) {
     kids.push(el("ul", { class: "events" }, ev.map((x) => el("li", {}, [
-      el("span", { class: "when", text: fmtDateTime(x.at) + " · " + (x.actor === "system" ? tr(x.action === "class_changed" ? "automatic recalculation" : "flagged at load") : who(x.actor)) }),
+      el("span", { class: "when", text: fmtDateTime(x.at) + " · " + (x.actor === "system" ? tr(x.action === "class_changed" ? "automatic recalculation" : TG_SYSTEM_ACTIONS.includes(x.action) ? "from the Telegram chats" : "flagged at load") : who(x.actor)) }),
       ...eventText(x),
     ]))));
   }
@@ -2870,11 +2900,16 @@ function renderDrawer() {
   else {
     const t = S.cardTab;
     if (t === "overview") {
-      body.append(sectionGlance(data), sectionCommercial(c), sectionContact(c), sectionQuestionnaire(c));
+      body.append(sectionGlance(data));
+      const tgs = sectionTelegram(data); if (tgs) body.append(tgs);
+      body.append(sectionCommercial(c), sectionContact(c), sectionQuestionnaire(c));
     } else if (t === "purchases") {
       body.append(sectionPurchasesFloor(data));
+      const ms = sectionMissed(data); if (ms) body.append(ms);
     } else if (t === "cleanup") {
-      body.append(sectionReview(data), sectionCompare(data));
+      body.append(sectionReview(data));
+      const sg = sectionTgSuggest(data); if (sg) body.append(sg);
+      body.append(sectionCompare(data));
       const dups = sectionDuplicates(data); if (dups) body.appendChild(dups);
     } else {
       const e = sectionEvents(data);
@@ -3742,6 +3777,7 @@ function renderInsights() {
       return [...yearsCards(d), frequencyCard(d), multiBrandCard(d), mix, categoryCard(d), byYear]; })()),
     sectionHead("ins-birthdays", tr("Birthdays")),
     el("div", { class: "ins-grid" }, birthdayCards(d)),
+    ...(d.telegram ? [sectionHead("ins-telegram", tr("Telegram: leads and missed demand")), ...telegramInsights(d.telegram)] : []),
   ]);
   if (S.insError) body.prepend(el("div", { class: "banner critical", role: "alert", text: S.insError }));
   host.appendChild(body);
@@ -3938,7 +3974,8 @@ const ATTENTION = [
   ["changed_after_check", "Colibri changed after a check", "A value someone confirmed has since changed in Colibri. Look again.", "serious"],
   ["new_from_refresh", "New from the last refresh", "Clients the last Colibri refresh created, still to review.", "warning"],
   ["shared_active", "Active clients with no owner", "Active or at-risk retail clients on the shared list or with a rep who has left.", "serious"],
-  ["no_phone", "No phone number anywhere", "Neither Colibri nor the questionnaire has a number.", null],
+  ["telegram_to_confirm", "Telegram chats to confirm", "A chat in the boutique's Telegram may be this client. Link it, or say it is not.", "warning"],
+  ["no_phone", "No phone number anywhere", "Neither Colibri, the questionnaire nor Telegram has a number.", null],
   ["no_dob", "No date of birth anywhere", "No birthday on file in either source, so no birthday contact.", null],
   ["initials_only", "Name is initials only", "The record carries initials, not a name.", null],
   ["brand_unassigned", "Purchases with no brand", "Clients with at least one purchase line whose brand is not identified.", null],
@@ -4737,10 +4774,14 @@ function renderNav() {
 })();
 
 /* --------------------------------------------------------- finding a client */
-const QUICK = [["bday", "Birthdays this week"], ["cannot", "Cannot lose"], ["shared", "Shared list"]];
-const QUICK_SCOPE = { bday: "birthdays in the next 7 days", cannot: "cannot lose", shared: "shared list" };
+const QUICK = [["bday", "Birthdays this week"], ["cannot", "Cannot lose"], ["shared", "Shared list"],
+  ["missed", "Missed requests"], ["leads", "Telegram leads"]];
+const QUICK_SCOPE = { bday: "birthdays in the next 7 days", cannot: "cannot lose", shared: "shared list",
+  missed: "missed requests", leads: "telegram leads" };
 function quickParams(f, p) {
   if (f.quick === "bday") p.birthday_within = 7;
+  else if (f.quick === "missed") p.missed = "any";
+  else if (f.quick === "leads") p.status = "lead";
   else if (f.quick === "cannot") p.rfm_segment = "Cannot lose";
   else if (f.quick === "shared") { p.owner_status = "unassigned"; delete p.client_owner; }
   if (f.dnc_out) p.do_not_contact = "exclude";
@@ -4896,7 +4937,10 @@ function sectionGlance(data) {
   const owner = blank(c.client_owner) ? "—" : who(c.client_owner) + (ownerHasLeft(c.client_owner, c.owner_active) ? " (" + tr("has left") + ")" : "");
   facts.push(fact(tr("Owner"), owner));
   facts.push(fact(tr("Birthday"), birthdayLine(c)));
-  if (c.record_type === "prospect" || !lines.length) {
+  const tgNote = tgGlanceNote(data);
+  if (tgNote) {
+    kids.push(tgNote);
+  } else if (c.record_type === "prospect" || !lines.length) {
     kids.push(el("p", { class: "muted glance-note", text: tr("A prospect: filled in the questionnaire, no purchase in Colibri yet.") }));
   } else {
     const lastDate = lines[0].sold_at;
@@ -4915,6 +4959,7 @@ function sectionGlance(data) {
     }
   }
   if (!blank(c.brand_preference_raw)) facts.push(fact(tr("Brand preference"), c.brand_preference_raw));
+  facts.push(...tgGlanceFacts(data));
   kids.push(el("dl", { class: "glance-facts" }, facts));
   const notes = (data.events || []).filter((e) => e.action === "note" && !blank(e.note)).slice(0, 2);
   kids.push(el("div", { class: "glance-notes" }, [
@@ -5318,6 +5363,445 @@ if (navigator.onLine === false) S.offline = true;
 // Registered with the page for the home screen: the manifest and icons live in
 // app/ next to this file (see README). No service worker: nothing is stored
 // for offline use.
+
+/* ===========================================================================
+   Telegram (API v10)
+   The boutique's Telegram chats, from the summary of 14 Aug 2026:
+   - On the card: whether the client is in Telegram, when they last wrote,
+     what the chat shows (Overview); a chat that may be theirs, to link or
+     reject (Clean-up); and what they asked for that the boutique could not
+     offer at the time, in their own words, with a status (Purchases).
+   - In the list: Telegram leads (people who wrote but are in neither Colibri
+     nor the questionnaire) and records with an open missed request.
+   - In Insights: the leads by when they last wrote, and the missed demand by
+     kind, by brand we don't carry and by year.
+   Telegram IDs and phone numbers never reach this page: the server sends a
+   flag and a chat reference instead.
+   ========================================================================= */
+Object.assign(RU, {
+  // list and filters
+  "Telegram lead": "Лид из Telegram",
+  "Telegram leads": "Лиды из Telegram",
+  "telegram leads": "лиды из Telegram",
+  "Missed requests": "Упущенные запросы",
+  "missed requests": "упущенные запросы",
+  "Colibri + questionnaire + Telegram": "Colibri + анкета + Telegram",
+  "Colibri + Telegram": "Colibri + Telegram",
+  "Questionnaire + Telegram": "Анкета + Telegram",
+  "Telegram only": "Только Telegram",
+  "{n} Telegram leads outside the clean-up": "лидов из Telegram вне проверки: {n}",
+  // card: overview
+  "Telegram": "Telegram",
+  "In Telegram": "Есть в Telegram",
+  "Client last wrote {d}": "Клиент писал {d}",
+  "chat last active {d}": "последнее сообщение в чате {d}",
+  "{n} open": "открытых: {n}",
+  "Show": "Показать",
+  "A lead from the boutique's Telegram: in neither Colibri nor the questionnaire yet.": "Лид из Telegram бутика: пока нет ни в Colibri, ни в анкете.",
+  "The chat suggests they have bought before, but no purchase matches in Colibri.": "По переписке клиент уже покупал, но в Colibri покупка не найдена.",
+  "summary of {d}": "сводка на {d}",
+  "Segment in the chat summary": "Сегмент по переписке",
+  "Language": "Язык",
+  "First contact": "Первый контакт",
+  "Client last wrote": "Клиент писал последний раз",
+  "Last message in the chat": "Последнее сообщение в чате",
+  "Messages": "Сообщения",
+  "{c} from the client · {b} from the boutique": "от клиента: {c} · от бутика: {b}",
+  "Questions asked": "Вопросов задано",
+  "{n} answered after more than a day": "с ответом позже чем через сутки: {n}",
+  "{n} never answered": "без ответа: {n}",
+  "Mailings received": "Получено рассылок",
+  "Brands mentioned": "Упомянутые бренды",
+  "Largest discount offered": "Наибольшая предложенная скидка",
+  "Noted in the chat": "Отмечено в переписке",
+  "Last message from the client": "Последнее сообщение клиента",
+  "Linked by the phone number.": "Связан по номеру телефона.",
+  "Created from this chat.": "Создан из этого чата.",
+  "Confirmed by {by}, {d}.": "Подтвердил(а) {by}, {d}.",
+  "A phone number from Telegram is held on the server, not shown here.": "Номер из Telegram хранится на сервере, здесь не показывается.",
+  "A Telegram chat may belong to this client. See Clean-up.": "Возможно, этому клиенту принадлежит чат в Telegram. См. «Проверка».",
+  "Cold lead": "Холодный лид",
+  "Warm lead": "Тёплый лид",
+  "Hot lead": "Горячий лид",
+  "Buyer": "Покупатель",
+  "Buyer – dormant": "Покупатель — давно не писал",
+  "VIP buyer": "VIP-покупатель",
+  "VIP buyer – dormant": "VIP-покупатель — давно не писал",
+  "Audience only": "Только рассылки",
+  "Russian": "Русский",
+  "English": "Английский",
+  "Uzbek (Latin)": "Узбекский (латиница)",
+  "Uzbek (Cyrillic)": "Узбекский (кириллица)",
+  "Slow reply": "Медленный ответ",
+  "Foreign/tourist": "Иностранец / турист",
+  "Special order": "Спецзаказ",
+  "Price objection": "Возражение по цене",
+  "Service issue": "Вопрос по сервису",
+  "Unanswered": "Без ответа",
+  // card: clean-up
+  "Telegram chat to confirm": "Чат Telegram на подтверждение",
+  "A Telegram lead: no purchase on record in Colibri.": "Лид из Telegram: покупок в Colibri нет.",
+  "Not in the questionnaire.": "Нет в анкете.",
+  "Brand we don't carry": "Бренда нет в ассортименте",
+  "Each lead is counted once: those who bought first, the rest by when they last wrote.": "Каждый лид учтён один раз: сначала покупавшие, остальные — по дате последнего сообщения.",
+  "A Telegram lead, outside the identity review. If it is someone already in the file, merge it with their record; if it is not a client, delete it.": "Лид из Telegram, вне проверки данных. Если это клиент из базы — объедините с его записью; если не клиент — удалите.",
+  "The boutique's Telegram has a chat that may be this client. Link it only if you are sure: the chat's details and requests then join this record.": "В Telegram бутика есть чат, который может принадлежать этому клиенту. Связывайте, только если уверены: данные чата и запросы перейдут в эту запись.",
+  "Same phone number as this record.": "Тот же номер телефона, что у этой записи.",
+  "Same phone number as this record and as {ids}.": "Тот же номер телефона, что у этой записи и у {ids}.",
+  "Same name as a buyer at the till.": "То же имя, что у покупателя на кассе.",
+  "A similar name in Telegram.": "Похожее имя в Telegram.",
+  "Till: {n} items, last {d}": "Касса: изделий {n}, последняя покупка {d}",
+  "{n} would move to this record.": "В эту запись перейдут: {n}.",
+  "Brings a phone number (kept on the server).": "Добавит номер телефона (хранится на сервере).",
+  "Same client — link": "Тот же клиент — связать",
+  "Not this client": "Не этот клиент",
+  "Link this chat to {id}?": "Связать этот чат с {id}?",
+  "Yes, link": "Да, связать",
+  "Cancel": "Отмена",
+  "Telegram chat linked.": "Чат Telegram связан.",
+  "Marked as not this client.": "Отмечено: не этот клиент.",
+  "Unnamed chat": "Чат без имени",
+  // card: purchases
+  "What the client asked for that the boutique could not offer at the time, in the client's own words. From the Telegram summary of {d}.": "Что клиент просил, а бутик не смог предложить в тот момент, — словами клиента. По сводке Telegram на {d}.",
+  "Asked for a brand we don't carry": "Бренд, которого у нас нет",
+  "Not in stock": "Нет в наличии",
+  "Waiting for a delivery": "Ждёт поступления",
+  "Asked to order": "Просил заказать",
+  "Reply took more than a day": "Ответ позже чем через сутки",
+  "Not answered": "Без ответа",
+  "first reply after {t}": "первый ответ через {t}",
+  "{n} min": "{n} мин",
+  "{n} h": "{n} ч",
+  "{n} days": "{n} дн.",
+  "Open": "Открыт",
+  "Followed up": "Отработан",
+  "Closed": "Закрыт",
+  "Close": "Закрыть",
+  "{status} by {by}, {d}": "{status}: {by}, {d}",
+  "No missed requests.": "Упущенных запросов нет.",
+  // history
+  "Linked to a Telegram chat by phone number.": "Связан с чатом Telegram по номеру телефона.",
+  "Telegram chat confirmed as this client.": "Чат Telegram подтверждён как этот клиент.",
+  "A phone number from the chat is now on file (not shown here).": "Номер из чата теперь в записи (здесь не показывается).",
+  "Suggested Telegram chat: not this client.": "Предложенный чат Telegram: не этот клиент.",
+  "Created from the Telegram chats": "Создан из чатов Telegram",
+  "the chat suggests a purchase": "по переписке была покупка",
+  "a lead": "лид",
+  "Client last wrote {d}.": "Клиент писал {d}.",
+  "Missed request: {a} → {b}": "Упущенный запрос: {a} → {b}",
+  "from the Telegram chats": "из чатов Telegram",
+  // insights
+  "Telegram: leads and missed demand": "Telegram: лиды и упущенный спрос",
+  "Chats in the summary": "Чатов в сводке",
+  "{n} linked to a record": "связано с записями: {n}",
+  "Chats to confirm": "Чаты на подтверждение",
+  "may be a client in the file": "возможно, клиент из базы",
+  "Open missed requests": "Открытые упущенные запросы",
+  "{n} people · {f} in the file": "людей: {n} · в базе: {f}",
+  "Leads from Telegram": "Лиды из Telegram",
+  "{total} people wrote to the boutique on Telegram but are in neither Colibri nor the questionnaire. By the chat, {buyers} of them have bought before.": "{total} человек писали бутику в Telegram, но их нет ни в Colibri, ни в анкете. По переписке {buyers} из них уже покупали.",
+  "Bought before, by the chat": "Уже покупали, по переписке",
+  "Wrote in the last 30 days": "Писали за последние 30 дней",
+  "Wrote 31–180 days ago": "Писали 31–180 дней назад",
+  "Wrote more than 180 days ago": "Писали более 180 дней назад",
+  "{n} have a phone number (kept on the server). Days are counted to today; the summary is as of {d}.": "У {n} есть номер телефона (хранится на сервере). Дни считаются до сегодня; сводка на {d}.",
+  "Open the {n} leads": "Открыть лиды ({n})",
+  "What clients asked for and did not get": "Что клиенты просили и не получили",
+  "{total} times between {a} and {b} a client asked for something the boutique could not offer, or waited more than a day for a reply: {clients} people, {in_file} of them in the client file.": "{total} раз с {a} по {b} клиент просил то, чего бутик не мог предложить, или ждал ответа больше суток: {clients} человек, из них в базе — {in_file}.",
+  "{n} · {c} people": "{n} · людей: {c}",
+  "Click a bar to open the records in the file.": "Нажмите на полосу, чтобы открыть записи из базы.",
+  "Brands asked for that we don't carry": "Бренды, которых у нас нет, но их спрашивали",
+  "Bvlgari watches are carried; the jewellery is not.": "Часы Bvlgari у нас есть, украшений — нет.",
+  "Requests and slow replies by year": "Запросы и медленные ответы по годам",
+  "Requests we could not meet": "Запросы, которые не смогли выполнить",
+  "Replies after more than a day": "Ответы позже чем через сутки",
+  "Kind": "Тип",
+  "Requests": "Запросы",
+  "People": "Люди",
+  "In the file": "В базе",
+  "Year": "Год",
+  "Brand": "Бренд",
+  "Telegram chats to confirm": "Чаты Telegram на подтверждение",
+  "A chat in the boutique's Telegram may be this client. Link it, or say it is not.": "Чат в Telegram бутика может принадлежать этому клиенту. Свяжите его или отметьте, что это не он.",
+  "Neither Colibri, the questionnaire nor Telegram has a number.": "Номера нет ни в Colibri, ни в анкете, ни в Telegram.",
+  "From Telegram, not shown here": "Из Telegram, здесь не показывается",
+  // server messages
+  "This Telegram chat was not suggested for this record.": "Этот чат Telegram не предлагался для этой записи.",
+  "This Telegram chat is already linked to a record.": "Этот чат Telegram уже связан с записью.",
+  "No such Telegram chat.": "Такого чата Telegram нет.",
+  "No such request on this record.": "У этой записи нет такого запроса.",
+  "Choose open, followed up or closed.": "Выберите: открыт, отработан или закрыт.",
+});
+
+Object.assign(PL, {
+  request: { en: ["missed request", "missed requests"], ru: ["упущенный запрос", "упущенных запроса", "упущенных запросов"] },
+});
+
+/* -------------------------------------------------------------- vocabulary */
+const MISSED_KIND = {
+  not_carried: "Asked for a brand we don't carry",
+  not_in_stock: "Not in stock",
+  awaiting: "Waiting for a delivery",
+  order_request: "Asked to order",
+  late_reply: "Reply took more than a day",
+};
+const MISSED_STATUS = {
+  open: { label: "Open", glyph: "•", tone: "warning" },
+  followed_up: { label: "Followed up", glyph: "✓", tone: "good" },
+  closed: { label: "Closed", glyph: "–", tone: "" },
+};
+const MISSED_KIND_SHORT = { ...MISSED_KIND, not_carried: "Brand we don't carry" };
+const missedKindLabel = (m) => m.kind === "late_reply" && m.answered === false ? tr("Not answered") : tr(MISSED_KIND[m.kind] || m.kind);
+
+/* ------------------------------------------------------------------ helpers */
+const tgData = (data) => (data && data.telegram) || { chats: [], suggested: [], missed: [] };
+const tgChat = (data) => tgData(data).chats[0] || null;
+const isTgLead = (data) => !!(data && data.queue && data.queue.review_status === "lead");
+const openMissed = (data) => tgData(data).missed.filter((m) => m.status === "open");
+function sourceLineTg(r) {
+  if (!r.in_telegram) return null;
+  if (r.in_colibri && r.in_marketing) return tr("Colibri + questionnaire + Telegram");
+  if (r.in_colibri) return tr("Colibri + Telegram");
+  if (r.in_marketing) return tr("Questionnaire + Telegram");
+  return tr("Telegram only");
+}
+function replyTime(min) {
+  const m = Number(min);
+  if (!Number.isFinite(m)) return "";
+  if (m < 60) return tr("{n} min", { n: Math.max(1, Math.round(m)) });
+  if (m < 2880) return tr("{n} h", { n: Math.round(m / 60) });
+  return tr("{n} days", { n: Math.round(m / 1440) });
+}
+const tgName = (ch) => blank(ch.display_name) || ch.display_name === "(no name)" ? tr("Unnamed chat") : ch.display_name;
+
+/* ------------------------------------------------------ card: at a glance */
+// Facts for the glance: in Telegram, when they last wrote, open missed requests.
+function tgGlanceFacts(data) {
+  const out = [];
+  const ch = tgChat(data);
+  if (ch) {
+    const last = ch.last_client_message || ch.last_contact;
+    out.push(fact(tr("Telegram"), "✓ " + (last ? tr("Client last wrote {d}", { d: fmtDate(last) }) : tr("In Telegram")),
+      ch.last_contact ? tr("chat last active {d}", { d: fmtDate(ch.last_contact) }) : null));
+  }
+  const open = openMissed(data);
+  if (open.length) {
+    out.push(el("div", { class: "fact" }, [el("dt", { text: tr("Missed requests") }), el("dd", {}, [
+      el("span", { text: tr("{n} open", { n: open.length }) + " " }),
+      el("button", { type: "button", class: "linkish", onclick: () => setCardTab("purchases"), text: tr("Show") })])]));
+  }
+  return out;
+}
+function tgGlanceNote(data) {
+  if (!isTgLead(data)) return null;
+  const ch = tgChat(data);
+  return el("p", { class: "muted glance-note", text: tr("A lead from the boutique's Telegram: in neither Colibri nor the questionnaire yet.") +
+    (ch && ch.purchase_signal ? " " + tr("The chat suggests they have bought before, but no purchase matches in Colibri.") : "") });
+}
+
+/* ---------------------------------------------------- card: overview block */
+function sectionTelegram(data) {
+  const t = tgData(data), ch = t.chats[0], c = data.client;
+  if (!ch) {
+    if (t.suggested.length && !recordClosed(c)) {
+      return el("section", { class: "drawer-section" }, [el("h3", { text: tr("Telegram") }),
+        el("p", { class: "note" }, [tr("A Telegram chat may belong to this client. See Clean-up.") + " ",
+          el("button", { type: "button", class: "linkish", onclick: () => setCardTab("cleanup"), text: tr("Clean-up") })])]);
+    }
+    return null;
+  }
+  const n = (v) => Number(v || 0);
+  const how = ch.link_status === "phone" ? tr("Linked by the phone number.")
+    : ch.link_status === "lead" ? tr("Created from this chat.")
+    : ch.link_status === "confirmed" ? tr("Confirmed by {by}, {d}.", { by: who(ch.decided_by) || "—", d: fmtDate(ch.decided_at) }) : "";
+  const msgs = tr("{c} from the client · {b} from the boutique", { c: n(ch.messages_from_client), b: n(ch.messages_from_boutique) });
+  const q = [String(n(ch.inquiries)),
+    n(ch.replies_over_24h) ? tr("{n} answered after more than a day", { n: n(ch.replies_over_24h) }) : null,
+    n(ch.never_answered) ? tr("{n} never answered", { n: n(ch.never_answered) }) : null].filter(Boolean).join(" · ");
+  const kids = [
+    el("h3", {}, [tr("Telegram"), el("span", { class: "aside", text: tr("summary of {d}", { d: fmtDate(ch.as_of) }) })]),
+    el("dl", { class: "kv" }, [
+      kv(tr("Segment in the chat summary"), blank(ch.segment) ? null : tr(ch.segment)),
+      kv(tr("Language"), blank(ch.language) ? null : tr(ch.language)),
+      kv(tr("First contact"), ch.first_contact ? fmtDate(ch.first_contact) : null),
+      kv(tr("Client last wrote"), ch.last_client_message ? fmtDate(ch.last_client_message) : null),
+      kv(tr("Last message in the chat"), ch.last_contact ? fmtDate(ch.last_contact) : null),
+      kv(tr("Messages"), msgs),
+      kv(tr("Questions asked"), q),
+      kv(tr("Mailings received"), String(n(ch.broadcasts_received))),
+      (ch.interest_brands || []).length ? kv(tr("Brands mentioned"), ch.interest_brands.join(", ")) : null,
+      ch.max_discount_pct ? kv(tr("Largest discount offered"), Math.round(Number(ch.max_discount_pct) * 10) / 10 + "%") : null,
+      (ch.flags || []).length ? kv(tr("Noted in the chat"), ch.flags.map((f) => tr(f)).join(", ")) : null,
+    ]),
+  ];
+  if (!blank(ch.last_client_excerpt)) {
+    kids.push(el("div", { class: "tg-quote" }, [el("span", { class: "muted", text: tr("Last message from the client") + ": " }),
+      el("q", { text: ch.last_client_excerpt })]));
+  }
+  const notes = [how, c.phone_in_telegram ? tr("A phone number from Telegram is held on the server, not shown here.") : ""].filter(Boolean);
+  if (notes.length) kids.push(el("p", { class: "note", text: notes.join(" ") }));
+  return el("section", { class: "drawer-section tg" }, kids);
+}
+
+/* ---------------------------------------------- card: clean-up suggestion */
+function tgBasisText(s) {
+  if (s.match_basis === "phone_shared") {
+    return (s.also_suggested_for || []).length ? tr("Same phone number as this record and as {ids}.", { ids: s.also_suggested_for.join(", ") })
+      : tr("Same phone number as this record.");
+  }
+  if (s.match_basis === "pos_name") return tr("Same name as a buyer at the till.");
+  return tr("A similar name in Telegram.");
+}
+function sectionTgSuggest(data) {
+  const c = data.client, sugg = tgData(data).suggested;
+  if (!sugg.length || recordClosed(c)) return null;
+  const hasPhone = c.phone_flag && c.phone_flag !== "none" || c.phone_in_telegram;
+  const kids = [el("h3", { text: tr("Telegram chat to confirm") }),
+    el("p", { class: "hint", text: tr("The boutique's Telegram has a chat that may be this client. Link it only if you are sure: the chat's details and requests then join this record.") })];
+  for (const s of sugg) {
+    const n = (v) => Number(v || 0);
+    const lines = [
+      [s.segment ? tr(s.segment) : null, s.last_client_message ? tr("Client last wrote {d}", { d: fmtDate(s.last_client_message) }) : null,
+        tr("{c} from the client · {b} from the boutique", { c: n(s.messages_from_client), b: n(s.messages_from_boutique) })].filter(Boolean).join(" · "),
+      s.pos_items ? tr("Till: {n} items, last {d}", { n: s.pos_items, d: fmtDate(s.last_pos_purchase) }) +
+        ((s.pos_brands || []).length ? " · " + s.pos_brands.join(", ") : "") + (s.pos_revenue_uzs ? " · " + fmtUZS(s.pos_revenue_uzs) : "") : null,
+      s.missed_requests ? tr("{n} would move to this record.", { n: pl(s.missed_requests, "request") }) : null,
+      s.has_phone && !hasPhone ? tr("Brings a phone number (kept on the server).") : null,
+    ].filter(Boolean);
+    const confirming = S.tgConfirm === s.ref;
+    kids.push(el("div", { class: "dup", "data-chat": String(s.ref) }, [
+      el("p", { class: "hint", text: tgBasisText(s) }),
+      el("div", { class: "dup-card" }, [
+        el("div", {}, [el("b", { text: tgName(s) }), " · Telegram"]),
+        ...lines.map((l) => el("div", { class: "muted", text: l })),
+        !blank(s.last_client_excerpt) ? el("div", { class: "tg-quote" }, [el("q", { text: s.last_client_excerpt })]) : null,
+      ]),
+      !editable(c) ? null : confirming
+        ? el("div", { class: "actions confirm-row" }, [
+            el("span", { text: tr("Link this chat to {id}?", { id: c.client_id }) }),
+            el("button", { class: "btn sm", type: "button", disabled: S.busy ? true : null, "data-act": "tg-yes",
+              onclick: () => { S.tgConfirm = null; act("telegram_link", { chat: s.ref }, tr("Telegram chat linked.")); }, text: tr("Yes, link") }),
+            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+              onclick: () => { S.tgConfirm = null; renderDrawer(); }, text: tr("Cancel") }),
+          ])
+        : el("div", { class: "actions" }, [
+            el("button", { class: "btn sm", type: "button", disabled: S.busy ? true : null, "data-act": "tg-link",
+              onclick: () => { S.tgConfirm = s.ref; renderDrawer(); const y = $('#drawer [data-act="tg-yes"]'); if (y) y.focus(); }, text: tr("Same client — link") }),
+            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null, "data-act": "tg-reject",
+              onclick: () => act("telegram_reject", { chat: s.ref }, tr("Marked as not this client.")), text: tr("Not this client") }),
+          ]),
+    ]));
+  }
+  return el("section", { class: "drawer-section dups flagged tg-sugg" }, kids);
+}
+
+/* ---------------------------------------------- card: missed requests */
+function sectionMissed(data) {
+  const c = data.client, list = tgData(data).missed;
+  if (!list.length) return null;
+  const open = list.filter((m) => m.status === "open").length;
+  const asOf = (tgChat(data) || {}).as_of || "2026-08-14";
+  const can = editable(c);
+  const setBtn = (m, status, label, subtle) => el("button", { class: "btn sm" + (subtle ? " subtle" : ""), type: "button",
+    disabled: S.busy ? true : null, "data-status": status,
+    onclick: () => act("missed_status", { missed: m.id, status }, tr("Saved.")), text: tr(label) });
+  return el("section", { class: "drawer-section missed" }, [
+    el("h3", {}, [tr("Missed requests"), el("span", { class: "aside", text: tr("{n} open", { n: open }) })]),
+    el("p", { class: "note", text: tr("What the client asked for that the boutique could not offer at the time, in the client's own words. From the Telegram summary of {d}.", { d: fmtDate(asOf) }) }),
+    el("ul", { class: "lines missed-list" }, list.map((m) => {
+      const st = MISSED_STATUS[m.status] || MISSED_STATUS.open;
+      const reply = m.late && m.answered !== false && m.first_reply_minutes != null ? tr("first reply after {t}", { t: replyTime(m.first_reply_minutes) }) : "";
+      return el("li", { "data-missed": String(m.id), class: m.status === "open" ? null : "done" }, [
+        el("div", { class: "l1" }, [fmtDate(m.asked_at), " · ", el("b", { text: missedKindLabel(m) }), m.brand ? " · " + m.brand : "",
+          reply ? " · " + reply : ""]),
+        el("div", { class: "amt" }, [chip(st, tr(st.label))]),
+        !blank(m.excerpt) ? el("div", { class: "item tg-quote" }, [el("q", { text: m.excerpt })]) : null,
+        m.status !== "open" && m.status_by ? el("div", { class: "mmeta muted", text: tr("{status} by {by}, {d}", { status: tr(st.label), by: who(m.status_by), d: fmtDate(m.status_at) }) }) : null,
+        can ? el("div", { class: "actions mact" }, m.status === "open"
+          ? [setBtn(m, "followed_up", "Followed up"), setBtn(m, "closed", "Close", true)]
+          : [setBtn(m, "open", "Reopen", true)]) : null,
+      ]);
+    })),
+  ]);
+}
+
+/* ------------------------------------------------------------ history text */
+function tgEventText(e) {
+  switch (e.action) {
+    case "telegram_linked":
+      if (e.new_value === "confirmed") {
+        return [el("b", { text: tr("Telegram chat confirmed as this client.") + " " }),
+          e.note === "phone_added" ? tr("A phone number from the chat is now on file (not shown here).") : ""];
+      }
+      return [el("b", { text: tr("Linked to a Telegram chat by phone number.") })];
+    case "telegram_rejected": return [el("b", { text: tr("Suggested Telegram chat: not this client.") })];
+    case "created_from_telegram":
+      return [el("b", { text: tr("Created from the Telegram chats") + " — " + tr(e.new_value === "chat_buyer" ? "the chat suggests a purchase" : "a lead") + ". " }),
+        /^\d{4}-\d\d-\d\d$/.test(String(e.note || "")) ? tr("Client last wrote {d}.", { d: fmtDate(e.note) }) : ""];
+    case "missed_demand_set": {
+      const [kind, brand] = String(e.note || "").split(":");
+      const lab = (s) => tr((MISSED_STATUS[s] || { label: s || "—" }).label);
+      return [el("b", { text: tr("Missed request: {a} → {b}", { a: lab(e.old_value), b: lab(e.new_value) }) + ". " }),
+        tr(MISSED_KIND[kind] || kind || "") + (brand ? " · " + brand : "")];
+    }
+    default: return null;
+  }
+}
+const TG_SYSTEM_ACTIONS = ["telegram_linked", "created_from_telegram"];
+
+/* ---------------------------------------------------------------- insights */
+function telegramInsights(t) {
+  if (!t || !t.chats) return [];
+  const L = t.leads || {}, M = t.missed || {};
+  const leadDrill = () => drill({ status: "lead" }, "", "");
+  const scoreboard = el("div", { class: "scoreboard tg-kpis" }, [
+    tile({ label: tr("Chats in the summary"), val: String(num(t.chats)), sub: tr("{n} linked to a record", { n: num(t.linked) }) }),
+    tile({ label: tr("Telegram leads"), val: String(num(L.total)), sub: tr("Bought before, by the chat") + ": " + num(L.buyers), onclick: leadDrill }),
+    tile({ label: tr("Chats to confirm"), tone: num(t.to_confirm) ? "warning" : null, val: String(num(t.to_confirm)), sub: tr("may be a client in the file"),
+      onclick: () => drill({ attention: "telegram_to_confirm" }, tr("Telegram chats to confirm"), "") }),
+    tile({ label: tr("Open missed requests"), tone: num(M.open) ? "serious" : null, val: String(num(M.open)),
+      sub: tr("{n} people · {f} in the file", { n: num(M.clients), f: num(M.in_file) }),
+      onclick: () => drill({ missed: "any" }, tr("Missed requests"), "") }),
+  ]);
+  const leadItems = [
+    ["buyers", "Bought before, by the chat"], ["hot", "Wrote in the last 30 days"],
+    ["warm", "Wrote 31–180 days ago"], ["cold", "Wrote more than 180 days ago"],
+  ].map(([k, l]) => ({ label: tr(l), value: num(L[k]), valueText: String(num(L[k])), tip: String(num(L[k])), tipLabel: tr(l), aria: tr(l) + ": " + num(L[k]) }));
+  const leads = card(tr("Leads from Telegram"), null, [
+    lede(tr("{total} people wrote to the boutique on Telegram but are in neither Colibri nor the questionnaire. By the chat, {buyers} of them have bought before.",
+      { total: num(L.total), buyers: num(L.buyers) })),
+    barList(leadItems),
+    el("p", { class: "note", text: tr("Each lead is counted once: those who bought first, the rest by when they last wrote.") + " " +
+      tr("{n} have a phone number (kept on the server). Days are counted to today; the summary is as of {d}.", { n: num(L.with_phone), d: fmtDate(t.as_of) }) }),
+    el("div", { class: "actions" }, [el("button", { class: "btn sm", type: "button", onclick: leadDrill, text: tr("Open the {n} leads", { n: num(L.total) }) })]),
+  ]);
+  const kinds = (t.by_kind || []).slice();
+  const missed = card(tr("What clients asked for and did not get"), tr("Click a bar to open the records in the file."), [
+    lede(tr("{total} times between {a} and {b} a client asked for something the boutique could not offer, or waited more than a day for a reply: {clients} people, {in_file} of them in the client file.",
+      { total: num(M.total), a: fmtDate(M.first), b: fmtDate(M.last), clients: num(M.clients), in_file: num(M.in_file) })),
+    barList(kinds.map((k) => ({ label: tr(MISSED_KIND_SHORT[k.kind] || k.kind), value: num(k.requests),
+      valueText: tr("{n} · {c} people", { n: num(k.requests), c: num(k.clients) }), tip: String(num(k.requests)), tipLabel: tr(MISSED_KIND[k.kind] || k.kind),
+      aria: tr(MISSED_KIND[k.kind] || k.kind) + ": " + num(k.requests),
+      onclick: num(k.in_file) ? () => drill({ missed: k.kind }, tr(MISSED_KIND[k.kind] || k.kind), "") : null }))),
+    numbers([tr("Kind"), tr("Requests"), tr("People"), tr("In the file")], kinds.map((k) => [tr(MISSED_KIND_SHORT[k.kind] || k.kind), String(num(k.requests)), String(num(k.clients)), String(num(k.in_file))])),
+  ]);
+  const nc = t.not_carried || [];
+  const brands = card(tr("Brands asked for that we don't carry"), null, [
+    barList(nc.map((b) => ({ label: b.brand, value: num(b.requests), valueText: tr("{n} · {c} people", { n: num(b.requests), c: num(b.clients) }),
+      tip: String(num(b.requests)), tipLabel: b.brand, aria: b.brand + ": " + num(b.requests),
+      onclick: num(b.in_file) ? () => drill({ missed: "not_carried", missed_brand: b.brand }, b.brand, "") : null }))),
+    nc.some((b) => /Bvlgari/.test(b.brand)) ? el("p", { class: "note", text: tr("Bvlgari watches are carried; the jewellery is not.") }) : null,
+    numbers([tr("Brand"), tr("Requests"), tr("People"), tr("In the file")], nc.map((b) => [b.brand, String(num(b.requests)), String(num(b.clients)), String(num(b.in_file))])),
+  ]);
+  const years = t.by_year || [];
+  const byYear = card(tr("Requests and slow replies by year"), null, [
+    stackedColumns(years.map((y) => ({ label: String(y.year), parts: [num(y.requests), num(y.late)], cap: String(num(y.requests) + num(y.late)),
+      tip: num(y.requests) + " · " + num(y.late), tipLabel: String(y.year), aria: y.year + ": " + num(y.requests) + ", " + num(y.late) })),
+      [tr("Requests we could not meet"), tr("Replies after more than a day")]),
+    numbers([tr("Year"), tr("Requests we could not meet"), tr("Replies after more than a day")], years.map((y) => [String(y.year), String(num(y.requests)), String(num(y.late))])),
+  ]);
+  return [scoreboard, el("div", { class: "ins-grid" }, [leads, missed, brands, byYear])];
+}
 
 /* -------------------------------------------------------------------- init */
 function renderAll(gateMessage) {

@@ -121,6 +121,15 @@ It follows the same model as the board, with its own API and its own right:
   minutes without use (the passcode is asked again; sessions still last 8
   hours). There is no service worker: nothing is stored for offline use, and
   without a connection the page says so.
+- **Telegram:** the boutique's Telegram chats (a summary as of 14 Aug 2026) are
+  in the database. A card shows whether the client is in Telegram, when they
+  last wrote and what the chat shows; the Clean-up tab offers chats that may be
+  theirs, to link or reject; the Purchases tab lists what they asked for that
+  the boutique could not offer, in their own words, with a status. People who
+  wrote but are in neither Colibri nor the questionnaire are "Telegram leads",
+  outside the clean-up. Insights has a Telegram section. Telegram IDs and phone
+  numbers stay on the server. On a phone the shortcut chips sit on one row that
+  swipes sideways.
 
 ## Updating a page
 
