@@ -109,6 +109,18 @@ It follows the same model as the board, with its own API and its own right:
   history, and a pinned "Add note". The phone's back button closes whatever is
   open. The eye button hides amounts on that device. On an iPad in landscape
   the list and the card sit side by side.
+- **Clean-up on a phone:** each form on the card opens as a panel from the
+  bottom with Save pinned; merge and delete take the whole screen, and a merge
+  asks twice. On the Clean-up tab the card's foot walks the list (Previous,
+  Next, and Mark checked on touch screens; J and K on a keyboard).
+- **Insights and Data on a phone:** wide tables become one small card per row;
+  nothing scrolls sideways. The refresh review keeps Apply and Discard pinned.
+- **Home screen:** `crm/app/` holds the web-app manifest and the icons (the
+  brandbook monogram, white on navy), so the page can be added to a phone's
+  home screen and opens full screen. On phones and iPads it locks after 15
+  minutes without use (the passcode is asked again; sessions still last 8
+  hours). There is no service worker: nothing is stored for offline use, and
+  without a connection the page says so.
 
 ## Updating a page
 
