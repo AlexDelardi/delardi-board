@@ -100,6 +100,15 @@ It follows the same model as the board, with its own API and its own right:
   into the CRM source-files folder and Claude stages them; nothing changes in
   the client file until the refresh is reviewed and applied here. The latest
   applied refresh can be undone. No client data is kept in this repository.
+- **On a phone or iPad** the page works as a floor tool: a compact header with
+  a menu (views, filters, language, theme, lock), search first, quick lists
+  (birthdays this week, cannot lose, shared list, do-not-contact left out) and
+  the clients opened recently (only their references are kept on the device;
+  names are asked of the API each time). The card opens on an at-a-glance
+  overview, with tabs for purchases (by brand and category), clean-up and
+  history, and a pinned "Add note". The phone's back button closes whatever is
+  open. The eye button hides amounts on that device. On an iPad in landscape
+  the list and the card sit side by side.
 
 ## Updating a page
 
