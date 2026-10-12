@@ -79,7 +79,10 @@ It follows the same model as the board, with its own API and its own right:
 - Phone numbers are shown to everyone with CRM access (since 22 Sept 2026): on
   the card with call, Telegram and WhatsApp links, in the clean-up, and in
   search. They are hidden with the amounts by the eye button, and never kept
-  in this repository. Sales people appear only as "Sales rep N".
+  in this repository. Since 12 October 2026 sales people appear by name —
+  first name and the initial of the surname — and anyone who has left the
+  team is marked "(left)". A name is one field in `crm_sales_reps`; every
+  screen reads it at request time, so renaming is a single change.
 - Every retail client has one owner: a current sales rep, or "Shared (store)"
   for lapsed and dormant clients the whole team works. The card keeps the
   previous owner and says how the current one was assigned.
@@ -141,11 +144,27 @@ It follows the same model as the board, with its own API and its own right:
   Segment, Lifecycle and Owner opens a checklist of that column's values with a
   count for each, to pick several at once. On a phone these are in the menu
   under "Sort and filter". A login linked to a sales rep opens on "My clients".
+- **Adding a client by hand** (12 Oct 2026): anyone with edit rights can put a
+  person on file from the list, the phone search row or the phone menu. The
+  form asks only for what someone can say at the counter — name, number, who
+  they are, date of birth, owner, how we met, a note — and then opens the card,
+  where the rest already has its own editors. The number is checked while it is
+  typed and again on the server, by number and by name: a record already on
+  file is offered instead, and is only passed by saying plainly that this is a
+  different person. What the team types goes in on the questionnaire side of
+  the record, so the clean-up, the merge and the monthly refresh treat it like
+  any other record: it is a prospect with a PRS reference until Colibri brings
+  a purchase, and a second person confirms what was typed. The list has an
+  "Added by the team" shortcut.
 
 ## Updating a page
 
-Edit the page's `index.html` — `board/`, `crm/`, or the landing page at the
-root — commit, push. GitHub Pages redeploys within a minute or two.
+Edit the page's `index.html` — `board/` or the landing page at the root —
+commit, push. GitHub Pages redeploys within a minute or two.
+
+`crm/index.html` is the exception: it is **built** from `crm/src/`
+(`python3 build.py`), so change the module there, rebuild, run the checks
+(`node qa/test.js`), then commit both. See `crm/src/README.md`.
 
 ## If the board will not load
 
