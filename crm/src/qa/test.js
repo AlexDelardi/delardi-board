@@ -6,6 +6,63 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const mock = require("./mock");
+const { execFileSync } = require("child_process");
+const os = require("os");
+
+// The workbook is read back with Python's own zipfile, not with our writer in
+// reverse: if the file only opens in the thing that wrote it, it is not a file.
+const PY_READ = "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1])\nsys.stdout.write(z.read(sys.argv[2]).decode('utf-8'))";
+const PY_LIST = "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1])\nbad=z.testzip()\nsys.stdout.write(('BAD:'+bad) if bad else ','.join(z.namelist()))";
+const partOf = (file, part) => execFileSync("python3", ["-c", PY_READ, file, part], { encoding: "utf8", maxBuffer: 40e6 });
+// A second opinion from a real spreadsheet library: our own reader agreeing
+// with our own writer would prove nothing. Skipped where openpyxl is absent.
+const HAVE_OPENPYXL = (() => {
+  try { execFileSync("python3", ["-c", "import openpyxl"], { stdio: "ignore" }); return true; } catch (e) { return false; }
+})();
+const PY_OPEN = [
+  "import sys, json, datetime, openpyxl",
+  "w = openpyxl.load_workbook(sys.argv[1])",
+  "s = w[w.sheetnames[0]]",
+  "rows = list(s.iter_rows(values_only=True))",
+  "types = [type(c).__name__ for c in rows[1]]",
+  "print(json.dumps({'sheets': w.sheetnames, 'rows': len(rows), 'cols': len(rows[0]),",
+  " 'head': [str(c) for c in rows[0]], 'types': types,",
+  " 'spend': rows[1][12], 'date': str(rows[1][15]), 'freeze': s.freeze_panes, 'filter': str(s.auto_filter.ref)}))",
+].join("\n");
+const openWith = (file) => JSON.parse(execFileSync("python3", ["-c", PY_OPEN, file], { encoding: "utf8" }));
+const partsOf = (file) => execFileSync("python3", ["-c", PY_LIST, file], { encoding: "utf8" }).trim().split(",");
+// sheet XML -> rows of plain values, each value in its own column. A workbook
+// leaves an empty cell out altogether, so the cell's own reference (D2) decides
+// where it belongs — counting the cells that are there would shift the row.
+const colOf = (ref) => {
+  const m = /^([A-Z]+)/.exec(ref || "");
+  if (!m) return 0;
+  let n = 0;
+  for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+};
+function sheetRows(xml) {
+  return (xml.match(/<row[^>]*>[\s\S]*?<\/row>/g) || []).map((row) => {
+    const out = [];
+    for (const c of row.match(/<c [^>]*?(?:\/>|>[\s\S]*?<\/c>)/g) || []) {
+      const at = colOf((/r="([A-Z]+\d+)"/.exec(c) || [])[1]);
+      const inline = /<t[^>]*>([\s\S]*?)<\/t>/.exec(c);
+      const v = /<v>([\s\S]*?)<\/v>/.exec(c);
+      out[at] = inline
+        ? inline[1].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+        : (v ? v[1] : "");
+    }
+    for (let i = 0; i < out.length; i++) if (out[i] === undefined) out[i] = "";
+    return out;
+  });
+}
+// click something that saves a file, and give back where it landed
+async function grabDownload(page, action) {
+  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), action()]);
+  const to = path.join(os.tmpdir(), "crm-qa-" + Date.now() + "-" + dl.suggestedFilename());
+  await dl.saveAs(to);
+  return { file: to, name: dl.suggestedFilename() };
+}
 
 const HTML = fs.readFileSync(path.join(__dirname, "..", "dist", "index.html"), "utf8");
 const ROOT = "https://alexdelardi.github.io/delardi-board/";
@@ -20,6 +77,7 @@ function check(name, ok, detail) {
 }
 async function setup(browser, viewport, opts = {}) {
   const ctx = await browser.newContext({ viewport, locale: opts.locale || "en-GB", colorScheme: opts.dark ? "dark" : "light",
+    acceptDownloads: true,
     ...(opts.touch ? { hasTouch: true, isMobile: true } : {}) });
   const page = await ctx.newPage();
   const calls = [], errors = [];
@@ -36,7 +94,7 @@ async function setup(browser, viewport, opts = {}) {
     await new Promise((r) => setTimeout(r, 10));
     route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
   });
-  await page.goto(PAGE_URL);
+  await page.goto(PAGE_URL + (opts.view ? "?view=" + opts.view : ""));
   await page.fill("#gate-pass", opts.pass || "demo");
   await page.click(".gate-card button[type=submit]");
   await page.waitForSelector("#gate", { state: "detached" });
@@ -161,12 +219,159 @@ const measure = (page, scope) => page.evaluate((scope) => {
     await ctx.close();
   }
 
+  // ------------------------------------------- downloading the list (v13)
+  {
+    const { ctx, page, calls, errors } = await setup(browser, { width: 1440, height: 900 });
+    await settled(page);
+    check("export: the button sits in the filter bar", await page.isVisible('.toolbar [data-act="export"]'));
+
+    // narrow the list first: the file must be what the screen says, not everything
+    await page.selectOption("select[data-key=abc_class]", "A");
+    await settled(page);
+    const shown = Number((await page.textContent(".listbar")).match(/of\s+(\d+)/)[1]);
+    await page.click('.toolbar [data-act="export"]');
+    await page.waitForSelector("#expwrap .expbox");
+    const dlg = await page.textContent("#expwrap");
+    check("export: the dialog counts what will leave", dlg.includes(shown + " records will be downloaded"), dlg.slice(0, 220));
+    check("export: the dialog names the filters in force", dlg.includes("class A"), dlg.slice(0, 220));
+    check("export: it says the download is logged", dlg.includes("the download is logged"));
+
+    calls.length = 0;
+    const got = await grabDownload(page, () => page.click("#expwrap button[type=submit]"));
+    const sent = calls.find((c) => c.action === "export");
+    check("export: the request carries the screen's own filters", sent && sent.abc_class === "A" && sent.phones === true
+      && sent.limit === undefined, JSON.stringify(sent));
+    check("export: the dialog closes itself", !(await page.$("#expwrap")));
+    check("export: the file is named for the filter and the day",
+      /^Delardi_clients_.*\d{4}-\d{2}-\d{2}\.xlsx$/.test(got.name), got.name);
+
+    const parts = partsOf(got.file);
+    check("export: it is a workbook, and the zip is sound",
+      parts[0] !== undefined && !String(parts[0]).startsWith("BAD:")
+      && ["[Content_Types].xml", "xl/workbook.xml", "xl/styles.xml", "xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml"]
+        .every((f) => parts.includes(f)), parts.join(" "));
+    const rows1 = sheetRows(partOf(got.file, "xl/worksheets/sheet1.xml"));
+    check("export: one heading row and one row per record", rows1.length === shown + 1, rows1.length + " vs " + (shown + 1));
+    const head = rows1[0];
+    check("export: the headings are the call sheet's",
+      head[0] === "Reference" && head[1] === "Name" && head[2] === "Phone" && head[4] === "Birthday"
+      && head[5] === "Birthday confirmed" && head[6] === "Owner" && head[12] === "Lifetime spend, UZS"
+      && head[head.length - 1] === "Related party" && head.length === 23, head.join("|"));
+    const first = rows1[1];
+    check("export: a record reads as it does on screen",
+      /^DLD-\d{4}$/.test(first[0]) && first[1].length > 3 && /^\+998 \d\d/.test(first[2])
+      && /^(Dilnoza A\.|Malika B\.|Shared \(store\))$/.test(first[6]), first.slice(0, 7).join("|"));
+    check("export: spend is a number, not text", /^\d+$/.test(first[12]), first[12]);
+    const xml1 = partOf(got.file, "xl/worksheets/sheet1.xml");
+    check("export: the header is frozen and the table filters", xml1.includes('state="frozen"') && xml1.includes("<autoFilter"));
+    if (HAVE_OPENPYXL) {
+      const wb = openWith(got.file);
+      check("export: a spreadsheet library opens it and agrees",
+        wb.sheets.length === 2 && wb.rows === shown + 1 && wb.cols === 23 && wb.head[0] === "Reference"
+        && wb.freeze === "A2" && /^A1:W\d+$/.test(wb.filter), JSON.stringify(wb).slice(0, 220));
+      check("export: spend arrives as a number and a date as a date",
+        typeof wb.spend === "number" && /^\d{4}-\d{2}-\d{2}/.test(wb.date), wb.spend + " / " + wb.date);
+    } else {
+      check("export: a spreadsheet library opens it and agrees", true, "skipped: openpyxl not installed");
+      check("export: spend arrives as a number and a date as a date", true, "skipped: openpyxl not installed");
+    }
+    const about = sheetRows(partOf(got.file, "xl/worksheets/sheet2.xml")).map((r) => r.join(" ")).join("\n");
+    check("export: the second sheet says what made the file",
+      about.includes("class A") && about.includes("Tester") && about.includes("Included")
+      && about.includes("Do not forward outside the company"), about.slice(0, 200));
+
+    // without the numbers
+    await page.click('.toolbar [data-act="export"]');
+    await page.waitForSelector("#expwrap .expbox");
+    await page.uncheck("#expwrap input[type=checkbox]");
+    const plain = await grabDownload(page, () => page.click("#expwrap button[type=submit]"));
+    const rowsP = sheetRows(partOf(plain.file, "xl/worksheets/sheet1.xml"));
+    check("export: unticking the box drops both number columns",
+      rowsP[0].length === 21 && !rowsP[0].includes("Phone") && !rowsP[0].includes("Other numbers"), rowsP[0].join("|"));
+    check("export: and no number is anywhere in the file",
+      !sheetRows(partOf(plain.file, "xl/worksheets/sheet1.xml")).some((r) => r.some((c) => /\+998/.test(c))));
+    check("export: the second sheet says the numbers were left out",
+      sheetRows(partOf(plain.file, "xl/worksheets/sheet2.xml")).map((r) => r.join(" ")).join("\n").includes("Left out"));
+
+    // everything, so the awkward records show up
+    await page.selectOption("select[data-key=abc_class]", "");
+    await page.selectOption("select[data-key=status]", "");
+    await settled(page);
+    await page.click('.toolbar [data-act="export"]');
+    await page.waitForSelector("#expwrap .expbox");
+    const all = await grabDownload(page, () => page.click("#expwrap button[type=submit]"));
+    const rowsA = sheetRows(partOf(all.file, "xl/worksheets/sheet1.xml"));
+    const dnc = rowsA.find((r) => r[19] === "Yes");
+    check("export: a do-not-contact record is in the file, marked", !!dnc, "none found");
+    const rel = rowsA.find((r) => r[22] === "Yes");
+    check("export: a related party is marked too", !!rel, "none found");
+    const toConfirm = rowsA.find((r) => r[5] === "No" && r[4]);
+    check("export: a birthday nobody has confirmed is in, and says so", !!toConfirm, "none found");
+
+    // the birthday list for one month, as the Insights block asks for it
+    const bd = await grabDownload(page, () => page.evaluate(() => openExport({
+      kind: "birthdays", count: 3, name: "december",
+      title: "Birthdays in December",
+      params: { birth_month: 12, do_not_contact: "exclude", status: "all", related: "exclude" },
+    })).then(() => page.click("#expwrap button[type=submit]")));
+    check("export: the birthday file is named for the month", /^Delardi_birthdays_december_/.test(bd.name), bd.name);
+    const rowsB = sheetRows(partOf(bd.file, "xl/worksheets/sheet1.xml")).slice(1);
+    const months = [...new Set(rowsB.map((r) => r[4].split(".")[1]))];
+    check("export: it holds that month and nothing else", months.length === 1 && months[0] === "12", months.join(","));
+    const days = rowsB.map((r) => Number(r[4].split(".")[0]));
+    check("export: sorted by day of the month", days.every((d, i) => i === 0 || days[i - 1] <= d), days.join(","));
+    check("export: do-not-contact is left out of a greeting list", !rowsB.some((r) => r[19] === "Yes"));
+    check("export: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
+  // ------------------------------- the birthday list, where Insights keeps it
+  {
+    const { ctx, page, errors } = await setup(browser, { width: 1440, height: 1000 }, { view: "insights" });
+    await page.waitForSelector("#ins-host[aria-busy='false']");
+    const note = await page.textContent("#ins-birthdays ~ .ins-grid .note, .ins-grid .note");
+    check("birthdays: the block counts every date and says how many are unchecked",
+      /dates on file/.test(note) && /still to confirm/.test(note), note);
+    check("birthdays: an unconfirmed date is marked in the next 30 days",
+      (await page.textContent(".bdays")).includes("date to confirm"));
+    check("birthdays: the month picker is there with its counts",
+      (await page.textContent("#bd-month")).includes("client"));
+    await page.selectOption("#bd-month", "12");
+    const bdFile = await grabDownload(page, async () => {
+      await page.click('[data-act="export-birthdays"]');
+      await page.waitForSelector("#expwrap .expbox");
+      return page.click("#expwrap button[type=submit]");
+    });
+    check("birthdays: the month downloads from the block", /^Delardi_birthdays_/.test(bdFile.name), bdFile.name);
+    const bdRows = sheetRows(partOf(bdFile.file, "xl/worksheets/sheet1.xml"));
+    check("birthdays: the file holds December and says so on the second sheet",
+      bdRows.slice(1).every((r) => r[4].split(".")[1] === "12")
+      && sheetRows(partOf(bdFile.file, "xl/worksheets/sheet2.xml")).map((r) => r.join(" ")).join(" ").includes("December"),
+      bdRows.slice(1, 3).map((r) => r[4]).join(","));
+    check("birthdays: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
   // ------------------------------------------------------- a viewer cannot
   {
     const { ctx, page, errors } = await setup(browser, { width: 1440, height: 900 }, { pass: "viewer" });
     await settled(page);
     check("viewer: no add button", !(await page.$('[data-act="add-client"]')));
+    check("viewer: no download button", !(await page.$('[data-act="export"]')));
     check("viewer: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
+  // --------------------------- a sales rep edits but does not take data out
+  {
+    const { ctx, page, errors } = await setup(browser, { width: 1440, height: 900 }, { pass: "rep" });
+    await settled(page);
+    check("rep: can add a client", await page.isVisible('[data-act="add-client"]'));
+    check("rep: cannot download the list", !(await page.$('[data-act="export"]')));
+    check("rep: the server refuses an export anyway", await page.evaluate(async () => {
+      try { await call("export", { status: "all" }); return false; } catch (e) { return /cannot download/i.test(e.message); }
+    }));
+    check("rep: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }
 
@@ -181,6 +386,11 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("ru: the form", ["Добавить клиента", "Номер телефона", "Как познакомились", "Пришёл(ла) в бутик", "Ответственный"].every((x) => t.includes(x)), t.slice(0, 200));
     await page.keyboard.press("Escape");
     check("ru: Escape closes it", !(await page.$("#addwrap")));
+    await page.click('.toolbar [data-act="export"]');
+    await page.waitForSelector("#expwrap .expbox");
+    const te = await page.textContent("#expwrap");
+    check("ru: the download dialog", ["Скачать .xlsx", "Включить номера телефонов", "Будет скачано записей"].every((x) => te.includes(x)), te.slice(0, 200));
+    await page.keyboard.press("Escape");
     check("ru: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }
@@ -203,6 +413,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
     await page.click(".filters-toggle");
     await page.waitForSelector("#nav.open");
     check("phone: the menu offers adding a client", (await page.textContent("#nav .nav-list")).includes("Add a client"));
+    check("phone: the menu offers the download", (await page.textContent("#nav .nav-list")).includes("Download .xlsx"));
     check("phone: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }

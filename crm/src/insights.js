@@ -28,7 +28,7 @@ Object.assign(RU, {
   "Priority win-back": "Приоритетный возврат",
   "{spend} · cannot lose + at risk, high value": "{spend} · два приоритетных сегмента",
   "Birthdays, next 30 days": "Дни рождения, 30 дней",
-  "confirmed dates · do-not-contact left out": "только подтверждённые даты",
+
   "Value and activity": "Ценность и активность",
   "Trends: acquisition and mix": "Динамика: привлечение и структура",
   "Birthdays": "Дни рождения",
@@ -122,16 +122,21 @@ Object.assign(RU, {
   "Bought together most often": "Чаще всего покупают вместе",
   "{a} + {b}": "{a} + {b}",
   "Coming up in the next 30 days": "Ближайшие 30 дней",
-  "No confirmed birthdays in the next 30 days.": "В ближайшие 30 дней подтверждённых дней рождения нет.",
+  "No birthdays in the next 30 days.": "В ближайшие 30 дней дней рождения нет.",
+  "date to confirm": "дату нужно подтвердить",
+  "The date of birth is on file but nobody has confirmed it.": "Дата рождения есть в базе, но её никто не подтвердил.",
   "today": "сегодня",
   "tomorrow": "завтра",
   "in {n}": "через {n}",
   "Birthdays by month": "Дни рождения по месяцам",
-  "Confirmed dates of birth only; clients marked do-not-contact are left out.": "Только подтверждённые даты рождения; клиенты с отметкой «не беспокоить» не учитываются.",
+  "Every date we hold; the ones nobody has confirmed are marked. Clients marked do-not-contact are left out.": "Все даты, которые у нас есть; неподтверждённые отмечены. Клиенты с отметкой «не беспокоить» не учитываются.",
+  "Birthday list for one month": "Список дней рождения за месяц",
+  "To confirm": "Подтвердить",
   "this month": "этот месяц",
   "Birthday in {m}": "День рождения: {m}",
   "Month": "Месяц",
-  "{a} confirmed · {b} still to confirm in the clean-up · {c} not on file": "{a} подтверждено · {b} ещё подтвердить при чистке · {c} нет в базе",
+  "every date on file · do-not-contact left out": "все даты в базе · «не беспокоить» не учитываются",
+  "{a} dates on file — {b} of them still to confirm · {c} with no date at all": "{a} дат в базе — из них {b} ещё подтвердить · {c} без даты вовсе",
   "{n} marked do-not-contact are left out.": "{n} с отметкой «не беспокоить» не учитываются.",
   "When": "Когда",
   "From insights": "Из аналитики",
@@ -412,7 +417,7 @@ function kpis(d) {
       subTitle: fullUZS(h.priority_spend),
       onclick: () => drill({ segments: PRIORITY_SEGMENTS }, tr("Priority win-back list")) }),
     tile({ label: tr("Birthdays, next 30 days"), val: String(num(h.birthdays_30)),
-      sub: tr("confirmed dates · do-not-contact left out"),
+      sub: tr("every date on file · do-not-contact left out"),
       onclick: () => { const b = $("#ins-birthdays"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "start" }); b.focus({ preventScroll: true }); } } }),
   ]);
 }
@@ -678,30 +683,67 @@ function birthdayCards(d) {
         onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } },
         "aria-label": tr("Open {id}", { id: u.client_id }) + " — " + name }, [
         el("td", { class: "w" }, when(u)),
-        el("td", {}, [el("div", { class: "nm", text: name }), el("div", { class: "muted id", text: u.client_id })]),
+        el("td", {}, [el("div", { class: "nm", text: name }),
+          el("div", { class: "muted id" }, [u.client_id,
+            u.confirmed === false ? el("span", { class: "to-confirm", title: tr("The date of birth is on file but nobody has confirmed it."),
+              text: " · " + tr("date to confirm") }) : null])]),
         el("td", { text: blank(u.owner) ? "—" : who(u.owner) }),
         el("td", {}, [u.abc ? el("span", { class: "abc", "data-c": u.abc, text: u.abc }) : el("span", { class: "muted", text: "—" })]),
         el("td", { text: trv(u.segment) }),
       ]);
     })),
-  ])]) : el("p", { class: "empty-line", text: tr("No confirmed birthdays in the next 30 days.") });
+  ])]) : el("p", { class: "empty-line", text: tr("No birthdays in the next 30 days.") });
 
   const months = (b.by_month || []).map((m) => ({
     value: num(m.clients), cap: String(num(m.clients)), label: monthName(m.month, "short"), em: m.month === nowMonth,
-    tip: pl(num(m.clients), "client") + " · " + fmtUZS(m.spend), tipLabel: sentence(monthName(m.month)) + (m.month === nowMonth ? " · " + tr("this month") : ""),
+    tip: pl(num(m.clients), "client") + (num(m.to_confirm) ? " · " + tr("{n} to confirm", { n: num(m.to_confirm) }) : "") + " · " + fmtUZS(m.spend),
+    tipLabel: sentence(monthName(m.month)) + (m.month === nowMonth ? " · " + tr("this month") : ""),
     aria: sentence(monthName(m.month)) + ": " + pl(num(m.clients), "client"),
     onclick: () => drill({ birth_month: m.month, do_not_contact: "exclude", ...(S.insBasis === "all" ? {} : { related: "exclude" }), type: "" },
       tr("Birthday in {m}", { m: monthName(m.month) })),
   }));
   return [
     card(tr("Coming up in the next 30 days"), null, [list], "bd-card"),
-    card(tr("Birthdays by month"), tr("Confirmed dates of birth only; clients marked do-not-contact are left out."), [
+    card(tr("Birthdays by month"), tr("Every date we hold; the ones nobody has confirmed are marked. Clients marked do-not-contact are left out."), [
       columnChart(months),
-      el("p", { class: "note", text: tr("{a} confirmed · {b} still to confirm in the clean-up · {c} not on file",
-        { a: num(b.confirmed), b: num(b.to_confirm), c: num(b.missing) }) + (num(b.do_not_contact) ? " " + tr("{n} marked do-not-contact are left out.", { n: num(b.do_not_contact) }) : "") }),
-      numbers([tr("Month"), tr("Clients"), tr("Lifetime spend")], (b.by_month || []).map((m) => [sentence(monthName(m.month)), String(num(m.clients)), fmtUZS(m.spend)])),
+      el("p", { class: "note", text: tr("{a} dates on file — {b} of them still to confirm · {c} with no date at all",
+        { a: num(b.on_file), b: num(b.to_confirm), c: num(b.missing) }) + (num(b.do_not_contact) ? " · " + tr("{n} marked do-not-contact are left out.", { n: num(b.do_not_contact) }) : "") }),
+      birthdayDownload(b, nowMonth),
+      numbers([tr("Month"), tr("Clients"), tr("To confirm"), tr("Lifetime spend")],
+        (b.by_month || []).map((m) => [sentence(monthName(m.month)), String(num(m.clients)), String(num(m.to_confirm)), fmtUZS(m.spend)])),
     ]),
   ];
+}
+
+// v13: the greeting list for one month, as a sheet. It is the same filter the
+// month column opens, so what downloads is what the chart counts.
+function birthdayDownload(b, nowMonth) {
+  if (!canExport()) return null;
+  if (S.bdMonth === undefined || S.bdMonth === null) S.bdMonth = nowMonth;
+  const counts = {};
+  for (const m of b.by_month || []) counts[m.month] = num(m.clients);
+  const sel = el("select", { id: "bd-month", "aria-label": tr("Month"),
+    onchange: (e) => { S.bdMonth = Number(e.target.value); renderInsights(); } },
+    Array.from({ length: 12 }, (_, i) => i + 1).map((m) => el("option", {
+      value: String(m), selected: m === Number(S.bdMonth) ? true : null,
+      text: sentence(monthName(m)) + " · " + pl(num(counts[m]), "client"),
+    })));
+  const month = Number(S.bdMonth);
+  return el("div", { class: "bd-get" }, [
+    el("label", { class: "lbl", for: "bd-month", text: tr("Birthday list for one month") }),
+    el("div", { class: "bd-get-row" }, [sel,
+      el("button", { class: "btn", type: "button", "data-act": "export-birthdays",
+        disabled: num(counts[month]) ? null : true,
+        onclick: () => openExport({
+          kind: "birthdays",
+          params: { birth_month: month, do_not_contact: "exclude", status: "all",
+            ...(S.insBasis === "all" ? {} : { related: "exclude" }) },
+          title: tr("Birthdays in {month}", { month: sentence(monthName(month)) }),
+          name: monthName(month),
+          count: num(counts[month]),
+        }),
+        text: tr("Download the month") })]),
+  ]);
 }
 
 /* ------------------------------------------------------------------ render */

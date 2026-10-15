@@ -1279,6 +1279,26 @@ body.split table.clients td.col-contact { display: none; }
   .addbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   .find .btn.add-client { min-width: 44px; padding: 0 12px; font-size: 20px; line-height: 1; }
 }
+
+/* =========================== v13: downloading a list as a sheet (export.js) */
+.toolbar .field-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn.export-btn { white-space: nowrap; }
+.find .btn.export-btn { flex: none; }
+.expbox { width: min(460px, 100%); }
+.expbox .exp-scope { margin: 0 0 2px; }
+.expbox .exp-count { margin: 0 0 10px; color: var(--muted); }
+.expbox .exp-phones { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.expbox .hint { margin: 2px 0 0; }
+/* the birthday month picker on Insights */
+.bd-get { margin: 10px 0 2px; }
+.bd-get .lbl { display: block; margin-bottom: 4px; }
+.bd-get-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bd-get-row select { flex: 1 1 220px; max-width: 320px; }
+.bdays .to-confirm { color: var(--warning); white-space: nowrap; }
+@media (max-width: 720px) {
+  .expbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
+  .find .btn.export-btn { min-width: 44px; padding: 0 12px; font-size: 18px; line-height: 1; }
+}
 </style>
 </head>
 <body>

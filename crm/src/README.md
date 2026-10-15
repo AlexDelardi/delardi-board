@@ -25,6 +25,8 @@ just before the `/* ---- init */` marker in `app.js`:
 | `personal.js` | phone numbers, the contact log and personal data |
 | `listx.js` | sorting and the column checklists |
 | `addclient.js` | adding a client by hand (v12, 12 Oct 2026) |
+| `xlsx.js` | the workbook writer: a stored zip and the sheet XML, written by hand so the page still loads nothing from anywhere (v13) |
+| `export.js` | the download dialog, the sheet's columns and the file name (v13, 15 Oct 2026) |
 
 The brand marks are substituted as data URIs, so the built file has no image
 request either. The build prints the size of what it wrote.
@@ -39,9 +41,14 @@ node qa/test.js
 `qa/mock.js` is a stand-in for `crm-api` — invented clients, invented numbers, no
 real data — so the checks run offline, in Chromium through Playwright. They cover
 the list, the card, adding a client (the duplicate guard, what is sent, where the
-new record lands), a viewer with no edit right, the Russian page and the phone
-layout, including tap targets and sideways scroll. The suite the earlier phases
-had was lost with its workspace in October 2026; this one replaces it.
+new record lands), downloading a list (the right, the count, the phone tick box,
+do-not-contact kept and marked, the birthday month and its order), a viewer with
+no edit right, a sales rep who edits but cannot download, the Russian page and
+the phone layout, including tap targets and sideways scroll. The downloaded
+workbook is opened back up with Python's own zipfile and, where it is installed,
+with openpyxl — a file that only opens in the thing that wrote it is not a file.
+83 checks as of 15 October 2026. The suite the earlier phases had was lost with
+its workspace in October 2026; this one replaces it.
 
 ## The API
 

@@ -22,6 +22,14 @@
 // Deploying is the only way it reaches Supabase, so the two are kept identical
 // and checked by md5 after every deploy.
 //
+// v13 — the filtered list as an Excel sheet. A new `export` action returns the
+// whole filtered set (not a page of it) with the phone numbers and the birthday
+// the list itself never carries, for a login that holds can_export_crm — a
+// right of its own, separate from editing. Every export writes a line in
+// crm_export_log. Birthdays now come from the best date on file rather than
+// only a confirmed one, each row saying which it is, so the 80 unchecked dates
+// stop being invisible (Alex's decision, 15 Oct 2026).
+//
 // v12 — people by name, and a client added by hand. Sales people are shown by
 // their own name instead of "Sales rep N" (the label in crm_sales_reps is the
 // only thing that changed; source names are untouched). `client_add` creates a
@@ -39,6 +47,17 @@ const SESSION_HOURS = 8;
 const MAX_FAILS_PER_HOUR = 10;
 const PAGE_DEFAULT = 50;
 const PAGE_MAX = 200;
+// v13: how many records one download may hold. The whole file is ~500 records,
+// so this is a guard against a filter that somehow matches everything twice
+// over, not a limit anyone should meet.
+const EXPORT_MAX = 5000;
+// What a download's log line records about the filters in force.
+const EXPORT_FILTER_KEYS = [
+  "status", "statuses", "abc_class", "abc_classes", "lifecycle_status", "lifecycles", "rfm_segment", "segments",
+  "client_owner", "owners", "owner_status", "record_type", "queue_class", "q", "ids", "attention", "related",
+  "first_year", "occasions", "brands", "brand", "category", "birth_month", "do_not_contact", "not_contacted",
+  "missed", "missed_brand", "telegram", "added", "birthday_within", "order_by", "dir", "sort", "kind",
+];
 
 const QUEUE_CLASSES = ["conflict", "gap", "clean"];
 const RECORD_TYPES = ["client", "prospect"];
@@ -311,6 +330,7 @@ interface Session {
   canView: boolean;
   canEdit: boolean;
   canImport: boolean;
+  canExport: boolean;
   repLabel: string | null;   // the sales rep this login is, if any ("My clients")
 }
 
@@ -331,7 +351,7 @@ async function requireSession(token: unknown): Promise<Session> {
   // Rights as they stand now, not as they stood at unlock.
   const name = rows[0].display_name as string;
   const users = await select(
-    `board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_crm,can_edit_crm,can_import_crm,crm_rep_label`,
+    `board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_crm,can_edit_crm,can_import_crm,can_export_crm,crm_rep_label`,
   );
   const user = users?.[0];
   if (!user || !user.can_view_crm) throw new HttpErr(403, "This account does not have access to the CRM.");
@@ -342,6 +362,9 @@ async function requireSession(token: unknown): Promise<Session> {
     canEdit,
     // Applying a refresh changes records, so it needs the edit right as well.
     canImport: canEdit && !!user.can_import_crm,
+    // Taking data out is its own right. It does not follow from editing, and
+    // a viewer does not get it by being able to read the same rows on screen.
+    canExport: !!user.can_export_crm,
     repLabel: str(user.crm_rep_label, 40),
   };
 }
@@ -349,6 +372,12 @@ async function requireSession(token: unknown): Promise<Session> {
 async function requireImporter(token: unknown): Promise<Session> {
   const sess = await requireSession(token);
   if (!sess.canImport) throw new HttpErr(403, "Your account cannot run the Colibri refresh.");
+  return sess;
+}
+
+async function requireExporter(token: unknown): Promise<Session> {
+  const sess = await requireSession(token);
+  if (!sess.canExport) throw new HttpErr(403, "Your account cannot download client lists.");
   return sess;
 }
 
@@ -655,7 +684,8 @@ async function listFilters(body: Record<string, unknown>, reps: RepMap, except?:
     if (body.birth_month !== undefined && body.birth_month !== null && body.birth_month !== "") {
       const m = intIn(body.birth_month, 1, 12, 0);
       if (!m) throw new HttpErr(400, "birth_month must be 1 to 12");
-      filters.push(`birth_month=eq.${m}`);
+      // v13: the best date on file, not only a confirmed one.
+      filters.push(`birth_month_any=eq.${m}`);
     }
     const dnc = enumOrNull(body.do_not_contact, ["exclude", "only"], "do_not_contact");
     if (dnc === "exclude") filters.push("do_not_contact=is.false");
@@ -781,7 +811,8 @@ async function handle(req: Request, body: Record<string, unknown>) {
 
   if (action === "ping") {
     const sess = await requireSession(body.token);
-    return { ok: true, name: sess.name, can_edit: sess.canEdit, can_import: sess.canImport, my_rep: sess.repLabel };
+    return { ok: true, name: sess.name, can_edit: sess.canEdit, can_import: sess.canImport,
+      can_export: sess.canExport, my_rep: sess.repLabel };
   }
 
   // Everything the page needs once, at open: the rep labels, the value
@@ -813,6 +844,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
       name: sess.name,
       can_edit: sess.canEdit,
       can_import: sess.canImport,
+      can_export: sess.canExport,
       my_rep: sess.repLabel,
       sales_reps: reps,
       value_mappings: mappings,
@@ -866,6 +898,51 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return { rows: labelled, total, limit, offset };
   }
 
+  // v13: the same list, as the rows of a sheet. It runs the list's own filter
+  // builder, so the file and the screen can never say different things, and it
+  // returns every matching record rather than a page. Phone numbers and the
+  // date of birth are added here — the list itself does not carry them.
+  if (action === "export") {
+    const sess = await requireExporter(body.token);
+    const reps = await repMap();
+    const filters = await listFilters(body, reps);
+    const kind = str(body.kind, 20) === "birthdays" ? "birthdays" : "list";
+    const withPhones = body.phones !== false;
+
+    // A birthday list reads as a calendar: day of the month, then by name.
+    const col = ORDER_COLUMNS[str(body.order_by, 20) ?? ""];
+    const dir = str(body.dir, 4) === "asc" ? "asc" : "desc";
+    const order = kind === "birthdays"
+      ? "birth_day_any.asc.nullslast,display_name.asc"
+      : (col ? `${col}.${dir}.nullslast,client_id.asc` : (SORTS[str(body.sort, 20) ?? "spend"] ?? SORTS.spend));
+
+    const picked = await select(
+      `crm_queue?select=client_id&${filters.join("&")}${filters.length ? "&" : ""}order=${order}&limit=${EXPORT_MAX}`,
+    ) as Array<Record<string, unknown>>;
+    const ids = (picked ?? []).map((r) => String(r.client_id));
+    if (!ids.length) throw new HttpErr(400, "Nothing to download: no record matches these filters.");
+
+    const rows = await rpc("crm_export_rows", { p_ids: ids, p_phones: withPhones }) as Array<Record<string, unknown>>;
+    // Owners and the person who logged the last contact are source names until
+    // this line; the page must never see one.
+    const labelled = (rows ?? []).map((r) => labelOwners(reps, r, r.client_owner));
+
+    const used: Record<string, unknown> = {};
+    for (const k of EXPORT_FILTER_KEYS) {
+      const v = body[k];
+      if (v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length)) used[k] = v;
+    }
+    await rpc("crm_export_record", {
+      p_actor: sess.name, p_kind: kind, p_filters: used, p_rows: labelled.length, p_phones: withPhones,
+    });
+
+    return {
+      rows: labelled, total: labelled.length, kind, with_phones: withPhones,
+      exported_by: sess.name, exported_at: new Date().toISOString(),
+      truncated: ids.length >= EXPORT_MAX,
+    };
+  }
+
   // v11: a column checklist. Each value of one column with its count, under
   // every other filter in force.
   if (action === "facets") {
@@ -890,8 +967,9 @@ async function handle(req: Request, body: Record<string, unknown>) {
   //
   // Names and dates of birth are returned here, to a session that has already
   // proved CRM rights — the same posture the board takes with topic text. Since
-  // v11 phone numbers are too (see WITHHELD). Names and numbers can be searched
-  // (see `clients`), but there is no bulk export of personal fields.
+  // v11 phone numbers are too (see WITHHELD). Since v13 a list of them can also
+  // leave as a sheet, but only for a login holding can_export_crm, and every
+  // download writes a line in crm_export_log (see `export`).
   if (action === "client") {
     const sess = await requireSession(body.token);
     return await cardFor(clientId(body.id), sess);

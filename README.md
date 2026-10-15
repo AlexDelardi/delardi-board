@@ -156,6 +156,21 @@ It follows the same model as the board, with its own API and its own right:
   any other record: it is a prospect with a PRS reference until Colibri brings
   a purchase, and a second person confirms what was typed. The list has an
   "Added by the team" shortcut.
+- **Downloading a list** (15 Oct 2026): a **Download .xlsx** button beside the
+  filters, for a login holding the export right (`can_export_crm` — Alex, Olga
+  and Eva; it is not implied by being able to edit). It saves exactly what the
+  filters and the sort say, the whole set rather than the page on screen, as a
+  real workbook: 23 columns including the phone numbers and the birthday that
+  the list itself does not carry, numbers as numbers and dates as dates, a
+  frozen header and a filter row. A tick box, on by default, decides whether
+  the phone numbers go in; a second sheet records the filters, who exported it
+  and when; and every download writes a line in `crm_export_log`. The file is
+  written in the page itself — no library is fetched, in keeping with the rule
+  that this page loads nothing from anywhere.
+- **Birthdays** now count every date on file, not only confirmed ones, with the
+  unconfirmed ones marked on screen and in the file (15 Oct 2026). Insights has
+  a month picker that downloads that month’s greeting list, sorted by day, with
+  do-not-contact clients left out.
 
 ## Updating a page
 

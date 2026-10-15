@@ -61,7 +61,7 @@ function build(i) {
     last_purchase_at: "2026-0" + (1 + (i % 9)) + "-" + String(2 + (i % 26)).padStart(2, "0"),
     purchase_occasions: 1 + (i % 6), items_bought: 1 + (i % 9), lifetime_spend_uzs: SPEND[i],
     abc_class: i < 5 ? "A" : i < 11 ? "B" : "C", rfm_segment: SEG[i % SEG.length], lifecycle_status: LIFE[i % LIFE.length],
-    related_party: false, advisors_seen: 1 + (i % 3), do_not_contact: false, contact_note: null, referred_by: null,
+    related_party: i === 7, advisors_seen: 1 + (i % 3), do_not_contact: i === 5, contact_note: i === 5 ? "Asked us not to call." : null, referred_by: null,
     reviewed_by: kind === 3 ? "Dilnoza A." : null, reviewed_at: kind === 3 ? "2026-09-28T11:20:00Z" : null,
     created_at: "2026-09-18T13:00:00Z", updated_at: "2026-09-3" + (i % 2) + "T09:0" + (i % 9) + ":00Z",
     client_owner: owner, historic_owner: owner, assigned_owner: owner, assigned_by: "Alex", assigned_at: "2026-09-21T08:19:41Z",
@@ -138,10 +138,11 @@ function queueRow(c) {
     lifetime_spend_uzs: c.lifetime_spend_uzs, last_purchase_at: c.last_purchase_at, conflict_fields, gap_fields,
     settled_fields: 4 - conflict_fields - gap_fields, queue_class: conflict_fields ? "conflict" : gap_fields ? "gap" : "clean",
     reviewed_by: c.reviewed_by, reviewed_at: c.reviewed_at, updated_at: c.updated_at, related_party: false, historic_owner: c.historic_owner,
-    review_status, display_name: c.name_confirmed || c.name_colibri || c.name_marketing, do_not_contact: false, merged_into: null, state_reason: null,
+    review_status, display_name: c.name_confirmed || c.name_colibri || c.name_marketing, merged_into: null, state_reason: null,
     in_telegram: !!c.in_telegram, last_contact_on: last ? last.contacted_on : null, last_contact_by: last ? last.by : null,
     last_contact_channel: last ? last.channel : null,
     added_by_hand: !!c.added_by_hand, how_met: c.how_met || null,
+    do_not_contact: !!c.do_not_contact, related_party: !!c.related_party,
   };
 }
 function totals() {
@@ -193,6 +194,16 @@ function listRows(body, except) {
   if (body.not_contacted) rows = rows.filter((r) => !r.last_contact_on);
   if (body.added === "only") rows = rows.filter((r) => r.added_by_hand);
   if (body.added === "exclude") rows = rows.filter((r) => !r.added_by_hand);
+  if (body.do_not_contact === "exclude") rows = rows.filter((r) => !find(r.client_id).do_not_contact);
+  if (body.related === "exclude") rows = rows.filter((r) => !find(r.client_id).related_party);
+  if (body.birth_month) {
+    // v13: the best date on file, like the view
+    rows = rows.filter((r) => {
+      const c = find(r.client_id);
+      const d = c.dob_confirmed || c.dob_colibri || c.dob_marketing;
+      return d && Number(d.slice(5, 7)) === Number(body.birth_month);
+    });
+  }
   if (body.q) {
     const raw = String(body.q).trim();
     const d = raw.replace(/\D/g, "");
@@ -254,6 +265,35 @@ function clientAdd(body, actor) {
   return [200, card(id)];
 }
 
+const bdOf = (id) => {
+  const c = find(id);
+  const d = c.dob_confirmed || c.dob_colibri || c.dob_marketing;
+  return d ? { day: Number(d.slice(8, 10)), month: Number(d.slice(5, 7)), year: Number(d.slice(0, 4)), conf: !!c.dob_confirmed }
+           : { day: 99, month: null, year: null, conf: false };
+};
+// The shape crm_export_rows returns, with the owner already a label.
+function exportRow(c, withPhones, ord) {
+  const q = queueRow(c);
+  const all = [c.phone_confirmed, ...String(c.phone_colibri || "").split(";"), c.phone_marketing, c.phone_telegram]
+    .map((x) => String(x || "").trim()).filter((x) => digitsOf(x).length >= 7);
+  const seen = new Set(), uniq = [];
+  for (const n of all) { const d = digitsOf(n); if (!seen.has(d)) { seen.add(d); uniq.push(n); } }
+  const b = bdOf(c.client_id);
+  return {
+    sort_ord: ord, client_id: c.client_id, display_name: q.display_name,
+    phone_main: withPhones ? (uniq[0] || null) : null,
+    phones_other: withPhones ? uniq.slice(1) : null,
+    birth_day: b.month ? b.day : null, birth_month: b.month, birth_year: b.month ? b.year : null, birth_confirmed: b.conf,
+    client_owner: q.client_owner, owner_active: true, record_type: c.record_type, review_status: q.review_status,
+    abc_class: c.abc_class, rfm_segment: c.rfm_segment, lifecycle_status: c.lifecycle_status,
+    lifetime_spend_uzs: c.lifetime_spend_uzs, purchase_occasions: c.purchase_occasions,
+    first_purchase_at: c.first_purchase_at, last_purchase_at: c.last_purchase_at,
+    last_contact_on: q.last_contact_on, last_contact_by: q.last_contact_by, last_contact_channel: q.last_contact_channel,
+    do_not_contact: !!c.do_not_contact, in_telegram: !!c.in_telegram,
+    added_by_hand: !!c.added_by_hand, how_met: c.how_met || null, related_party: !!c.related_party,
+  };
+}
+
 function handle(body) {
   const a = body.action;
   if (a === "unlock") {
@@ -275,8 +315,29 @@ function handle(body) {
     else { c.client_owner = c.assigned_owner = body.owner; c.assigned_by = actor; }
     return [200, card(body.id)];
   }
-  if (a === "reference") return [200, { name: actor, can_edit: editor, can_import: false, my_rep: body.token === TOKEN_REP ? REP_A : null, sales_reps: reps,
+  // v13: the export right is its own. The tester holds it; the rep who can edit
+  // does not, which is how Karina and Ellona stand on the real system.
+  const canExport = body.token === TOKEN;
+  if (a === "reference") return [200, { name: actor, can_edit: editor, can_import: false, can_export: canExport,
+    my_rep: body.token === TOKEN_REP ? REP_A : null, sales_reps: reps,
     value_mappings: [], totals: totals(), activity: { week: 23, today: 6 } }];
+  if (a === "export") {
+    if (!canExport) return [403, { error: "Your account cannot download client lists." }];
+    const rows = listRows(body);
+    if (body.kind === "birthdays") {
+      rows.sort((x, y) => {
+        const dx = bdOf(x.client_id), dy = bdOf(y.client_id);
+        return (dx.day - dy.day) || String(x.display_name).localeCompare(String(y.display_name));
+      });
+    } else rows.sort((x, y) => y.lifetime_spend_uzs - x.lifetime_spend_uzs);
+    if (!rows.length) return [400, { error: "Nothing to download: no record matches these filters." }];
+    const withPhones = body.phones !== false;
+    return [200, {
+      rows: rows.map((r, i) => exportRow(find(r.client_id), withPhones, i + 1)),
+      total: rows.length, kind: body.kind === "birthdays" ? "birthdays" : "list", with_phones: withPhones,
+      exported_by: actor, exported_at: new Date().toISOString(), truncated: false,
+    }];
+  }
   if (a === "stats") {
     const rows = DB.map(queueRow);
     const sum = (rs) => rs.reduce((x, r) => x + r.lifetime_spend_uzs, 0);
@@ -288,6 +349,40 @@ function handle(body) {
       by_owner: { REP_A: { clients: own(REP_A).length, spend: sum(own(REP_A)) },
         REP_B: { clients: own(REP_B).length, spend: sum(own(REP_B)) },
         "Shared (store)": { clients: own("Shared (store)").length, spend: sum(own("Shared (store)")) } } }];
+  }
+  // v13: enough of an Insights payload to render the page, so the birthdays
+  // block (and the month download in it) can be checked like anything else.
+  if (a === "insights") {
+    const live = DB.filter((c) => !["merged", "deleted"].includes(queueRow(c).review_status));
+    const dated = live.filter((c) => c.dob_confirmed || c.dob_colibri || c.dob_marketing);
+    const greet = dated.filter((c) => !c.do_not_contact);
+    const byMonth = Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1, rows = greet.filter((c) => bdOf(c.client_id).month === m);
+      return { month: m, clients: rows.length, spend: rows.reduce((a, c) => a + c.lifetime_spend_uzs, 0),
+        to_confirm: rows.filter((c) => !c.dob_confirmed).length };
+    });
+    const soon = greet.slice(0, 4).map((c, i) => ({
+      client_id: c.client_id, display_name: queueRow(c).display_name, record_type: c.record_type,
+      date: "2026-10-2" + (i + 1), days: i + 2, owner: c.client_owner, abc: c.abc_class,
+      lifecycle: c.lifecycle_status, segment: c.rfm_segment, spend: c.lifetime_spend_uzs,
+      confirmed: !!c.dob_confirmed,
+    }));
+    return [200, {
+      as_of: "2026-10-15", basis: "retail",
+      last_recalculated: { ran_at: "2026-10-15T00:05:00Z", as_of: "2026-10-15", trigger: "nightly" },
+      headline: { clients: live.length, spend: live.reduce((a, c) => a + c.lifetime_spend_uzs, 0), active_12m: 9,
+        repeat: 11, repeat_share: 0.37, priority: 8, priority_spend: 21040000000, birthdays_30: soon.length },
+      grid: [], segments: [], owners: [], years: [], frequency: [], multi_brand: [],
+      brands: [], categories: [], brand_years: [], brand_pairs: [],
+      // multi_brand is a list of buckets, not an object
+
+      birthdays: {
+        on_file: greet.length, confirmed: greet.filter((c) => c.dob_confirmed).length,
+        to_confirm: greet.filter((c) => !c.dob_confirmed).length,
+        missing: live.length - dated.length, do_not_contact: dated.length - greet.length,
+        by_month: byMonth, upcoming: soon,
+      },
+    }];
   }
   if (a === "clients") {
     const rows = listRows(body);

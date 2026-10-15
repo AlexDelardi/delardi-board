@@ -132,6 +132,7 @@ function syncFromHistory() {
   const closing = S.ov.slice(depth);
   if (S.ov.length > depth) S.ov.length = depth;
   if (closing.includes("add") && S.add) closeAddClient(true);
+  if (closing.includes("export") && S.exp) closeExport(true);
   if (closing.includes("edit") && S.edit) { S.edit = null; S.formError = null; if (S.cardId) renderDrawer(); }
   if (closing.includes("menu") && S.navOpen) closeNav(true);
   // A close the page asked for may have more to do once history has moved
@@ -274,7 +275,8 @@ function renderNav() {
       el("h3", { text: tr("Views") }),
       el("div", { class: "nav-list" }, ["clients", "insights", "data"].map((v) =>
         navRow(tr(VIEW_TITLES[v]), S.view === v, () => go(v)))
-        .concat(canAdd() ? [navRow("+ " + tr("Add a client"), false, () => closeNav(false, openAddClient))] : [])),
+        .concat(canAdd() ? [navRow("+ " + tr("Add a client"), false, () => closeNav(false, openAddClient))] : [])
+        .concat(canExport() ? [navRow("⤓ " + tr("Download .xlsx"), false, () => closeNav(false, () => openExport()))] : [])),
     ]),
   ];
   if (S.view === "clients" && S.navFacet) {

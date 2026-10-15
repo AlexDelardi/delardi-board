@@ -1279,6 +1279,26 @@ body.split table.clients td.col-contact { display: none; }
   .addbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   .find .btn.add-client { min-width: 44px; padding: 0 12px; font-size: 20px; line-height: 1; }
 }
+
+/* =========================== v13: downloading a list as a sheet (export.js) */
+.toolbar .field-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn.export-btn { white-space: nowrap; }
+.find .btn.export-btn { flex: none; }
+.expbox { width: min(460px, 100%); }
+.expbox .exp-scope { margin: 0 0 2px; }
+.expbox .exp-count { margin: 0 0 10px; color: var(--muted); }
+.expbox .exp-phones { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.expbox .hint { margin: 2px 0 0; }
+/* the birthday month picker on Insights */
+.bd-get { margin: 10px 0 2px; }
+.bd-get .lbl { display: block; margin-bottom: 4px; }
+.bd-get-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bd-get-row select { flex: 1 1 220px; max-width: 320px; }
+.bdays .to-confirm { color: var(--warning); white-space: nowrap; }
+@media (max-width: 720px) {
+  .expbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
+  .find .btn.export-btn { min-width: 44px; padding: 0 12px; font-size: 18px; line-height: 1; }
+}
 </style>
 </head>
 <body>
@@ -2135,7 +2155,8 @@ function renderToolbar() {
   const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
     el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
-    canAdd() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }), addClientButton()]) : null,
+    canAdd() || canExport() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }),
+      el("div", { class: "field-btns" }, [addClientButton(), exportButton()])]) : null,
     el("button", { class: "btn filters-toggle", type: "button", "aria-expanded": S.filtersOpen ? "true" : "false",
       "aria-controls": "filters",
       onclick: () => { S.filtersOpen = !S.filtersOpen; $("#toolbar").classList.toggle("open", S.filtersOpen);
@@ -3128,6 +3149,7 @@ function renderGate(message) {
 }
 function lockDown(message) {
   if (S.add) closeAddClient(true);
+  if (S.exp) closeExport(true);
   S.session = null;
   store(SESSION_KEY, "");
   pref(IDLE_KEY, null);
@@ -3192,7 +3214,7 @@ Object.assign(RU, {
   "Priority win-back": "Приоритетный возврат",
   "{spend} · cannot lose + at risk, high value": "{spend} · два приоритетных сегмента",
   "Birthdays, next 30 days": "Дни рождения, 30 дней",
-  "confirmed dates · do-not-contact left out": "только подтверждённые даты",
+
   "Value and activity": "Ценность и активность",
   "Trends: acquisition and mix": "Динамика: привлечение и структура",
   "Birthdays": "Дни рождения",
@@ -3286,16 +3308,21 @@ Object.assign(RU, {
   "Bought together most often": "Чаще всего покупают вместе",
   "{a} + {b}": "{a} + {b}",
   "Coming up in the next 30 days": "Ближайшие 30 дней",
-  "No confirmed birthdays in the next 30 days.": "В ближайшие 30 дней подтверждённых дней рождения нет.",
+  "No birthdays in the next 30 days.": "В ближайшие 30 дней дней рождения нет.",
+  "date to confirm": "дату нужно подтвердить",
+  "The date of birth is on file but nobody has confirmed it.": "Дата рождения есть в базе, но её никто не подтвердил.",
   "today": "сегодня",
   "tomorrow": "завтра",
   "in {n}": "через {n}",
   "Birthdays by month": "Дни рождения по месяцам",
-  "Confirmed dates of birth only; clients marked do-not-contact are left out.": "Только подтверждённые даты рождения; клиенты с отметкой «не беспокоить» не учитываются.",
+  "Every date we hold; the ones nobody has confirmed are marked. Clients marked do-not-contact are left out.": "Все даты, которые у нас есть; неподтверждённые отмечены. Клиенты с отметкой «не беспокоить» не учитываются.",
+  "Birthday list for one month": "Список дней рождения за месяц",
+  "To confirm": "Подтвердить",
   "this month": "этот месяц",
   "Birthday in {m}": "День рождения: {m}",
   "Month": "Месяц",
-  "{a} confirmed · {b} still to confirm in the clean-up · {c} not on file": "{a} подтверждено · {b} ещё подтвердить при чистке · {c} нет в базе",
+  "every date on file · do-not-contact left out": "все даты в базе · «не беспокоить» не учитываются",
+  "{a} dates on file — {b} of them still to confirm · {c} with no date at all": "{a} дат в базе — из них {b} ещё подтвердить · {c} без даты вовсе",
   "{n} marked do-not-contact are left out.": "{n} с отметкой «не беспокоить» не учитываются.",
   "When": "Когда",
   "From insights": "Из аналитики",
@@ -3576,7 +3603,7 @@ function kpis(d) {
       subTitle: fullUZS(h.priority_spend),
       onclick: () => drill({ segments: PRIORITY_SEGMENTS }, tr("Priority win-back list")) }),
     tile({ label: tr("Birthdays, next 30 days"), val: String(num(h.birthdays_30)),
-      sub: tr("confirmed dates · do-not-contact left out"),
+      sub: tr("every date on file · do-not-contact left out"),
       onclick: () => { const b = $("#ins-birthdays"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "start" }); b.focus({ preventScroll: true }); } } }),
   ]);
 }
@@ -3842,30 +3869,67 @@ function birthdayCards(d) {
         onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } },
         "aria-label": tr("Open {id}", { id: u.client_id }) + " — " + name }, [
         el("td", { class: "w" }, when(u)),
-        el("td", {}, [el("div", { class: "nm", text: name }), el("div", { class: "muted id", text: u.client_id })]),
+        el("td", {}, [el("div", { class: "nm", text: name }),
+          el("div", { class: "muted id" }, [u.client_id,
+            u.confirmed === false ? el("span", { class: "to-confirm", title: tr("The date of birth is on file but nobody has confirmed it."),
+              text: " · " + tr("date to confirm") }) : null])]),
         el("td", { text: blank(u.owner) ? "—" : who(u.owner) }),
         el("td", {}, [u.abc ? el("span", { class: "abc", "data-c": u.abc, text: u.abc }) : el("span", { class: "muted", text: "—" })]),
         el("td", { text: trv(u.segment) }),
       ]);
     })),
-  ])]) : el("p", { class: "empty-line", text: tr("No confirmed birthdays in the next 30 days.") });
+  ])]) : el("p", { class: "empty-line", text: tr("No birthdays in the next 30 days.") });
 
   const months = (b.by_month || []).map((m) => ({
     value: num(m.clients), cap: String(num(m.clients)), label: monthName(m.month, "short"), em: m.month === nowMonth,
-    tip: pl(num(m.clients), "client") + " · " + fmtUZS(m.spend), tipLabel: sentence(monthName(m.month)) + (m.month === nowMonth ? " · " + tr("this month") : ""),
+    tip: pl(num(m.clients), "client") + (num(m.to_confirm) ? " · " + tr("{n} to confirm", { n: num(m.to_confirm) }) : "") + " · " + fmtUZS(m.spend),
+    tipLabel: sentence(monthName(m.month)) + (m.month === nowMonth ? " · " + tr("this month") : ""),
     aria: sentence(monthName(m.month)) + ": " + pl(num(m.clients), "client"),
     onclick: () => drill({ birth_month: m.month, do_not_contact: "exclude", ...(S.insBasis === "all" ? {} : { related: "exclude" }), type: "" },
       tr("Birthday in {m}", { m: monthName(m.month) })),
   }));
   return [
     card(tr("Coming up in the next 30 days"), null, [list], "bd-card"),
-    card(tr("Birthdays by month"), tr("Confirmed dates of birth only; clients marked do-not-contact are left out."), [
+    card(tr("Birthdays by month"), tr("Every date we hold; the ones nobody has confirmed are marked. Clients marked do-not-contact are left out."), [
       columnChart(months),
-      el("p", { class: "note", text: tr("{a} confirmed · {b} still to confirm in the clean-up · {c} not on file",
-        { a: num(b.confirmed), b: num(b.to_confirm), c: num(b.missing) }) + (num(b.do_not_contact) ? " " + tr("{n} marked do-not-contact are left out.", { n: num(b.do_not_contact) }) : "") }),
-      numbers([tr("Month"), tr("Clients"), tr("Lifetime spend")], (b.by_month || []).map((m) => [sentence(monthName(m.month)), String(num(m.clients)), fmtUZS(m.spend)])),
+      el("p", { class: "note", text: tr("{a} dates on file — {b} of them still to confirm · {c} with no date at all",
+        { a: num(b.on_file), b: num(b.to_confirm), c: num(b.missing) }) + (num(b.do_not_contact) ? " · " + tr("{n} marked do-not-contact are left out.", { n: num(b.do_not_contact) }) : "") }),
+      birthdayDownload(b, nowMonth),
+      numbers([tr("Month"), tr("Clients"), tr("To confirm"), tr("Lifetime spend")],
+        (b.by_month || []).map((m) => [sentence(monthName(m.month)), String(num(m.clients)), String(num(m.to_confirm)), fmtUZS(m.spend)])),
     ]),
   ];
+}
+
+// v13: the greeting list for one month, as a sheet. It is the same filter the
+// month column opens, so what downloads is what the chart counts.
+function birthdayDownload(b, nowMonth) {
+  if (!canExport()) return null;
+  if (S.bdMonth === undefined || S.bdMonth === null) S.bdMonth = nowMonth;
+  const counts = {};
+  for (const m of b.by_month || []) counts[m.month] = num(m.clients);
+  const sel = el("select", { id: "bd-month", "aria-label": tr("Month"),
+    onchange: (e) => { S.bdMonth = Number(e.target.value); renderInsights(); } },
+    Array.from({ length: 12 }, (_, i) => i + 1).map((m) => el("option", {
+      value: String(m), selected: m === Number(S.bdMonth) ? true : null,
+      text: sentence(monthName(m)) + " · " + pl(num(counts[m]), "client"),
+    })));
+  const month = Number(S.bdMonth);
+  return el("div", { class: "bd-get" }, [
+    el("label", { class: "lbl", for: "bd-month", text: tr("Birthday list for one month") }),
+    el("div", { class: "bd-get-row" }, [sel,
+      el("button", { class: "btn", type: "button", "data-act": "export-birthdays",
+        disabled: num(counts[month]) ? null : true,
+        onclick: () => openExport({
+          kind: "birthdays",
+          params: { birth_month: month, do_not_contact: "exclude", status: "all",
+            ...(S.insBasis === "all" ? {} : { related: "exclude" }) },
+          title: tr("Birthdays in {month}", { month: sentence(monthName(month)) }),
+          name: monthName(month),
+          count: num(counts[month]),
+        }),
+        text: tr("Download the month") })]),
+  ]);
 }
 
 /* ------------------------------------------------------------------ render */
@@ -4697,6 +4761,7 @@ function syncFromHistory() {
   const closing = S.ov.slice(depth);
   if (S.ov.length > depth) S.ov.length = depth;
   if (closing.includes("add") && S.add) closeAddClient(true);
+  if (closing.includes("export") && S.exp) closeExport(true);
   if (closing.includes("edit") && S.edit) { S.edit = null; S.formError = null; if (S.cardId) renderDrawer(); }
   if (closing.includes("menu") && S.navOpen) closeNav(true);
   // A close the page asked for may have more to do once history has moved
@@ -4839,7 +4904,8 @@ function renderNav() {
       el("h3", { text: tr("Views") }),
       el("div", { class: "nav-list" }, ["clients", "insights", "data"].map((v) =>
         navRow(tr(VIEW_TITLES[v]), S.view === v, () => go(v)))
-        .concat(canAdd() ? [navRow("+ " + tr("Add a client"), false, () => closeNav(false, openAddClient))] : [])),
+        .concat(canAdd() ? [navRow("+ " + tr("Add a client"), false, () => closeNav(false, openAddClient))] : [])
+        .concat(canExport() ? [navRow("⤓ " + tr("Download .xlsx"), false, () => closeNav(false, () => openExport()))] : [])),
     ]),
   ];
   if (S.view === "clients" && S.navFacet) {
@@ -7236,9 +7302,491 @@ function addClientButton(compact) {
     compact ? [el("span", { "aria-hidden": "true", text: "+" })] : [el("span", { "aria-hidden": "true", text: "+ " }), tr("Add a client")]);
 }
 
+/* ===========================================================================
+   Downloading a list as a workbook (API v13)
+   Alex, 15 Oct 2026: the three people who hold the export right must be able
+   to take the list they are looking at into Excel — a call sheet, a brand
+   meeting, a birthday list for December.
+
+   It is written here, in the page, by hand. The page loads nothing from
+   anywhere (that is the whole security model), so there is no SheetJS to
+   reach for; and a CSV is worse than it looks — Cyrillic encoding, the ";"
+   against "," quarrel in a Russian Excel, and +998… read as a formula. What
+   follows is the smallest real .xlsx: a stored (uncompressed) ZIP holding six
+   small XML parts. At ~500 records the file is a few hundred KB, so not
+   compressing costs nothing and saves a deflate implementation.
+
+   Numbers stay numbers and dates stay dates, so the sheet sums and pivots.
+   ========================================================================= */
+Object.assign(RU, {
+  "Download .xlsx": "Скачать .xlsx",
+  "Download": "Скачать",
+  "Download the list": "Скачать список",
+  "Download the month": "Скачать месяц",
+  "{n} records will be downloaded": "Будет скачано записей: {n}",
+  "Include phone numbers": "Включить номера телефонов",
+  "Leave the numbers out when the file is going to a brand, an agency or a meeting.":
+    "Снимите галочку, если файл уходит бренду, агентству или на встречу.",
+  "The file carries your name and today's date, and the download is logged.":
+    "В файле будут ваше имя и дата, а сама выгрузка записывается в журнал.",
+  "Preparing the file…": "Готовим файл…",
+  "Saved: {name}": "Сохранено: {name}",
+  "Nothing to download: no record matches these filters.": "Скачивать нечего: под фильтры не подходит ни одна запись.",
+  "Your account cannot download client lists.": "Вашей учётной записи недоступна выгрузка списков клиентов.",
+  "The file could not be made.": "Не удалось собрать файл.",
+  // the sheets and their headings
+  "Clients": "Клиенты",
+  "About this export": "Об этой выгрузке",
+  "Reference": "Код",
+  "Name": "Имя",
+  "Phone": "Телефон",
+  "Other numbers": "Другие номера",
+  "Birthday": "День рождения",
+  "Birthday confirmed": "Дата подтверждена",
+  "Owner": "Ответственный",
+  "Record": "Запись",
+  "Clean-up status": "Статус проверки",
+  "Segment": "Сегмент",
+  "Lifecycle": "Жизненный цикл",
+  "Lifetime spend, UZS": "Сумма покупок, сум",
+  "Purchases": "Покупки",
+  "First purchase": "Первая покупка",
+  "Last purchase": "Последняя покупка",
+  "Last contact": "Последний контакт",
+  "Last contact by": "Контакт вёл",
+  "How": "Как",
+  "Do not contact": "Не беспокоить",
+  "In Telegram": "Есть в Telegram",
+  "Added by the team": "Добавлен командой",
+  "Related party": "Связанное лицо",
+  "Yes": "Да",
+  "No": "Нет",
+  "Filters": "Фильтры",
+  "Sort": "Сортировка",
+  "Records": "Записей",
+  "Phone numbers": "Номера телефонов",
+  "Included": "Включены",
+  "Left out": "Не включены",
+  "Exported by": "Выгрузил(а)",
+  "Exported at": "Дата и время",
+  "Delardi client data — internal. Do not forward outside the company.":
+    "Клиентские данные Delardi — для внутреннего пользования. Не пересылайте за пределы компании.",
+  "Everything on file": "Все записи",
+  "Birthdays in {month}": "Дни рождения, {month}",
+});
+
+/* ------------------------------------------------------------------- a zip */
+// STORE only: no compression, so no deflate to write or to get wrong.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function dosTime(d) {
+  const t = ((d.getHours() & 31) << 11) | ((d.getMinutes() & 63) << 5) | ((d.getSeconds() / 2) & 31);
+  const dt = (((d.getFullYear() - 1980) & 127) << 9) | (((d.getMonth() + 1) & 15) << 5) | (d.getDate() & 31);
+  return { t, dt };
+}
+// files: [{ name, text }] — the parts of the workbook, in the order they go in.
+function zipStore(files) {
+  const enc = new TextEncoder();
+  const now = new Date();
+  const { t, dt } = dosTime(now);
+  const parts = files.map((f) => {
+    const name = enc.encode(f.name);
+    const data = enc.encode(f.text);
+    return { name, data, crc: crc32(data) };
+  });
+  let size = 0;
+  for (const p of parts) size += 30 + p.name.length + p.data.length + 46 + p.name.length;
+  size += 22;
+  const out = new Uint8Array(size);
+  const view = new DataView(out.buffer);
+  let off = 0;
+  const offsets = [];
+  for (const p of parts) {
+    offsets.push(off);
+    view.setUint32(off, 0x04034b50, true);
+    view.setUint16(off + 4, 20, true);
+    view.setUint16(off + 6, 0x0800, true);       // names are UTF-8
+    view.setUint16(off + 8, 0, true);            // stored
+    view.setUint16(off + 10, t, true);
+    view.setUint16(off + 12, dt, true);
+    view.setUint32(off + 14, p.crc, true);
+    view.setUint32(off + 18, p.data.length, true);
+    view.setUint32(off + 22, p.data.length, true);
+    view.setUint16(off + 26, p.name.length, true);
+    view.setUint16(off + 28, 0, true);
+    out.set(p.name, off + 30);
+    out.set(p.data, off + 30 + p.name.length);
+    off += 30 + p.name.length + p.data.length;
+  }
+  const dirStart = off;
+  parts.forEach((p, i) => {
+    view.setUint32(off, 0x02014b50, true);
+    view.setUint16(off + 4, 20, true);
+    view.setUint16(off + 6, 20, true);
+    view.setUint16(off + 8, 0x0800, true);
+    view.setUint16(off + 10, 0, true);
+    view.setUint16(off + 12, t, true);
+    view.setUint16(off + 14, dt, true);
+    view.setUint32(off + 16, p.crc, true);
+    view.setUint32(off + 20, p.data.length, true);
+    view.setUint32(off + 24, p.data.length, true);
+    view.setUint16(off + 28, p.name.length, true);
+    view.setUint16(off + 30, 0, true);
+    view.setUint16(off + 32, 0, true);
+    view.setUint16(off + 34, 0, true);
+    view.setUint16(off + 36, 0, true);
+    view.setUint32(off + 38, 0, true);
+    view.setUint32(off + 42, offsets[i], true);
+    out.set(p.name, off + 46);
+    off += 46 + p.name.length;
+  });
+  view.setUint32(off, 0x06054b50, true);
+  view.setUint16(off + 4, 0, true);
+  view.setUint16(off + 6, 0, true);
+  view.setUint16(off + 8, parts.length, true);
+  view.setUint16(off + 10, parts.length, true);
+  view.setUint32(off + 12, dirStart ? off - dirStart : 0, true);
+  view.setUint32(off + 16, dirStart, true);
+  view.setUint16(off + 20, 0, true);
+  return out;
+}
+
+/* -------------------------------------------------------------- a workbook */
+const xmlEsc = (v) => String(v == null ? "" : v)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/\u0000-\u0008|\u000b|\u000c|\u000e-\u001f/g, "");
+// 1 → A, 27 → AA
+function colRef(n) {
+  let s = "";
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = (n - r - 1) / 26; }
+  return s;
+}
+// Excel counts days from 30 December 1899.
+const XL_EPOCH = Date.UTC(1899, 11, 30);
+function xlDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ""));
+  if (!m) return null;
+  return (Date.UTC(+m[1], +m[2] - 1, +m[3]) - XL_EPOCH) / 86400000;
+}
+// A column: { label, width, type } where type is text (default), num or date.
+function sheetXml(cols, rows, opts) {
+  const o = opts || {};
+  const last = colRef(cols.length);
+  const lines = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+  lines.push('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
+  lines.push(`<dimension ref="A1:${last}${Math.max(rows.length + 1, 1)}"/>`);
+  lines.push('<sheetViews><sheetView workbookViewId="0">' +
+    (o.freeze === false ? "" : '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>') +
+    "</sheetView></sheetViews>");
+  lines.push('<sheetFormatPr defaultRowHeight="15"/>');
+  lines.push("<cols>" + cols.map((c, i) =>
+    `<col min="${i + 1}" max="${i + 1}" width="${c.width || 14}" customWidth="1"/>`).join("") + "</cols>");
+  lines.push("<sheetData>");
+  // the heading row
+  lines.push('<row r="1">' + cols.map((c, i) =>
+    `<c r="${colRef(i + 1)}1" t="inlineStr" s="1"><is><t xml:space="preserve">${xmlEsc(c.label)}</t></is></c>`).join("") + "</row>");
+  rows.forEach((row, ri) => {
+    const r = ri + 2;
+    const cells = [];
+    row.forEach((v, ci) => {
+      if (v === null || v === undefined || v === "") return;
+      const ref = colRef(ci + 1) + r;
+      const type = cols[ci] ? cols[ci].type : "text";
+      if (type === "num" && typeof v === "number" && isFinite(v)) cells.push(`<c r="${ref}" s="3"><v>${v}</v></c>`);
+      else if (type === "date") {
+        const d = xlDate(v);
+        if (d === null) cells.push(`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`);
+        else cells.push(`<c r="${ref}" s="2"><v>${d}</v></c>`);
+      } else cells.push(`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`);
+    });
+    lines.push(`<row r="${r}">` + cells.join("") + "</row>");
+  });
+  lines.push("</sheetData>");
+  if (o.filter !== false && rows.length) lines.push(`<autoFilter ref="A1:${last}${rows.length + 1}"/>`);
+  lines.push("</worksheet>");
+  return lines.join("");
+}
+const STYLES_XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+  '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+  '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd\\.mm\\.yyyy"/><numFmt numFmtId="165" formatCode="#,##0"/></numFmts>' +
+  '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+  '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+  '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+  '<cellXfs count="4">' +
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+  '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+  '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+  "</cellXfs>" +
+  '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+  "</styleSheet>";
+// sheets: [{ name, cols, rows, freeze, filter }]
+function workbookBytes(sheets) {
+  const files = [
+    { name: "[Content_Types].xml", text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ` +
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("") +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      "</Types>" },
+    { name: "_rels/.rels", text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/workbook.xml", text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+      sheets.map((s, i) => `<sheet name="${xmlEsc(String(s.name).slice(0, 31).replace(/[\\/?*\[\]:]/g, " "))}" ` +
+        `sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("") +
+      "</sheets></workbook>" },
+    { name: "xl/_rels/workbook.xml.rels", text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map((s, i) => `<Relationship Id="rId${i + 1}" ` +
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" ' +
+        `Target="worksheets/sheet${i + 1}.xml"/>`).join("") +
+      `<Relationship Id="rId${sheets.length + 1}" ` +
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/styles.xml", text: STYLES_XML },
+  ];
+  sheets.forEach((s, i) => files.push({
+    name: `xl/worksheets/sheet${i + 1}.xml`,
+    text: sheetXml(s.cols, s.rows, { freeze: s.freeze, filter: s.filter }),
+  }));
+  return zipStore(files);
+}
+// Hand the file to the browser. Safari on an iPhone opens it in its own viewer
+// rather than saving it quietly; that is the browser's business, not ours.
+function saveWorkbook(bytes, filename) {
+  const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+
+/* ===========================================================================
+   Taking the list away as a sheet (API v13)
+   Alex, 15 Oct 2026. Three people hold the right: he, Olga and Eva.
+
+   The rule the whole thing hangs on: the file is what the screen says. The
+   server runs the list's own filter builder for the download, so a sheet can
+   never quietly hold a different set of people from the one being looked at.
+   What the page adds is the part a spreadsheet needs and a screen does not —
+   the headings, the number formats, and a second sheet saying which filters
+   made it, who made it and when.
+
+   Numbers are formatted here, by the same phoneParts() the card uses, so a
+   number reads the same in the file as on the screen. Discreet mode does not
+   reach into the file: hiding amounts is for shoulders in the boutique, and a
+   file of masked numbers would be no use to anyone.
+   ========================================================================= */
+const canExport = () => !!(S.session && S.ref && S.ref.can_export);
+
+// The sheet's columns, in order. `get` turns one API row into one cell.
+const EXPORT_COLS = () => [
+  { label: tr("Reference"), width: 12, get: (r) => r.client_id },
+  { label: tr("Name"), width: 32, get: (r) => blank(r.display_name) ? "" : r.display_name },
+  { label: tr("Phone"), width: 20, phone: true, get: (r) => exportPhone(r.phone_main) },
+  { label: tr("Other numbers"), width: 24, phone: true,
+    get: (r) => (r.phones_other || []).map(exportPhone).filter(Boolean).join(", ") },
+  { label: tr("Birthday"), width: 14, get: (r) => birthdayCell(r) },
+  { label: tr("Birthday confirmed"), width: 10,
+    get: (r) => (r.birth_month ? (r.birth_confirmed ? tr("Yes") : tr("No")) : "") },
+  { label: tr("Owner"), width: 18,
+    get: (r) => blank(r.client_owner) ? ""
+      : who(r.client_owner) + (ownerHasLeft(r.client_owner, r.owner_active) ? " (" + tr("has left") + ")" : "") },
+  { label: tr("Record"), width: 14, get: (r) => recordCell(r) },
+  { label: tr("Clean-up status"), width: 16,
+    get: (r) => tr((STATUS[r.review_status] || STATUS.clean).label) },
+  { label: "ABC", width: 6, get: (r) => r.abc_class || "" },
+  { label: tr("Segment"), width: 18, get: (r) => trv(r.rfm_segment) === "—" ? "" : trv(r.rfm_segment) },
+  { label: tr("Lifecycle"), width: 12, get: (r) => trv(r.lifecycle_status) === "—" ? "" : trv(r.lifecycle_status) },
+  { label: tr("Lifetime spend, UZS"), width: 18, type: "num",
+    get: (r) => (r.lifetime_spend_uzs === null || r.lifetime_spend_uzs === undefined ? null : Number(r.lifetime_spend_uzs)) },
+  { label: tr("Purchases"), width: 10, type: "num",
+    get: (r) => (r.purchase_occasions === null || r.purchase_occasions === undefined ? null : Number(r.purchase_occasions)) },
+  { label: tr("First purchase"), width: 14, type: "date", get: (r) => r.first_purchase_at },
+  { label: tr("Last purchase"), width: 14, type: "date", get: (r) => r.last_purchase_at },
+  { label: tr("Last contact"), width: 14, type: "date", get: (r) => r.last_contact_on },
+  { label: tr("Last contact by"), width: 16, get: (r) => blank(r.last_contact_by) ? "" : who(r.last_contact_by) },
+  { label: tr("How"), width: 12, get: (r) => (r.last_contact_channel ? channelLabel(r.last_contact_channel) : "") },
+  { label: tr("Do not contact"), width: 12, get: (r) => (r.do_not_contact ? tr("Yes") : "") },
+  { label: tr("In Telegram"), width: 12, get: (r) => (r.in_telegram ? tr("Yes") : "") },
+  { label: tr("Added by the team"), width: 20,
+    get: (r) => (r.added_by_hand ? tr("Yes") + (r.how_met ? " — " + tr(r.how_met) : "") : "") },
+  { label: tr("Related party"), width: 12, get: (r) => (r.related_party ? tr("Yes") : "") },
+];
+function exportPhone(raw) {
+  if (blank(raw)) return "";
+  const p = phoneParts(raw);
+  return p ? p.text : String(raw);
+}
+// A birthday is a day and a month; the year comes too when the record holds it.
+function birthdayCell(r) {
+  if (!r.birth_month || !r.birth_day) return "";
+  const dd = String(r.birth_day).padStart(2, "0"), mm = String(r.birth_month).padStart(2, "0");
+  return r.birth_year ? `${dd}.${mm}.${r.birth_year}` : `${dd}.${mm}`;
+}
+function recordCell(r) {
+  if (r.review_status === "lead") return tr("Telegram lead");
+  return r.record_type === "prospect" ? tr("Prospect") : tr("Client");
+}
+
+/* --------------------------------------------------------------- the dialog */
+// opts: { kind, params, title, name } — the list passes nothing and the
+// birthday block passes its month.
+function openExport(opts) {
+  if (!canExport() || S.exp) return;
+  const o = opts || {};
+  S.exp = {
+    kind: o.kind === "birthdays" ? "birthdays" : "list",
+    params: o.params || null,
+    title: o.title || null,
+    name: o.name || null,
+    count: typeof o.count === "number" ? o.count : (o.params ? null : S.total),
+    phones: true, busy: false, err: null,
+  };
+  pushOverlay("export");
+  renderExport();
+  const box = $("#expwrap .exp-first");
+  if (box) box.focus();
+}
+function closeExport(fromHistory, then) {
+  if (!S.exp) { if (then) then(); return; }
+  if (S.exp.busy) return;
+  S.exp = null;
+  const host = $("#expwrap");
+  if (host) host.remove();
+  if (!fromHistory) popOverlay("export", then); else if (then) then();
+}
+// What the file is called. "Delardi_clients_cannot-lose_2026-10-15.xlsx"
+function exportFilename(meta) {
+  const today = (meta && meta.exported_at ? new Date(meta.exported_at) : new Date());
+  const day = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0")].join("-");
+  const slug = String(S.exp && S.exp.name ? S.exp.name : describeFilters().replace(/^·\s*/, ""))
+    .toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  const base = S.exp && S.exp.kind === "birthdays" ? "Delardi_birthdays" : "Delardi_clients";
+  return [base, slug, day].filter(Boolean).join("_") + ".xlsx";
+}
+// The second sheet: what made this file, and the line that should make anyone
+// think twice before forwarding it.
+function aboutSheet(meta, scope) {
+  const when = meta.exported_at ? new Date(meta.exported_at) : new Date();
+  const rows = [
+    [tr("Filters"), scope || tr("Everything on file")],
+    [tr("Sort"), S.exp.kind === "birthdays" ? tr("Birthday") : tr((SORTS.find((s) => s[0] === S.f.sort) || ["", ""])[1])],
+    [tr("Records"), String(meta.total)],
+    [tr("Phone numbers"), meta.with_phones ? tr("Included") : tr("Left out")],
+    [tr("Exported by"), meta.exported_by || ""],
+    [tr("Exported at"), when.toLocaleString(LOC())],
+    ["", ""],
+    [tr("Delardi client data — internal. Do not forward outside the company."), ""],
+  ];
+  return { name: tr("About this export"), cols: [{ label: tr("About this export"), width: 28 }, { label: "", width: 70 }],
+    rows, freeze: false, filter: false };
+}
+async function runExport() {
+  if (!S.exp || S.exp.busy) return;
+  S.exp.busy = true; S.exp.err = null; renderExport();
+  try {
+    const base = S.exp.params ? { ...S.exp.params } : listParams();
+    delete base.limit; delete base.offset;
+    const data = await call("export", { ...base, kind: S.exp.kind, phones: S.exp.phones });
+    const cols = EXPORT_COLS().filter((c) => (S.exp.phones ? true : !c.phone));
+    const rows = (data.rows || []).map((r) => cols.map((c) => c.get(r)));
+    const scope = S.exp.title || describeFilters().replace(/^·\s*/, "");
+    const bytes = workbookBytes([
+      { name: tr("Clients"), cols, rows },
+      aboutSheet(data, scope),
+    ]);
+    const filename = exportFilename(data);
+    saveWorkbook(bytes, filename);
+    S.exp.busy = false;
+    closeExport(false, () => toast(tr("Saved: {name}", { name: filename })));
+  } catch (e) {
+    S.exp.busy = false;
+    S.exp.err = e && e.message ? e.message : tr("The file could not be made.");
+    renderExport();
+  }
+}
+function renderExport() {
+  if (!S.exp) return;
+  let host = $("#expwrap");
+  if (!host) {
+    host = el("div", { id: "expwrap", class: "addwrap" });
+    document.body.appendChild(host);
+  }
+  const e = S.exp;
+  host.innerHTML = "";
+  host.appendChild(el("div", { class: "add-scrim", onclick: () => closeExport() }));
+  const scope = e.title || describeFilters().replace(/^·\s*/, "") || tr("Everything on file");
+  host.appendChild(el("section", { class: "addbox expbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "exp-title" }, [
+    el("div", { class: "sheet-head" }, [
+      el("h3", { id: "exp-title", text: tr("Download .xlsx") }),
+      el("button", { class: "btn subtle close", type: "button", "aria-label": tr("Close"), disabled: e.busy ? true : null,
+        onclick: () => closeExport(), text: "×" }),
+    ]),
+    el("form", { class: "editor exp-form", onsubmit: (ev) => { ev.preventDefault(); runExport(); } }, [
+      el("p", { class: "exp-scope" }, [el("b", { text: scope })]),
+      e.count === null ? null : el("p", { class: "exp-count", text: tr("{n} records will be downloaded", { n: e.count }) }),
+      el("label", { class: "opt exp-phones" }, [
+        el("input", { type: "checkbox", class: "exp-first", checked: e.phones ? true : null, disabled: e.busy ? true : null,
+          onchange: (ev) => { e.phones = ev.target.checked; } }),
+        el("span", { text: tr("Include phone numbers") }),
+      ]),
+      el("p", { class: "hint", text: tr("Leave the numbers out when the file is going to a brand, an agency or a meeting.") }),
+      el("p", { class: "hint", text: tr("The file carries your name and today's date, and the download is logged.") }),
+      e.err ? el("p", { class: "form-err", role: "alert", text: e.err }) : null,
+      el("div", { class: "form-actions" }, [
+        el("button", { class: "btn primary", type: "submit", disabled: e.busy ? true : null,
+          text: e.busy ? tr("Preparing the file…") : tr("Download") }),
+        el("button", { class: "btn subtle", type: "button", disabled: e.busy ? true : null,
+          onclick: () => closeExport(), text: tr("Cancel") }),
+      ]),
+    ]),
+  ]));
+}
+// Escape closes it, like every other overlay, unless a file is being made.
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && S.exp && !S.exp.busy) { ev.stopPropagation(); closeExport(); }
+}, true);
+
+function exportButton(compact) {
+  if (!canExport()) return null;
+  return el("button", {
+    class: "btn export-btn" + (compact ? " sm" : ""), type: "button", "data-act": "export",
+    title: tr("Download the list"), onclick: () => openExport(),
+    text: compact ? "⤓" : tr("Download .xlsx"),
+  });
+}
+
 /* -------------------------------------------------------------------- init */
 function renderAll(gateMessage) {
   if (S.add) renderAddClient();                    // the add form follows the language
+  if (S.exp) renderExport();                       // and so does the download dialog
   const app = $("#app");
   document.documentElement.lang = LANG;
   document.title = "Delardi " + tr("Client Instrument");

@@ -13,7 +13,7 @@ uri = lambda f: 'data:image/png;base64,' + base64.b64encode((B / f).read_bytes()
 
 t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
-MODULES = ['insights.js', 'data.js', 'floor.js', 'mobile.js', 'telegram.js', 'personal.js', 'listx.js', 'addclient.js']
+MODULES = ['insights.js', 'data.js', 'floor.js', 'mobile.js', 'telegram.js', 'personal.js', 'listx.js', 'addclient.js', 'xlsx.js', 'export.js']
 ins = '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES)
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1

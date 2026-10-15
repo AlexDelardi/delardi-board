@@ -843,7 +843,8 @@ function renderToolbar() {
   const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
     el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
-    canAdd() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }), addClientButton()]) : null,
+    canAdd() || canExport() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }),
+      el("div", { class: "field-btns" }, [addClientButton(), exportButton()])]) : null,
     el("button", { class: "btn filters-toggle", type: "button", "aria-expanded": S.filtersOpen ? "true" : "false",
       "aria-controls": "filters",
       onclick: () => { S.filtersOpen = !S.filtersOpen; $("#toolbar").classList.toggle("open", S.filtersOpen);
@@ -1836,6 +1837,7 @@ function renderGate(message) {
 }
 function lockDown(message) {
   if (S.add) closeAddClient(true);
+  if (S.exp) closeExport(true);
   S.session = null;
   store(SESSION_KEY, "");
   pref(IDLE_KEY, null);
@@ -1873,6 +1875,7 @@ function toggleTheme() {
 /* -------------------------------------------------------------------- init */
 function renderAll(gateMessage) {
   if (S.add) renderAddClient();                    // the add form follows the language
+  if (S.exp) renderExport();                       // and so does the download dialog
   const app = $("#app");
   document.documentElement.lang = LANG;
   document.title = "Delardi " + tr("Client Instrument");
