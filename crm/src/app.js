@@ -149,6 +149,12 @@ const RU = {
   "of": "из",
   "No records match these filters.": "Нет записей по этим фильтрам.",
   "Clear filters": "Сбросить фильтры",
+  "Clear all": "Сбросить всё",
+  "3 more": "Ещё 3",
+  "Fewer": "Свернуть",
+  "Show the other figures": "Показать остальные показатели",
+  "Show fewer figures": "Показать меньше показателей",
+  "Filters in force": "Включённые фильтры",
   "Try again": "Повторить",
   "← Previous": "← Назад",
   "Next →": "Далее →",
@@ -751,6 +757,11 @@ function ownerTile(st, f, locked) {
     subTitle: locked ? "" : fullUZS(shared ? shared.spend : 0) + " — " + tr("Retail clients on the shared win-back list, worked by the whole team"),
     pressed, onclick });
 }
+// v14: three tiles do the day's work — what needs deciding, what needs
+// confirming, what is done. The other three are reference, not a task, and
+// fold away behind a toggle that each device remembers.
+const MORE_TILES_KEY = "crm_tiles_more";
+function moreTilesOpen() { return pref(MORE_TILES_KEY) === "1"; }
 function renderScoreboard() {
   const host = $("#scoreboard");
   if (!host) return;
@@ -758,6 +769,8 @@ function renderScoreboard() {
   const t = S.ref && S.ref.totals, st = S.stats;
   const locked = S.locked || !t || !st;
   const f = S.f;
+  const more = moreTilesOpen();
+  host.classList.toggle("more-open", more);
   const toggle = (status) => () => setFilter({ status: f.status === status ? "" : status });
   host.append(
     tile({ label: tr("Needs a decision"), tone: "serious",
@@ -768,24 +781,34 @@ function renderScoreboard() {
       val: locked ? "—" : String(t.confirm),
       sub: locked ? "——" : tr("{n} from one source only", { n: pl(t.gap_fields, "field") }),
       pressed: f.status === "confirm", onclick: locked ? null : toggle("confirm") }),
-    tile({ label: tr("Set aside"),
-      val: locked ? "—" : String(t.set_aside),
-      sub: locked ? "——" : tr("waiting on the client or a check"),
-      pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
     tile({ label: tr("Done"), tone: "good",
       val: locked ? "—" : String(t.done),
       sub: locked ? "——" : tr("{checked} checked · {clean} matched", { checked: t.checked, clean: t.clean }),
       pressed: f.status === "done", onclick: locked ? null : toggle("done") }),
-    ownerTile(st, f, locked),
-    tile({ label: tr("Retail clients"),
-      val: locked ? "—" : String(st.clients),
-      sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
-        { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
-      subTitle: locked ? "" : fullUZS(st.total_spend),
-      pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
-      onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
-        owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
   );
+  if (more) {
+    host.append(
+      tile({ label: tr("Set aside"),
+        val: locked ? "—" : String(t.set_aside),
+        sub: locked ? "——" : tr("waiting on the client or a check"),
+        pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
+      ownerTile(st, f, locked),
+      tile({ label: tr("Retail clients"),
+        val: locked ? "—" : String(st.clients),
+        sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
+          { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
+        subTitle: locked ? "" : fullUZS(st.total_spend),
+        pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
+        onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
+          owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
+    );
+  }
+  host.append(el("button", { class: "stat tiles-more", type: "button", "aria-expanded": more ? "true" : "false",
+    onclick: () => { pref(MORE_TILES_KEY, more ? null : "1"); renderScoreboard(); syncSticky(); },
+    title: more ? tr("Show fewer figures") : tr("Show the other figures") }, [
+    el("span", { class: "tm-chev", "aria-hidden": "true", text: more ? "‹" : "›" }),
+    el("span", { class: "tm-l", text: more ? tr("Fewer") : tr("3 more") }),
+  ]));
 }
 // The clean-up at a glance: done, set aside, still to do.
 function renderProgress() {
@@ -800,11 +823,13 @@ function renderProgress() {
   host.append(
     el("div", { class: "progress-head" }, [
       el("span", { class: "progress-title", text: tr("Clean-up progress") }),
-      el("span", { class: "progress-text" }, [
+      // v14: two facts here, the rest on the bar itself. Five of them read as a
+      // paragraph in a toolbar and nobody reads a paragraph in a toolbar.
+      el("span", { class: "progress-text",
+        title: tr("{n} set aside", { n: aside }) + " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
+          (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : "") }, [
         el("b", { text: tr("{done} of {total} records done", { done, total: t.records }) }),
-        " · " + tr("{n} set aside", { n: aside }) + " · " + tr("{n} to go", { n: togo }) +
-        " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
-        (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : ""),
+        " · " + tr("{n} to go", { n: togo }),
       ]),
     ]),
     el("div", { class: "progress-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(t.records),
@@ -838,24 +863,30 @@ function renderToolbar() {
   if (isPhone()) return renderSearchPhone();
   const q = el("input", { type: "search", placeholder: tr("Name, reference or phone"), value: S.f.q,
     "aria-label": tr("Search by name, client reference or phone number"),
+    onfocus: () => { S.searchOpen = true; renderRecentDrop(); },
+    onblur: () => { setTimeout(() => { S.searchOpen = false; renderRecentDrop(); }, 120); },
+    onkeydown: (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();                       // the panel's handler stays out of it
+      if (S.searchOpen && $(".recent-drop")) { S.searchOpen = false; renderRecentDrop(); }
+      else e.target.blur();
+    },
     oninput: (e) => { clearTimeout(searchTimer); const v = e.target.value.trim(); searchTimer = setTimeout(() => setFilter({ q: v }), 280); } });
-  const activeCount = activeFilterCount();
   const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
+  // v14: one row — search, what is switched on, and the two actions. Everything
+  // else opens on request. ABC and Lifecycle have gone from here altogether:
+  // their column headings already hold the same checklist, and the bar was
+  // carrying nine controls on the chance one of them was wanted.
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
-    el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
-    canAdd() || canExport() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }),
-      el("div", { class: "field-btns" }, [addClientButton(), exportButton()])]) : null,
+    el("label", { class: "field search" }, [el("span", { class: "sr-only", text: tr("Search") }), q]),
     el("button", { class: "btn filters-toggle", type: "button", "aria-expanded": S.filtersOpen ? "true" : "false",
-      "aria-controls": "filters",
-      onclick: () => { S.filtersOpen = !S.filtersOpen; $("#toolbar").classList.toggle("open", S.filtersOpen);
-        $(".filters-toggle").setAttribute("aria-expanded", S.filtersOpen ? "true" : "false"); },
-      text: activeCount ? tr("Filters ({n})", { n: activeCount }) : tr("Filters") }),
+      "aria-controls": "filters", onclick: () => toggleFilters(), text: filtersLabel() }),
+    el("div", { class: "fpills", id: "fpills", role: "group", "aria-label": tr("Filters in force") }),
+    canAdd() || canExport() ? el("div", { class: "add-field" }, [addClientButton(), exportButton()]) : null,
     el("div", { class: "filters", id: "filters" }, [
       selectField(tr("Status"), "status", withMulti("status", tx(STATUS_OPTIONS))),
       selectField(tr("Owner"), "owner", withMulti("owner", ownerOptions())),
       selectField(tr("Records"), "type", tx(TYPES)),
-      selectField(tr("ABC"), "abc_class", withMulti("abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]])),
-      selectField(tr("Lifecycle"), "lifecycle_status", withMulti("lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)])))),
       segmentField(),
       selectField(tr("Not contacted"), "contact", tx(CONTACT_FILTER)),
       selectField(tr("Sort"), "sort", sortOptions()),
@@ -864,15 +895,52 @@ function renderToolbar() {
     ]),
   ]);
 }
+const filtersLabel = () => { const n = activeFilterCount(); return n ? tr("Filters ({n})", { n }) : tr("Filters"); };
+function toggleFilters(open) {
+  S.filtersOpen = typeof open === "boolean" ? open : !S.filtersOpen;
+  const bar = $("#toolbar");
+  if (bar) bar.classList.toggle("open", S.filtersOpen);
+  const btn = $(".filters-toggle");
+  if (btn) btn.setAttribute("aria-expanded", S.filtersOpen ? "true" : "false");
+  if (S.filtersOpen) { const first = $("#filters select"); if (first) first.focus(); }
+  syncSticky();
+}
+// Each filter in force, as a pill that can take itself off. That is the point
+// of folding the bar: the screen says what is on, not what is available.
+function renderPills() {
+  const host = $("#fpills");
+  if (!host) return;
+  host.innerHTML = "";
+  for (const p of activeFilterPills()) {
+    host.appendChild(el("span", { class: "fpill" }, [
+      el("b", { text: p.label }), el("span", { class: "fpv", text: p.value }),
+      el("button", { type: "button", class: "x", title: tr("Remove this filter"),
+        "aria-label": tr("Remove this filter") + ": " + p.label + " " + p.value,
+        onclick: p.clear, text: "×" }),
+    ]));
+  }
+  if (host.children.length > 1) {
+    host.appendChild(el("button", { type: "button", class: "linkish clear-all", onclick: resetFilters, text: tr("Clear all") }));
+  }
+}
+// The pinned header's height changes (the tiles fold, the language switches),
+// so the sticky offsets are measured rather than guessed.
+function syncSticky() {
+  const r = document.documentElement.style;
+  const top = $(".top"), bar = $("#toolbar");
+  r.setProperty("--top-h", (top ? Math.round(top.getBoundingClientRect().height) : 0) + "px");
+  r.setProperty("--bar-h", (bar && !isPhone() ? Math.round(bar.getBoundingClientRect().height) : 0) + "px");
+}
+window.addEventListener("resize", () => { clearTimeout(syncSticky.t); syncSticky.t = setTimeout(syncSticky, 120); });
+
 function renderToolbarValues() {
   refreshSelects();
   const btn = $(".filters-toggle");
-  if (btn) {
-    const n = activeFilterCount();
-    btn.textContent = n ? tr("Filters ({n})", { n }) : tr("Filters");
-  }
+  if (btn) btn.textContent = filtersLabel();
+  renderPills();
   renderScoreboard();
   renderQuick();
+  syncSticky();
 }
 function resetFilters() {
   S.f = blankFilters(); S.walkId = null;
@@ -917,13 +985,17 @@ function renderRow(r) {
   return el("tr", { tabindex: S.locked ? null : "0", "data-id": r.client_id, "aria-label": tr("Open {id}", { id: r.client_id }) + " — " + name,
     class: [r.review_status === "deleted" || r.review_status === "merged" ? "closed" : "", r.client_id === S.cardId ? "sel" : ""].join(" ").trim() || null,
     onclick: open, onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } } }, [
+    // v14: the name leads; the reference, where the record came from and any
+    // marks share one line under it instead of taking two.
     el("td", { class: "col-ref" }, [
       el("div", { class: "nm", text: name }),
-      el("div", { class: "ref" }, [el("span", { class: "id", text: r.client_id }),
+      el("div", { class: "ref" }, [
+        el("span", { class: "id", text: r.client_id }),
+        el("span", { class: "src", text: sourceLine(r) }),
         r.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related"), "dashed") : null,
         r.record_type === "prospect" ? chip({ glyph: "○", tone: "" }, tr("Prospect")) : null,
-        r.do_not_contact ? dncChip() : null]),
-      el("div", { class: "src", text: sourceLine(r) }),
+        r.do_not_contact ? dncChip() : null,
+      ]),
     ]),
     el("td", { class: "col-review" }, [statusChip(r)]),
     el("td", { class: "col-abc" }, [r.abc_class ? el("span", { class: "abc", "data-c": r.abc_class, text: r.abc_class }) : el("span", { class: "muted", text: "—" })]),
@@ -952,8 +1024,10 @@ function renderListHost() {
   const from = S.total ? S.f.offset + 1 : 0, to = Math.min(S.f.offset + PAGE, S.total);
   host.appendChild(el("div", { class: "listbar", role: "status", "aria-live": "polite" }, S.locked ? [] : [
     el("span", {}, [S.loading ? tr("Loading…") + " " : "", tr("Showing") + " ", el("b", { text: from + "–" + to }), " " + tr("of") + " ", el("b", { text: String(S.total) })]),
-    el("span", { class: "scope", text: describeFilters() }),
-    S.f.drill && S.f.drill.label ? el("span", { class: "drill" }, [
+    // v14: on a desktop the filter bar's pills say all of this, so the line
+    // here keeps to the count. The phone has no pills and still needs it.
+    isPhone() ? el("span", { class: "scope", text: describeFilters() }) : null,
+    isPhone() && S.f.drill && S.f.drill.label ? el("span", { class: "drill" }, [
       el("span", { class: "muted", text: tr("From insights") + ":" }), el("b", { text: S.f.drill.label }),
       el("button", { type: "button", class: "x", "aria-label": tr("Remove this filter") + ": " + S.f.drill.label, title: tr("Remove this filter"),
         onclick: () => { S.f.drill = null; S.f.offset = 0; renderToolbarValues(); loadList(); }, text: "×" }),
@@ -1916,7 +1990,9 @@ function renderAll(gateMessage) {
     renderScoreboard();
     renderProgress();
     renderQuick();
+    renderPills();
     renderListHost();
+    syncSticky();
   } else {
     app.append(
       header([el("div", { class: "scoreboard", id: "scoreboard" })]),
@@ -1926,7 +2002,9 @@ function renderAll(gateMessage) {
     renderScoreboard();
     renderProgress();
     renderQuick();
+    renderPills();
     renderListHost();
+    syncSticky();
   }
   if (S.navOpen) renderNav();
   syncSplit();

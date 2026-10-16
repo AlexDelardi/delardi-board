@@ -18,7 +18,7 @@ const canExport = () => !!(S.session && S.ref && S.ref.can_export);
 
 // The sheet's columns, in order. `get` turns one API row into one cell.
 const EXPORT_COLS = () => [
-  { label: tr("Reference"), width: 12, get: (r) => r.client_id },
+  { label: trSheet("Reference"), width: 12, get: (r) => r.client_id },
   { label: tr("Name"), width: 32, get: (r) => blank(r.display_name) ? "" : r.display_name },
   { label: tr("Phone"), width: 20, phone: true, get: (r) => exportPhone(r.phone_main) },
   { label: tr("Other numbers"), width: 24, phone: true,
@@ -110,7 +110,7 @@ function aboutSheet(meta, scope) {
   const rows = [
     [tr("Filters"), scope || tr("Everything on file")],
     [tr("Sort"), S.exp.kind === "birthdays" ? tr("Birthday") : tr((SORTS.find((s) => s[0] === S.f.sort) || ["", ""])[1])],
-    [tr("Records"), String(meta.total)],
+    [trSheet("Records"), String(meta.total)],
     [tr("Phone numbers"), meta.with_phones ? tr("Included") : tr("Left out")],
     [tr("Exported by"), meta.exported_by || ""],
     [tr("Exported at"), when.toLocaleString(LOC())],

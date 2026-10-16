@@ -56,6 +56,13 @@ function sheetRows(xml) {
     return out;
   });
 }
+// v14: ABC and Lifecycle have no select any more — their column checklist is
+// the filter. These drive the page's own code rather than poking at the DOM.
+const setColumnFilter = (page, col, values) =>
+  page.evaluate(([c, v]) => applyFacet(c, new Set(v), ["A", "B", "C", "__all"]), [col, values]);
+const clearFilters = (page) => page.evaluate(() => resetFilters());
+const openPanel = async (page) => { await page.click(".filters-toggle"); await page.waitForSelector(".toolbar.open #filters select"); };
+
 // click something that saves a file, and give back where it landed
 async function grabDownload(page, action) {
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 15000 }), action()]);
@@ -117,7 +124,8 @@ const measure = (page, scope) => page.evaluate((scope) => {
   const small = [...root.querySelectorAll("button, a[href], select, input, summary, [role=button]")].filter(vis).filter((n) => !rowTarget(n))
     .filter((n) => { const r = n.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; })
     .map((n) => (n.className || n.tagName) + " " + Math.round(n.getBoundingClientRect().width) + "x" + Math.round(n.getBoundingClientRect().height));
-  const texts = [...root.querySelectorAll("*")].filter((n) => [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()) && vis(n));
+  const texts = [...root.querySelectorAll("*")].filter((n) => [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()) && vis(n))
+    .filter((n) => !n.closest(".sr-only"));   // read aloud, never seen
   const tiny = texts.filter((n) => parseFloat(getComputedStyle(n).fontSize) < 12).map((n) => n.className || n.tagName);
   return { small, tiny };
 }, scope);
@@ -131,7 +139,9 @@ const measure = (page, scope) => page.evaluate((scope) => {
     await settled(page);
     check("list: rows and the count", (await page.$$("table.clients tbody tr")).length > 5 && /of 48/.test(await page.textContent(".listbar")));
     check("list: nine column headings", (await page.$$("table.clients thead th")).length === 9);
-    const names = await page.$$eval("select[data-key=owner] option", (os) => os.map((o) => o.textContent));
+    await openPanel(page);
+    const names = await page.$$eval("#filters select[data-key=owner] option", (os) => os.map((o) => o.textContent));
+    await page.keyboard.press("Escape");
     check("names: the owner filter offers people, not labels", names.includes("Dilnoza A.") && names.includes("Malika B.") && !names.some((n) => /Sales rep/.test(n)), names.join("|"));
     check("names: a former seller is marked as left", names.some((n) => /Shahnoza X\. \(left\)/.test(n)), names.join("|"));
     const row = await page.textContent("table.clients tbody tr:first-child");
@@ -148,6 +158,133 @@ const measure = (page, scope) => page.evaluate((scope) => {
       (await page.textContent("#drawer table.compare thead")).includes("Questionnaire"));
     await page.keyboard.press("Escape");
     check("no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
+  // ------------------------------------------- the filter bar, folded (v14)
+  {
+    const { ctx, page, errors } = await setup(browser, { width: 1440, height: 1000 });
+    await settled(page);
+    const onScreen = (sel) => page.$$eval(sel, (ns) => ns.filter((n) => n.getBoundingClientRect().width > 0).length);
+    check("bar: one row, not nine selects", await onScreen(".toolbar select") === 0);
+    check("bar: search, Filters and the two actions are what is on it",
+      await page.isVisible(".toolbar input[type=search]") && await page.isVisible(".filters-toggle")
+      && await page.isVisible('.toolbar [data-act="add-client"]') && await page.isVisible('.toolbar [data-act="export"]'));
+    check("bar: nothing on, nothing counted", (await page.textContent(".filters-toggle")).trim() === "Filters");
+    check("bar: and no pills", (await page.$$("#fpills .fpill")).length === 0);
+
+    // two filters, set the way the page sets them
+    await setColumnFilter(page, "abc", ["A", "B"]);
+    await settled(page);
+    await page.evaluate(() => setFilter({ status: "confirm" }));
+    await settled(page);
+    check("bar: the button counts what is on", (await page.textContent(".filters-toggle")).includes("(2)"),
+      await page.textContent(".filters-toggle"));
+    const pills = await page.$$eval("#fpills .fpill", (ns) => ns.map((n) => n.textContent.replace(/×$/, "").trim()));
+    check("bar: a pill for each, saying what it is", pills.length === 2
+      && pills.some((p) => /^Status\s*Needs confirming$/.test(p)) && pills.some((p) => /^ABC\s*A, B$/.test(p)), pills.join(" | "));
+    const narrowed = Number((await page.textContent(".listbar")).match(/of\s+(\d+)/)[1]);
+    check("bar: and the list is actually narrowed", narrowed < 48, String(narrowed));
+    check("bar: the list bar no longer repeats them on a desktop", !(await page.$(".listbar .scope")));
+
+    // a pill takes itself off
+    await page.click("#fpills .fpill:has-text('ABC') .x");
+    await settled(page);
+    check("bar: removing a pill removes that filter",
+      (await page.$$("#fpills .fpill")).length === 1 && (await page.textContent(".filters-toggle")).includes("(1)"));
+    check("bar: Clear all shows only when there is more than one", !(await page.$("#fpills .clear-all")));
+    await setColumnFilter(page, "abc", ["A"]);
+    await settled(page);
+    check("bar: Clear all is back with two", !!(await page.$("#fpills .clear-all")));
+    await page.click("#fpills .clear-all");
+    await settled(page);
+    check("bar: Clear all clears them", (await page.$$("#fpills .fpill")).length === 0
+      && (await page.textContent(".listbar")).includes("of 48"));
+
+    // the panel
+    await openPanel(page);
+    const inPanel = await page.$$eval("#filters .field > span", (ns) => ns.map((n) => n.textContent.trim()));
+    check("bar: the panel holds what has no column of its own",
+      ["Status", "Owner", "Records", "Not contacted", "Sort"].every((x) => inPanel.includes(x)), inPanel.join("|"));
+    check("bar: ABC and Lifecycle are not duplicated there",
+      !inPanel.includes("ABC") && !inPanel.includes("Lifecycle"), inPanel.join("|"));
+    check("bar: and Reset is in it", await page.isVisible("#filters .reset button"));
+    await page.keyboard.press("Escape");
+    check("bar: Escape closes the panel", !(await page.$(".toolbar.open")));
+
+    // the figures
+    check("tiles: three to start", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 3);
+    await page.click(".tiles-more");
+    await page.waitForTimeout(150);
+    check("tiles: six when asked", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 6);
+    await page.reload();
+    await page.waitForSelector("#list-host[aria-busy='false']");
+    check("tiles: the choice is remembered", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 6);
+    await page.click(".tiles-more");
+    await page.waitForTimeout(150);
+    check("tiles: and folds back", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 3);
+
+    // the clients opened recently, in the search box
+    for (const id of ["DLD-0003", "DLD-0007"]) {
+      await page.evaluate((x) => { location.hash = "#" + x; }, id);
+      await page.waitForTimeout(150);
+    }
+    await page.keyboard.press("Escape");
+    await settled(page);
+    check("recent: no band of its own on a desktop", !(await page.$(".quick .recent")));
+    await page.click(".toolbar input[type=search]");
+    await page.waitForSelector(".recent-drop");
+    check("recent: it is under the search box, with the clients just opened",
+      (await page.textContent(".recent-drop")).includes("DLD-0007"));
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+    check("recent: Escape closes it", !(await page.$(".recent-drop")));
+
+    // what stays put while 48 clients scroll
+    const room = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("table.clients tbody tr")];
+      const h = rows[1].getBoundingClientRect().height;
+      return { h: Math.round(h), fit: Math.floor((window.innerHeight - rows[0].getBoundingClientRect().top) / h) };
+    });
+    check("density: a screen holds nine clients or more", room.fit >= 9, JSON.stringify(room));
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await page.waitForTimeout(300);
+    const stuck = await page.evaluate(() => {
+      const top = document.querySelector(".top").getBoundingClientRect();
+      const bar = document.querySelector(".toolbar").getBoundingClientRect();
+      const th = document.querySelector("table.clients thead th").getBoundingClientRect();
+      return { gap1: Math.round(bar.top - top.bottom), gap2: Math.round(th.top - bar.bottom), scrolled: window.scrollY };
+    });
+    check("sticky: the filter bar stays under the header", Math.abs(stuck.gap1) <= 2, JSON.stringify(stuck));
+    check("sticky: the column headings stay under the bar", Math.abs(stuck.gap2) <= 2, JSON.stringify(stuck));
+    check("bar: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
+  // ---------------------------------------------- the same bar on an iPad
+  {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { touch: true });
+    await settled(page);
+    check("ipad: the bar is one row", await page.$eval(".toolbar", (n) => n.getBoundingClientRect().height < 70),
+      String(await page.$eval(".toolbar", (n) => Math.round(n.getBoundingClientRect().height))));
+    check("ipad: no sideways scroll", await noHScroll(page));
+    await page.evaluate(() => setFilter({ status: "confirm" }));
+    await settled(page);
+    check("ipad: the pill is there and can be taken off", !!(await page.$("#fpills .fpill .x")));
+    await openPanel(page);
+    const m = await measure(page, ".toolbar");
+    check("ipad: every control on the bar is at least 44 px", m.small.length === 0, m.small.join(", "));
+    check("ipad: no text under 12 px", m.tiny.length === 0, [...new Set(m.tiny)].join(", "));
+    await page.keyboard.press("Escape");
+    check("ipad: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+  {
+    const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 }, { touch: true });
+    await settled(page);
+    check("ipad portrait: no sideways scroll", await noHScroll(page));
+    check("ipad portrait: the filters button is reachable", await page.isVisible(".filters-toggle"));
+    check("ipad portrait: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }
 
@@ -226,7 +363,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("export: the button sits in the filter bar", await page.isVisible('.toolbar [data-act="export"]'));
 
     // narrow the list first: the file must be what the screen says, not everything
-    await page.selectOption("select[data-key=abc_class]", "A");
+    await setColumnFilter(page, "abc", ["A"]);
     await settled(page);
     const shown = Number((await page.textContent(".listbar")).match(/of\s+(\d+)/)[1]);
     await page.click('.toolbar [data-act="export"]');
@@ -294,8 +431,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
       sheetRows(partOf(plain.file, "xl/worksheets/sheet2.xml")).map((r) => r.join(" ")).join("\n").includes("Left out"));
 
     // everything, so the awkward records show up
-    await page.selectOption("select[data-key=abc_class]", "");
-    await page.selectOption("select[data-key=status]", "");
+    await clearFilters(page);
     await settled(page);
     await page.click('.toolbar [data-act="export"]');
     await page.waitForSelector("#expwrap .expbox");
@@ -386,6 +522,19 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("ru: the form", ["Добавить клиента", "Номер телефона", "Как познакомились", "Пришёл(ла) в бутик", "Ответственный"].every((x) => t.includes(x)), t.slice(0, 200));
     await page.keyboard.press("Escape");
     check("ru: Escape closes it", !(await page.$("#addwrap")));
+    const ruPills = await page.evaluate(async () => { setFilter({ status: "confirm" }); return true; });
+    await page.waitForSelector("#list-host[aria-busy='false']");
+    const ruPill = await page.textContent("#fpills .fpill");
+    check("ru: the pill", ruPills && /Статус/.test(ruPill) && /Нужно подтвердить/.test(ruPill), ruPill);
+    check("ru: the filters button counts in Russian", (await page.textContent(".filters-toggle")).includes("Фильтры (1)"),
+      await page.textContent(".filters-toggle"));
+    await page.click(".filters-toggle");
+    await page.waitForSelector(".toolbar.open #filters select");
+    const ruPanel = await page.textContent("#filters");
+    check("ru: the panel", ["Статус", "Ответственный", "Записи", "Сортировка"].every((x) => ruPanel.includes(x)), ruPanel.slice(0, 160));
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => resetFilters());
+    await page.waitForSelector("#list-host[aria-busy='false']");
     await page.click('.toolbar [data-act="export"]');
     await page.waitForSelector("#expwrap .expbox");
     const te = await page.textContent("#expwrap");

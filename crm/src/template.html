@@ -138,9 +138,17 @@ a { color: inherit; }
 
 /* -------------------------------------------------------------- scoreboard */
 .scoreboard {
-  display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)) auto;
   gap: 1px; background: var(--border); border-top: 1px solid var(--border);
 }
+/* v14: three tiles are the day's work; the other three fold in beside them. */
+.scoreboard.more-open { grid-template-columns: repeat(6, minmax(0,1fr)) auto; }
+.stat.tiles-more {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: auto;
+  padding: 11px 14px; color: var(--ink-2); font-size: 12.5px; white-space: nowrap;
+}
+.stat.tiles-more:hover { background: var(--surface-2); color: var(--ink); }
+.stat.tiles-more .tm-chev { font-size: 15px; line-height: 1; opacity: .7; }
 .stat {
   background: var(--surface); padding: 11px 16px 13px; min-width: 0;
   border: 0; text-align: left; font: inherit; color: inherit; display: block; width: 100%;
@@ -167,8 +175,8 @@ button.stat[aria-pressed="true"] { background: var(--surface-2); box-shadow: ins
 
 /* ---------------------------------------------------------------- toolbar */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px;
-  padding: 14px 22px 12px; background: var(--page);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  padding: 10px 22px; background: var(--page);
 }
 .toolbar .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .toolbar .field > span {
@@ -181,26 +189,90 @@ input[type=text], input[type=search], input[type=password], input[type=date], in
 select { padding-right: 26px; }
 .toolbar .search input { width: 215px; }
 .toolbar select { max-width: 190px; }
-.filters-toggle { display: none; }
-.toolbar .filters { display: contents; }
+/* v14: the filters fold away behind their own button. What is actually in
+   force shows as pills instead, so the bar says what is on rather than what
+   is available. */
+.filters-toggle { display: inline-flex; align-items: center; height: 36px; white-space: nowrap; }
+.filters-toggle::after { content: "▾"; font-size: 10px; margin-left: 7px; opacity: .6; }
+.toolbar.open .filters-toggle::after { content: "▴"; }
+.toolbar.open .filters-toggle { background: var(--surface-2); }
+.toolbar .filters { display: none; }
+.toolbar.open .filters {
+  display: grid; order: 100; width: 100%; margin-top: 2px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
+.toolbar.open .filters .field > span { display: block; font-size: 12px; }
+.toolbar .search input { height: 36px; }
+/* the clients opened recently, under the search box while it is in use */
+.toolbar .field.search { position: relative; }
+.recent-drop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: 300px; max-width: 80vw;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 6px; max-height: 320px; overflow-y: auto;
+}
+.recent-drop .rd-l {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  font-weight: 600; padding: 6px 8px 4px;
+}
+.recent-drop .rd-row {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; border: 0; background: none;
+  font: inherit; color: inherit; padding: 7px 8px; border-radius: 7px; cursor: pointer;
+}
+.recent-drop .rd-row:hover, .recent-drop .rd-row.sel { background: var(--surface-2); }
+.recent-drop .rd-row .rn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.recent-drop .rd-row .ri { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fpills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.fpill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 1;
+  padding: 7px 7px 7px 11px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink); max-width: 320px;
+}
+.fpill b { font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.fpill .fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpill .x {
+  border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1;
+  padding: 2px 4px; border-radius: 50%; flex: none;
+}
+.fpill .x:hover { color: var(--ink); background: var(--surface-2); }
+.fpills .clear-all { font-size: 12.5px; margin-left: 2px; }
+/* On a touch screen the pill is thumb-height and its × carries a 44px hit area
+   without being drawn any bigger. */
+@media (pointer: coarse) {
+  .fpill { min-height: 44px; padding-left: 13px; }
+  .fpill .x { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    margin: 0 -9px 0 -4px; }
+  .fpills .clear-all { min-height: 44px; display: inline-flex; align-items: center; padding: 0 6px; }
+}
+.toolbar .add-field { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 .listbar {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
   padding: 0 22px 10px; font-size: 13px; color: var(--ink-2);
+}
+/* v14: the filter bar and the column headings stay in view while the list
+   scrolls. --top-h is the pinned header's height, measured after each render
+   because the tiles can fold; --bar-h is this bar's. */
+@media (min-width: 721px) {
+  .toolbar { position: sticky; top: var(--top-h, 0px); z-index: 30; }
+  table.clients thead th { position: sticky; top: calc(var(--top-h, 0px) + var(--bar-h, 0px)); z-index: 2; }
 }
 .listbar b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .listbar .scope { color: var(--muted); }
 
 /* ------------------------------------------------------------------- list */
 .list-wrap { padding: 0 22px 70px; }
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); overflow: hidden; }
-table.clients { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* clip rather than hidden: hidden would make a scroll container of this box and
+   the sticky column headings inside it would stop sticking. */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); overflow: clip; }
+table.clients { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.clients th {
   text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
   color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border);
   background: var(--surface-2); white-space: nowrap;
 }
-table.clients td { padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+table.clients td { padding: 7px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
 table.clients tr:last-child td { border-bottom: 0; }
 table.clients tbody tr { cursor: pointer; }
 table.clients tbody tr:hover { background: var(--row-hover); }
@@ -209,7 +281,14 @@ table.clients tbody tr:focus-visible { outline: 2px solid var(--focus); outline-
 html { -webkit-tap-highlight-color: transparent; }
 table.clients tbody tr:active { background: var(--row-hover); }
 table.clients .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-table.clients .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; }
+/* v14: the name leads and the rest of the row recedes a step. */
+table.clients .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; font-size: 14.5px; }
+table.clients .col-seg, table.clients .col-life, table.clients .col-owner,
+table.clients .col-last, table.clients .col-contact { color: var(--ink-2); }
+table.clients .col-spend { font-weight: 600; color: var(--ink); }
+table.clients .ref .src { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+table.clients .ref { flex-wrap: nowrap; }
+@media (max-width: 1180px) { table.clients .ref { flex-wrap: wrap; } }
 table.clients .ref { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin-top: 2px; }
 table.clients .ref .id { font-size: 12px; color: var(--ink-2); letter-spacing: .01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 table.clients tr.closed td { opacity: .6; }
@@ -1261,7 +1340,6 @@ th.sorted .th-sort .arr { opacity: 1; }
 body.split table.clients td.col-contact { display: none; }
 
 /* ============================ v12: adding a client by hand (addclient.js) */
-.toolbar .add-field { margin-left: auto; }
 .btn.add-client { white-space: nowrap; }
 .find .btn.add-client { flex: none; }
 .addwrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; }

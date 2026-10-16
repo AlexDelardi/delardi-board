@@ -33,7 +33,6 @@ Object.assign(RU, {
   // the sheets and their headings
   "Clients": "Клиенты",
   "About this export": "Об этой выгрузке",
-  "Reference": "Код",
   "Name": "Имя",
   "Phone": "Телефон",
   "Other numbers": "Другие номера",
@@ -59,7 +58,6 @@ Object.assign(RU, {
   "No": "Нет",
   "Filters": "Фильтры",
   "Sort": "Сортировка",
-  "Records": "Записей",
   "Phone numbers": "Номера телефонов",
   "Included": "Включены",
   "Left out": "Не включены",
@@ -70,6 +68,13 @@ Object.assign(RU, {
   "Everything on file": "Все записи",
   "Birthdays in {month}": "Дни рождения, {month}",
 });
+
+// Two of the sheet's headings share an English word with the page, where the
+// Russian differs ("Reference" is Номер in the list but Код in a sheet;
+// "Records" is the filter's Записи but Записей in a count). The sheet keeps its
+// own wording here rather than overwriting the page's dictionary.
+const SHEET_RU = { "Reference": "Код", "Records": "Записей" };
+const trSheet = (k) => (LANG === "ru" && SHEET_RU[k]) || tr(k);
 
 /* ------------------------------------------------------------------- a zip */
 // STORE only: no compression, so no deflate to write or to get wrong.

@@ -387,8 +387,11 @@ function renderQuick() {
       .map(([k, label]) => qchip(tr(label), S.f.quick === k, () => setFilter({ quick: S.f.quick === k ? "" : k }))),
     qchip(tr("Do-not-contact left out"), S.f.dnc_out, () => setFilter({ dnc_out: !S.f.dnc_out })),
   ]));
+  // v14: on a phone the recently opened clients are a row of their own — it is
+  // the fastest way back to a card with one thumb. On a desktop the search box
+  // is right there, so they live inside it instead of taking a whole band.
   const rows = S.recentRows || [];
-  if (!S.f.q && rows.length) {
+  if (!S.f.q && rows.length && isPhone()) {
     host.append(el("div", { class: "recent" }, [
       el("span", { class: "recent-l", text: tr("Recently opened") }),
       el("div", { class: "recent-list" }, rows.map((r) => el("button", { type: "button", class: "rchip" + (r.client_id === S.cardId ? " sel" : ""),
@@ -397,6 +400,24 @@ function renderQuick() {
         el("span", { class: "ri", text: r.client_id })]))),
     ]));
   }
+  renderRecentDrop();
+}
+// The same list, under the search box, while it is focused and empty.
+function renderRecentDrop() {
+  const field = document.querySelector(".toolbar .field.search");
+  if (!field) return;
+  const old = field.querySelector(".recent-drop");
+  if (old) old.remove();
+  const rows = S.recentRows || [];
+  if (isPhone() || !S.searchOpen || S.f.q || !rows.length) return;
+  field.appendChild(el("div", { class: "recent-drop", role: "listbox", "aria-label": tr("Recently opened") }, [
+    el("div", { class: "rd-l", text: tr("Recently opened") }),
+    ...rows.map((r) => el("button", { type: "button", class: "rd-row" + (r.client_id === S.cardId ? " sel" : ""), role: "option",
+      onmousedown: (ev) => { ev.preventDefault(); },
+      onclick: () => { S.searchOpen = false; renderRecentDrop(); openCard(r.client_id); } }, [
+      el("span", { class: "rn", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
+      el("span", { class: "ri", text: r.client_id })])),
+  ]));
 }
 // The recently opened clients are kept on this device as references only;
 // their names come from the server each time.

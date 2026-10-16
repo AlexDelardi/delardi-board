@@ -28,6 +28,9 @@ just before the `/* ---- init */` marker in `app.js`:
 | `xlsx.js` | the workbook writer: a stored zip and the sheet XML, written by hand so the page still loads nothing from anywhere (v13) |
 | `export.js` | the download dialog, the sheet's columns and the file name (v13, 15 Oct 2026) |
 
+The filter bar, the pills and the folded panel live in `app.js` and `listx.js`;
+the sticky offsets are measured by `syncSticky()` into `--top-h` / `--bar-h`.
+
 The brand marks are substituted as data URIs, so the built file has no image
 request either. The build prints the size of what it wrote.
 
@@ -47,7 +50,9 @@ no edit right, a sales rep who edits but cannot download, the Russian page and
 the phone layout, including tap targets and sideways scroll. The downloaded
 workbook is opened back up with Python's own zipfile and, where it is installed,
 with openpyxl — a file that only opens in the thing that wrote it is not a file.
-83 checks as of 15 October 2026. The suite the earlier phases had was lost with
+122 checks as of 16 October 2026, covering the folded filter bar, the pills,
+the panel, the tiles toggle, the sticky offsets and how many clients fit on a
+screen. The suite the earlier phases had was lost with
 its workspace in October 2026; this one replaces it.
 
 ## The API

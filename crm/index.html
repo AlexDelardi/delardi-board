@@ -138,9 +138,17 @@ a { color: inherit; }
 
 /* -------------------------------------------------------------- scoreboard */
 .scoreboard {
-  display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)) auto;
   gap: 1px; background: var(--border); border-top: 1px solid var(--border);
 }
+/* v14: three tiles are the day's work; the other three fold in beside them. */
+.scoreboard.more-open { grid-template-columns: repeat(6, minmax(0,1fr)) auto; }
+.stat.tiles-more {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: auto;
+  padding: 11px 14px; color: var(--ink-2); font-size: 12.5px; white-space: nowrap;
+}
+.stat.tiles-more:hover { background: var(--surface-2); color: var(--ink); }
+.stat.tiles-more .tm-chev { font-size: 15px; line-height: 1; opacity: .7; }
 .stat {
   background: var(--surface); padding: 11px 16px 13px; min-width: 0;
   border: 0; text-align: left; font: inherit; color: inherit; display: block; width: 100%;
@@ -167,8 +175,8 @@ button.stat[aria-pressed="true"] { background: var(--surface-2); box-shadow: ins
 
 /* ---------------------------------------------------------------- toolbar */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px;
-  padding: 14px 22px 12px; background: var(--page);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  padding: 10px 22px; background: var(--page);
 }
 .toolbar .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .toolbar .field > span {
@@ -181,26 +189,90 @@ input[type=text], input[type=search], input[type=password], input[type=date], in
 select { padding-right: 26px; }
 .toolbar .search input { width: 215px; }
 .toolbar select { max-width: 190px; }
-.filters-toggle { display: none; }
-.toolbar .filters { display: contents; }
+/* v14: the filters fold away behind their own button. What is actually in
+   force shows as pills instead, so the bar says what is on rather than what
+   is available. */
+.filters-toggle { display: inline-flex; align-items: center; height: 36px; white-space: nowrap; }
+.filters-toggle::after { content: "▾"; font-size: 10px; margin-left: 7px; opacity: .6; }
+.toolbar.open .filters-toggle::after { content: "▴"; }
+.toolbar.open .filters-toggle { background: var(--surface-2); }
+.toolbar .filters { display: none; }
+.toolbar.open .filters {
+  display: grid; order: 100; width: 100%; margin-top: 2px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
+.toolbar.open .filters .field > span { display: block; font-size: 12px; }
+.toolbar .search input { height: 36px; }
+/* the clients opened recently, under the search box while it is in use */
+.toolbar .field.search { position: relative; }
+.recent-drop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: 300px; max-width: 80vw;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 6px; max-height: 320px; overflow-y: auto;
+}
+.recent-drop .rd-l {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  font-weight: 600; padding: 6px 8px 4px;
+}
+.recent-drop .rd-row {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; border: 0; background: none;
+  font: inherit; color: inherit; padding: 7px 8px; border-radius: 7px; cursor: pointer;
+}
+.recent-drop .rd-row:hover, .recent-drop .rd-row.sel { background: var(--surface-2); }
+.recent-drop .rd-row .rn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.recent-drop .rd-row .ri { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fpills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.fpill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 1;
+  padding: 7px 7px 7px 11px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink); max-width: 320px;
+}
+.fpill b { font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.fpill .fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpill .x {
+  border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1;
+  padding: 2px 4px; border-radius: 50%; flex: none;
+}
+.fpill .x:hover { color: var(--ink); background: var(--surface-2); }
+.fpills .clear-all { font-size: 12.5px; margin-left: 2px; }
+/* On a touch screen the pill is thumb-height and its × carries a 44px hit area
+   without being drawn any bigger. */
+@media (pointer: coarse) {
+  .fpill { min-height: 44px; padding-left: 13px; }
+  .fpill .x { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    margin: 0 -9px 0 -4px; }
+  .fpills .clear-all { min-height: 44px; display: inline-flex; align-items: center; padding: 0 6px; }
+}
+.toolbar .add-field { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 .listbar {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
   padding: 0 22px 10px; font-size: 13px; color: var(--ink-2);
+}
+/* v14: the filter bar and the column headings stay in view while the list
+   scrolls. --top-h is the pinned header's height, measured after each render
+   because the tiles can fold; --bar-h is this bar's. */
+@media (min-width: 721px) {
+  .toolbar { position: sticky; top: var(--top-h, 0px); z-index: 30; }
+  table.clients thead th { position: sticky; top: calc(var(--top-h, 0px) + var(--bar-h, 0px)); z-index: 2; }
 }
 .listbar b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .listbar .scope { color: var(--muted); }
 
 /* ------------------------------------------------------------------- list */
 .list-wrap { padding: 0 22px 70px; }
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); overflow: hidden; }
-table.clients { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* clip rather than hidden: hidden would make a scroll container of this box and
+   the sticky column headings inside it would stop sticking. */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); overflow: clip; }
+table.clients { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.clients th {
   text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
   color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border);
   background: var(--surface-2); white-space: nowrap;
 }
-table.clients td { padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+table.clients td { padding: 7px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
 table.clients tr:last-child td { border-bottom: 0; }
 table.clients tbody tr { cursor: pointer; }
 table.clients tbody tr:hover { background: var(--row-hover); }
@@ -209,7 +281,14 @@ table.clients tbody tr:focus-visible { outline: 2px solid var(--focus); outline-
 html { -webkit-tap-highlight-color: transparent; }
 table.clients tbody tr:active { background: var(--row-hover); }
 table.clients .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-table.clients .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; }
+/* v14: the name leads and the rest of the row recedes a step. */
+table.clients .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; font-size: 14.5px; }
+table.clients .col-seg, table.clients .col-life, table.clients .col-owner,
+table.clients .col-last, table.clients .col-contact { color: var(--ink-2); }
+table.clients .col-spend { font-weight: 600; color: var(--ink); }
+table.clients .ref .src { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+table.clients .ref { flex-wrap: nowrap; }
+@media (max-width: 1180px) { table.clients .ref { flex-wrap: wrap; } }
 table.clients .ref { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin-top: 2px; }
 table.clients .ref .id { font-size: 12px; color: var(--ink-2); letter-spacing: .01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 table.clients tr.closed td { opacity: .6; }
@@ -1261,7 +1340,6 @@ th.sorted .th-sort .arr { opacity: 1; }
 body.split table.clients td.col-contact { display: none; }
 
 /* ============================ v12: adding a client by hand (addclient.js) */
-.toolbar .add-field { margin-left: auto; }
 .btn.add-client { white-space: nowrap; }
 .find .btn.add-client { flex: none; }
 .addwrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -1461,6 +1539,12 @@ const RU = {
   "of": "из",
   "No records match these filters.": "Нет записей по этим фильтрам.",
   "Clear filters": "Сбросить фильтры",
+  "Clear all": "Сбросить всё",
+  "3 more": "Ещё 3",
+  "Fewer": "Свернуть",
+  "Show the other figures": "Показать остальные показатели",
+  "Show fewer figures": "Показать меньше показателей",
+  "Filters in force": "Включённые фильтры",
   "Try again": "Повторить",
   "← Previous": "← Назад",
   "Next →": "Далее →",
@@ -2063,6 +2147,11 @@ function ownerTile(st, f, locked) {
     subTitle: locked ? "" : fullUZS(shared ? shared.spend : 0) + " — " + tr("Retail clients on the shared win-back list, worked by the whole team"),
     pressed, onclick });
 }
+// v14: three tiles do the day's work — what needs deciding, what needs
+// confirming, what is done. The other three are reference, not a task, and
+// fold away behind a toggle that each device remembers.
+const MORE_TILES_KEY = "crm_tiles_more";
+function moreTilesOpen() { return pref(MORE_TILES_KEY) === "1"; }
 function renderScoreboard() {
   const host = $("#scoreboard");
   if (!host) return;
@@ -2070,6 +2159,8 @@ function renderScoreboard() {
   const t = S.ref && S.ref.totals, st = S.stats;
   const locked = S.locked || !t || !st;
   const f = S.f;
+  const more = moreTilesOpen();
+  host.classList.toggle("more-open", more);
   const toggle = (status) => () => setFilter({ status: f.status === status ? "" : status });
   host.append(
     tile({ label: tr("Needs a decision"), tone: "serious",
@@ -2080,24 +2171,34 @@ function renderScoreboard() {
       val: locked ? "—" : String(t.confirm),
       sub: locked ? "——" : tr("{n} from one source only", { n: pl(t.gap_fields, "field") }),
       pressed: f.status === "confirm", onclick: locked ? null : toggle("confirm") }),
-    tile({ label: tr("Set aside"),
-      val: locked ? "—" : String(t.set_aside),
-      sub: locked ? "——" : tr("waiting on the client or a check"),
-      pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
     tile({ label: tr("Done"), tone: "good",
       val: locked ? "—" : String(t.done),
       sub: locked ? "——" : tr("{checked} checked · {clean} matched", { checked: t.checked, clean: t.clean }),
       pressed: f.status === "done", onclick: locked ? null : toggle("done") }),
-    ownerTile(st, f, locked),
-    tile({ label: tr("Retail clients"),
-      val: locked ? "—" : String(st.clients),
-      sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
-        { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
-      subTitle: locked ? "" : fullUZS(st.total_spend),
-      pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
-      onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
-        owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
   );
+  if (more) {
+    host.append(
+      tile({ label: tr("Set aside"),
+        val: locked ? "—" : String(t.set_aside),
+        sub: locked ? "——" : tr("waiting on the client or a check"),
+        pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
+      ownerTile(st, f, locked),
+      tile({ label: tr("Retail clients"),
+        val: locked ? "—" : String(st.clients),
+        sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
+          { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
+        subTitle: locked ? "" : fullUZS(st.total_spend),
+        pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
+        onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
+          owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
+    );
+  }
+  host.append(el("button", { class: "stat tiles-more", type: "button", "aria-expanded": more ? "true" : "false",
+    onclick: () => { pref(MORE_TILES_KEY, more ? null : "1"); renderScoreboard(); syncSticky(); },
+    title: more ? tr("Show fewer figures") : tr("Show the other figures") }, [
+    el("span", { class: "tm-chev", "aria-hidden": "true", text: more ? "‹" : "›" }),
+    el("span", { class: "tm-l", text: more ? tr("Fewer") : tr("3 more") }),
+  ]));
 }
 // The clean-up at a glance: done, set aside, still to do.
 function renderProgress() {
@@ -2112,11 +2213,13 @@ function renderProgress() {
   host.append(
     el("div", { class: "progress-head" }, [
       el("span", { class: "progress-title", text: tr("Clean-up progress") }),
-      el("span", { class: "progress-text" }, [
+      // v14: two facts here, the rest on the bar itself. Five of them read as a
+      // paragraph in a toolbar and nobody reads a paragraph in a toolbar.
+      el("span", { class: "progress-text",
+        title: tr("{n} set aside", { n: aside }) + " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
+          (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : "") }, [
         el("b", { text: tr("{done} of {total} records done", { done, total: t.records }) }),
-        " · " + tr("{n} set aside", { n: aside }) + " · " + tr("{n} to go", { n: togo }) +
-        " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
-        (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : ""),
+        " · " + tr("{n} to go", { n: togo }),
       ]),
     ]),
     el("div", { class: "progress-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(t.records),
@@ -2150,24 +2253,30 @@ function renderToolbar() {
   if (isPhone()) return renderSearchPhone();
   const q = el("input", { type: "search", placeholder: tr("Name, reference or phone"), value: S.f.q,
     "aria-label": tr("Search by name, client reference or phone number"),
+    onfocus: () => { S.searchOpen = true; renderRecentDrop(); },
+    onblur: () => { setTimeout(() => { S.searchOpen = false; renderRecentDrop(); }, 120); },
+    onkeydown: (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();                       // the panel's handler stays out of it
+      if (S.searchOpen && $(".recent-drop")) { S.searchOpen = false; renderRecentDrop(); }
+      else e.target.blur();
+    },
     oninput: (e) => { clearTimeout(searchTimer); const v = e.target.value.trim(); searchTimer = setTimeout(() => setFilter({ q: v }), 280); } });
-  const activeCount = activeFilterCount();
   const tx = (list) => list.map(([v, t]) => [v, tr(t)]);
+  // v14: one row — search, what is switched on, and the two actions. Everything
+  // else opens on request. ABC and Lifecycle have gone from here altogether:
+  // their column headings already hold the same checklist, and the bar was
+  // carrying nine controls on the chance one of them was wanted.
   return el("div", { class: "toolbar" + (S.filtersOpen ? " open" : ""), id: "toolbar" }, [
-    el("label", { class: "field search" }, [el("span", { text: tr("Search") }), q]),
-    canAdd() || canExport() ? el("div", { class: "field add-field" }, [el("span", { "aria-hidden": "true", text: " " }),
-      el("div", { class: "field-btns" }, [addClientButton(), exportButton()])]) : null,
+    el("label", { class: "field search" }, [el("span", { class: "sr-only", text: tr("Search") }), q]),
     el("button", { class: "btn filters-toggle", type: "button", "aria-expanded": S.filtersOpen ? "true" : "false",
-      "aria-controls": "filters",
-      onclick: () => { S.filtersOpen = !S.filtersOpen; $("#toolbar").classList.toggle("open", S.filtersOpen);
-        $(".filters-toggle").setAttribute("aria-expanded", S.filtersOpen ? "true" : "false"); },
-      text: activeCount ? tr("Filters ({n})", { n: activeCount }) : tr("Filters") }),
+      "aria-controls": "filters", onclick: () => toggleFilters(), text: filtersLabel() }),
+    el("div", { class: "fpills", id: "fpills", role: "group", "aria-label": tr("Filters in force") }),
+    canAdd() || canExport() ? el("div", { class: "add-field" }, [addClientButton(), exportButton()]) : null,
     el("div", { class: "filters", id: "filters" }, [
       selectField(tr("Status"), "status", withMulti("status", tx(STATUS_OPTIONS))),
       selectField(tr("Owner"), "owner", withMulti("owner", ownerOptions())),
       selectField(tr("Records"), "type", tx(TYPES)),
-      selectField(tr("ABC"), "abc_class", withMulti("abc_class", [["", tr("Any class")], ["A", "A"], ["B", "B"], ["C", "C"]])),
-      selectField(tr("Lifecycle"), "lifecycle_status", withMulti("lifecycle_status", [["", tr("Any")]].concat(LIFECYCLES.map((l) => [l, tr(l)])))),
       segmentField(),
       selectField(tr("Not contacted"), "contact", tx(CONTACT_FILTER)),
       selectField(tr("Sort"), "sort", sortOptions()),
@@ -2176,15 +2285,52 @@ function renderToolbar() {
     ]),
   ]);
 }
+const filtersLabel = () => { const n = activeFilterCount(); return n ? tr("Filters ({n})", { n }) : tr("Filters"); };
+function toggleFilters(open) {
+  S.filtersOpen = typeof open === "boolean" ? open : !S.filtersOpen;
+  const bar = $("#toolbar");
+  if (bar) bar.classList.toggle("open", S.filtersOpen);
+  const btn = $(".filters-toggle");
+  if (btn) btn.setAttribute("aria-expanded", S.filtersOpen ? "true" : "false");
+  if (S.filtersOpen) { const first = $("#filters select"); if (first) first.focus(); }
+  syncSticky();
+}
+// Each filter in force, as a pill that can take itself off. That is the point
+// of folding the bar: the screen says what is on, not what is available.
+function renderPills() {
+  const host = $("#fpills");
+  if (!host) return;
+  host.innerHTML = "";
+  for (const p of activeFilterPills()) {
+    host.appendChild(el("span", { class: "fpill" }, [
+      el("b", { text: p.label }), el("span", { class: "fpv", text: p.value }),
+      el("button", { type: "button", class: "x", title: tr("Remove this filter"),
+        "aria-label": tr("Remove this filter") + ": " + p.label + " " + p.value,
+        onclick: p.clear, text: "×" }),
+    ]));
+  }
+  if (host.children.length > 1) {
+    host.appendChild(el("button", { type: "button", class: "linkish clear-all", onclick: resetFilters, text: tr("Clear all") }));
+  }
+}
+// The pinned header's height changes (the tiles fold, the language switches),
+// so the sticky offsets are measured rather than guessed.
+function syncSticky() {
+  const r = document.documentElement.style;
+  const top = $(".top"), bar = $("#toolbar");
+  r.setProperty("--top-h", (top ? Math.round(top.getBoundingClientRect().height) : 0) + "px");
+  r.setProperty("--bar-h", (bar && !isPhone() ? Math.round(bar.getBoundingClientRect().height) : 0) + "px");
+}
+window.addEventListener("resize", () => { clearTimeout(syncSticky.t); syncSticky.t = setTimeout(syncSticky, 120); });
+
 function renderToolbarValues() {
   refreshSelects();
   const btn = $(".filters-toggle");
-  if (btn) {
-    const n = activeFilterCount();
-    btn.textContent = n ? tr("Filters ({n})", { n }) : tr("Filters");
-  }
+  if (btn) btn.textContent = filtersLabel();
+  renderPills();
   renderScoreboard();
   renderQuick();
+  syncSticky();
 }
 function resetFilters() {
   S.f = blankFilters(); S.walkId = null;
@@ -2229,13 +2375,17 @@ function renderRow(r) {
   return el("tr", { tabindex: S.locked ? null : "0", "data-id": r.client_id, "aria-label": tr("Open {id}", { id: r.client_id }) + " — " + name,
     class: [r.review_status === "deleted" || r.review_status === "merged" ? "closed" : "", r.client_id === S.cardId ? "sel" : ""].join(" ").trim() || null,
     onclick: open, onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } } }, [
+    // v14: the name leads; the reference, where the record came from and any
+    // marks share one line under it instead of taking two.
     el("td", { class: "col-ref" }, [
       el("div", { class: "nm", text: name }),
-      el("div", { class: "ref" }, [el("span", { class: "id", text: r.client_id }),
+      el("div", { class: "ref" }, [
+        el("span", { class: "id", text: r.client_id }),
+        el("span", { class: "src", text: sourceLine(r) }),
         r.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related"), "dashed") : null,
         r.record_type === "prospect" ? chip({ glyph: "○", tone: "" }, tr("Prospect")) : null,
-        r.do_not_contact ? dncChip() : null]),
-      el("div", { class: "src", text: sourceLine(r) }),
+        r.do_not_contact ? dncChip() : null,
+      ]),
     ]),
     el("td", { class: "col-review" }, [statusChip(r)]),
     el("td", { class: "col-abc" }, [r.abc_class ? el("span", { class: "abc", "data-c": r.abc_class, text: r.abc_class }) : el("span", { class: "muted", text: "—" })]),
@@ -2264,8 +2414,10 @@ function renderListHost() {
   const from = S.total ? S.f.offset + 1 : 0, to = Math.min(S.f.offset + PAGE, S.total);
   host.appendChild(el("div", { class: "listbar", role: "status", "aria-live": "polite" }, S.locked ? [] : [
     el("span", {}, [S.loading ? tr("Loading…") + " " : "", tr("Showing") + " ", el("b", { text: from + "–" + to }), " " + tr("of") + " ", el("b", { text: String(S.total) })]),
-    el("span", { class: "scope", text: describeFilters() }),
-    S.f.drill && S.f.drill.label ? el("span", { class: "drill" }, [
+    // v14: on a desktop the filter bar's pills say all of this, so the line
+    // here keeps to the count. The phone has no pills and still needs it.
+    isPhone() ? el("span", { class: "scope", text: describeFilters() }) : null,
+    isPhone() && S.f.drill && S.f.drill.label ? el("span", { class: "drill" }, [
       el("span", { class: "muted", text: tr("From insights") + ":" }), el("b", { text: S.f.drill.label }),
       el("button", { type: "button", class: "x", "aria-label": tr("Remove this filter") + ": " + S.f.drill.label, title: tr("Remove this filter"),
         onclick: () => { S.f.drill = null; S.f.offset = 0; renderToolbarValues(); loadList(); }, text: "×" }),
@@ -5016,8 +5168,11 @@ function renderQuick() {
       .map(([k, label]) => qchip(tr(label), S.f.quick === k, () => setFilter({ quick: S.f.quick === k ? "" : k }))),
     qchip(tr("Do-not-contact left out"), S.f.dnc_out, () => setFilter({ dnc_out: !S.f.dnc_out })),
   ]));
+  // v14: on a phone the recently opened clients are a row of their own — it is
+  // the fastest way back to a card with one thumb. On a desktop the search box
+  // is right there, so they live inside it instead of taking a whole band.
   const rows = S.recentRows || [];
-  if (!S.f.q && rows.length) {
+  if (!S.f.q && rows.length && isPhone()) {
     host.append(el("div", { class: "recent" }, [
       el("span", { class: "recent-l", text: tr("Recently opened") }),
       el("div", { class: "recent-list" }, rows.map((r) => el("button", { type: "button", class: "rchip" + (r.client_id === S.cardId ? " sel" : ""),
@@ -5026,6 +5181,24 @@ function renderQuick() {
         el("span", { class: "ri", text: r.client_id })]))),
     ]));
   }
+  renderRecentDrop();
+}
+// The same list, under the search box, while it is focused and empty.
+function renderRecentDrop() {
+  const field = document.querySelector(".toolbar .field.search");
+  if (!field) return;
+  const old = field.querySelector(".recent-drop");
+  if (old) old.remove();
+  const rows = S.recentRows || [];
+  if (isPhone() || !S.searchOpen || S.f.q || !rows.length) return;
+  field.appendChild(el("div", { class: "recent-drop", role: "listbox", "aria-label": tr("Recently opened") }, [
+    el("div", { class: "rd-l", text: tr("Recently opened") }),
+    ...rows.map((r) => el("button", { type: "button", class: "rd-row" + (r.client_id === S.cardId ? " sel" : ""), role: "option",
+      onmousedown: (ev) => { ev.preventDefault(); },
+      onclick: () => { S.searchOpen = false; renderRecentDrop(); openCard(r.client_id); } }, [
+      el("span", { class: "rn", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
+      el("span", { class: "ri", text: r.client_id })])),
+  ]));
 }
 // The recently opened clients are kept on this device as references only;
 // their names come from the server each time.
@@ -6700,6 +6873,7 @@ Object.assign(RU, {
   "90+ days": "90+ дней",
   "not contacted in {n} days": "без контакта {n} дн.",
   "{col}: {vals}": "{col}: {vals}",
+  "{n}+ days": "{n}+ дней",
   "Name A–Z": "По имени, А–Я",
   "Most recent contact": "Недавний контакт",
   "Longest since contact": "Давно без контакта",
@@ -6811,6 +6985,43 @@ function listParamsX(f, p) {
   }
   return p;
 }
+// v14: what is switched on, as one list — the filter bar shows these as pills
+// instead of nine selects standing by in case they are wanted. One entry per
+// thing in force, each able to take itself off.
+// Escape closes the filter panel, as it does every other layer here.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.filtersOpen && !S.cardId && !S.add && !S.exp) {
+    const btn = document.querySelector(".filters-toggle");
+    toggleFilters(false);
+    if (btn) btn.focus();
+  }
+});
+
+function activeFilterPills() {
+  const f = S.f, m = f.multi || {}, out = [];
+  const clearSel = (k) => () => setFilter({ [k]: "" });
+  const clearMulti = (col) => () => setFilter({ multi: { ...S.f.multi, [col]: [] } });
+  // the single-value selects
+  if (f.status) out.push({ label: tr("Status"), value: tr((STATUS_OPTIONS.find((o) => o[0] === f.status) || ["", f.status])[1]), clear: clearSel("status") });
+  if (f.owner) out.push({ label: tr("Owner"), value: (ownerOptions().find((o) => o[0] === f.owner) || ["", f.owner])[1], clear: clearSel("owner") });
+  if (f.type) out.push({ label: tr("Records"), value: tr((TYPES.find((t) => t[0] === f.type) || ["", f.type])[1]), clear: clearSel("type") });
+  if (f.abc_class) out.push({ label: "ABC", value: f.abc_class, clear: clearSel("abc_class") });
+  if (f.lifecycle_status) out.push({ label: tr("Lifecycle"), value: tr(f.lifecycle_status), clear: clearSel("lifecycle_status") });
+  // the column checklists, where more than one value is chosen
+  for (const col of FACETS) {
+    const v = m[col] || [];
+    if (!v.length) continue;
+    const def = LIST_COLS.find((c) => c[0] === col);
+    out.push({ label: col === "abc" ? "ABC" : tr(def[1]), value: v.map((x) => facetLabel(col, x)).join(", "), clear: clearMulti(col) });
+  }
+  if (f.contact) out.push({ label: tr("Not contacted"), value: tr("{n}+ days", { n: f.contact }), clear: clearSel("contact") });
+  if (f.drill && f.drill.label) {
+    out.push({ label: tr("From insights"), value: f.drill.label,
+      clear: () => { S.f.drill = null; S.f.offset = 0; renderToolbarValues(); loadList(); } });
+  }
+  return out;
+}
+
 function describeFiltersX() {
   const f = S.f, m = f.multi || {}, parts = [];
   for (const col of FACETS) {
@@ -7337,7 +7548,6 @@ Object.assign(RU, {
   // the sheets and their headings
   "Clients": "Клиенты",
   "About this export": "Об этой выгрузке",
-  "Reference": "Код",
   "Name": "Имя",
   "Phone": "Телефон",
   "Other numbers": "Другие номера",
@@ -7363,7 +7573,6 @@ Object.assign(RU, {
   "No": "Нет",
   "Filters": "Фильтры",
   "Sort": "Сортировка",
-  "Records": "Записей",
   "Phone numbers": "Номера телефонов",
   "Included": "Включены",
   "Left out": "Не включены",
@@ -7374,6 +7583,13 @@ Object.assign(RU, {
   "Everything on file": "Все записи",
   "Birthdays in {month}": "Дни рождения, {month}",
 });
+
+// Two of the sheet's headings share an English word with the page, where the
+// Russian differs ("Reference" is Номер in the list but Код in a sheet;
+// "Records" is the filter's Записи but Записей in a count). The sheet keeps its
+// own wording here rather than overwriting the page's dictionary.
+const SHEET_RU = { "Reference": "Код", "Records": "Записей" };
+const trSheet = (k) => (LANG === "ru" && SHEET_RU[k]) || tr(k);
 
 /* ------------------------------------------------------------------- a zip */
 // STORE only: no compression, so no deflate to write or to get wrong.
@@ -7606,7 +7822,7 @@ const canExport = () => !!(S.session && S.ref && S.ref.can_export);
 
 // The sheet's columns, in order. `get` turns one API row into one cell.
 const EXPORT_COLS = () => [
-  { label: tr("Reference"), width: 12, get: (r) => r.client_id },
+  { label: trSheet("Reference"), width: 12, get: (r) => r.client_id },
   { label: tr("Name"), width: 32, get: (r) => blank(r.display_name) ? "" : r.display_name },
   { label: tr("Phone"), width: 20, phone: true, get: (r) => exportPhone(r.phone_main) },
   { label: tr("Other numbers"), width: 24, phone: true,
@@ -7698,7 +7914,7 @@ function aboutSheet(meta, scope) {
   const rows = [
     [tr("Filters"), scope || tr("Everything on file")],
     [tr("Sort"), S.exp.kind === "birthdays" ? tr("Birthday") : tr((SORTS.find((s) => s[0] === S.f.sort) || ["", ""])[1])],
-    [tr("Records"), String(meta.total)],
+    [trSheet("Records"), String(meta.total)],
     [tr("Phone numbers"), meta.with_phones ? tr("Included") : tr("Left out")],
     [tr("Exported by"), meta.exported_by || ""],
     [tr("Exported at"), when.toLocaleString(LOC())],
@@ -7827,7 +8043,9 @@ function renderAll(gateMessage) {
     renderScoreboard();
     renderProgress();
     renderQuick();
+    renderPills();
     renderListHost();
+    syncSticky();
   } else {
     app.append(
       header([el("div", { class: "scoreboard", id: "scoreboard" })]),
@@ -7837,7 +8055,9 @@ function renderAll(gateMessage) {
     renderScoreboard();
     renderProgress();
     renderQuick();
+    renderPills();
     renderListHost();
+    syncSticky();
   }
   if (S.navOpen) renderNav();
   syncSplit();

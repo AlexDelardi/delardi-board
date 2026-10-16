@@ -171,6 +171,17 @@ It follows the same model as the board, with its own API and its own right:
   unconfirmed ones marked on screen and in the file (15 Oct 2026). Insights has
   a month picker that downloads that month’s greeting list, sorted by day, with
   do-not-contact clients left out.
+- **The screen above the list** was taken apart on 16 Oct 2026. The filter bar is
+  one row — search, a **Filters** button with a count, a pill for each filter in
+  force (each able to take itself off), and the two actions on the right. The
+  selects fold into a panel behind that button, and ABC and Lifecycle have gone
+  from it altogether: their column headings already hold the same checklist. The
+  clean-up tiles show three figures with the other three behind a toggle each
+  device remembers; the clients opened recently moved into the search box (they
+  keep their own row on a phone); the filter bar and the column headings stay in
+  view while the list scrolls; and the rows are tighter — the name leads and the
+  reference, the source and any marks share one line. **Four clients fitted on a
+  1000px screen before; ten do now.**
 
 ## Updating a page
 

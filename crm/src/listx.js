@@ -34,6 +34,7 @@ Object.assign(RU, {
   "90+ days": "90+ дней",
   "not contacted in {n} days": "без контакта {n} дн.",
   "{col}: {vals}": "{col}: {vals}",
+  "{n}+ days": "{n}+ дней",
   "Name A–Z": "По имени, А–Я",
   "Most recent contact": "Недавний контакт",
   "Longest since contact": "Давно без контакта",
@@ -145,6 +146,43 @@ function listParamsX(f, p) {
   }
   return p;
 }
+// v14: what is switched on, as one list — the filter bar shows these as pills
+// instead of nine selects standing by in case they are wanted. One entry per
+// thing in force, each able to take itself off.
+// Escape closes the filter panel, as it does every other layer here.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.filtersOpen && !S.cardId && !S.add && !S.exp) {
+    const btn = document.querySelector(".filters-toggle");
+    toggleFilters(false);
+    if (btn) btn.focus();
+  }
+});
+
+function activeFilterPills() {
+  const f = S.f, m = f.multi || {}, out = [];
+  const clearSel = (k) => () => setFilter({ [k]: "" });
+  const clearMulti = (col) => () => setFilter({ multi: { ...S.f.multi, [col]: [] } });
+  // the single-value selects
+  if (f.status) out.push({ label: tr("Status"), value: tr((STATUS_OPTIONS.find((o) => o[0] === f.status) || ["", f.status])[1]), clear: clearSel("status") });
+  if (f.owner) out.push({ label: tr("Owner"), value: (ownerOptions().find((o) => o[0] === f.owner) || ["", f.owner])[1], clear: clearSel("owner") });
+  if (f.type) out.push({ label: tr("Records"), value: tr((TYPES.find((t) => t[0] === f.type) || ["", f.type])[1]), clear: clearSel("type") });
+  if (f.abc_class) out.push({ label: "ABC", value: f.abc_class, clear: clearSel("abc_class") });
+  if (f.lifecycle_status) out.push({ label: tr("Lifecycle"), value: tr(f.lifecycle_status), clear: clearSel("lifecycle_status") });
+  // the column checklists, where more than one value is chosen
+  for (const col of FACETS) {
+    const v = m[col] || [];
+    if (!v.length) continue;
+    const def = LIST_COLS.find((c) => c[0] === col);
+    out.push({ label: col === "abc" ? "ABC" : tr(def[1]), value: v.map((x) => facetLabel(col, x)).join(", "), clear: clearMulti(col) });
+  }
+  if (f.contact) out.push({ label: tr("Not contacted"), value: tr("{n}+ days", { n: f.contact }), clear: clearSel("contact") });
+  if (f.drill && f.drill.label) {
+    out.push({ label: tr("From insights"), value: f.drill.label,
+      clear: () => { S.f.drill = null; S.f.offset = 0; renderToolbarValues(); loadList(); } });
+  }
+  return out;
+}
+
 function describeFiltersX() {
   const f = S.f, m = f.multi || {}, parts = [];
   for (const col of FACETS) {
