@@ -25,6 +25,12 @@
 // cat_rebuild_facets() reads off the attributes at every load. The reference
 // carries their counts. The model page gains the receipt name and sources for
 // the catalogue owner only.
+// v3 — 25 Oct 2026. Photos. The website's product photos, made into 1200 px and
+// 400 px WebP on Alex's computer, arrive through `photo_upload` with an upload
+// key (cat_import_tokens, purpose = photos: two hours, a whole batch) and are
+// stored in the public-read bucket `catalogue-photos` (the same photos are public
+// on delardi.uz). The model page gets its photos; list cards get the first one
+// through cat_models.image_key. The reference carries the bucket's address.
 //
 // The source lives in the repository at catalogue/src/api/index.ts and is kept
 // identical to the deployed function.
@@ -39,6 +45,8 @@ const MAX_FAILS_PER_HOUR = 10;
 const PAGE_DEFAULT = 60;
 const PAGE_MAX = 200;
 const MAX_IMPORT_BYTES = 20_000_000;
+const BUCKET = "catalogue-photos";
+const MAX_PHOTO_BYTES = 2_000_000;
 
 const CATEGORIES = ["watch", "jewellery", "accessory"];
 const RETAIL = ["ring", "necklace", "earrings", "bracelet", "cufflinks", "watch", "strap", "clasp", "bracelet_element"];
@@ -155,6 +163,28 @@ function modelId(v: unknown): string {
   const s = str(v, 80);
   if (!s || !/^[^\s"'\\]+$/u.test(s)) throw new HttpErr(400, "Unknown model.");
   return s;
+}
+
+// v3: photos
+function b64(v: unknown): Uint8Array | null {
+  if (typeof v !== "string" || v.length > MAX_PHOTO_BYTES * 1.4) return null;
+  try {
+    const bin = atob(v);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch { return null; }
+}
+// Storage keys keep letters, digits, dot, dash and underscore; anything else becomes "_".
+const safePath = (s: string) => s.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80);
+async function putObject(path: string, bytes: Uint8Array) {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "image/webp",
+      "x-upsert": "true", "Cache-Control": "max-age=604800" },
+    body: bytes,
+  });
+  if (!res.ok) throw new HttpErr(500, `storage rejected the photo (${res.status}): ${await res.text()}`);
 }
 
 // --------------------------------------------------------------- session mgmt
@@ -278,7 +308,8 @@ async function handle(req: Request, body: Record<string, unknown>) {
       const { headers } = await db("cat_reports?status=eq.open&select=id&limit=1", {}, { Prefer: "count=exact" });
       openReports = Number((headers.get("content-range") ?? "/0").split("/")[1]) || 0;
     }
-    return { ...ref, can_manage: s.canManage, open_reports: openReports };
+    return { ...ref, can_manage: s.canManage, open_reports: openReports,
+      photo_base: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/` };
   }
 
   if (action === "list") {
@@ -313,11 +344,12 @@ async function handle(req: Request, body: Record<string, unknown>) {
     if (!model) throw new HttpErr(404, "That model is not in the catalogue.");
     const variants = await select(`cat_variants?model_id=eq.${encodeURIComponent(id)}&select=${VARIANT_COLUMNS}&order=sort_order`);
     const vids = variants.map((v: { variant_id: string }) => v.variant_id);
-    const [pieces, attrs, expected, links] = await Promise.all([
+    const [pieces, attrs, expected, links, photos] = await Promise.all([
       vids.length ? select(`cat_pieces?variant_id=in.${inList(vids)}&select=variant_id,serial,size,price_uzs&order=size.asc.nullslast,serial`) : [],
       vids.length ? select(`cat_attributes?variant_id=in.${inList(vids)}&select=variant_id,key,value,value_num,flag`) : [],
       select(`cat_expected_keys?category=eq.${model.category}&select=key,section,crucial&order=sort_order`),
       select(`cat_links?model_id=eq.${encodeURIComponent(id)}&select=linked_model_id,kind,rank&order=rank`),
+      select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=variant_id,ord,path_full,path_thumb,width,height&order=variant_id.asc.nullsfirst,ord`),
     ]);
     let linked: unknown[] = [];
     if (links.length) {
@@ -344,7 +376,8 @@ async function handle(req: Request, body: Record<string, unknown>) {
     if (s.canManage) {
       reports = await select(`cat_reports?model_id=eq.${encodeURIComponent(id)}&status=eq.open&select=id,variant_id,field_key,message,reported_by,created_at&order=created_at.desc`);
     }
-    return { model, variants: out, expected, linked, reports };
+    return { model, variants: out, expected, linked, reports, photos,
+      photo_base: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/` };
   }
 
   // The only write a viewer makes: "something is wrong on this page".
@@ -392,6 +425,54 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return { ok: true };
   }
 
+  // v3: one photo (both sizes) from the website batch. Upload key, not a session.
+  if (action === "photo_upload") {
+    const key = str(body.upload_key, 200);
+    if (!key || key.length < 32) throw new HttpErr(401, "An upload needs its key.");
+    const h = await sha256hex(key);
+    const ok = await select(`cat_import_tokens?token_hash=eq.${h}&purpose=eq.photos&expires_at=gt.${new Date().toISOString()}&select=token_hash`);
+    if (!ok?.length) throw new HttpErr(401, "That upload key is not valid or has expired.");
+    const id = modelId(body.model_id);
+    const m = await select(`cat_models?model_id=eq.${encodeURIComponent(id)}&select=model_id,image_key`);
+    if (!m?.length) throw new HttpErr(404, "That model is not in the catalogue.");
+    let variant = str(body.variant_id, 80);
+    if (variant) {
+      const v = await select(`cat_variants?variant_id=eq.${encodeURIComponent(variant)}&model_id=eq.${encodeURIComponent(id)}&select=variant_id`);
+      if (!v?.length) variant = null;
+    }
+    const file = str(body.source_file, 200);
+    if (!file) throw new HttpErr(400, "Say which file this is.");
+    const ord = intIn(body.ord, 1, 50, 1);
+    const full = b64(body.full_b64), thumb = b64(body.thumb_b64);
+    for (const b of [full, thumb]) {
+      if (!b || b.length < 100 || b.length > MAX_PHOTO_BYTES) throw new HttpErr(400, "A photo is missing or too large.");
+      // RIFF....WEBP
+      if (!(b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)) {
+        throw new HttpErr(400, "Photos must be WebP.");
+      }
+    }
+    const tag = (await sha256hex(id + "|" + file)).slice(0, 10);
+    const base = `${safePath(id)}/${safePath(variant ?? "all")}/${ord}-${tag}`;
+    const pathFull = `${base}-1200.webp`, pathThumb = `${base}-400.webp`;
+    await putObject(pathFull, full);
+    await putObject(pathThumb, thumb);
+    await db(`cat_photos?on_conflict=model_id,source_file`, {
+      method: "POST",
+      body: JSON.stringify({
+        model_id: id, variant_id: variant, ord, path_full: pathFull, path_thumb: pathThumb,
+        width: intIn(body.width, 1, 10000, 0) || null, height: intIn(body.height, 1, 10000, 0) || null,
+        bytes_full: full.length, bytes_thumb: thumb.length, source: "website", source_file: file,
+        source_slug: str(body.source_slug, 200),
+      }),
+    }, { Prefer: "resolution=merge-duplicates,return=minimal" });
+    // The list card shows the first photo of the model.
+    const first = await select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=path_thumb&order=ord,variant_id.asc.nullsfirst&limit=1`);
+    if (first?.[0] && first[0].path_thumb !== m[0].image_key) {
+      await patch(`cat_models?model_id=eq.${encodeURIComponent(id)}`, { image_key: first[0].path_thumb });
+    }
+    return { ok: true, path_full: pathFull, path_thumb: pathThumb, bytes: full.length + thumb.length };
+  }
+
   // A full load, prepared by Claude from the Colibri Data Hub. One-time key.
   if (action === "import_load") {
     const key = str(body.import_key, 200);
@@ -400,7 +481,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const now = new Date().toISOString();
     // Claim the key first, so a second request with it fails even mid-load.
     const claimed = await patch(
-      `cat_import_tokens?token_hash=eq.${h}&used_at=is.null&expires_at=gt.${now}`, { used_at: now },
+      `cat_import_tokens?token_hash=eq.${h}&purpose=eq.load&used_at=is.null&expires_at=gt.${now}`, { used_at: now },
     );
     if (!claimed?.length) throw new HttpErr(401, "That key is not valid, has been used, or has expired.");
     const p = body.payload as Record<string, unknown> | undefined;

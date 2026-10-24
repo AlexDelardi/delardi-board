@@ -15,7 +15,7 @@ python3 build.py        # writes ../index.html
 |---|---|
 | `template.html` | the styles and the page shell |
 | `app.js` | the session, the routes, the start screen, the four ways in, the reference list and its filters |
-| `model.js` | the model page: colour switch, crucial facts, advisor block, specifications with TBC and marks, description, matching pieces, the owner's data block (part 3) |
+| `model.js` | the model page: photo gallery (v6), colour switch, crucial facts, advisor block, specifications with TBC and marks, description, matching pieces, the owner's data block (part 3) |
 | `floor.js` | client view, report an error, the owner's review of reports (`#/reports`), the 15-minute idle lock on iPads and phones, the no-connection screen, the back button closing panels (part 4) |
 
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
@@ -42,7 +42,8 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-139 checks as of 24 October 2026. Besides the list above, they cover:
+146 checks as of 25 October 2026. Besides the list above, they cover:
+- photos: the first photo on list cards, the gallery per colour with thumbnails, a colour without photos borrowing another colour's (marked)
 - the model page: colours, carried-over facts, marks, TBC, Russian
 - the metal, stone and movement filters
 - client view: what it hides, that it survives a reload, and that locking ends it

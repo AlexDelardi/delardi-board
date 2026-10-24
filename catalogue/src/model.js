@@ -94,6 +94,9 @@ Object.assign(RU, {
   "Case size, mm": "Размер корпуса, мм",
   "Arrived": "Поступление",
   "Open reports": "Открытые замечания",
+  "Photos": "Фото",
+  "Photo {n}": "Фото {n}",
+  "Photo of another colour": "Фото другого цвета",
 });
 
 // Attribute keys: label, unit, and whether the value depends on the colour.
@@ -277,7 +280,7 @@ function renderModel() {
         v.arrival_years && v.arrival_years.length && !S.client ? el("span", { text: tr("Arrived") + ": " + v.arrival_years.join(", ") }) : null]);
 
   const top = el("section", { class: "mp-top" }, [
-    el("div", { class: "mp-photo" }, [el("img", { src: mono(), alt: "" }), el("span", { text: tr("Photo coming soon") })]),
+    gallery(M.data.photos || [], v, title),
     el("div", { class: "mp-info" }, [
       el("div", { class: "brandname", text: m.brand }),
       el("h1", { class: "mp-title", text: title }),
@@ -349,6 +352,25 @@ function renderModel() {
   if (m.collection) trail.push({ text: m.collection, href: listHash({ brands: [m.brand], collections: [m.collection] }) });
   trail.push({ text: m.article });
   return [crumbs(trail), top, el("div", { class: "mp-body" }, [el("div", { class: "col" }, [advisor, description].filter(Boolean)), el("div", { class: "col" }, [specs])]), ...match, owner].filter(Boolean);
+}
+/* v6 (25 Oct 2026): the gallery. The colour on screen shows its own photos and
+   the model's general ones; a colour with none borrows another colour's, marked. */
+function gallery(photos, v, title) {
+  let shown = photos.filter((p) => p.variant_id === v.variant_id || !p.variant_id);
+  let borrowed = false;
+  if (!shown.length && photos.length) { shown = photos; borrowed = true; }
+  if (!shown.length) return el("div", { class: "mp-photo" }, [el("img", { src: mono(), alt: "" }), el("span", { text: tr("Photo coming soon") })]);
+  const strip = el("div", { class: "g-strip", tabindex: "0", "aria-label": tr("Photos") },
+    shown.map((p, i) => el("img", { src: photoUrl(p.path_full), alt: title + (shown.length > 1 ? " — " + (i + 1) : ""), loading: i ? "lazy" : "eager", decoding: "async", width: p.width || null, height: p.height || null })));
+  const dots = shown.length > 1 ? el("div", { class: "g-thumbs", role: "group", "aria-label": tr("Photos") }, shown.map((p, i) =>
+    el("button", { type: "button", class: "g-thumb", "aria-label": tr("Photo {n}", { n: i + 1 }), "aria-current": i === 0 ? "true" : null,
+      onclick: () => { strip.scrollTo({ left: strip.clientWidth * i, behavior: "smooth" }); } }, [el("img", { src: photoUrl(p.path_thumb), alt: "", loading: "lazy" })]))) : null;
+  strip.addEventListener("scroll", () => {
+    if (!dots) return;
+    const i = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth));
+    [...dots.children].forEach((b, j) => (j === i ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
+  }, { passive: true });
+  return el("div", { class: "mp-gallery" }, [strip, dots, borrowed && !S.client ? el("div", { class: "g-note", text: tr("Photo of another colour") }) : null]);
 }
 function worst(list) {
   const fl = list.filter(Boolean).map((a) => a.flag);

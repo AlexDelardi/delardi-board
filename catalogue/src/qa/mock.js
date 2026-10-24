@@ -37,6 +37,8 @@ function build() {
 }
 const MODELS = build();
 const REPORTS = [];
+const PHOTO_BASE = "https://hugduzqwyqwryicfzipu.supabase.co/storage/v1/object/public/catalogue-photos/";
+for (const m of MODELS) if (m.colours && m.retail_category === "ring") m.image_key = `${m.model_id}/${m.colours[0].variant_id}/1-400.webp`;
 
 function reference() {
   const g = (keyf) => {
@@ -54,7 +56,7 @@ function reference() {
     case_mm: { min: 36, max: 45, models: MODELS.filter((m) => m.case_mm).length },
     expected: [],
     run: { id: 1, run_at: "2026-10-24T06:27:59Z", source_built: "2026-10-23", counts: {} },
-    can_manage: true, open_reports: REPORTS.filter((r) => r.status === "open").length,
+    photo_base: PHOTO_BASE, can_manage: true, open_reports: REPORTS.filter((r) => r.status === "open").length,
   };
 }
 const arr = (v) => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);
@@ -128,7 +130,8 @@ function model(b) {
   }));
   const linked = MODELS.filter((x) => x.brand === m.brand && x.collection === m.collection && x.model_id !== m.model_id).slice(0, 4).map((x) => ({ kind: "same_collection", ...strip(x) }));
   const expected = EXPECTED[m.category].map(([key, section]) => ({ key, section, crucial: ["collection", "model_name", "metal", "case_material"].includes(key) }));
-  return [200, { model: strip(m), variants: vs, expected, linked, reports: [] }];
+  const photos = m.image_key ? vs.slice(0, 2).flatMap((x, j) => [1, 2].map((o) => ({ variant_id: x.variant_id, ord: o, path_full: `${m.model_id}/${x.variant_id}/${o}-1200.webp`, path_thumb: `${m.model_id}/${x.variant_id}/${o}-400.webp`, width: 1200, height: 1200 }))) : [];
+  return [200, { model: strip(m), variants: vs, expected, linked, reports: [], photos, photo_base: PHOTO_BASE }];
 }
 
 // passcode "1234" is the only one that opens; "0000" is a login without catalogue access.

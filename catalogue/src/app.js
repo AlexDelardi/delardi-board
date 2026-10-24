@@ -612,7 +612,7 @@ function card(m) {
   })) : null;
   const tbc = m.missing_crucial && m.missing_crucial.length;
   return el("a", { class: "card" + (out ? " out" : ""), href: "#/model/" + encodeURIComponent(m.model_id) }, [
-    el("div", { class: "ph" }, [el("img", { src: mono(), alt: "" }), el("span", { text: tr("Photo coming soon") })]),
+    photoBox(m),
     tbc && !S.client ? el("span", { class: "flagmark", title: tr("Key details TBC"), text: tr("TBC") }) : null,
     el("div", { class: "b" }, [
       el("div", { class: "brandname", text: m.brand }),
@@ -632,6 +632,16 @@ function cardMaterial(m) {
   const keys = (m.metal_keys || []).filter((k) => m.category === "accessory" || !["rubber", "leather"].includes(k));
   if (keys.length) return keys.slice(0, 2).map((k, i) => (i ? nm(METAL_NAMES, k).toLowerCase() : nm(METAL_NAMES, k))).join(", ");
   return cap(m.material);
+}
+// v6 (25 Oct 2026): the first photo of the model, from the website, when there is one.
+function photoUrl(path) {
+  const base = (S.ref && S.ref.photo_base) || (S.model && S.model.data && S.model.data.photo_base) || "";
+  return base && path ? base + path.split("/").map(encodeURIComponent).join("/") : null;
+}
+function photoBox(m) {
+  const url = photoUrl(m.image_key);
+  if (!url) return el("div", { class: "ph" }, [el("img", { src: mono(), alt: "" }), el("span", { text: tr("Photo coming soon") })]);
+  return el("div", { class: "ph photo" }, [el("img", { src: url, alt: modelTitle(m), loading: "lazy", decoding: "async" })]);
 }
 function activeFilterCount(f) {
   return f.brands.length + (f.category ? 1 : 0) + f.types.length + f.collections.length + f.genders.length +
