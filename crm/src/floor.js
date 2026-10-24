@@ -577,6 +577,17 @@ function sectionGlance(data) {
 }
 
 /* --------------------------------------------------------------- purchases */
+// v15 (25 Oct 2026): a purchase line whose article is in the Delardi Catalogue
+// opens that model, in the colour sold, in a new tab. The match is made in the
+// database (crm_transactions.cat_model_id / cat_variant_id); the catalogue asks
+// for its own passcode and right, so the link opens nothing it should not.
+Object.assign(RU, { "Open in the catalogue": "Открыть в каталоге", "Catalogue": "Каталог" });
+function catalogueLink(l) {
+  if (!l.cat_model_id) return null;
+  const href = "../catalogue/#/model/" + encodeURIComponent(l.cat_model_id) + (l.cat_variant_id ? "?v=" + encodeURIComponent(l.cat_variant_id) : "");
+  return el("a", { class: "cat-link", href, target: "_blank", rel: "noopener", title: tr("Open in the catalogue"),
+    "aria-label": tr("Open in the catalogue") + ": " + (l.article || l.cat_model_id) }, [tr("Catalogue"), el("span", { "aria-hidden": "true", text: " ↗" })]);
+}
 function sectionPurchasesFloor(data) {
   const lines = data.transactions || [];
   if (!lines.length) {
@@ -620,6 +631,7 @@ function sectionPurchasesFloor(data) {
           el("span", { class: "d", text: ret ? tr("Return") : disc > 0 ? "−" + Math.round(disc * 1000) / 10 + "%" : tr("Full price") }),
         ]),
         el("div", { class: "item", text: blank(l.item) ? tr("No description in Colibri") : l.item }),
+        catalogueLink(l),
       ]);
     })),
   ]);

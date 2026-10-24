@@ -153,6 +153,11 @@ const measure = (page, scope) => page.evaluate((scope) => {
     const card = await page.textContent("#drawer .drawer-body");
     check("card: phone, owner and the contact log", card.includes("+998 90 123 00 00") && card.includes("Dilnoza A.") && card.includes("Contact log"), card.slice(0, 200));
     check("card: personal data", card.includes("Ring size") && card.includes("Wedding anniversary"));
+    await cardTab(page, "purchases");
+    const links = await page.$$eval("#drawer .lines .cat-link", (ns) => ns.map((n) => [n.getAttribute("href"), n.getAttribute("target")]));
+    check("purchases: a line in the catalogue links to its model in the colour sold", links.some(([h, t]) => h === "../catalogue/#/model/Q0006?v=Q0006-WG" && t === "_blank"), JSON.stringify(links));
+    check("purchases: a model without a colour links to the model", links.some(([h]) => h === "../catalogue/#/model/Q0010"), JSON.stringify(links));
+    check("purchases: a line not in the catalogue has no link", links.length === (await page.$$eval("#drawer .lines li", (ns) => ns.length)) - 1, links.length);
     await cardTab(page, "cleanup");
     check("card: the clean-up table reads Questionnaire for a Colibri record",
       (await page.textContent("#drawer table.compare thead")).includes("Questionnaire"));

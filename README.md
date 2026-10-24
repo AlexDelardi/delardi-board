@@ -184,6 +184,14 @@ It follows the same model as the board, with its own API and its own right:
   reference, the source and any marks share one line. **Four clients fitted on a
   1000px screen before; ten do now.**
 
+- **Purchases open the catalogue** (25 Oct 2026): on a client card, every purchase
+  line whose article is in the Delardi Catalogue has a small **Catalogue ↗** link
+  that opens that model, in the colour sold, in a new tab. The match is made in
+  the database (`crm_transactions.cat_model_id` / `cat_variant_id`), kept by a
+  trigger for new lines and refreshed after every catalogue load; 852 of 853
+  lines matched on the first run. The catalogue still asks for its own passcode
+  and right.
+
 ## The Catalogue (`catalogue/`)
 
 The floor's catalogue of watches and jewellery, built for the shared iPad in

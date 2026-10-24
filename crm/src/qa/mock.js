@@ -117,8 +117,8 @@ const EVENTS = Object.assign(Object.create(null), {
 const transactions = (id) => {
   const i = DB.findIndex((c) => c.client_id === id);
   const base = [
-    { id: 3, client_id: id, sold_at: "2026-07-09", brand: "Messika", category: "Bracelet", item: "Браслет MOVE UNO из белого золота с бриллиантами", qty: 1, gross_uzs: 59250000, discount_pct: 0.07, net_uzs: 55103000, advisor: REP_A },
-    { id: 2, client_id: id, sold_at: "2025-03-21", brand: "Bulgari", category: "Watch", item: "Часы SERPENTI TUBOGAS", qty: 1, gross_uzs: 87500000, discount_pct: 0, net_uzs: 87500000, advisor: REP_B },
+    { id: 3, client_id: id, sold_at: "2026-07-09", brand: "Messika", category: "Bracelet", item: "Браслет MOVE UNO из белого золота с бриллиантами", qty: 1, gross_uzs: 59250000, discount_pct: 0.07, net_uzs: 55103000, advisor: REP_A, article: "Q-0006-WG", cat_model_id: "Q0006", cat_variant_id: "Q0006-WG" },
+    { id: 2, client_id: id, sold_at: "2025-03-21", brand: "Bulgari", category: "Watch", item: "Часы SERPENTI TUBOGAS", qty: 1, gross_uzs: 87500000, discount_pct: 0, net_uzs: 87500000, advisor: REP_B, article: "Q-0010", cat_model_id: "Q0010", cat_variant_id: null },
     { id: 1, client_id: id, sold_at: "2023-12-14", brand: "Messika", category: "Earrings", item: "Серьги MOVE CLASSIQUE", qty: 1, gross_uzs: 31200000, discount_pct: 0.05, net_uzs: 29640000, advisor: REP_A },
   ];
   const c = DB[i];
