@@ -11,10 +11,10 @@
 <style>
 /* ===========================================================================
    Delardi — landing page
-   The front door to the Weekly Board (board/) and the Client Instrument
-   (crm/). It holds no key, makes no network request and shows no data: it
+   The front door to the Weekly Board (board/), the Client Instrument
+   (crm/) and the Catalogue (catalogue/). It holds no key, makes no network request and shows no data: it
    only reads, from this browser, whether each tool is already unlocked here.
-   Same brand system as the two tools: navies #001A4A / #082966, Palatino
+   Same brand system as the tools: navies #001A4A / #082966, Palatino
    Linotype as the accent face, Evolventa as the text face.
    ========================================================================= */
 :root {
@@ -102,7 +102,8 @@ h1 {
 }
 .lede { margin: 12px 0 0; color: var(--ink-2); max-width: 560px; }
 
-.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
+.tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
+@media (max-width: 1000px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .tool {
   position: relative; display: flex; flex-direction: column;
   padding: 26px 26px 20px; min-height: 250px;
@@ -198,6 +199,17 @@ footer img { height: 22px; width: auto; opacity: .55; }
         <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </span>
     </a>
+    <a class="tool" href="catalogue/" data-tool="catalogue">
+      <span class="tool-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l3 4-7 10L3 7z"/><path d="M3 7h14M8 3 6.5 7 10 17M12 3l1.5 4L10 17"/></svg>
+      </span>
+      <span class="tool-name" data-i18n="cat_name">Catalogue</span>
+      <span class="tool-desc" data-i18n="cat_desc">Every watch and piece of jewellery: find it by brand, type or collection, see what matters on the floor, and show it to the client.</span>
+      <span class="tool-foot">
+        <span class="status" data-session="cat_session"><span class="dot" aria-hidden="true"></span><span class="status-text" data-i18n="locked">Passcode needed</span></span>
+        <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </span>
+    </a>
   </nav>
 </main>
 
@@ -210,7 +222,7 @@ footer img { height: 22px; width: auto; opacity: .55; }
 <script>
 (function () {
   "use strict";
-  var THEME_KEY = "board_theme";   // shared with both tools
+  var THEME_KEY = "board_theme";   // shared with all three tools
   var LANG_KEY = "delardi_lang";   // the tools will read the same key
 
   var T = {
@@ -225,6 +237,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       board_desc: "Leadership topics across Marketing, Retail, Operations and Company Steering, followed week by week for the weekly call.",
       crm_name: "Client Instrument",
       crm_desc: "The client database spring clean: every client, where Colibri and the questionnaire disagree, and who looks after each relationship.",
+      cat_name: "Catalogue",
+      cat_desc: "Every watch and piece of jewellery: find it by brand, type or collection, see what matters on the floor, and show it to the client.",
       locked: "Passcode needed",
       open_as: function (name, time) { return "Unlocked on this device" + (name ? " · " + name : "") + " · until " + time; },
       open: "Open",
@@ -241,6 +255,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       board_desc: "Темы руководства — маркетинг, розница, операции и управление компанией — неделя за неделей, для еженедельного созвона.",
       crm_name: "Клиентская база",
       crm_desc: "Генеральная уборка базы клиентов: каждый клиент, где Colibri и анкета расходятся, и кто ведёт каждого клиента.",
+      cat_name: "Каталог",
+      cat_desc: "Все часы и украшения: поиск по бренду, типу или коллекции, главное для работы в зале и режим показа клиенту.",
       locked: "Нужен код доступа",
       open_as: function (name, time) { return "Открыто на этом устройстве" + (name ? " · " + name : "") + " · до " + time; },
       open: "Открыть",

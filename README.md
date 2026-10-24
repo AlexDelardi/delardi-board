@@ -1,12 +1,13 @@
 # Delardi internal tools
 
-One repository, three pages:
+One repository, four pages:
 
 | Path | Page |
 |---|---|
-| `/` — `index.html` | **Landing page.** Links to the two tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
+| `/` — `index.html` | **Landing page.** Links to the three tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
 | `/board/` — `board/index.html` | **Weekly Board.** A private page for the weekly leadership meeting: topics tracked across **Marketing · Retail · Operations · Company Steering**, with a week-by-week record of what was said about each one. |
 | `/crm/` — `crm/index.html` | **Client Instrument.** The CRM spring clean — see below. |
+| `/catalogue/` — `catalogue/index.html` | **Catalogue.** Every watch and piece of jewellery for the floor — see below. |
 
 The board lived at the root until 21 September 2026. The old address now opens
 the landing page, one click from the board.
@@ -183,14 +184,45 @@ It follows the same model as the board, with its own API and its own right:
   reference, the source and any marks share one line. **Four clients fitted on a
   1000px screen before; ten do now.**
 
+## The Catalogue (`catalogue/`)
+
+The floor's catalogue of watches and jewellery, built for the shared iPad in
+portrait and for a phone. It went live on 24 October 2026, read-only, for the
+floor team.
+
+- **Data.** The `cat_*` tables in the same Supabase project:
+  - `cat_models`: one row per reference.
+  - `cat_variants`: one row per colour.
+  - `cat_pieces`: the pieces on hand.
+  - `cat_attributes`: every attribute per colour, with a flag that says whether it is confirmed, from Colibri only, unconfirmed, or in conflict with the brand's own page.
+  - `cat_links`: matching pieces.
+  - `cat_reports`: error reports from the floor.
+
+  The data is loaded from the Colibri Data Hub on OneDrive and enriched from the brands' own sites. **No cost data is held anywhere.** RLS is on with no policies, and nothing is granted to the public roles.
+- **API.** The `catalogue-api` edge function is the only route to the data. Its source is in `catalogue/src/api/index.ts`, kept identical to the deployed function.
+- **Access.** `board_users.can_view_catalogue` opens the catalogue with the person's usual passcode. A Board or CRM session does not open the catalogue, and a catalogue session opens nothing else. `can_manage_catalogue` (Alex) also sees what the data rests on and reviews the error reports at `catalogue/#/reports`. As of 24 October 2026 the floor team has access: Alex, Ellona, Eva, Karina and Olga.
+- **On the floor:**
+  - Search across every field, including serial numbers.
+  - Brand, category, type and collection tiles.
+  - A list with filters for metal, stone, movement, case size, price and gender.
+  - One page per model with a colour switch.
+  - The crucial facts at the top, a "For the advisor" block, and full specifications. Missing values read "TBC", and a small mark flags anything not yet confirmed.
+- **Client view.** One tap turns the screen to the client: it hides stock counts, TBC and the marks. The eye button hides prices, as in the CRM.
+- **Device behaviour.**
+  - Like the CRM, an iPad or phone locks after 15 minutes without use.
+  - There is no service worker, so nothing is kept offline.
+  - The page can be added to the home screen; `catalogue/app/` holds the manifest and icons.
+- **Building.** `catalogue/index.html` is built from `catalogue/src/` with `python3 build.py`, then checked with `node qa/test.js` (invented data, offline). See `catalogue/src/README.md`.
+
 ## Updating a page
 
 Edit the page's `index.html` — `board/` or the landing page at the root —
 commit, push. GitHub Pages redeploys within a minute or two.
 
-`crm/index.html` is the exception: it is **built** from `crm/src/`
-(`python3 build.py`), so change the module there, rebuild, run the checks
-(`node qa/test.js`), then commit both. See `crm/src/README.md`.
+`crm/index.html` and `catalogue/index.html` are the exceptions: each is
+**built** from its `src/` folder (`python3 build.py`), so change the module
+there, rebuild, run the checks (`node qa/test.js`), then commit both. See
+`crm/src/README.md` and `catalogue/src/README.md`.
 
 ## If the board will not load
 
