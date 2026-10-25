@@ -192,6 +192,15 @@ It follows the same model as the board, with its own API and its own right:
   lines matched on the first run. The catalogue still asks for its own passcode
   and right.
 
+- **Purchase lines read like the catalogue** (25 Oct 2026): a line in the catalogue shows
+  the catalogue's name for the piece (RU or EN with the page) and its thumbnail, with
+  Colibri's text kept as the tooltip. The name is the researched name of the colour sold
+  (read from Colibri's text when the article does not say it), else a sibling colour's
+  with the metal swapped, else type · brand · model; failing all that, Colibri's text.
+  Kept in `crm_transactions.cat_name_ru / cat_name_en / cat_thumb_url`, refreshed with
+  every catalogue load and every new photo. On 25 Oct: 115 lines named, 110 with a photo;
+  the 737 lines of sold-out models keep Colibri's text until those models are researched.
+
 ## The Catalogue (`catalogue/`)
 
 The floor's catalogue of watches and jewellery, built for the shared iPad in
