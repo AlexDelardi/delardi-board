@@ -623,14 +623,19 @@ function sectionPurchasesFloor(data) {
     el("ul", { class: "lines" }, shown.map((l) => {
       const ret = Number(l.qty) < 0;
       const disc = Number(l.discount_pct || 0);
-      return el("li", {}, [
+      // v16: the catalogue's own name and thumbnail when the line is in the catalogue;
+      // Colibri's text stays the fallback and the tooltip.
+      const catName = LANG === "ru" ? (l.cat_name_ru || l.cat_name_en) : (l.cat_name_en || l.cat_name_ru);
+      const itemText = catName || (blank(l.item) ? tr("No description in Colibri") : l.item);
+      return el("li", { class: l.cat_thumb_url ? "has-thumb" : null }, [
+        l.cat_thumb_url ? el("img", { class: "thumb", src: l.cat_thumb_url, alt: "", loading: "lazy", decoding: "async" }) : null,
         el("div", { class: "l1" }, [fmtDate(l.sold_at), " · ", el("b", { text: brandLabel(l.brand || "Unassigned") }), " · ", catLabel(l.category || "Unassigned"),
           l.advisor ? " · " + who(l.advisor) : ""]),
         el("div", { class: "amt" + (ret ? " ret" : ""), title: fullUZS(l.net_uzs) }, [
           fmtUZS(l.net_uzs),
           el("span", { class: "d", text: ret ? tr("Return") : disc > 0 ? "−" + Math.round(disc * 1000) / 10 + "%" : tr("Full price") }),
         ]),
-        el("div", { class: "item", text: blank(l.item) ? tr("No description in Colibri") : l.item }),
+        el("div", { class: "item" + (catName ? " cat" : ""), title: catName && !blank(l.item) ? "Colibri: " + l.item : null, text: itemText }),
         catalogueLink(l),
       ]);
     })),

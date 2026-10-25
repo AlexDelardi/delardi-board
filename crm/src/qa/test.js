@@ -157,6 +157,11 @@ const measure = (page, scope) => page.evaluate((scope) => {
     const links = await page.$$eval("#drawer .lines .cat-link", (ns) => ns.map((n) => [n.getAttribute("href"), n.getAttribute("target")]));
     check("purchases: a line in the catalogue links to its model in the colour sold", links.some(([h, t]) => h === "../catalogue/#/model/Q0006?v=Q0006-WG" && t === "_blank"), JSON.stringify(links));
     check("purchases: a model without a colour links to the model", links.some(([h]) => h === "../catalogue/#/model/Q0010"), JSON.stringify(links));
+    const firstLine = await page.textContent("#drawer .lines li:first-child");
+    check("purchases: a catalogue line shows the catalogue's name", firstLine.includes("Aurelle Rivière bracelet, white gold"), firstLine);
+    check("purchases: and its thumbnail", (await page.getAttribute("#drawer .lines li:first-child img.thumb", "src") || "").endsWith("/Q0006/Q0006-WG/1-400.webp"));
+    check("purchases: Colibri's text stays as the tooltip", (await page.getAttribute("#drawer .lines li:first-child .item", "title") || "").startsWith("Colibri: "));
+    check("purchases: a line the catalogue cannot name keeps Colibri's text", (await page.textContent("#drawer .lines li:nth-child(2) .item")).includes("SERPENTI"));
     check("purchases: a line not in the catalogue has no link", links.length === (await page.$$eval("#drawer .lines li", (ns) => ns.length)) - 1, links.length);
     await cardTab(page, "cleanup");
     check("card: the clean-up table reads Questionnaire for a Colibri record",

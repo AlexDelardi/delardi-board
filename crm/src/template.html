@@ -378,6 +378,12 @@ table.mini .num { text-align: right; font-variant-numeric: tabular-nums; white-s
 .lines .amt { grid-row: 1 / 3; grid-column: 2; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lines .amt .d { display: block; font-size: 11.5px; color: var(--muted); }
 .lines .ret { color: var(--critical); }
+.lines li.has-thumb { grid-template-columns: 52px 1fr auto; }
+.lines li.has-thumb .thumb { grid-row: 1 / 4; grid-column: 1; width: 52px; height: 52px; object-fit: contain; background: #FFFFFF;
+  border: 1px solid var(--grid); border-radius: 8px; align-self: start; }
+.lines li.has-thumb .l1, .lines li.has-thumb .item, .lines li.has-thumb .cat-link { grid-column: 2; }
+.lines li.has-thumb .amt { grid-column: 3; }
+.lines .item.cat { font-weight: 500; }
 .lines .cat-link { grid-column: 1 / 2; justify-self: start; font-size: 12px; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line);
   border-radius: 12px; padding: 2px 10px; margin-top: 4px; display: inline-flex; align-items: center; min-height: 26px; }
 .lines .cat-link:hover { color: var(--ink); border-color: var(--ink-2); }
