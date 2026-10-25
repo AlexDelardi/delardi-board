@@ -42,7 +42,8 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-146 checks as of 25 October 2026. Besides the list above, they cover:
+152 checks as of 25 October 2026. Besides the list above, they cover:
+- the facts at the top of a model page opening their lists (collection, category, type, metal, each stone, movement, gender)
 - photos: the first photo on list cards, the gallery per colour with thumbnails, a colour without photos borrowing another colour's (marked)
 - the model page: colours, carried-over facts, marks, TBC, Russian
 - the metal, stone and movement filters

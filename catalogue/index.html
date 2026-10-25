@@ -293,6 +293,9 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .fact { padding: 10px 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .fact dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .fact dd { margin: 3px 0 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.fact-link { color: inherit; text-decoration: underline; text-decoration-color: var(--gold-soft); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.fact-link:hover { text-decoration-color: var(--gold); color: var(--ink); }
+@media (pointer: coarse) { .fact-link { padding: 4px 0; } }
 .unv { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; font-size: 10.5px; font-weight: 700;
   color: var(--warning); border: 1px solid currentColor; margin-left: 6px; vertical-align: 1px; cursor: help; }
 .unv.conflict { color: #B4532A; }
@@ -1565,15 +1568,31 @@ function renderModel() {
     return A.dimensions || null;
   })();
   const sizeLabel = m.retail_category === "ring" ? tr("Ring size") : m.category === "watch" ? tr("Case diameter") : A.chain_or_bracelet_length_cm ? tr("Length") : tr("Dimensions");
-  const fact = (label, a) => el("div", { class: "fact" }, [el("dt", { text: label }), el("dd", {}, [a && typeof a === "object" && "value" in a ? valueNode("", a) : (a ? el("span", { class: "val", text: a }) : (S.client ? el("span", { text: "—" }) : el("span", { class: "tbc", text: tr("TBC") })))])]);
+  const fact = (label, a, links) => el("div", { class: "fact" }, [el("dt", { text: label }), el("dd", {},
+    links && links.length ? factLinks(links, a) :
+    [a && typeof a === "object" && "value" in a ? valueNode("", a) : (a ? el("span", { class: "val", text: a }) : (S.client ? el("span", { text: "—" }) : el("span", { class: "tbc", text: tr("TBC") })))])]);
+  // v7 (25 Oct 2026): the facts open the list of everything that shares them.
+  const colourMetal = COLOUR_OF_CODE[(v.colour_code || "").toUpperCase()];
+  const metalKeys = colourMetal ? [colourMetal + "_gold"]
+    : (m.metal_keys || []).filter((k) => m.category === "accessory" || !["rubber", "leather"].includes(k));
+  const gKey = A.gender && GENDERS[String(A.gender.value).toLowerCase()] ? String(A.gender.value).toLowerCase() : m.gender;
+  const collectionVal = A.collection || (m.collection ? { value: m.collection, flag: "colibri_only" } : null);
   const facts = el("dl", { class: "facts" }, [
-    fact(tr("Collection"), A.collection || (m.collection ? { value: m.collection, flag: "colibri_only" } : null)),
-    fact(tr("Category"), catName(m.category) + " · " + typeName(m.retail_category)),
+    fact(tr("Collection"), collectionVal, m.collection ? [{ text: collectionVal ? collectionVal.value : m.collection, href: listHash({ brands: [m.brand], collections: [m.collection] }) }] : null),
+    fact(tr("Category"), null, [{ text: catName(m.category), href: listHash({ category: m.category }) }, { text: typeName(m.retail_category), href: listHash({ types: [m.retail_category] }) }]),
     fact(tr("Model name and number"), [val("model_name") || m.model_name, v.variant_id].filter(Boolean).join(" · ")),
-    fact(tr("Material"), material),
-    m.category !== "accessory" ? fact(m.category === "watch" ? tr("Movement") : tr("Stones"), m.category === "watch" ? (A.movement_type ? { ...A.movement_type, value: ruValue(A.movement_type.value) } : null) : stones) : null,
+    fact(tr("Material"), material, material && metalKeys.length ? [{ text: material.value, href: listHash({ category: m.category, metals: metalKeys }) }] : null),
+    m.category === "watch"
+      ? fact(tr("Movement"), A.movement_type ? { ...A.movement_type, value: ruValue(A.movement_type.value) } : null,
+          m.movement ? [{ text: ruValue(A.movement_type ? A.movement_type.value : m.movement), href: listHash({ category: "watch", movements: [m.movement] }) }] : null)
+      : m.category !== "accessory"
+        ? fact(tr("Stones"), stones, stones && (m.stone_keys || []).length
+            ? [...m.stone_keys.map((k) => ({ text: nm(STONE_NAMES, k), href: listHash({ category: m.category, stones: [k] }) })),
+               ...(A.total_stone_carat ? [{ text: withUnit("total_stone_carat", A.total_stone_carat.value) }] : [])] : null)
+        : null,
     m.category !== "accessory" ? fact(sizeLabel, sizeFact) : null,
-    fact(tr("Gender"), A.gender ? { ...A.gender, value: ruValue(A.gender.value) } : null),
+    fact(tr("Gender"), A.gender ? { ...A.gender, value: ruValue(A.gender.value) } : null,
+      gKey ? [{ text: cap(ruValue(A.gender ? A.gender.value : gKey)), href: listHash({ category: m.category, genders: [gKey] }) }] : null),
   ]);
 
   const stock = v.in_stock
@@ -1675,6 +1694,15 @@ function gallery(photos, v, title) {
     [...dots.children].forEach((b, j) => (j === i ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
   }, { passive: true });
   return el("div", { class: "mp-gallery" }, [strip, dots, borrowed && !S.client ? el("div", { class: "g-note", text: tr("Photo of another colour") }) : null]);
+}
+function factLinks(links, a) {
+  const out = [];
+  links.forEach((l, i) => {
+    if (i) out.push(", ");
+    out.push(l.href ? el("a", { class: "fact-link", href: l.href, text: cap(l.text) }) : el("span", { text: l.text }));
+  });
+  const mk = a && typeof a === "object" ? mark(a) : null;
+  return [el("span", { class: "val" + (a && a.inherited ? " inh" : "") }, [...out, mk])];
 }
 function worst(list) {
   const fl = list.filter(Boolean).map((a) => a.flag);
