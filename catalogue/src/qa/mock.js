@@ -20,7 +20,7 @@ function build() {
         model_id: `Q${String(n).padStart(4, "0")}`, article: `Q-${String(n).padStart(4, "0")}`, brand: b, category, retail_category: rc,
         subcategory: null, collection: coll, model_name: i % 4 === 3 ? null : `${coll || "Signature"} ${["Uno", "Duo", "Trio", "Grand"][i % 4]}`,
         gender: ["women", "men", "unisex"][n % 3], material: MATS[n % MATS.length], name_en: null, name_ru: null,
-        in_stock: inStock, qty_stock: inStock ? 1 + (n % 3) : 0, price_min_uzs: price, price_max_uzs: multi ? price + 12_000_000 : price,
+        in_stock: inStock, qty_stock: inStock ? 1 + (n % 3) : 0, qty_transit: n % 8 === 0 && !multi ? 2 : 0, price_min_uzs: price, price_max_uzs: multi ? price + 12_000_000 : price,
         latest_arrival_year: 2022 + (n % 5), variant_count: multi ? 3 : 1, completeness: 40 + (n % 60),
         missing_crucial: n % 7 === 0 ? ["collection"] : [], has_unconfirmed: n % 2 === 0, image_key: null,
         colours: multi ? [{ variant_id: `Q${n}-WG`, colour_code: "WG", in_stock: true }, { variant_id: `Q${n}-YG`, colour_code: "YG", in_stock: true }, { variant_id: `Q${n}-PG`, colour_code: "PG", in_stock: false }] : null,
@@ -68,8 +68,9 @@ function list(b) {
   const rc = arr(b.retail_categories); if (rc.length) r = r.filter((m) => rc.includes(m.retail_category));
   const cs = arr(b.collections); if (cs.length) r = r.filter((m) => cs.includes(m.collection));
   const gs = arr(b.genders); if (gs.length) r = r.filter((m) => gs.includes(m.gender));
-  if (b.stock === "in") r = r.filter((m) => m.in_stock);
-  if (b.stock === "out") r = r.filter((m) => !m.in_stock);
+  if (b.stock === "in") r = r.filter((m) => m.in_stock || m.qty_transit > 0);
+  if (b.stock === "out") r = r.filter((m) => !m.in_stock && !m.qty_transit);
+  if (b.stock === "transit") r = r.filter((m) => m.qty_transit > 0);
   if (b.incomplete) r = r.filter((m) => m.missing_crucial.length);
   if (b.price_min) r = r.filter((m) => m.price_max_uzs >= b.price_min);
   if (b.price_max) r = r.filter((m) => m.price_min_uzs <= b.price_max);
@@ -83,7 +84,7 @@ function list(b) {
   for (const w of String(b.q || "").toLowerCase().split(/\s+/).filter(Boolean)) r = r.filter((m) => m._search.includes(w));
   const s = b.sort || "newest";
   const cmp = {
-    newest: (x, y) => (y.in_stock - x.in_stock) || (y.latest_arrival_year - x.latest_arrival_year) || x.brand.localeCompare(y.brand) || x.model_id.localeCompare(y.model_id),
+    newest: (x, y) => (y.in_stock - x.in_stock) || (y.qty_transit - x.qty_transit) || (y.latest_arrival_year - x.latest_arrival_year) || x.brand.localeCompare(y.brand) || x.model_id.localeCompare(y.model_id),
     brand: (x, y) => x.brand.localeCompare(y.brand) || x.model_id.localeCompare(y.model_id),
     price_asc: (x, y) => x.price_min_uzs - y.price_min_uzs, price_desc: (x, y) => y.price_max_uzs - x.price_max_uzs,
     reference: (x, y) => x.model_id.localeCompare(y.model_id), completeness: (x, y) => x.completeness - y.completeness,
@@ -126,6 +127,8 @@ function model(b) {
     description_ru: "Описание из Colibri.", description_en: null, found_online: i === 0, confidence: i === 0 ? "high" : null, sources: i === 0 ? ["https://www.example.com/piece"] : [],
     conflicts: null, notes: null, sort_order: i + 1,
     pieces: c.in_stock ? [{ serial: "SN" + m.model_id + i, size: m.retail_category === "ring" ? "54" : null, price_uzs: m.price_min_uzs + i * 1_000_000 }] : [],
+    qty_transit: m.qty_transit || 0,
+    transit: m.qty_transit ? [1, 2].map((k) => ({ serial: "TR" + m.model_id + k, size: m.retail_category === "ring" ? "14" : null, shipment: "VES26-0641", shipped_on: "2026-10-14" })) : [],
     attributes: attrsOf(m, i === 0),
   }));
   const linked = MODELS.filter((x) => x.brand === m.brand && x.collection === m.collection && x.model_id !== m.model_id).slice(0, 4).map((x) => ({ kind: "same_collection", ...strip(x) }));

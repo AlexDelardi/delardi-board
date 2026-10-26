@@ -212,7 +212,7 @@ function renderModel() {
   if (!variants.length) return [el("div", { class: "empty", text: tr("TBC") })];
   // The colour on screen: the one asked for in the address, else the first in stock, else the first.
   const want = parseHash().params.get("v");
-  const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants[0];
+  const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
   const A = attrsFor(variants, v);
   const val = (k) => (A[k] && A[k].value) || null;
 
@@ -232,10 +232,10 @@ function renderModel() {
   const switcher = variants.length > 1 ? el("div", { class: "mp-colours", role: "group", "aria-label": tr("Colours") }, variants.map((x) => {
     const code = (x.colour_code || "").toUpperCase();
     return el("a", {
-      class: "chip mp-colour" + (x.in_stock ? "" : " out"), href: "#/model/" + encodeURIComponent(m.model_id) + "?v=" + encodeURIComponent(x.variant_id),
+      class: "chip mp-colour" + (x.in_stock || x.qty_transit > 0 ? "" : " out"), href: "#/model/" + encodeURIComponent(m.model_id) + "?v=" + encodeURIComponent(x.variant_id),
       "aria-pressed": x === v ? "true" : "false", "aria-current": x === v ? "true" : null,
       onclick: (e) => { e.preventDefault(); try { history.replaceState(null, "", e.currentTarget.getAttribute("href")); } catch (err) { /* ignore */ } render(); },
-    }, [el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") }), colourName(x), x.in_stock ? null : el("span", { class: "cnt", text: tr("Sold out").toLowerCase() })]);
+    }, [el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") }), colourName(x), x.in_stock ? null : el("span", { class: "cnt", text: (x.qty_transit > 0 ? tr("In transit") : tr("Sold out")).toLowerCase() })]);
   })) : null;
 
   // ---- the crucial facts
@@ -288,10 +288,19 @@ function renderModel() {
       gKey ? [{ text: cap(ruValue(A.gender ? A.gender.value : gKey)), href: listHash({ category: m.category, genders: [gKey] }) }] : null),
   ]);
 
+  // v8 (26 Oct 2026): pieces shipped by the brand, not in Colibri yet.
+  const transit = v.transit || [];
+  const tSizes = [...new Set(transit.map((p) => p.size).filter(Boolean))];
+  const shipped = [...new Set(transit.map((p) => p.shipped_on).filter(Boolean))].map((d) => d.split("-").reverse().join("."));
+  const transitLine = transit.length && !S.client
+    ? el("span", { class: "mp-transit", text: [tr("{n} in transit", { n: transit.length }), tSizes.length && !v.in_stock ? tr("Sizes") + ": " + tSizes.join(", ") : null,
+        shipped.length ? tr("Shipped {date}", { date: shipped.join(", ") }) : null].filter(Boolean).join(" · ") }) : null;
   const stock = v.in_stock
     ? el("div", { class: "mp-stock" }, [el("span", { class: "stock in", text: tr("In stock") }),
         S.client ? null : el("span", { text: tr(pieces.length === 1 ? "{n} piece" : "{n} pieces", { n: pieces.length || v.qty_stock }) }),
-        sizes.length ? el("span", { text: tr("Sizes") + ": " + sizes.join(", ") }) : null])
+        sizes.length ? el("span", { text: tr("Sizes") + ": " + sizes.join(", ") }) : null, transitLine])
+    : transit.length
+    ? el("div", { class: "mp-stock" }, [el("span", { class: "stock transit", text: tr("In transit") }), transitLine])
     : el("div", { class: "mp-stock" }, [el("span", { class: "stock out", text: tr("Sold out") }),
         v.arrival_years && v.arrival_years.length && !S.client ? el("span", { text: tr("Arrived") + ": " + v.arrival_years.join(", ") }) : null]);
 
@@ -302,7 +311,7 @@ function renderModel() {
       el("h1", { class: "mp-title", text: title }),
       el("div", { class: "mp-sub" }, [sub, el("span", { class: "ref", text: " · " + tr("Ref.") + " " + v.variant_id })]),
       switcher,
-      el("div", { class: "mp-price" + (v.in_stock ? "" : " out"), text: price || "" }),
+      el("div", { class: "mp-price" + (v.in_stock ? "" : " out"), text: price || (transit.length && !v.in_stock ? tr("Price when it arrives") : "") }),
       stock,
       facts,
       el("div", { class: "mp-actions" }, [reportButton()]),

@@ -234,6 +234,9 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .stock.in { color: var(--good); background: color-mix(in srgb, var(--good) 11%, transparent); }
 .stock.in::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .stock.out { color: var(--muted); border: 1px solid var(--line); }
+.stock.transit { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.stock.transit::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
+.mp-transit { color: var(--warning); }
 .card.out .ph, .card.out .nm, .card.out .mat, .card.out .price { opacity: .5; }
 .card.out { box-shadow: none; }
 .dots { display: flex; gap: 4px; margin-top: 4px; }

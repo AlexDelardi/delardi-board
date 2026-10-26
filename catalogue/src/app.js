@@ -86,6 +86,10 @@ const RU = {
   "Photo coming soon": "Фото скоро",
   "In stock": "В наличии",
   "Sold out": "Нет в наличии",
+  "In transit": "В пути",
+  "{n} in transit": "{n} в пути",
+  "Shipped {date}": "Отправлено {date}",
+  "Price when it arrives": "Цена после поступления",
   "All": "Все",
   "Filters": "Фильтры",
   "Sort": "Сортировка",
@@ -337,7 +341,7 @@ function filtersFrom(params) {
     types: params.getAll("type").filter((t) => TYPES[t]),
     collections: params.getAll("collection"),
     genders: params.getAll("gender").filter((g) => GENDERS[g]),
-    stock: ["in", "out"].includes(params.get("stock")) ? params.get("stock") : "all",
+    stock: ["in", "out", "transit"].includes(params.get("stock")) ? params.get("stock") : "all",
     q: params.get("q") || "",
     pmin: num(params.get("pmin")),
     pmax: num(params.get("pmax")),
@@ -604,11 +608,13 @@ function renderCollections(brandSel) {
 
 /* -------------------------------------------------------------------- list */
 function card(m) {
-  const out = !m.in_stock;
+  // v8 (26 Oct 2026): a model shipped by the brand but not in Colibri yet is "in transit", not sold out.
+  const transit = !m.in_stock && m.qty_transit > 0;
+  const out = !m.in_stock && !transit;
   const dots = (m.colours && m.colours.length > 1) ? el("div", { class: "dots", "aria-label": tr("Colours") }, m.colours.map((c) => {
     const code = (c.colour_code || "").toUpperCase();
     const name = COLOUR_NAMES[code] ? COLOUR_NAMES[code][LANG === "ru" ? 1 : 0] : (c.colour_code || "");
-    return el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") + (c.in_stock ? "" : " out"), title: name });
+    return el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") + (c.in_stock || c.qty_transit > 0 ? "" : " out"), title: name });
   })) : null;
   const tbc = m.missing_crucial && m.missing_crucial.length;
   return el("a", { class: "card" + (out ? " out" : ""), href: "#/model/" + encodeURIComponent(m.model_id) }, [
@@ -622,7 +628,7 @@ function card(m) {
       dots,
       el("div", { class: "row" }, [
         el("span", { class: "price", text: priceLine(m) }),
-        el("span", { class: "stock " + (out ? "out" : "in"), text: out ? tr("Sold out") : tr("In stock") }),
+        el("span", { class: "stock " + (out ? "out" : transit ? "transit" : "in"), text: out ? tr("Sold out") : transit ? tr("In transit") : tr("In stock") }),
       ]),
     ]),
   ]);
@@ -655,6 +661,7 @@ function listTitle(f) {
   if (f.category) return (f.brands.length === 1 ? f.brands[0] + " · " : "") + catName(f.category);
   if (f.q) return tr("Search: “{q}”", { q: f.q });
   if (f.stock === "in") return tr("Everything in stock");
+  if (f.stock === "transit") return tr("In transit");
   return tr("Catalogue");
 }
 function renderList() {
@@ -764,7 +771,7 @@ function renderSheet() {
     el("header", {}, [el("h2", { text: tr("Filters") }), el("button", { class: "btn", type: "button", onclick: () => closeSheet(), text: tr("Close") })]),
     el("div", { class: "scroll" }, [
       el("div", { class: "phone-only" }, [grp(tr("Sort"), el("div", { class: "chiprow" }, SORTS.map(([k, l]) => chip(tr(l), f.sort === k, () => { f.sort = k; rerender(); }))))]),
-      grp(tr("Stock"), el("div", { class: "chiprow" }, [["all", "All"], ["in", "In stock"], ["out", "Sold out"]].map(([k, l]) => chip(tr(l), f.stock === k, () => { f.stock = k; rerender(); })))),
+      grp(tr("Stock"), el("div", { class: "chiprow" }, [["all", "All"], ["in", "In stock"], ["transit", "In transit"], ["out", "Sold out"]].map(([k, l]) => chip(tr(l), f.stock === k, () => { f.stock = k; rerender(); })))),
       grp(tr("Category"), el("div", { class: "chiprow" }, CAT_ORDER.filter((c) => by[c]).map((c) => chip(catName(c), f.category === c, () => {
         f.category = f.category === c ? null : c;
         f.types = f.types.filter((t) => !f.category || TYPES[t].cat === f.category); rerender();

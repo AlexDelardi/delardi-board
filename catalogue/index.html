@@ -234,6 +234,9 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .stock.in { color: var(--good); background: color-mix(in srgb, var(--good) 11%, transparent); }
 .stock.in::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .stock.out { color: var(--muted); border: 1px solid var(--line); }
+.stock.transit { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.stock.transit::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
+.mp-transit { color: var(--warning); }
 .card.out .ph, .card.out .nm, .card.out .mat, .card.out .price { opacity: .5; }
 .card.out { box-shadow: none; }
 .dots { display: flex; gap: 4px; margin-top: 4px; }
@@ -528,6 +531,10 @@ const RU = {
   "Photo coming soon": "Фото скоро",
   "In stock": "В наличии",
   "Sold out": "Нет в наличии",
+  "In transit": "В пути",
+  "{n} in transit": "{n} в пути",
+  "Shipped {date}": "Отправлено {date}",
+  "Price when it arrives": "Цена после поступления",
   "All": "Все",
   "Filters": "Фильтры",
   "Sort": "Сортировка",
@@ -779,7 +786,7 @@ function filtersFrom(params) {
     types: params.getAll("type").filter((t) => TYPES[t]),
     collections: params.getAll("collection"),
     genders: params.getAll("gender").filter((g) => GENDERS[g]),
-    stock: ["in", "out"].includes(params.get("stock")) ? params.get("stock") : "all",
+    stock: ["in", "out", "transit"].includes(params.get("stock")) ? params.get("stock") : "all",
     q: params.get("q") || "",
     pmin: num(params.get("pmin")),
     pmax: num(params.get("pmax")),
@@ -1046,11 +1053,13 @@ function renderCollections(brandSel) {
 
 /* -------------------------------------------------------------------- list */
 function card(m) {
-  const out = !m.in_stock;
+  // v8 (26 Oct 2026): a model shipped by the brand but not in Colibri yet is "in transit", not sold out.
+  const transit = !m.in_stock && m.qty_transit > 0;
+  const out = !m.in_stock && !transit;
   const dots = (m.colours && m.colours.length > 1) ? el("div", { class: "dots", "aria-label": tr("Colours") }, m.colours.map((c) => {
     const code = (c.colour_code || "").toUpperCase();
     const name = COLOUR_NAMES[code] ? COLOUR_NAMES[code][LANG === "ru" ? 1 : 0] : (c.colour_code || "");
-    return el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") + (c.in_stock ? "" : " out"), title: name });
+    return el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") + (c.in_stock || c.qty_transit > 0 ? "" : " out"), title: name });
   })) : null;
   const tbc = m.missing_crucial && m.missing_crucial.length;
   return el("a", { class: "card" + (out ? " out" : ""), href: "#/model/" + encodeURIComponent(m.model_id) }, [
@@ -1064,7 +1073,7 @@ function card(m) {
       dots,
       el("div", { class: "row" }, [
         el("span", { class: "price", text: priceLine(m) }),
-        el("span", { class: "stock " + (out ? "out" : "in"), text: out ? tr("Sold out") : tr("In stock") }),
+        el("span", { class: "stock " + (out ? "out" : transit ? "transit" : "in"), text: out ? tr("Sold out") : transit ? tr("In transit") : tr("In stock") }),
       ]),
     ]),
   ]);
@@ -1097,6 +1106,7 @@ function listTitle(f) {
   if (f.category) return (f.brands.length === 1 ? f.brands[0] + " · " : "") + catName(f.category);
   if (f.q) return tr("Search: “{q}”", { q: f.q });
   if (f.stock === "in") return tr("Everything in stock");
+  if (f.stock === "transit") return tr("In transit");
   return tr("Catalogue");
 }
 function renderList() {
@@ -1206,7 +1216,7 @@ function renderSheet() {
     el("header", {}, [el("h2", { text: tr("Filters") }), el("button", { class: "btn", type: "button", onclick: () => closeSheet(), text: tr("Close") })]),
     el("div", { class: "scroll" }, [
       el("div", { class: "phone-only" }, [grp(tr("Sort"), el("div", { class: "chiprow" }, SORTS.map(([k, l]) => chip(tr(l), f.sort === k, () => { f.sort = k; rerender(); }))))]),
-      grp(tr("Stock"), el("div", { class: "chiprow" }, [["all", "All"], ["in", "In stock"], ["out", "Sold out"]].map(([k, l]) => chip(tr(l), f.stock === k, () => { f.stock = k; rerender(); })))),
+      grp(tr("Stock"), el("div", { class: "chiprow" }, [["all", "All"], ["in", "In stock"], ["transit", "In transit"], ["out", "Sold out"]].map(([k, l]) => chip(tr(l), f.stock === k, () => { f.stock = k; rerender(); })))),
       grp(tr("Category"), el("div", { class: "chiprow" }, CAT_ORDER.filter((c) => by[c]).map((c) => chip(catName(c), f.category === c, () => {
         f.category = f.category === c ? null : c;
         f.types = f.types.filter((t) => !f.category || TYPES[t].cat === f.category); rerender();
@@ -1519,7 +1529,7 @@ function renderModel() {
   if (!variants.length) return [el("div", { class: "empty", text: tr("TBC") })];
   // The colour on screen: the one asked for in the address, else the first in stock, else the first.
   const want = parseHash().params.get("v");
-  const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants[0];
+  const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
   const A = attrsFor(variants, v);
   const val = (k) => (A[k] && A[k].value) || null;
 
@@ -1539,10 +1549,10 @@ function renderModel() {
   const switcher = variants.length > 1 ? el("div", { class: "mp-colours", role: "group", "aria-label": tr("Colours") }, variants.map((x) => {
     const code = (x.colour_code || "").toUpperCase();
     return el("a", {
-      class: "chip mp-colour" + (x.in_stock ? "" : " out"), href: "#/model/" + encodeURIComponent(m.model_id) + "?v=" + encodeURIComponent(x.variant_id),
+      class: "chip mp-colour" + (x.in_stock || x.qty_transit > 0 ? "" : " out"), href: "#/model/" + encodeURIComponent(m.model_id) + "?v=" + encodeURIComponent(x.variant_id),
       "aria-pressed": x === v ? "true" : "false", "aria-current": x === v ? "true" : null,
       onclick: (e) => { e.preventDefault(); try { history.replaceState(null, "", e.currentTarget.getAttribute("href")); } catch (err) { /* ignore */ } render(); },
-    }, [el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") }), colourName(x), x.in_stock ? null : el("span", { class: "cnt", text: tr("Sold out").toLowerCase() })]);
+    }, [el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") }), colourName(x), x.in_stock ? null : el("span", { class: "cnt", text: (x.qty_transit > 0 ? tr("In transit") : tr("Sold out")).toLowerCase() })]);
   })) : null;
 
   // ---- the crucial facts
@@ -1595,10 +1605,19 @@ function renderModel() {
       gKey ? [{ text: cap(ruValue(A.gender ? A.gender.value : gKey)), href: listHash({ category: m.category, genders: [gKey] }) }] : null),
   ]);
 
+  // v8 (26 Oct 2026): pieces shipped by the brand, not in Colibri yet.
+  const transit = v.transit || [];
+  const tSizes = [...new Set(transit.map((p) => p.size).filter(Boolean))];
+  const shipped = [...new Set(transit.map((p) => p.shipped_on).filter(Boolean))].map((d) => d.split("-").reverse().join("."));
+  const transitLine = transit.length && !S.client
+    ? el("span", { class: "mp-transit", text: [tr("{n} in transit", { n: transit.length }), tSizes.length && !v.in_stock ? tr("Sizes") + ": " + tSizes.join(", ") : null,
+        shipped.length ? tr("Shipped {date}", { date: shipped.join(", ") }) : null].filter(Boolean).join(" · ") }) : null;
   const stock = v.in_stock
     ? el("div", { class: "mp-stock" }, [el("span", { class: "stock in", text: tr("In stock") }),
         S.client ? null : el("span", { text: tr(pieces.length === 1 ? "{n} piece" : "{n} pieces", { n: pieces.length || v.qty_stock }) }),
-        sizes.length ? el("span", { text: tr("Sizes") + ": " + sizes.join(", ") }) : null])
+        sizes.length ? el("span", { text: tr("Sizes") + ": " + sizes.join(", ") }) : null, transitLine])
+    : transit.length
+    ? el("div", { class: "mp-stock" }, [el("span", { class: "stock transit", text: tr("In transit") }), transitLine])
     : el("div", { class: "mp-stock" }, [el("span", { class: "stock out", text: tr("Sold out") }),
         v.arrival_years && v.arrival_years.length && !S.client ? el("span", { text: tr("Arrived") + ": " + v.arrival_years.join(", ") }) : null]);
 
@@ -1609,7 +1628,7 @@ function renderModel() {
       el("h1", { class: "mp-title", text: title }),
       el("div", { class: "mp-sub" }, [sub, el("span", { class: "ref", text: " · " + tr("Ref.") + " " + v.variant_id })]),
       switcher,
-      el("div", { class: "mp-price" + (v.in_stock ? "" : " out"), text: price || "" }),
+      el("div", { class: "mp-price" + (v.in_stock ? "" : " out"), text: price || (transit.length && !v.in_stock ? tr("Price when it arrives") : "") }),
       stock,
       facts,
       el("div", { class: "mp-actions" }, [reportButton()]),

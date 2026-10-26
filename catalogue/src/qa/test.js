@@ -36,6 +36,8 @@ const settle = (page) => page.waitForTimeout(150);
 (async () => {
   const browser = await chromium.launch();
   const total = MODELS.length, inStock = MODELS.filter((m) => m.in_stock).length;
+  const transitN = MODELS.filter((m) => !m.in_stock && m.qty_transit > 0).length;
+  const shipped = MODELS.find((m) => !m.in_stock && m.qty_transit > 0);
 
   // ---------------------------------------------------------------- the gate
   {
@@ -102,16 +104,17 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".more .btn"); await page.waitForFunction((n) => document.querySelectorAll(".cards .card").length === n, total);
     ok(await count(page, ".cards .card") === total, "show more loads the rest");
     ok(!(await page.isVisible(".more")), "nothing more to show at the end");
-    ok(await count(page, ".card.out") === total - inStock, "sold-out models are greyed");
+    ok(await count(page, ".card.out") === total - inStock - transitN, "sold-out models are greyed");
+    ok(transitN > 0 && await count(page, ".card .stock.transit") === transitN, "models on their way say In transit, not Sold out", transitN);
     ok(await count(page, ".card .dots") > 0, "models in several colours show their colours");
     ok(await count(page, ".card .ph.photo img") === MODELS.filter((m) => m.image_key).length, "models with a photo show it on the card", await count(page, ".card .ph.photo img"));
     ok(await count(page, ".card .ph:not(.photo)") === total - MODELS.filter((m) => m.image_key).length, "the rest keep the placeholder");
     ok(await count(page, ".card .flagmark") === MODELS.filter((m) => m.missing_crucial.length).length, "incomplete models carry the mark");
     const firstOut = await page.evaluate(() => [...document.querySelectorAll(".cards .card")].findIndex((c) => c.classList.contains("out")));
-    ok(firstOut === inStock, "newest first puts the pieces in stock first", firstOut);
+    ok(firstOut === inStock + transitN, "newest first puts the pieces in stock first, then those in transit", firstOut);
 
     await page.click(".seg button:has-text('In stock')"); await page.waitForFunction(() => location.hash.includes("stock=in"));
-    await page.waitForFunction((n) => document.querySelectorAll(".cards .card").length === Math.min(60, n), inStock);
+    await page.waitForFunction((n) => document.querySelectorAll(".cards .card").length === Math.min(60, n), inStock + transitN);
     ok(await count(page, ".card.out") === 0, "In stock leaves the sold-out models out");
 
     await page.selectOption("select.btn", "price_asc"); await page.waitForFunction(() => location.hash.includes("sort=price_asc"));
@@ -170,7 +173,8 @@ const settle = (page) => page.waitForTimeout(150);
     ok(has(/gender=/), "the gender opens its list", links);
     await page.click(".facts a.fact-link:has-text('White gold')");
     await page.waitForFunction(() => location.hash.includes("metal=white_gold")); await page.waitForSelector(".cards .card, .empty");
-    ok(log.filter((x) => x.action === "list").at(-1).metals[0] === "white_gold", "the metal list asks for that metal");
+    for (let i = 0; i < 30 && !((log.filter((x) => x.action === "list").at(-1) || {}).metals || []).length; i++) await page.waitForTimeout(100);
+    ok((log.filter((x) => x.action === "list").at(-1).metals || [])[0] === "white_gold", "the metal list asks for that metal", log.slice(-3));
     await page.goBack(); await page.waitForSelector(".mp-top");
     ok(await page.isVisible(".advisor .story"), "the advisor's story shows");
     ok((await page.textContent(".advisor")).includes("Signature line"), "a signature line is called out");
@@ -206,6 +210,16 @@ const settle = (page) => page.waitForTimeout(150);
     await page.goto(PAGE + "#/model/" + stony.model_id); await page.waitForSelector(".mp-top");
     const sl = await page.$$eval(".facts a.fact-link", (ns) => ns.map((n) => n.getAttribute("href")));
     ok(sl.some((h) => h.includes("stone=diamond")) && sl.some((h) => h.includes("stone=sapphire")), "each stone opens its own list", sl);
+    // v8: in transit
+    await page.goto(PAGE + "#/model/" + shipped.model_id); await page.waitForSelector(".mp-top");
+    ok(await page.isVisible(".mp-stock .stock.transit"), "a model on its way says In transit");
+    ok((await page.textContent(".mp-stock")).includes("2 in transit") && (await page.textContent(".mp-stock")).includes("Shipped 14.10.2026"), "the model page counts the pieces on their way and the shipping date", await page.textContent(".mp-stock"));
+    ok(!(await page.textContent(".mp-stock")).includes("Sold out"), "in transit is not sold out");
+    await page.click(".top .lang button:has-text('RU')"); await settle(page);
+    ok((await page.textContent(".mp-stock")).includes("В пути"), "in transit in Russian");
+    await page.click(".top .lang button:has-text('EN')"); await settle(page);
+    await page.goto(PAGE + "#/list?stock=transit"); await page.waitForSelector(".cards .card");
+    ok(log.at(-1).stock === "transit" && await count(page, ".cards .card") === transitN, "the In transit filter lists only them", log.at(-1));
     await page.goto(PAGE + "#/model/NOPE"); await page.waitForSelector(".empty");
     ok((await page.textContent(".empty")).includes("not in the catalogue"), "an unknown model says so");
 
@@ -267,6 +281,9 @@ const settle = (page) => page.waitForTimeout(150);
     ok(!(await page.isVisible("details.owner")), "client view: no owner's block");
     ok(!(await page.isVisible(".report-btn")), "client view: no report button");
     ok(!(await page.textContent(".mp-stock")).match(/piece/), "client view: no piece count");
+    await page.goto(PAGE + "#/model/" + shipped.model_id); await page.waitForSelector(".mp-top");
+    ok(await page.isVisible(".mp-stock .stock.transit") && !(await page.isVisible(".mp-transit")), "client view: In transit shows, the shipment details do not");
+    await page.goto(PAGE + "#/model/" + ring.model_id); await page.waitForSelector(".mp-top");
     ok(await page.isVisible(".advisor .story"), "client view keeps the story");
     await page.reload(); await page.waitForSelector(".mp-top");
     ok(await page.isVisible(".client-band"), "client view survives a reload");

@@ -31,6 +31,12 @@
 // stored in the public-read bucket `catalogue-photos` (the same photos are public
 // on delardi.uz). The model page gets its photos; list cards get the first one
 // through cat_models.image_key. The reference carries the bucket's address.
+// v4 — 26 Oct 2026. In transit. Pieces a brand has shipped but Colibri does not
+// have yet sit in cat_incoming (from the packing list: serial, size, shipment);
+// cat_apply_incoming() keeps qty_transit on models and variants. "In stock"
+// lists include them, stock = "transit" lists only them, and the model page gets
+// each colour's `transit` pieces. A piece drops out as soon as its serial is in
+// stock. No supplier price is stored.
 //
 // The source lives in the repository at catalogue/src/api/index.ts and is kept
 // identical to the deployed function.
@@ -51,13 +57,13 @@ const MAX_PHOTO_BYTES = 2_000_000;
 const CATEGORIES = ["watch", "jewellery", "accessory"];
 const RETAIL = ["ring", "necklace", "earrings", "bracelet", "cufflinks", "watch", "strap", "clasp", "bracelet_element"];
 const GENDERS = ["women", "men", "unisex"];
-const STOCK = ["in", "out", "all"];
+const STOCK = ["in", "out", "all", "transit"];
 const REPORT_STATUSES = ["open", "fixed", "rejected"];
 const METALS = ["white_gold", "yellow_gold", "rose_gold", "gold", "platinum", "silver", "steel", "titanium", "ceramic", "carbon", "aluminium", "rubber", "leather"];
 const STONES = ["diamond", "lab_diamond", "sapphire", "emerald", "ruby", "rubellite", "tsavorite", "tanzanite", "topaz", "amethyst", "pearl", "mother_of_pearl", "opal", "turquoise", "malachite", "lapis", "onyx", "agate", "crystal"];
 const MOVEMENTS = ["automatic", "quartz", "manual"];
 const SORTS: Record<string, string> = {
-  newest: "in_stock.desc,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
+  newest: "in_stock.desc,qty_transit.desc,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
   brand: "brand.asc,collection.asc.nullslast,model_name.asc.nullslast,model_id.asc",
   price_asc: "price_min_uzs.asc.nullslast,model_id.asc",
   price_desc: "price_max_uzs.desc.nullslast,model_id.asc",
@@ -66,12 +72,12 @@ const SORTS: Record<string, string> = {
 };
 const LIST_COLUMNS = [
   "model_id", "article", "brand", "category", "retail_category", "subcategory", "collection", "model_name",
-  "gender", "material", "name_en", "name_ru", "in_stock", "qty_stock", "price_min_uzs", "price_max_uzs",
+  "gender", "material", "name_en", "name_ru", "in_stock", "qty_stock", "qty_transit", "price_min_uzs", "price_max_uzs",
   "latest_arrival_year", "variant_count", "completeness", "missing_crucial", "has_unconfirmed", "image_key",
   "metal_keys", "stone_keys", "movement", "case_mm",
 ].join(",");
 const VARIANT_COLUMNS = [
-  "variant_id", "colour_code", "colour_name_en", "colour_name_ru", "material", "in_stock", "qty_stock",
+  "variant_id", "colour_code", "colour_name_en", "colour_name_ru", "material", "in_stock", "qty_stock", "qty_transit",
   "price_uzs", "arrival_years", "description_ru", "description_en", "found_online", "confidence", "sources",
   "conflicts", "notes", "sort_order",
 ].join(",");
@@ -235,8 +241,10 @@ function listFilters(body: Record<string, unknown>): string[] {
   const g = listOf(body.genders ?? body.gender, GENDERS, "gender");
   if (g.length) f.push(`gender=in.${inList(g)}`);
   const stock = enumOrNull(body.stock, STOCK, "stock") ?? "all";
-  if (stock === "in") f.push("in_stock=is.true");
-  if (stock === "out") f.push("in_stock=is.false");
+  // v4 (26 Oct 2026): pieces shipped by the brand but not in Colibri yet count as available ("in transit").
+  if (stock === "in") f.push("or=(in_stock.is.true,qty_transit.gt.0)");
+  if (stock === "out") f.push("in_stock=is.false", "qty_transit=eq.0");
+  if (stock === "transit") f.push("qty_transit=gt.0");
   if (body.incomplete === true) f.push("missing_crucial=neq.{}");
   const pmin = Number(body.price_min), pmax = Number(body.price_max);
   if (Number.isFinite(pmin) && pmin > 0) f.push(`price_max_uzs=gte.${Math.trunc(pmin)}`);
@@ -327,9 +335,9 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const colours: Record<string, unknown[]> = {};
     if (ids.length) {
       const vs = await select(
-        `cat_variants?model_id=in.${inList(ids)}&select=model_id,variant_id,colour_code,in_stock&order=sort_order`,
+        `cat_variants?model_id=in.${inList(ids)}&select=model_id,variant_id,colour_code,in_stock,qty_transit&order=sort_order`,
       );
-      for (const v of vs) (colours[v.model_id] ??= []).push({ variant_id: v.variant_id, colour_code: v.colour_code, in_stock: v.in_stock });
+      for (const v of vs) (colours[v.model_id] ??= []).push({ variant_id: v.variant_id, colour_code: v.colour_code, in_stock: v.in_stock, qty_transit: v.qty_transit });
     }
     return { total, offset, limit, rows: (rows as Record<string, unknown>[]).map((r) => ({ ...r, colours: colours[r.model_id as string] ?? null })) };
   }
@@ -344,13 +352,16 @@ async function handle(req: Request, body: Record<string, unknown>) {
     if (!model) throw new HttpErr(404, "That model is not in the catalogue.");
     const variants = await select(`cat_variants?model_id=eq.${encodeURIComponent(id)}&select=${VARIANT_COLUMNS}&order=sort_order`);
     const vids = variants.map((v: { variant_id: string }) => v.variant_id);
-    const [pieces, attrs, expected, links, photos] = await Promise.all([
+    const [pieces, attrs, expected, links, photos, incoming] = await Promise.all([
       vids.length ? select(`cat_pieces?variant_id=in.${inList(vids)}&select=variant_id,serial,size,price_uzs&order=size.asc.nullslast,serial`) : [],
       vids.length ? select(`cat_attributes?variant_id=in.${inList(vids)}&select=variant_id,key,value,value_num,flag`) : [],
       select(`cat_expected_keys?category=eq.${model.category}&select=key,section,crucial&order=sort_order`),
       select(`cat_links?model_id=eq.${encodeURIComponent(id)}&select=linked_model_id,kind,rank&order=rank`),
       select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=variant_id,ord,path_full,path_thumb,width,height&order=variant_id.asc.nullsfirst,ord`),
+      vids.length ? select(`cat_incoming?variant_id=in.${inList(vids)}&select=variant_id,serial,size,shipment,shipped_on&order=size.asc.nullslast,serial`) : [],
     ]);
+    // A shipped piece stops being "in transit" once its serial is in stock.
+    const inStockSerials = new Set(pieces.map((p: { serial: string }) => p.serial));
     let linked: unknown[] = [];
     if (links.length) {
       const lm = await select(`cat_models?model_id=in.${inList(links.map((l: { linked_model_id: string }) => l.linked_model_id))}&select=${LIST_COLUMNS}`);
@@ -361,6 +372,8 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const out: Record<string, any>[] = variants.map((v: { variant_id: string }) => ({
       ...v,
       pieces: pieces.filter((p: { variant_id: string }) => p.variant_id === v.variant_id)
+        .map(({ variant_id: _v, ...p }: Record<string, unknown>) => p),
+      transit: incoming.filter((p: { variant_id: string; serial: string }) => p.variant_id === v.variant_id && !inStockSerials.has(p.serial))
         .map(({ variant_id: _v, ...p }: Record<string, unknown>) => p),
       attributes: Object.fromEntries(attrs.filter((a: { variant_id: string }) => a.variant_id === v.variant_id)
         .map((a: { key: string; value: string; value_num: number | null; flag: string }) => [a.key, { value: a.value, num: a.value_num, flag: a.flag }])),
