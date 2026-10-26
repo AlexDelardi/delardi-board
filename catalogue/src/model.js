@@ -159,6 +159,8 @@ const MOVEMENT_NAMES = { automatic: ["Automatic", "Автоматический"
 const nm = (dict, k) => (dict[k] ? dict[k][LANG === "ru" ? 1 : 0] : k);
 const COLOUR_OF_CODE = { WG: "white", YG: "yellow", PG: "rose", RG: "rose" };
 
+// v10 (26 Oct 2026): an attribute's own Russian (from cat_text_ru) wins over the short-word dictionary.
+const ruA = (a) => (a && LANG === "ru" && a.ru ? a.ru : ruValue(a && a.value));
 function ruValue(v) {
   if (LANG !== "ru" || !v) return v;
   const whole = VALUE_RU[String(v).toLowerCase().trim()];
@@ -200,7 +202,7 @@ function mark(a) {
 }
 function valueNode(key, a) {
   if (!a || a.value === null || a.value === undefined || a.value === "") return S.client ? null : el("span", { class: "tbc", text: tr("TBC") });
-  return el("span", { class: "val" + (a.inherited ? " inh" : ""), title: a.inherited ? tr("Taken from another colour of this model") : null }, [withUnit(key, cap(ruValue(a.value))), mark(a)]);
+  return el("span", { class: "val" + (a.inherited ? " inh" : ""), title: a.inherited ? tr("Taken from another colour of this model") : null }, [withUnit(key, cap(ruA(a))), mark(a)]);
 }
 
 /* ---------------------------------------------------------------- the page */
@@ -251,7 +253,7 @@ function renderModel() {
   const stones = (() => {
     const s = A.stones; const ct = A.total_stone_carat;
     if (!s && !ct) return null;
-    const words = s ? ruValue(s.value) : null;
+    const words = s ? ruA(s) : null;
     return { value: [words, ct ? withUnit("total_stone_carat", ct.value) : null].filter(Boolean).join(", "), flag: worst([s, ct]), inherited: (s && s.inherited) || (ct && ct.inherited) };
   })();
   const sizeFact = (() => {
@@ -327,7 +329,7 @@ function renderModel() {
   if (yes(A.brand_icon)) tags.push(tr("Signature line of the brand"));
   if (yes(A.stackable)) tags.push(tr("Can be stacked with other pieces"));
   if (tags.length) advisorRows.push(el("div", { class: "chiprow" }, tags.map((t) => el("span", { class: "chip static", text: t }))));
-  const adv = (label, a) => (a ? el("div", { class: "adv" }, [el("div", { class: "lbl", text: label }), el("div", {}, [ruValue(a.value), mark(a)])]) : null);
+  const adv = (label, a) => (a ? el("div", { class: "adv" }, [el("div", { class: "lbl", text: label }), el("div", {}, [ruA(a), mark(a)])]) : null);
   advisorRows.push(adv(tr("Occasion"), A.occasion), adv(tr("Pairs with"), A.matching_pieces), adv(tr("Good to know"), A.extra));
   const advisor = advisorRows.filter(Boolean).length ? el("section", { class: "panel advisor" }, [el("h2", { text: tr(S.client ? "The story" : "For the advisor") }), ...advisorRows]) : null;
 

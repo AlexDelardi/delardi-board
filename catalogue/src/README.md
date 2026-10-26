@@ -20,6 +20,8 @@ python3 build.py        # writes ../index.html
 
 `../brands/` holds the brand logos on the brand tiles (v9): one-colour navy PNGs, made from each brand's own logo (Wikimedia Commons, the brand's website or delardi.uz, 26 Oct 2026), turned light in the dark theme. The list of brands with a logo is `BRAND_LOGOS` in `app.js`; a brand without one shows its name.
 
+Russian values (v10): attribute values written in English (metals, stones, finishes, notes) carry their Russian from `cat_text_ru` (one translation per distinct English text, kept apart from the stock load so a reload never wipes it). The API (v5) adds `ru` to each attribute it can translate; the page shows it in the Russian version and falls back to the built-in word list.
+
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 
 ## Checking it
@@ -44,7 +46,7 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-161 checks as of 26 October 2026. Besides the list above, they cover:
+163 checks as of 26 October 2026. Besides the list above, they cover:
 - in transit (v8): models whose pieces are shipped but not in Colibri yet say "In transit" rather than "Sold out", count as available in "In stock", have their own filter, and the model page shows how many are on their way and when they were shipped (staff only)
 - the facts at the top of a model page opening their lists (collection, category, type, metal, each stone, movement, gender)
 - photos: the first photo on list cards, the gallery per colour with thumbnails, a colour without photos borrowing another colour's (marked)

@@ -110,7 +110,8 @@ function attrsOf(m, first) {
   if (m.category === "jewellery") {
     Object.assign(out, { metal: a("gold"), metal_colour: a("white"), fineness: a("750 (18K)"), stones: a("diamonds"), total_stone_carat: a("0.55"),
       setting: a("pavé", "unconfirmed"), motif_story_en: a("A made-up story about light."), motif_story_ru: a("Выдуманная история о свете."),
-      brand_icon: a("yes"), occasion: a("everyday, gift"), total_weight_g: a("5.1", "conflict") });
+      brand_icon: a("yes"), occasion: a("everyday, gift"), total_weight_g: a("5.1", "conflict"),
+      extra: { ...a("Polished by hand in the workshop."), ru: "Отполировано вручную в мастерской." } });
   } else if (m.category === "watch") {
     Object.assign(out, { case_material: a("titanium"), case_diameter_mm: a(m.case_mm), movement_type: a(m.movement), water_resistance_m: a("100"), dial_colour_finish: a("blue sunburst") });
   } else {

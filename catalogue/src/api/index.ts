@@ -31,6 +31,8 @@
 // stored in the public-read bucket `catalogue-photos` (the same photos are public
 // on delardi.uz). The model page gets its photos; list cards get the first one
 // through cat_models.image_key. The reference carries the bucket's address.
+// v5 — 26 Oct 2026. Russian values. Each attribute on the model page carries `ru`
+// when cat_text_ru holds a translation of its English text (via cat_ru_for).
 // v4 — 26 Oct 2026. In transit. Pieces a brand has shipped but Colibri does not
 // have yet sit in cat_incoming (from the packing list: serial, size, shipment);
 // cat_apply_incoming() keeps qty_transit on models and variants. "In stock"
@@ -360,6 +362,10 @@ async function handle(req: Request, body: Record<string, unknown>) {
       select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=variant_id,ord,path_full,path_thumb,width,height&order=variant_id.asc.nullsfirst,ord`),
       vids.length ? select(`cat_incoming?variant_id=in.${inList(vids)}&select=variant_id,serial,size,shipment,shipped_on&order=size.asc.nullslast,serial`) : [],
     ]);
+    // v5: the Russian for values written in English (cat_text_ru, keyed by the English text).
+    const vals = [...new Set(attrs.map((a: { value: string }) => a.value).filter((x: string) => x && /[A-Za-z]/.test(x)))];
+    const ruRows = vals.length ? await rpc("cat_ru_for", { vals }) : [];
+    const RU = new Map((ruRows || []).map((r: { en: string; ru: string }) => [r.en, r.ru]));
     // A shipped piece stops being "in transit" once its serial is in stock.
     const inStockSerials = new Set(pieces.map((p: { serial: string }) => p.serial));
     let linked: unknown[] = [];
@@ -376,7 +382,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
       transit: incoming.filter((p: { variant_id: string; serial: string }) => p.variant_id === v.variant_id && !inStockSerials.has(p.serial))
         .map(({ variant_id: _v, ...p }: Record<string, unknown>) => p),
       attributes: Object.fromEntries(attrs.filter((a: { variant_id: string }) => a.variant_id === v.variant_id)
-        .map((a: { key: string; value: string; value_num: number | null; flag: string }) => [a.key, { value: a.value, num: a.value_num, flag: a.flag }])),
+        .map((a: { key: string; value: string; value_num: number | null; flag: string }) => [a.key, { value: a.value, num: a.value_num, flag: a.flag, ...(RU.has(a.value) ? { ru: RU.get(a.value) } : {}) }])),
     }));
     let reports: unknown[] | null = null;
     // What the data rests on, for the owner: the receipt name, the sources, the confidence.
