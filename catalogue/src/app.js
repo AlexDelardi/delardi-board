@@ -549,7 +549,7 @@ function renderStart() {
 
 /* ------------------------------------------------------------------- tiles */
 // v9 (26 Oct 2026): brand logos, one-colour navy PNGs in catalogue/brands/ (light in the dark theme).
-const BRAND_LOGOS = ["Bulgari", "Chimento", "Chronoswiss", "Cyrus", "Dinh Van", "Genius", "Gerald Charles", "Girard-Perregaux",
+const BRAND_LOGOS = ["Bulgari", "Chimento", "Chronoswiss", "Cyrus", "Dinh Van", "Fabio Collection", "Genius", "Gerald Charles", "Girard-Perregaux",
   "Hublot", "Leo Pizzo", "Messika", "Palmiero", "Stephen Webster"];
 const logoSlug = (b) => b.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const brandLogo = (b) => (BRAND_LOGOS.includes(b) ? "brands/" + logoSlug(b) + ".png" : null);

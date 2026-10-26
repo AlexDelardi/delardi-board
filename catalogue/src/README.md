@@ -18,7 +18,7 @@ python3 build.py        # writes ../index.html
 | `model.js` | the model page: photo gallery (v6), "In transit" with the pieces on their way (v8), colour switch, crucial facts, advisor block, specifications with TBC and marks, description, matching pieces, the owner's data block (part 3) |
 | `floor.js` | client view, report an error, the owner's review of reports (`#/reports`), the 15-minute idle lock on iPads and phones, the no-connection screen, the back button closing panels (part 4) |
 
-`../brands/` holds the brand logos on the brand tiles (v9): one-colour navy PNGs, made from each brand's own logo (Wikimedia Commons or the brand's website, 26 Oct 2026), turned light in the dark theme. The list of brands with a logo is `BRAND_LOGOS` in `app.js`; a brand without one shows its name. Fabio Collection has none yet.
+`../brands/` holds the brand logos on the brand tiles (v9): one-colour navy PNGs, made from each brand's own logo (Wikimedia Commons, the brand's website or delardi.uz, 26 Oct 2026), turned light in the dark theme. The list of brands with a logo is `BRAND_LOGOS` in `app.js`; a brand without one shows its name.
 
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 

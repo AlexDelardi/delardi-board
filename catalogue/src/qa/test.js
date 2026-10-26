@@ -213,8 +213,8 @@ const settle = (page) => page.waitForTimeout(150);
     // v9: brand logos
     const logos = await page.evaluate(() => BRAND_LOGOS.map((b) => brandLogo(b)));
     const fs = require("fs");
-    ok(logos.length === 13 && logos.every((l) => l && fs.existsSync(path.resolve(__dirname, "..", "..", l))), "every brand logo named in the page is in catalogue/brands", logos.filter((l) => !fs.existsSync(path.resolve(__dirname, "..", "..", l))));
-    ok(await page.evaluate(() => brandLogo("Fabio Collection") === null && brandLogo("Dinh Van") === "brands/dinh-van.png"), "a brand without a logo keeps its name");
+    ok(logos.length === 14 && logos.every((l) => l && fs.existsSync(path.resolve(__dirname, "..", "..", l))), "every brand logo named in the page is in catalogue/brands", logos.filter((l) => !fs.existsSync(path.resolve(__dirname, "..", "..", l))));
+    ok(await page.evaluate(() => brandLogo("Aurelle") === null && brandLogo("Fabio Collection") === "brands/fabio-collection.png"), "a brand without a logo keeps its name");
     // v8: in transit
     await page.goto(PAGE + "#/model/" + shipped.model_id); await page.waitForSelector(".mp-top");
     ok(await page.isVisible(".mp-stock .stock.transit"), "a model on its way says In transit");
