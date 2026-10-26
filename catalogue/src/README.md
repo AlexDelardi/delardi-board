@@ -18,6 +18,8 @@ python3 build.py        # writes ../index.html
 | `model.js` | the model page: photo gallery (v6), "In transit" with the pieces on their way (v8), colour switch, crucial facts, advisor block, specifications with TBC and marks, description, matching pieces, the owner's data block (part 3) |
 | `floor.js` | client view, report an error, the owner's review of reports (`#/reports`), the 15-minute idle lock on iPads and phones, the no-connection screen, the back button closing panels (part 4) |
 
+`../brands/` holds the brand logos on the brand tiles (v9): one-colour navy PNGs, made from each brand's own logo (Wikimedia Commons or the brand's website, 26 Oct 2026), turned light in the dark theme. The list of brands with a logo is `BRAND_LOGOS` in `app.js`; a brand without one shows its name. Fabio Collection has none yet.
+
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 
 ## Checking it
@@ -42,7 +44,7 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-159 checks as of 26 October 2026. Besides the list above, they cover:
+161 checks as of 26 October 2026. Besides the list above, they cover:
 - in transit (v8): models whose pieces are shipped but not in Colibri yet say "In transit" rather than "Sold out", count as available in "In stock", have their own filter, and the model page shows how many are on their way and when they were shipped (staff only)
 - the facts at the top of a model page opening their lists (collection, category, type, metal, each stone, movement, gender)
 - photos: the first photo on list cards, the gallery per colour with thumbnails, a colour without photos borrowing another colour's (marked)

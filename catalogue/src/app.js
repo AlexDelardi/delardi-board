@@ -548,9 +548,17 @@ function renderStart() {
 }
 
 /* ------------------------------------------------------------------- tiles */
+// v9 (26 Oct 2026): brand logos, one-colour navy PNGs in catalogue/brands/ (light in the dark theme).
+const BRAND_LOGOS = ["Bulgari", "Chimento", "Chronoswiss", "Cyrus", "Dinh Van", "Genius", "Gerald Charles", "Girard-Perregaux",
+  "Hublot", "Leo Pizzo", "Messika", "Palmiero", "Stephen Webster"];
+const logoSlug = (b) => b.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const brandLogo = (b) => (BRAND_LOGOS.includes(b) ? "brands/" + logoSlug(b) + ".png" : null);
 function tile(href, name, meta, opts = {}) {
-  return el("a", { class: "tile" + (opts.dim ? " dim" : ""), href }, [
-    el("div", { class: "art" }, opts.word ? [el("div", { class: "word", text: opts.word })] : [el("img", { src: mono(), alt: "" })]),
+  const art = opts.logo
+    ? [el("img", { class: "logo", src: opts.logo, alt: opts.word || name, loading: "lazy" })]
+    : opts.word ? [el("div", { class: "word", text: opts.word })] : [el("img", { src: mono(), alt: "" })];
+  return el("a", { class: "tile" + (opts.dim ? " dim" : "") + (opts.logo ? " has-logo" : ""), href }, [
+    el("div", { class: "art" }, art),
     el("div", { class: "body" }, [el("div", { class: "name", text: name }), S.client ? null : el("div", { class: "meta", text: meta })]),
   ]);
 }
@@ -562,7 +570,7 @@ function pageHead(title, sub, trail) {
 function renderBrands() {
   const brands = (S.ref && S.ref.brands) || [];
   return [...pageHead(tr("Brands"), null),
-    el("div", { class: "tiles" }, brands.map((b) => tile(listHash({ brands: [b.brand] }), b.brand, stockMeta(b.in_stock, b.models), { word: b.brand, dim: !b.in_stock })))];
+    el("div", { class: "tiles" }, brands.map((b) => tile(listHash({ brands: [b.brand] }), b.brand, stockMeta(b.in_stock, b.models), { word: b.brand, logo: brandLogo(b.brand), dim: !b.in_stock })))];
 }
 function catCounts() {
   const by = {};

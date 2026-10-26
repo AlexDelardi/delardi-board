@@ -210,6 +210,11 @@ const settle = (page) => page.waitForTimeout(150);
     await page.goto(PAGE + "#/model/" + stony.model_id); await page.waitForSelector(".mp-top");
     const sl = await page.$$eval(".facts a.fact-link", (ns) => ns.map((n) => n.getAttribute("href")));
     ok(sl.some((h) => h.includes("stone=diamond")) && sl.some((h) => h.includes("stone=sapphire")), "each stone opens its own list", sl);
+    // v9: brand logos
+    const logos = await page.evaluate(() => BRAND_LOGOS.map((b) => brandLogo(b)));
+    const fs = require("fs");
+    ok(logos.length === 13 && logos.every((l) => l && fs.existsSync(path.resolve(__dirname, "..", "..", l))), "every brand logo named in the page is in catalogue/brands", logos.filter((l) => !fs.existsSync(path.resolve(__dirname, "..", "..", l))));
+    ok(await page.evaluate(() => brandLogo("Fabio Collection") === null && brandLogo("Dinh Van") === "brands/dinh-van.png"), "a brand without a logo keeps its name");
     // v8: in transit
     await page.goto(PAGE + "#/model/" + shipped.model_id); await page.waitForSelector(".mp-top");
     ok(await page.isVisible(".mp-stock .stock.transit"), "a model on its way says In transit");

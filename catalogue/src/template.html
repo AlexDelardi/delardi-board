@@ -163,6 +163,9 @@ h1.page { font-family: var(--serif); font-weight: 500; font-size: 30px; line-hei
 .tile .name { font-family: var(--serif); font-size: 17px; line-height: 1.25; }
 .tile .meta { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
 .tile.dim .name, .tile.dim .art .word { opacity: .5; }
+.tile .art img.logo { position: absolute; left: 14%; top: 27%; width: 72%; height: 46%; object-fit: contain; opacity: .9; }
+:root[data-theme="dark"] .tile .art img.logo { filter: brightness(0) invert(.94); }
+.tile.dim .art .logo { opacity: .4; }
 .group-h { font-family: var(--serif); font-size: 18px; margin: 26px 0 10px; display: flex; align-items: baseline; gap: 10px; }
 .group-h:first-child { margin-top: 4px; }
 .group-h .c { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
