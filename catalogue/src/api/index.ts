@@ -39,6 +39,11 @@
 // lists include them, stock = "transit" lists only them, and the model page gets
 // each colour's `transit` pieces. A piece drops out as soon as its serial is in
 // stock. No supplier price is stored.
+// v6 — 27 Oct 2026. A size filter. cat_models.size_keys lists the sizes a model
+// has in stock (from its physical pieces); `sizes` filters on them with the same
+// overlap test as metals and stones. The per-category facet (sizes, broken down
+// by retail category) is in cat_reference, so the page can show only the sizes
+// that belong to the category being browsed.
 //
 // The source lives in the repository at catalogue/src/api/index.ts and is kept
 // identical to the deployed function.
@@ -161,6 +166,8 @@ function intIn(v: unknown, lo: number, hi: number, dflt: number): number {
 }
 // A value inside a PostgREST in.(...) list: quoted, with quotes and backslashes escaped.
 const inList = (xs: string[]) => encodeURIComponent(`(${xs.map((x) => `"${x.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")})`);
+// A value inside a PostgREST array literal {…} (for ov.): quoted, with quotes and backslashes escaped.
+const arrLit = (xs: string[]) => encodeURIComponent(`{${xs.map((x) => `"${x.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")}}`);
 // One search word, safe for an ilike pattern.
 function words(v: unknown): string[] {
   const s = str(v, 200);
@@ -262,6 +269,9 @@ function listFilters(body: Record<string, unknown>): string[] {
   const cmin = Number(body.case_min), cmax = Number(body.case_max);
   if (Number.isFinite(cmin) && cmin > 0) f.push(`case_mm=gte.${cmin}`);
   if (Number.isFinite(cmax) && cmax > 0) f.push(`case_mm=lte.${cmax}`);
+  // v6: a model's in-stock sizes (size_keys). Sizes are open strings, so no enum.
+  const sizes = listOf(body.sizes, null, "size");
+  if (sizes.length) f.push(`size_keys=ov.${arrLit(sizes)}`);
   const ids = listOf(body.ids, null, "model", 40);
   if (ids.length) f.push(`model_id=in.${inList(ids.map(modelId))}`);
   for (const w of words(body.q)) f.push(`search_text=ilike.*${encodeURIComponent(w)}*`);

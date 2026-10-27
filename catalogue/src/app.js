@@ -118,6 +118,9 @@ const RU = {
   "All brands": "Все бренды",
   "Women": "Женское", "Men": "Мужское", "Unisex": "Унисекс",
   "Stock": "Наличие",
+  "Size": "Размер",
+  "Size {s}": "Размер {s}",
+  "Back to list": "Назад к списку",
   "Done": "Готово",
   "Close": "Закрыть",
   "Search: “{q}”": "Поиск: «{q}»",
@@ -329,6 +332,7 @@ function listHash(f) {
   for (const x of f.movements || []) p.append("movement", x);
   if (f.cmin) p.set("cmin", f.cmin);
   if (f.cmax) p.set("cmax", f.cmax);
+  for (const x of f.sizes || []) p.append("size", x);
   if (f.sort && f.sort !== "newest") p.set("sort", f.sort);
   const s = p.toString();
   return "#/list" + (s ? "?" + s : "");
@@ -352,6 +356,7 @@ function filtersFrom(params) {
     movements: params.getAll("movement").filter((x) => MOVEMENT_NAMES[x]),
     cmin: num(params.get("cmin")),
     cmax: num(params.get("cmax")),
+    sizes: params.getAll("size").map((s) => String(s).trim()).filter(Boolean).slice(0, 20),
     sort: SORTS.some(([k]) => k === params.get("sort")) ? params.get("sort") : "newest",
   };
 }
@@ -363,10 +368,24 @@ function apiFilters(f) {
     metals: f.metals && f.metals.length ? f.metals : undefined, stones: f.stones && f.stones.length ? f.stones : undefined,
     no_stones: f.noStones || undefined, movements: f.movements && f.movements.length ? f.movements : undefined,
     case_min: f.cmin || undefined, case_max: f.cmax || undefined,
+    sizes: f.sizes && f.sizes.length ? f.sizes : undefined,
   };
 }
 const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
-window.addEventListener("hashchange", () => { S.layerPushed = false; closeAllLayers(); route(); });
+// Returning to a list restores where it was: the scroll position is saved on the
+// list we are leaving, and put back when we land on it again (browser back, the
+// model page's Back button, or a filter pill).
+window.addEventListener("hashchange", () => {
+  if (S.curView === "list" && S.list) S.list.scrollY = window.scrollY;
+  S.histDepth = (S.histDepth || 0) + 1;
+  S.layerPushed = false; closeAllLayers(); route();
+});
+// The model page's Back button: step back through the in-app history when there is
+// any (so the list comes back exactly as it was), otherwise fall back to a sensible list.
+function goBack(fallbackHash) {
+  if (S.histDepth > 0) { try { history.back(); return; } catch (e) { /* ignore */ } }
+  go(fallbackHash || "#/");
+}
 
 async function route() {
   if (S.locked) return render();
@@ -398,8 +417,10 @@ async function route() {
     if (!S.reports || S.reports.status !== st) { loadReports(st); return; }
   }
   render();
-  if (r.view !== "list" || !S.list || !S.list.keepScroll) window.scrollTo(0, 0);
+  if (r.view === "list" && S.list) window.scrollTo(0, S.list.keepScroll ? window.scrollY : (S.list.scrollY || 0));
+  else window.scrollTo(0, 0);
   if (S.list) S.list.keepScroll = false;
+  S.curView = r.view;
 }
 
 /* --------------------------------------------------------- recently opened */
@@ -454,6 +475,7 @@ function render() {
   main.append = (...kids) => add(...kids.filter(Boolean));
   if (r.view === "brands") main.append(...renderBrands());
   else if (r.view === "categories") main.append(...renderCategories());
+  else if (r.view === "cat") main.append(...renderCatSub(r.arg));
   else if (r.view === "types") main.append(...renderTypes());
   else if (r.view === "collections") main.append(...renderCollections(r.params.get("brand")));
   else if (r.view === "list") main.append(...renderList());
@@ -580,10 +602,27 @@ function catCounts() {
   }
   return by;
 }
+// The retail categories that exist within a category (ring, necklace…), in order.
+function catTypes(c) {
+  const cats = (S.ref && S.ref.categories) || [];
+  return TYPE_ORDER.filter((t) => cats.some((x) => x.category === c && x.retail_category === t));
+}
 function renderCategories() {
   const by = catCounts();
+  // A category with more than one kind of piece opens its sub-categories; one with a
+  // single kind (watches) goes straight to the list.
+  const href = (c) => (catTypes(c).length > 1 ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
   return [...pageHead(tr("Category"), null),
-    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(listHash({ category: c }), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c) })))];
+    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c) })))];
+}
+// A category's sub-page: a tile per kind of piece in it (Rings, Necklaces…).
+function renderCatSub(cat) {
+  if (!CATS[cat]) return renderCategories();
+  const cats = (S.ref && S.ref.categories) || [];
+  const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter(Boolean);
+  return [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }]),
+    el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
+      typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock })))];
 }
 function renderTypes() {
   const cats = (S.ref && S.ref.categories) || [];
@@ -660,7 +699,7 @@ function photoBox(m) {
 function activeFilterCount(f) {
   return f.brands.length + (f.category ? 1 : 0) + f.types.length + f.collections.length + f.genders.length +
     (f.pmin ? 1 : 0) + (f.pmax ? 1 : 0) + (f.incomplete ? 1 : 0) + (f.metals || []).length + (f.stones || []).length +
-    (f.noStones ? 1 : 0) + (f.movements || []).length + (f.cmin ? 1 : 0) + (f.cmax ? 1 : 0);
+    (f.noStones ? 1 : 0) + (f.movements || []).length + (f.cmin ? 1 : 0) + (f.cmax ? 1 : 0) + (f.sizes || []).length;
 }
 function listTitle(f) {
   if (f.collections.length === 1) return f.collections[0];
@@ -744,11 +783,20 @@ function pillsFor(f, set) {
   (f.movements || []).forEach((x) => pill(nm(MOVEMENT_NAMES, x), { movements: f.movements.filter((y) => y !== x) }));
   if (f.cmin) pill("≥ " + f.cmin + " " + (LANG === "ru" ? "мм" : "mm"), { cmin: null });
   if (f.cmax) pill("≤ " + f.cmax + " " + (LANG === "ru" ? "мм" : "mm"), { cmax: null });
+  (f.sizes || []).forEach((x) => pill(tr("Size {s}", { s: x }), { sizes: f.sizes.filter((y) => y !== x) }));
   if (f.q) pill("“" + f.q + "”", { q: "" });
   return p;
 }
 
 /* ------------------------------------------------------------ filter sheet */
+// Sizes sort by their number when they have one (14,5 · 52 · 52-54), words last (M, S, U).
+function sizeSort(a, b) {
+  const na = parseFloat(String(a).replace(",", ".")), nb = parseFloat(String(b).replace(",", "."));
+  const an = !Number.isNaN(na), bn = !Number.isNaN(nb);
+  if (an && bn) return na - nb || String(a).localeCompare(String(b));
+  if (an !== bn) return an ? -1 : 1;
+  return String(a).localeCompare(String(b));
+}
 function openSheet(f) { S.sheet = JSON.parse(JSON.stringify(f)); layerOpened(); renderSheet(); }
 function closeSheet(silent, navHash) {
   S.sheet = null; $("#layer").innerHTML = "";
@@ -769,6 +817,12 @@ function renderSheet() {
   const typesAvail = TYPE_ORDER.filter((t) => cats.some((c) => c.retail_category === t && (!f.category || c.category === f.category)));
   const colls = (ref.collections || []).filter((c) => f.brands.length && f.brands.includes(c.brand));
   const by = catCounts();
+  // Sizes, per category: once a category or kind of piece is chosen, offer the sizes
+  // that kind has in stock. Watches are left out — their size is the case diameter.
+  const sizeCats = (f.types.length ? f.types : (f.category ? catTypes(f.category) : [])).filter((t) => t !== "watch");
+  const sizeMap = new Map();
+  for (const sz of ref.sizes || []) if (sizeCats.includes(sz.cat) && sz.in_stock > 0) sizeMap.set(sz.size, (sizeMap.get(sz.size) || 0) + sz.in_stock);
+  const sizeOpts = [...sizeMap.entries()].sort((a, b) => sizeSort(a[0], b[0]));
   // Watch filters only where watches can be in the list.
   const showWatch = !f.category ? (!f.types.length || f.types.includes("watch")) : f.category === "watch";
   const cmin = el("input", { type: "number", inputmode: "decimal", min: "0", placeholder: tr("from"), value: f.cmin || "", "aria-label": tr("Case size, mm") + " " + tr("from"), oninput: (e) => { f.cmin = Number(e.target.value) || null; } });
@@ -786,6 +840,7 @@ function renderSheet() {
       }, by[c].in_stock)))),
       grp(tr("Retail category"), el("div", { class: "chiprow" }, typesAvail.map((t) => chip(typeName(t, true), f.types.includes(t), () => { f.types = toggle(f.types, t); rerender(); },
         cats.filter((c) => c.retail_category === t).reduce((a, c) => a + c.in_stock, 0))))),
+      sizeOpts.length ? grp(tr("Size"), el("div", { class: "chiprow" }, sizeOpts.map(([sz, cnt]) => chip(sz, f.sizes.includes(sz), () => { f.sizes = toggle(f.sizes, sz); rerender(); }, cnt)))) : null,
       grp(tr("Brands"), el("div", { class: "chiprow" }, (ref.brands || []).map((b) => chip(b.brand, f.brands.includes(b.brand), () => {
         f.brands = toggle(f.brands, b.brand);
         f.collections = f.collections.filter((c) => (ref.collections || []).some((x) => x.collection === c && f.brands.includes(x.brand))); rerender();

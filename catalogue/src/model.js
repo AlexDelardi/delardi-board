@@ -378,7 +378,11 @@ function renderModel() {
   const trail = [{ text: tr("Home"), href: "#/" }, { text: m.brand, href: listHash({ brands: [m.brand] }) }];
   if (m.collection) trail.push({ text: m.collection, href: listHash({ brands: [m.brand], collections: [m.collection] }) });
   trail.push({ text: m.article });
-  return [crumbs(trail), top, el("div", { class: "mp-body" }, [el("div", { class: "col" }, [advisor, description].filter(Boolean)), el("div", { class: "col" }, [specs])]), ...match, owner].filter(Boolean);
+  // Back to the list exactly as it was (scroll and filters). Falls back to the brand's
+  // list when the page was opened cold from a shared link.
+  const back = el("button", { class: "mp-back", type: "button", "aria-label": tr("Back to list"),
+    onclick: () => goBack(listHash({ brands: [m.brand] })) }, [svg(["M10 19l-7-7 7-7", "M3 12h18"]), tr("Back")]);
+  return [back, crumbs(trail), top, el("div", { class: "mp-body" }, [el("div", { class: "col" }, [advisor, description].filter(Boolean)), el("div", { class: "col" }, [specs])]), ...match, owner].filter(Boolean);
 }
 /* v6 (25 Oct 2026): the gallery. The colour on screen shows its own photos and
    the model's general ones; a colour with none borrows another colour's, marked. */

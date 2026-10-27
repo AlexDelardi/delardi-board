@@ -22,6 +22,11 @@ python3 build.py        # writes ../index.html
 
 Russian values (v10): attribute values written in English (metals, stones, finishes, notes) carry their Russian from `cat_text_ru` (one translation per distinct English text, kept apart from the stock load so a reload never wipes it). The API (v5) adds `ru` to each attribute it can translate; the page shows it in the Russian version and falls back to the built-in word list.
 
+Sub-categories, size filter, back button (v11, API v6 — 27 Oct 2026):
+- **Sub-category pages:** a category tile with more than one kind of piece (Jewellery, Accessories) opens a sub-page of its kinds — Rings, Necklaces, Earrings, Bracelets — at `#/cat/<category>`; a category with one kind (Watches) goes straight to the list. Counts come from the reference, so no extra call.
+- **Size filter:** once a category or a kind of piece is chosen, the filter sheet offers the sizes that kind has in stock, scoped per category (watches use case size instead). `cat_models.size_keys` holds each model's in-stock piece sizes (rebuilt in `cat_rebuild_facets`); the API (v6) filters on them; `cat_reference` carries the per-retail-category size facet.
+- **Back button:** the model page has a Back button that returns to the list exactly as it was — the same filters and the scroll position. The position is saved on the list as it is left and restored on return, so the browser's own Back behaves the same.
+
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 
 ## Checking it
@@ -46,7 +51,10 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-163 checks as of 26 October 2026. Besides the list above, they cover:
+176 checks as of 27 October 2026. Besides the list above, they cover:
+- sub-category pages (v11): a category with several kinds opens its kinds; a single-kind category goes straight to the list
+- the size filter (v11): offered on a category/kind, scoped to it, in-stock sizes only, kept out of watches; reaches the API and shows as a pill
+- the Back button (v11): returns to the list with its filters and the scroll position restored
 - in transit (v8): models whose pieces are shipped but not in Colibri yet say "In transit" rather than "Sold out", count as available in "In stock", have their own filter, and the model page shows how many are on their way and when they were shipped (staff only)
 - the facts at the top of a model page opening their lists (collection, category, type, metal, each stone, movement, gender)
 - photos: the first photo on list cards, the gallery per colour with thumbnails, a colour without photos borrowing another colour's (marked)

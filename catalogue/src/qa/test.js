@@ -161,7 +161,7 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await count(page, ".mp-colour") === 3, "one switch per colour");
     ok(await page.getAttribute(".mp-colour >> nth=0", "aria-pressed") === "true", "the first colour in stock is shown");
     ok((await page.textContent(".mp-price")).replace(/\D/g, "") === String(ring.price_min_uzs), "the price of that colour", await page.textContent(".mp-price"));
-    ok((await page.textContent(".mp-stock")).includes("54"), "the sizes in stock");
+    ok((await page.textContent(".mp-stock")).includes(ring.size_keys[0]), "the sizes in stock", ring.size_keys);
     ok((await count(page, ".facts .fact")) === 7, "seven crucial facts at the top");
     ok((await page.textContent(".facts")).includes("White gold, 750 (18K)"), "material reads as metal and fineness", await page.textContent(".facts"));
     ok((await page.textContent(".facts")).includes("Diamonds, 0.55 ct"), "stones read with their weight");
@@ -245,6 +245,51 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".listbar .btn:has-text('Filters')");
     ok(!(await page.isVisible(".sheet .grp:has-text('Movement')")), "watch filters stay out of a ring list");
     await page.keyboard.press("Escape");
+
+    // ----------------------------------------- sub-category drill-down (1)
+    await page.goto(PAGE + "#/categories"); await settle(page);
+    await page.click(".tile .name:text-is('Jewellery')"); await settle(page);
+    ok((await page.evaluate(() => location.hash)) === "#/cat/jewellery", "a category with several kinds opens a sub-page", await page.evaluate(() => location.hash));
+    ok(await count(page, ".tiles .tile") === 4, "the jewellery sub-page shows its kinds of piece", await count(page, ".tiles .tile"));
+    await page.click(".tile .name:text-is('Rings')"); await page.waitForSelector(".cards .card");
+    const dd = log.at(-1);
+    ok(dd.category === "jewellery" && (dd.retail_categories || [])[0] === "ring", "a kind tile opens that list inside the category", dd);
+    await page.goto(PAGE + "#/categories"); await settle(page);
+    await page.click(".tile .name:text-is('Watches')"); await page.waitForSelector(".cards .card");
+    ok(log.at(-1).category === "watch" && !(await page.evaluate(() => location.hash)).includes("/cat/"), "a category with one kind goes straight to the list", log.at(-1));
+
+    // ------------------------------------------------ size filter (2)
+    await page.goto(PAGE + "#/list?type=ring"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')");
+    ok(await count(page, ".sheet .grp .lbl:text-is('Size')") === 1, "a ring list offers a size filter");
+    await page.click(".sheet .chip:text-is('54')");
+    await page.click(".sheet footer .btn.primary");
+    await page.waitForFunction(() => location.hash.includes("size=54")); await page.waitForSelector(".cards .card, .empty");
+    const szf = log.filter((x) => x.action === "list").at(-1);
+    ok((szf.sizes || [])[0] === "54", "the chosen size reaches the API", szf);
+    const ring54 = MODELS.filter((m) => (m.size_keys || []).includes("54")).length;
+    ok(await count(page, ".cards .card") === Math.min(60, ring54) && ring54 > 0, "the list narrows to that size", [ring54, await count(page, ".cards .card")]);
+    ok(await count(page, ".pills .chip:has-text('54')") === 1, "the size shows as a pill");
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')");
+    ok(await count(page, ".sheet .grp .lbl:text-is('Size')") === 0, "no size filter until a category is chosen");
+    await page.keyboard.press("Escape");
+    await page.goto(PAGE + "#/list?category=watch"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')");
+    ok(await count(page, ".sheet .grp .lbl:text-is('Size')") === 0, "watches use case size, not the size filter");
+    await page.keyboard.press("Escape");
+
+    // ------------------------------------- back button + scroll (3)
+    await page.goto(PAGE + "#/list?brand=Aurelle"); await page.waitForSelector(".cards .card");
+    await page.click(".cards .card >> nth=0"); await page.waitForSelector(".mp-top");
+    ok(await page.isVisible(".mp-back"), "the model page has a Back button");
+    await page.click(".mp-back"); await page.waitForSelector(".cards .card");
+    ok((await page.evaluate(() => location.hash)).includes("brand=Aurelle"), "Back keeps the list's filters", await page.evaluate(() => location.hash));
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    await page.evaluate(() => window.scrollTo(0, 600)); await settle(page);
+    await page.click(".cards .card >> nth=5"); await page.waitForSelector(".mp-top");
+    await page.click(".mp-back"); await page.waitForSelector(".cards .card");
+    ok(await page.evaluate(() => window.scrollY) > 200, "Back restores the scroll position", await page.evaluate(() => window.scrollY));
 
     await page.goto(PAGE + "#/"); await page.waitForSelector(".section-h h2:has-text('Opened recently')");
     const recent = await page.evaluate(() => JSON.parse(localStorage.getItem("cat_recent")));

@@ -14,6 +14,7 @@ function build() {
       const [category, rc] = TYPES[n % TYPES.length];
       const coll = i % 5 === 4 ? null : COLLS[b][i % COLLS[b].length];
       const inStock = n % 4 !== 0;
+      const ringSize = ["52", "53", "54", "55"][n % 4];
       const price = (5 + ((n * 37) % 190)) * 1_000_000;
       const multi = n % 6 === 0 || n % 6 === 2;
       models.push({
@@ -29,6 +30,7 @@ function build() {
         stone_keys: n % 3 === 0 ? [] : n % 3 === 1 ? ["diamond"] : ["diamond", "sapphire"],
         movement: category === "watch" ? (n % 2 ? "automatic" : "quartz") : null,
         case_mm: category === "watch" ? 36 + (n % 10) : null,
+        size_keys: rc === "ring" && inStock ? [ringSize] : [],
       });
     }
   }
@@ -53,6 +55,11 @@ function reference() {
     metals: ["white_gold", "rose_gold", "yellow_gold", "steel", "titanium"].map((k) => ({ key: k, models: MODELS.filter((m) => m.metal_keys.includes(k)).length, in_stock: MODELS.filter((m) => m.in_stock && m.metal_keys.includes(k)).length })),
     stones: ["diamond", "sapphire"].map((k) => ({ key: k, models: MODELS.filter((m) => m.stone_keys.includes(k)).length, in_stock: MODELS.filter((m) => m.in_stock && m.stone_keys.includes(k)).length })),
     movements: ["automatic", "quartz"].map((k) => ({ key: k, models: MODELS.filter((m) => m.movement === k).length, in_stock: MODELS.filter((m) => m.in_stock && m.movement === k).length })),
+    sizes: (() => {
+      const map = new Map();
+      for (const m of MODELS) for (const s of m.size_keys || []) { const k = m.retail_category + "|" + s; const v = map.get(k) || { models: 0, in_stock: 0 }; v.models++; if (m.in_stock) v.in_stock++; map.set(k, v); }
+      return [...map].map(([k, v]) => ({ cat: k.split("|")[0], size: k.split("|")[1], ...v }));
+    })(),
     case_mm: { min: 36, max: 45, models: MODELS.filter((m) => m.case_mm).length },
     expected: [],
     run: { id: 1, run_at: "2026-10-24T06:27:59Z", source_built: "2026-10-23", counts: {} },
@@ -80,6 +87,7 @@ function list(b) {
   const mv = arr(b.movements); if (mv.length) r = r.filter((m) => mv.includes(m.movement));
   if (b.case_min) r = r.filter((m) => m.case_mm && m.case_mm >= b.case_min);
   if (b.case_max) r = r.filter((m) => m.case_mm && m.case_mm <= b.case_max);
+  const sz = arr(b.sizes); if (sz.length) r = r.filter((m) => (m.size_keys || []).some((k) => sz.includes(k)));
   const ids = arr(b.ids); if (ids.length) r = r.filter((m) => ids.includes(m.model_id));
   for (const w of String(b.q || "").toLowerCase().split(/\s+/).filter(Boolean)) r = r.filter((m) => m._search.includes(w));
   const s = b.sort || "newest";
@@ -127,7 +135,7 @@ function model(b) {
     colour_name_ru: null, material: m.material, in_stock: c.in_stock, qty_stock: c.in_stock ? 1 : 0, price_uzs: m.price_min_uzs + i * 1_000_000, arrival_years: m.arrival_years,
     description_ru: "Описание из Colibri.", description_en: null, found_online: i === 0, confidence: i === 0 ? "high" : null, sources: i === 0 ? ["https://www.example.com/piece"] : [],
     conflicts: null, notes: null, sort_order: i + 1,
-    pieces: c.in_stock ? [{ serial: "SN" + m.model_id + i, size: m.retail_category === "ring" ? "54" : null, price_uzs: m.price_min_uzs + i * 1_000_000 }] : [],
+    pieces: c.in_stock ? [{ serial: "SN" + m.model_id + i, size: m.retail_category === "ring" ? (m.size_keys[0] || "54") : null, price_uzs: m.price_min_uzs + i * 1_000_000 }] : [],
     qty_transit: m.qty_transit || 0,
     transit: m.qty_transit ? [1, 2].map((k) => ({ serial: "TR" + m.model_id + k, size: m.retail_category === "ring" ? "14" : null, shipment: "VES26-0641", shipped_on: "2026-10-14" })) : [],
     attributes: attrsOf(m, i === 0),
