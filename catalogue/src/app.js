@@ -108,7 +108,7 @@ const RU = {
   "Clear all": "Сбросить всё",
   "Show {n}": "Показать: {n}",
   "Gender": "Пол",
-  "Price, million UZS": "Цена, млн сум",
+  "Price, UZS": "Цена, сум",
   "from": "от",
   "to": "до",
   "Only models with key details still TBC": "Только модели, где не хватает ключевых данных",
@@ -124,8 +124,8 @@ const RU = {
   "Done": "Готово",
   "Close": "Закрыть",
   "Search: “{q}”": "Поиск: «{q}»",
-  "price from {p} mln": "цена от {p} млн",
-  "price to {p} mln": "цена до {p} млн",
+  "price from {p}": "цена от {p}",
+  "price to {p}": "цена до {p}",
   "TBC": "Уточняется",
   // model placeholder
   "Model": "Модель",
@@ -249,6 +249,8 @@ function fmtUZS(n) {
   if (S.hide) return "•••";
   return Number(n).toLocaleString(LOC(), { maximumFractionDigits: 0 }).replace(/,/g, " ") + (LANG === "ru" ? " сум" : " UZS");
 }
+// Like fmtUZS but always shows the number (for filter pills), ignoring the hide-amounts toggle.
+const fmtAmt = (n) => Number(n).toLocaleString(LOC(), { maximumFractionDigits: 0 }).replace(/,/g, " ") + (LANG === "ru" ? " сум" : " UZS");
 function priceLine(m) {
   if (!m.price_min_uzs && !m.price_max_uzs) return "";
   if (S.hide) return "•••";
@@ -338,7 +340,10 @@ function listHash(f) {
   return "#/list" + (s ? "?" + s : "");
 }
 function filtersFrom(params) {
-  const num = (v) => { const n = Number(String(v || "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+  const num = (v) => { const n = Number(String(v || "").replace(/[^\d.,]/g, "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
+  // Price is full UZS — the same units the cards show. Tolerate a reversed from/to.
+  const pr = [num(params.get("pmin")), num(params.get("pmax"))];
+  if (pr[0] && pr[1] && pr[0] > pr[1]) { const t = pr[0]; pr[0] = pr[1]; pr[1] = t; }
   return {
     brands: params.getAll("brand"),
     category: CATS[params.get("category")] ? params.get("category") : null,
@@ -347,8 +352,8 @@ function filtersFrom(params) {
     genders: params.getAll("gender").filter((g) => GENDERS[g]),
     stock: ["in", "out", "transit"].includes(params.get("stock")) ? params.get("stock") : "all",
     q: params.get("q") || "",
-    pmin: num(params.get("pmin")),
-    pmax: num(params.get("pmax")),
+    pmin: pr[0],
+    pmax: pr[1],
     incomplete: params.get("incomplete") === "1",
     metals: params.getAll("metal").filter((x) => METAL_NAMES[x]),
     stones: params.getAll("stone").filter((x) => STONE_NAMES[x]),
@@ -364,7 +369,7 @@ function apiFilters(f) {
   return {
     brands: f.brands, category: f.category, retail_categories: f.types, collections: f.collections, genders: f.genders,
     stock: f.stock, q: f.q || undefined, sort: f.sort, incomplete: f.incomplete || undefined,
-    price_min: f.pmin ? Math.round(f.pmin * 1e6) : undefined, price_max: f.pmax ? Math.round(f.pmax * 1e6) : undefined,
+    price_min: f.pmin ? Math.round(f.pmin) : undefined, price_max: f.pmax ? Math.round(f.pmax) : undefined,
     metals: f.metals && f.metals.length ? f.metals : undefined, stones: f.stones && f.stones.length ? f.stones : undefined,
     no_stones: f.noStones || undefined, movements: f.movements && f.movements.length ? f.movements : undefined,
     case_min: f.cmin || undefined, case_max: f.cmax || undefined,
@@ -774,8 +779,8 @@ function pillsFor(f, set) {
   f.types.forEach((t) => pill(typeName(t, true), { types: f.types.filter((x) => x !== t) }));
   f.collections.forEach((c) => pill(c, { collections: f.collections.filter((x) => x !== c) }));
   f.genders.forEach((g) => pill(tr(GENDERS[g]), { genders: f.genders.filter((x) => x !== g) }));
-  if (f.pmin) pill(tr("price from {p} mln", { p: f.pmin }), { pmin: null });
-  if (f.pmax) pill(tr("price to {p} mln", { p: f.pmax }), { pmax: null });
+  if (f.pmin) pill(tr("price from {p}", { p: fmtAmt(f.pmin) }), { pmin: null });
+  if (f.pmax) pill(tr("price to {p}", { p: fmtAmt(f.pmax) }), { pmax: null });
   if (f.incomplete) pill(tr("Key details TBC"), { incomplete: false });
   (f.metals || []).forEach((x) => pill(nm(METAL_NAMES, x), { metals: f.metals.filter((y) => y !== x) }));
   (f.stones || []).forEach((x) => pill(nm(STONE_NAMES, x), { stones: f.stones.filter((y) => y !== x) }));
@@ -827,8 +832,10 @@ function renderSheet() {
   const showWatch = !f.category ? (!f.types.length || f.types.includes("watch")) : f.category === "watch";
   const cmin = el("input", { type: "number", inputmode: "decimal", min: "0", placeholder: tr("from"), value: f.cmin || "", "aria-label": tr("Case size, mm") + " " + tr("from"), oninput: (e) => { f.cmin = Number(e.target.value) || null; } });
   const cmax = el("input", { type: "number", inputmode: "decimal", min: "0", placeholder: tr("to"), value: f.cmax || "", "aria-label": tr("Case size, mm") + " " + tr("to"), oninput: (e) => { f.cmax = Number(e.target.value) || null; } });
-  const pmin = el("input", { type: "number", inputmode: "decimal", min: "0", placeholder: tr("from"), value: f.pmin || "", "aria-label": tr("from"), oninput: (e) => { f.pmin = Number(e.target.value) || null; } });
-  const pmax = el("input", { type: "number", inputmode: "decimal", min: "0", placeholder: tr("to"), value: f.pmax || "", "aria-label": tr("to"), oninput: (e) => { f.pmax = Number(e.target.value) || null; } });
+  // Full UZS, as shown on the cards. Text input (not number) so grouped entry like "46 000 000" is accepted.
+  const parseAmt = (v) => { const n = Number(String(v).replace(/[^\d]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+  const pmin = el("input", { type: "text", inputmode: "numeric", placeholder: tr("from"), value: f.pmin || "", "aria-label": tr("Price, UZS") + " " + tr("from"), oninput: (e) => { f.pmin = parseAmt(e.target.value); } });
+  const pmax = el("input", { type: "text", inputmode: "numeric", placeholder: tr("to"), value: f.pmax || "", "aria-label": tr("Price, UZS") + " " + tr("to"), oninput: (e) => { f.pmax = parseAmt(e.target.value); } });
   const sheet = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": tr("Filters") }, [
     el("header", {}, [el("h2", { text: tr("Filters") }), el("button", { class: "btn", type: "button", onclick: () => closeSheet(), text: tr("Close") })]),
     el("div", { class: "scroll" }, [
@@ -856,7 +863,7 @@ function renderSheet() {
         chip(nm(MOVEMENT_NAMES, x.key), f.movements.includes(x.key), () => { f.movements = toggle(f.movements, x.key); rerender(); }, x.in_stock)))) : null,
       showWatch ? grp(tr("Case size, mm"), el("div", { class: "range" }, [cmin, el("span", { text: "–" }), cmax])) : null,
       grp(tr("Gender"), el("div", { class: "chiprow" }, Object.entries(GENDERS).map(([k, l]) => chip(tr(l), f.genders.includes(k), () => { f.genders = toggle(f.genders, k); rerender(); })))),
-      grp(tr("Price, million UZS"), el("div", { class: "range" }, [pmin, el("span", { text: "–" }), pmax])),
+      grp(tr("Price, UZS"), el("div", { class: "range" }, [pmin, el("span", { text: "–" }), pmax])),
       S.client ? null : el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: f.incomplete ? "checked" : null, onchange: (e) => { f.incomplete = e.target.checked; } }), tr("Only models with key details still TBC")])]),
     ]),
     el("footer", {}, [

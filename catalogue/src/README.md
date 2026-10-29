@@ -27,6 +27,8 @@ Sub-categories, size filter, back button (v11, API v6 — 27 Oct 2026):
 - **Size filter:** once a category or a kind of piece is chosen, the filter sheet offers the sizes that kind has in stock, scoped per category (watches use case size instead). `cat_models.size_keys` holds each model's in-stock piece sizes (rebuilt in `cat_rebuild_facets`); the API (v6) filters on them; `cat_reference` carries the per-retail-category size facet.
 - **Back button:** the model page has a Back button that returns to the list exactly as it was — the same filters and the scroll position. The position is saved on the list as it is left and restored on return, so the browser's own Back behaves the same.
 
+Price filter in full UZS (v12 — 29 Oct 2026): the price range filter now takes **full UZS** (the same units shown on the cards), not millions, and the input is a text field so grouped entry like `46 000 000` is accepted; a reversed from/to is corrected. Previously the "million UZS" field plus a strict number input meant a normal full-UZS entry filtered everything out.
+
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 
 ## Checking it
@@ -51,7 +53,7 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-176 checks as of 27 October 2026. Besides the list above, they cover:
+179 checks as of 29 October 2026. Besides the list above, they cover:
 - sub-category pages (v11): a category with several kinds opens its kinds; a single-kind category goes straight to the list
 - the size filter (v11): offered on a category/kind, scoped to it, in-stock sizes only, kept out of watches; reaches the API and shows as a pill
 - the Back button (v11): returns to the list with its filters and the scroll position restored

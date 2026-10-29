@@ -127,12 +127,12 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await page.isVisible(".sheet"), "the filters open");
     await page.click(".sheet .chip:has-text('Watches')");
     await page.click(".sheet .chip:text-is('Men')");
-    await page.fill(".sheet .grp:has-text('Price') .range input >> nth=0", "50");
+    await page.fill(".sheet .grp:has-text('Price') .range input >> nth=0", "50 000 000");
     await page.click(".sheet footer .btn.primary");
     await page.waitForFunction(() => location.hash.includes("gender=men"));
     await page.waitForSelector(".cards .card, .empty");
     const fr = log.at(-1);
-    ok(fr.category === "watch" && fr.genders[0] === "men" && fr.price_min === 50_000_000, "the filters reach the API", fr);
+    ok(fr.category === "watch" && fr.genders[0] === "men" && fr.price_min === 50_000_000, "the filters reach the API (price in full UZS, grouped entry accepted)", fr);
     ok((await page.textContent(".listbar .badge")) === "3", "the filter button counts what is on");
     ok(await count(page, ".pills .chip") === 3, "each filter shows as a pill");
     await page.click(".pills .chip:has-text('Men'):not(:has-text('Women'))"); await page.waitForFunction(() => !location.hash.includes("gender") && document.querySelectorAll(".pills .chip").length === 2);
@@ -290,6 +290,21 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".cards .card >> nth=5"); await page.waitForSelector(".mp-top");
     await page.click(".mp-back"); await page.waitForSelector(".cards .card");
     ok(await page.evaluate(() => window.scrollY) > 200, "Back restores the scroll position", await page.evaluate(() => window.scrollY));
+
+    // --------------------------------------- price range (full UZS)
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')");
+    // reversed from/to, grouped digits — should still narrow correctly
+    await page.fill(".sheet .grp:has-text('Price') .range input >> nth=0", "120 000 000");
+    await page.fill(".sheet .grp:has-text('Price') .range input >> nth=1", "40000000");
+    await page.click(".sheet footer .btn.primary");
+    await page.waitForFunction(() => location.hash.includes("pmin") || location.hash.includes("pmax"));
+    await page.waitForSelector(".cards .card, .empty");
+    const pf = log.filter((x) => x.action === "list").at(-1);
+    ok(pf.price_min === 40_000_000 && pf.price_max === 120_000_000, "price is full UZS and a reversed from/to is corrected", pf);
+    const inBand = MODELS.filter((m) => m.price_max_uzs >= 40_000_000 && m.price_min_uzs <= 120_000_000).length;
+    ok(await count(page, ".cards .card") === Math.min(60, inBand) && inBand < total, "the list narrows to the price band", [inBand, await count(page, ".cards .card")]);
+    ok(await count(page, ".pills .chip") === 2, "price shows as from/to pills");
 
     await page.goto(PAGE + "#/"); await page.waitForSelector(".section-h h2:has-text('Opened recently')");
     const recent = await page.evaluate(() => JSON.parse(localStorage.getItem("cat_recent")));
