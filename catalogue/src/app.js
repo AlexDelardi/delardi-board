@@ -73,6 +73,7 @@ const RU = {
   "{n} categories": "Категорий: {n}",
   "{n} types": "Типов: {n}",
   "Rings, earrings, necklaces, watches…": "Кольца, серьги, колье, часы…",
+  "All watches": "Все часы",
   "Opened recently": "Недавно открытые",
   "Clear": "Очистить",
   "New arrivals": "Новые поступления",
@@ -612,22 +613,42 @@ function catTypes(c) {
   const cats = (S.ref && S.ref.categories) || [];
   return TYPE_ORDER.filter((t) => cats.some((x) => x.category === c && x.retail_category === t));
 }
+// Watches are one kind of piece, so they split by movement instead (v13). The
+// movement facet is global, but movement is only set on watches, so it is the
+// watch split. Shown in a fixed order, only those actually present.
+const MOVE_ORDER = ["automatic", "quartz", "manual"];
+function watchMoves() {
+  const mv = (S.ref && S.ref.movements) || [];
+  return MOVE_ORDER.map((k) => mv.find((x) => x.key === k)).filter(Boolean);
+}
+// A category opens a sub-page when it has more than one kind of piece, or — for
+// watches — more than one movement to split by.
+function catOpensSub(c) {
+  return catTypes(c).length > 1 || (c === "watch" && watchMoves().length >= 2);
+}
 function renderCategories() {
   const by = catCounts();
-  // A category with more than one kind of piece opens its sub-categories; one with a
-  // single kind (watches) goes straight to the list.
-  const href = (c) => (catTypes(c).length > 1 ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
+  const href = (c) => (catOpensSub(c) ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
   return [...pageHead(tr("Category"), null),
     el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c) })))];
 }
-// A category's sub-page: a tile per kind of piece in it (Rings, Necklaces…).
+// A category's sub-page: a tile per kind of piece (Rings, Necklaces…) — or, for
+// watches, a tile per movement (Automatic / Quartz / Hand-wound) with an "All
+// watches" tile first so the ones with no movement on file stay reachable.
 function renderCatSub(cat) {
   if (!CATS[cat]) return renderCategories();
+  const head = [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }])];
+  if (cat === "watch") {
+    const by = catCounts().watch || { models: 0, in_stock: 0 };
+    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), dim: !by.in_stock })]
+      .concat(watchMoves().map((x) => tile(listHash({ category: "watch", movements: [x.key] }),
+        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), dim: !x.in_stock })));
+    return [...head, el("div", { class: "tiles" }, tiles)];
+  }
   const cats = (S.ref && S.ref.categories) || [];
   const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter(Boolean);
-  return [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }]),
-    el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
-      typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock })))];
+  return [...head, el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
+    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock })))];
 }
 function renderTypes() {
   const cats = (S.ref && S.ref.categories) || [];

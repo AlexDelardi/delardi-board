@@ -29,6 +29,11 @@ Sub-categories, size filter, back button (v11, API v6 — 27 Oct 2026):
 
 Price filter in full UZS (v12 — 29 Oct 2026): the price range filter now takes **full UZS** (the same units shown on the cards), not millions, and the input is a text field so grouped entry like `46 000 000` is accepted; a reversed from/to is corrected. Previously the "million UZS" field plus a strict number input meant a normal full-UZS entry filtered everything out.
 
+Watch movement split + spec tidy (v13 — 4 Nov 2026):
+- **Watches split by movement.** The Watches category now opens a sub-page of movement tiles — **All watches** (first, so the ones with no movement on file stay reachable), then **Automatic / Quartz / Hand-wound** for those present — each opening the watch list filtered on that movement. Jewellery and Accessories are unchanged. Counts come from the reference's movement facet (movement is only set on watches, so it is the watch split); no extra API call, no data change.
+- **Model page — rows that don't apply are dropped.** A spec row that belongs only to a kind of piece (ring size → rings, length/clasp → necklaces & bracelets, fastening → earrings) is no longer shown as "TBC" on pieces it can't apply to; it is dropped when empty, and still shown if it happens to carry a value. `SPEC_ONLY_FOR` in `model.js`.
+- **Model page — stoneless pieces collapse.** A piece with no stones (empty `stone_keys`, the same signal as the "no stones" filter) reads a single **"No stones" / "Без камней"** line in place of the empty stone block, at the top fact and in the Specifications. Genuinely-unknown fields on pieces that do have stones still read "TBC".
+
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 
 ## Checking it
@@ -53,8 +58,10 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-179 checks as of 29 October 2026. Besides the list above, they cover:
-- sub-category pages (v11): a category with several kinds opens its kinds; a single-kind category goes straight to the list
+188 checks as of 4 November 2026. Besides the list above, they cover:
+- sub-category pages (v11): a category with several kinds opens its kinds; a single-kind category (Accessories) goes straight to the list
+- the watch movement split (v13): Watches open an All watches / Automatic / Quartz / Hand-wound sub-page, each movement tile filtering the list
+- the spec tidy (v13): a stoneless piece reads one "No stones" line, and a row that doesn't apply to the kind of piece (ring size on earrings) is dropped while applicable unknowns still read TBC
 - the size filter (v11): offered on a category/kind, scoped to it, in-stock sizes only, kept out of watches; reaches the API and shows as a pill
 - the Back button (v11): returns to the list with its filters and the scroll position restored
 - in transit (v8): models whose pieces are shipped but not in Colibri yet say "In transit" rather than "Sold out", count as available in "In stock", have their own filter, and the model page shows how many are on their way and when they were shipped (staff only)

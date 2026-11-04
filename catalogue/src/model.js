@@ -125,6 +125,15 @@ const UNITS = { g: ["g", "г"], ct: ["ct", "кт"], cm: ["cm", "см"], mm: ["mm
 const SECTIONS = [["identity", "Model"], ["metal", "Metal"], ["stones", "Stones"], ["size", "Size and fit"],
   ["watch_case", "Case"], ["movement", "Movement"], ["dial_strap", "Dial and strap"]];
 const SPEC_SKIP = new Set(["name_en", "name_ru", "receipt_name", "extra", "motif_story_en", "motif_story_ru", "brand_icon", "stackable", "matching_pieces", "occasion"]);
+// v13 (4 Nov 2026): spec rows that only apply to some kinds of jewellery. When a
+// piece is not one of these kinds and the value is empty, the row is dropped
+// rather than shown as "TBC" (a ring has no clasp, earrings have no ring size).
+// A value that is present is always shown, whatever the kind.
+const SPEC_ONLY_FOR = {
+  ring_size: ["ring"], resizable: ["ring"],
+  chain_or_bracelet_length_cm: ["necklace", "bracelet"], adjustable_length: ["necklace", "bracelet"],
+  earring_fastening: ["earrings"], clasp_type: ["necklace", "bracelet"],
+};
 // Short enumerated values read in Russian; free text stays as written (the RU pass comes later).
 const VALUE_RU = {
   yes: "да", no: "нет", women: "женское", men: "мужское", unisex: "унисекс", automatic: "автоматический", quartz: "кварцевый",
@@ -256,6 +265,10 @@ function renderModel() {
     const words = s ? ruA(s) : null;
     return { value: [words, ct ? withUnit("total_stone_carat", ct.value) : null].filter(Boolean).join(", "), flag: worst([s, ct]), inherited: (s && s.inherited) || (ct && ct.inherited) };
   })();
+  // v13: a piece with no stones (the app's convention is an empty stone_keys —
+  // the same as the "no stones" filter) reads one "No stones" line instead of a
+  // column of empty stone rows. Watches and accessories have no stones block.
+  const noStones = m.category === "jewellery" && (m.stone_keys || []).length === 0;
   const sizeFact = (() => {
     if (m.retail_category === "ring") return sizes.length ? { value: sizes.join(", "), flag: "colibri_only" } : A.ring_size;
     if (m.category === "watch") return A.case_diameter_mm ? { ...A.case_diameter_mm, value: withUnit("case_diameter_mm", A.case_diameter_mm.value) } : null;
@@ -281,7 +294,7 @@ function renderModel() {
       ? fact(tr("Movement"), A.movement_type ? { ...A.movement_type, value: ruValue(A.movement_type.value) } : null,
           m.movement ? [{ text: ruValue(A.movement_type ? A.movement_type.value : m.movement), href: listHash({ category: "watch", movements: [m.movement] }) }] : null)
       : m.category !== "accessory"
-        ? fact(tr("Stones"), stones, stones && (m.stone_keys || []).length
+        ? fact(tr("Stones"), noStones ? { value: tr("No stones") } : stones, (!noStones && stones && (m.stone_keys || []).length)
             ? [...m.stone_keys.map((k) => ({ text: nm(STONE_NAMES, k), href: listHash({ category: m.category, stones: [k] }) })),
                ...(A.total_stone_carat ? [{ text: withUnit("total_stone_carat", A.total_stone_carat.value) }] : [])] : null)
         : null,
@@ -336,19 +349,34 @@ function renderModel() {
   // ---- specifications, section by section
   const exp = (expected || []).filter((e) => !SPEC_SKIP.has(e.key));
   const extraKeys = Object.keys(A).filter((k) => ATTR[k] && ATTR[k].l && !SPEC_SKIP.has(k) && !exp.some((e) => e.key === k));
+  // v13: a row for a spec that doesn't apply to this kind of piece is dropped
+  // when empty (kept when it has a value).
+  const rcOK = (k) => !SPEC_ONLY_FOR[k] || SPEC_ONLY_FOR[k].includes(m.retail_category);
   const specSections = SECTIONS.map(([sec, label]) => {
+    // v13: a stoneless piece shows one "No stones" line in place of the block.
+    if (sec === "stones" && noStones) {
+      return el("div", { class: "spec-sec" }, [el("h3", { text: tr(label) }),
+        el("dl", {}, [el("div", { class: "spec" }, [el("dt", { text: tr("Stones") }), el("dd", {}, [el("span", { class: "val", text: tr("No stones") })])])])]);
+    }
     const keys = exp.filter((e) => e.section === sec).map((e) => e.key);
     if (sec === "identity") keys.push(...extraKeys.filter((k) => ["subcategory", "gender", "collection", "model_name"].includes(k) && !keys.includes(k)));
     const rows = keys.map((k) => {
-      const node = valueNode(k, A[k]);
+      const a = A[k];
+      const empty = !a || a.value === null || a.value === undefined || a.value === "";
+      if (empty && !rcOK(k)) return null;   // not applicable to this kind of piece
+      const node = valueNode(k, a);
       if (!node) return null;
       return el("div", { class: "spec" }, [el("dt", { text: tr(ATTR[k] ? ATTR[k].l : k) }), el("dd", {}, [node])]);
     }).filter(Boolean);
     return rows.length ? el("div", { class: "spec-sec" }, [el("h3", { text: tr(label) }), el("dl", {}, rows)]) : null;
   }).filter(Boolean);
-  const have = exp.filter((e) => A[e.key] && A[e.key].value).length;
+  // The counter reflects what the page actually shows: applicable keys only, and
+  // "No stones" counts as one filled detail.
+  const applExp = exp.filter((e) => rcOK(e.key) && !(noStones && e.section === "stones"));
+  const have = applExp.filter((e) => A[e.key] && A[e.key].value).length + (noStones ? 1 : 0);
+  const total = applExp.length + (noStones ? 1 : 0);
   const specs = el("section", { class: "panel specs" }, [
-    el("div", { class: "panel-h" }, [el("h2", { text: tr("Specifications") }), S.client ? null : el("span", { class: "muted", text: tr("{a} of {b} details on file", { a: have, b: exp.length }) })]),
+    el("div", { class: "panel-h" }, [el("h2", { text: tr("Specifications") }), S.client ? null : el("span", { class: "muted", text: tr("{a} of {b} details on file", { a: have, b: total }) })]),
     el("div", { class: "spec-grid" }, specSections),
   ]);
 

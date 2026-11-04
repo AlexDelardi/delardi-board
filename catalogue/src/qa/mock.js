@@ -27,8 +27,8 @@ function build() {
         colours: multi ? [{ variant_id: `Q${n}-WG`, colour_code: "WG", in_stock: true }, { variant_id: `Q${n}-YG`, colour_code: "YG", in_stock: true }, { variant_id: `Q${n}-PG`, colour_code: "PG", in_stock: false }] : null,
         _search: "", arrival_years: [2022 + (n % 5)], brand_raw: [b],
         metal_keys: [["white_gold"], ["rose_gold"], ["yellow_gold"], ["steel"], ["titanium"]][n % 5],
-        stone_keys: n % 3 === 0 ? [] : n % 3 === 1 ? ["diamond"] : ["diamond", "sapphire"],
-        movement: category === "watch" ? (n % 2 ? "automatic" : "quartz") : null,
+        stone_keys: category !== "jewellery" ? [] : (rc === "necklace" && n % 4 === 2) ? [] : (n % 4 === 1 ? ["diamond", "sapphire"] : ["diamond"]),
+        movement: category === "watch" ? ["automatic", "quartz", "manual"][Math.floor(n / 6) % 3] : null,
         case_mm: category === "watch" ? 36 + (n % 10) : null,
         size_keys: rc === "ring" && inStock ? [ringSize] : [],
       });
@@ -54,7 +54,7 @@ function reference() {
     collections: [...g((m) => (m.collection ? m.brand + "|" + m.collection : null))].map(([k, v]) => ({ brand: k.split("|")[0], collection: k.split("|")[1], ...v })),
     metals: ["white_gold", "rose_gold", "yellow_gold", "steel", "titanium"].map((k) => ({ key: k, models: MODELS.filter((m) => m.metal_keys.includes(k)).length, in_stock: MODELS.filter((m) => m.in_stock && m.metal_keys.includes(k)).length })),
     stones: ["diamond", "sapphire"].map((k) => ({ key: k, models: MODELS.filter((m) => m.stone_keys.includes(k)).length, in_stock: MODELS.filter((m) => m.in_stock && m.stone_keys.includes(k)).length })),
-    movements: ["automatic", "quartz"].map((k) => ({ key: k, models: MODELS.filter((m) => m.movement === k).length, in_stock: MODELS.filter((m) => m.in_stock && m.movement === k).length })),
+    movements: ["automatic", "quartz", "manual"].map((k) => ({ key: k, models: MODELS.filter((m) => m.movement === k).length, in_stock: MODELS.filter((m) => m.in_stock && m.movement === k).length })).filter((x) => x.models),
     sizes: (() => {
       const map = new Map();
       for (const m of MODELS) for (const s of m.size_keys || []) { const k = m.retail_category + "|" + s; const v = map.get(k) || { models: 0, in_stock: 0 }; v.models++; if (m.in_stock) v.in_stock++; map.set(k, v); }
@@ -112,14 +112,16 @@ const EXPECTED = {
 };
 function attrsOf(m, first) {
   const a = (v, flag = "confirmed") => ({ value: String(v), num: null, flag });
-  if (!first) return { gender: a(m.gender, "colibri_only"), stones: a("Бриллианты", "colibri_only") };
+  if (!first) { const o = { gender: a(m.gender, "colibri_only") }; if ((m.stone_keys || []).length) o.stones = a("Бриллианты", "colibri_only"); return o; }
   const out = { gender: a(m.gender), model_name: a(m.model_name || "Signature"), description_en: a("An invented piece used only by the checks."), receipt_name: a("Изделие " + m.article) };
   if (m.collection) out.collection = a(m.collection);
   if (m.category === "jewellery") {
-    Object.assign(out, { metal: a("gold"), metal_colour: a("white"), fineness: a("750 (18K)"), stones: a("diamonds"), total_stone_carat: a("0.55"),
-      setting: a("pavé", "unconfirmed"), motif_story_en: a("A made-up story about light."), motif_story_ru: a("Выдуманная история о свете."),
+    Object.assign(out, { metal: a("gold"), metal_colour: a("white"), fineness: a("750 (18K)"),
+      motif_story_en: a("A made-up story about light."), motif_story_ru: a("Выдуманная история о свете."),
       brand_icon: a("yes"), occasion: a("everyday, gift"), total_weight_g: a("5.1", "conflict"),
       extra: { ...a("Polished by hand in the workshop."), ru: "Отполировано вручную в мастерской." } });
+    // Stones follow stone_keys: a stoneless piece has no stone attributes.
+    if ((m.stone_keys || []).length) Object.assign(out, { stones: a("diamonds"), total_stone_carat: a("0.55"), setting: a("pavé", "unconfirmed") });
   } else if (m.category === "watch") {
     Object.assign(out, { case_material: a("titanium"), case_diameter_mm: a(m.case_mm), movement_type: a(m.movement), water_resistance_m: a("100"), dial_colour_finish: a("blue sunburst") });
   } else {

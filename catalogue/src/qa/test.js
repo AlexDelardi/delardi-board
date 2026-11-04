@@ -212,6 +212,22 @@ const settle = (page) => page.waitForTimeout(150);
     await page.goto(PAGE + "#/model/" + stony.model_id); await page.waitForSelector(".mp-top");
     const sl = await page.$$eval(".facts a.fact-link", (ns) => ns.map((n) => n.getAttribute("href")));
     ok(sl.some((h) => h.includes("stone=diamond")) && sl.some((h) => h.includes("stone=sapphire")), "each stone opens its own list", sl);
+    // v13: a stoneless piece reads "No stones" instead of a wall of empty stone rows
+    const plain = MODELS.find((m) => m.category === "jewellery" && m.stone_keys.length === 0 && m.in_stock);
+    await page.goto(PAGE + "#/model/" + plain.model_id); await page.waitForSelector(".mp-top");
+    ok((await page.textContent(".facts")).includes("No stones"), "a stoneless piece reads No stones at the top", await page.textContent(".facts"));
+    const stoneRows = await page.evaluate(() => {
+      const h = [...document.querySelectorAll(".spec-sec h3")].find((x) => x.textContent === "Stones");
+      return h ? h.parentElement.querySelectorAll(".spec").length : -1;
+    });
+    ok(stoneRows === 1, "the stones block collapses to a single line", stoneRows);
+    ok((await page.textContent(".spec-grid")).includes("No stones"), "the single line reads No stones");
+    // v13: a spec row that does not apply to the kind of piece is dropped when empty
+    const earr = MODELS.find((m) => m.retail_category === "earrings" && m.in_stock);
+    await page.goto(PAGE + "#/model/" + earr.model_id); await page.waitForSelector(".mp-top");
+    ok(!(await page.textContent(".spec-grid")).includes("Ring size"), "ring size is not shown on earrings");
+    await page.goto(PAGE + "#/model/" + ring.model_id); await page.waitForSelector(".mp-top");
+    ok((await page.textContent(".spec-grid")).includes("Ring size"), "ring size is shown on a ring");
     // v9: brand logos
     const logos = await page.evaluate(() => BRAND_LOGOS.map((b) => brandLogo(b)));
     const fs = require("fs");
@@ -254,9 +270,21 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".tile .name:text-is('Rings')"); await page.waitForSelector(".cards .card");
     const dd = log.at(-1);
     ok(dd.category === "jewellery" && (dd.retail_categories || [])[0] === "ring", "a kind tile opens that list inside the category", dd);
+    // v13: Watches split by movement (Automatic / Quartz / Hand-wound), not by kind.
     await page.goto(PAGE + "#/categories"); await settle(page);
-    await page.click(".tile .name:text-is('Watches')"); await page.waitForSelector(".cards .card");
-    ok(log.at(-1).category === "watch" && !(await page.evaluate(() => location.hash)).includes("/cat/"), "a category with one kind goes straight to the list", log.at(-1));
+    await page.click(".tile .name:text-is('Watches')"); await settle(page);
+    ok((await page.evaluate(() => location.hash)) === "#/cat/watch", "Watches open a movement sub-page", await page.evaluate(() => location.hash));
+    const wt = await page.$$eval(".tiles .tile", (ns) => ns.map((n) => [n.querySelector(".name").textContent, n.getAttribute("href")]));
+    ok(wt[0][0] === "All watches" && wt[0][1] === "#/list?category=watch", "an All watches tile comes first", wt);
+    ok(wt.some(([t, h]) => t === "Automatic" && /movement=automatic/.test(h))
+       && wt.some(([t, h]) => t === "Quartz" && /movement=quartz/.test(h))
+       && wt.some(([t, h]) => t === "Hand-wound" && /movement=manual/.test(h)), "a tile per movement, each filtering the watch list", wt);
+    await page.click(".tile .name:text-is('Automatic')"); await page.waitForSelector(".cards .card");
+    ok(log.at(-1).category === "watch" && (log.at(-1).movements || [])[0] === "automatic", "a movement tile opens that filtered watch list", log.at(-1));
+    // Accessories are one kind, so they still go straight to the list.
+    await page.goto(PAGE + "#/categories"); await settle(page);
+    await page.click(".tile .name:text-is('Accessories')"); await page.waitForSelector(".cards .card");
+    ok(log.at(-1).category === "accessory" && !(await page.evaluate(() => location.hash)).includes("/cat/"), "a one-kind category goes straight to the list", log.at(-1));
 
     // ------------------------------------------------ size filter (2)
     await page.goto(PAGE + "#/list?type=ring"); await page.waitForSelector(".cards .card");
