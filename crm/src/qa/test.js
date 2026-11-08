@@ -5,19 +5,21 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const mock = require("./mock");
 const { execFileSync } = require("child_process");
 const os = require("os");
+const PYTHON = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
 
 // The workbook is read back with Python's own zipfile, not with our writer in
 // reverse: if the file only opens in the thing that wrote it, it is not a file.
 const PY_READ = "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1])\nsys.stdout.write(z.read(sys.argv[2]).decode('utf-8'))";
 const PY_LIST = "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1])\nbad=z.testzip()\nsys.stdout.write(('BAD:'+bad) if bad else ','.join(z.namelist()))";
-const partOf = (file, part) => execFileSync("python3", ["-c", PY_READ, file, part], { encoding: "utf8", maxBuffer: 40e6 });
+const partOf = (file, part) => execFileSync(PYTHON, ["-c", PY_READ, file, part], { encoding: "utf8", maxBuffer: 40e6 });
 // A second opinion from a real spreadsheet library: our own reader agreeing
 // with our own writer would prove nothing. Skipped where openpyxl is absent.
 const HAVE_OPENPYXL = (() => {
-  try { execFileSync("python3", ["-c", "import openpyxl"], { stdio: "ignore" }); return true; } catch (e) { return false; }
+  try { execFileSync(PYTHON, ["-c", "import openpyxl"], { stdio: "ignore" }); return true; } catch (e) { return false; }
 })();
 const PY_OPEN = [
   "import sys, json, datetime, openpyxl",
@@ -29,8 +31,8 @@ const PY_OPEN = [
   " 'head': [str(c) for c in rows[0]], 'types': types,",
   " 'spend': rows[1][12], 'date': str(rows[1][15]), 'freeze': s.freeze_panes, 'filter': str(s.auto_filter.ref)}))",
 ].join("\n");
-const openWith = (file) => JSON.parse(execFileSync("python3", ["-c", PY_OPEN, file], { encoding: "utf8" }));
-const partsOf = (file) => execFileSync("python3", ["-c", PY_LIST, file], { encoding: "utf8" }).trim().split(",");
+const openWith = (file) => JSON.parse(execFileSync(PYTHON, ["-c", PY_OPEN, file], { encoding: "utf8" }));
+const partsOf = (file) => execFileSync(PYTHON, ["-c", PY_LIST, file], { encoding: "utf8" }).trim().split(",");
 // sheet XML -> rows of plain values, each value in its own column. A workbook
 // leaves an empty cell out altogether, so the cell's own reference (D2) decides
 // where it belongs — counting the cells that are there would shift the row.

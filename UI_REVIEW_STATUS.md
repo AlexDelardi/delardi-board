@@ -1,4 +1,4 @@
-# UI implementation status — first batch
+# Product and engineering implementation status
 
 8 November 2026. This is an isolated source snapshot, not a checkout with the original repository's history. The original folder was readable, but Git access failed with Permission denied. No remote is configured and nothing has been pushed. Do not merge this snapshot's root commit into the real repository: apply the changes after the baseline commit as a patch to a branch based on the real repository.
 
@@ -29,6 +29,19 @@
 - Remaining tool-specific information hierarchy and form/error feedback.
 - Existing suite execution, rendered EN/RU and dark-mode screenshots, real-device review.
 
+## Second batch: engineering and security
+
+- Expanded `DELARDI_Implementation_Plan.md` covers design, frontend/backend code, API security, database integrity, performance, QA/CI and release operations.
+- CRM server errors return a generic message; expected 4xx errors remain meaningful.
+- CRM/Catalogue JSON responses use no-store; both reject non-object JSON before dispatch.
+- Both APIs reject malformed or expired session dates, including the exact expiry boundary.
+- Browser test URLs are Windows-safe; CRM test Python executable can be configured.
+- Added actual-source API boundary tests and a reproducible build-drift check.
+- Keepalive has explicit read permissions, a job timeout and curl deadlines.
+- API changes are source only, not deployed. Full API action/role audit and browser checks remain outstanding.
+
+See `qa/README.md` for test commands, results and limitations.
+
 ## Claude handoff
 
-Review changed source plus generated HTML. Apply the patch to a proper feature branch in the actual repository, run existing suites and rendered checks, fix findings, and only push when instructed. No API, schema, permission or session changes are intended in this batch. Check phone header wrapping and long Russian labels before approval.
+Review changed source plus generated HTML and the API boundary fixes. Apply the complete patch series after synthetic baseline `7de5666` to a proper feature branch in the actual repository, run existing suites and rendered checks, fix findings, and only push when instructed. API source changes need a separate Supabase deployment; pushing the frontend does not apply them. No schema or role grants changed. Check phone header wrapping and long Russian labels before approval.

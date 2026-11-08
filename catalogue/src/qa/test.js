@@ -2,10 +2,11 @@
 // Playwright. catalogue-api is replaced by qa/mock.js (invented data).
 //   cd catalogue/src && python3 build.py && node qa/test.js
 const path = require("path");
+const { pathToFileURL } = require("url");
 const { chromium } = require("playwright");
 const { handle, MODELS } = require("./mock");
 
-const PAGE = "file://" + path.resolve(__dirname, "..", "..", "index.html");
+const PAGE = pathToFileURL(path.resolve(__dirname, "..", "..", "index.html")).href;
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/catalogue-api";
 let pass = 0, fail = 0;
 const ok = (cond, name, extra) => { if (cond) { pass++; } else { fail++; console.log("FAIL", name, extra === undefined ? "" : JSON.stringify(extra)); } };

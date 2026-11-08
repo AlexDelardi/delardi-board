@@ -1,3 +1,4 @@
+// REVIEW BRANCH: boundary hardening below is not deployed; verify separately before release.
 // Delardi CRM instrument — crm-api
 //
 // Same shape as board-api: this function is the only route to the data, the
@@ -166,7 +167,7 @@ class HttpErr extends Error {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -342,7 +343,8 @@ async function requireSession(token: unknown): Promise<Session> {
       `&select=display_name,expires_at,can_view_crm,can_edit_crm`,
   );
   if (!rows?.length) throw new HttpErr(401, "That session is not valid. Enter your passcode again.");
-  if (new Date(rows[0].expires_at).getTime() < Date.now()) {
+  const expiresAt = Date.parse(rows[0].expires_at);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
     throw new HttpErr(401, "Your session has expired. Enter your passcode again.");
   }
   // A board session is not a CRM session. Tokens issued elsewhere carry the
@@ -1328,6 +1330,9 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return json({ error: "Body must be a JSON object." }, 400);
+    }
   } catch {
     return json({ error: "Body must be JSON." }, 400);
   }
@@ -1338,6 +1343,6 @@ Deno.serve(async (req: Request) => {
     const status = err instanceof HttpErr ? err.status : 500;
     const message = err instanceof Error ? err.message : "Unexpected error.";
     if (status >= 500) console.error("crm-api failure:", message);
-    return json({ error: message }, status);
+    return json({ error: status >= 500 ? "Something went wrong on the server." : message }, status);
   }
 });
