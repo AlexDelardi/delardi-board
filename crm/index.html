@@ -30,7 +30,7 @@
   --surface-2:   #F5F7FB;
   --ink:         #001A4A;
   --ink-2:       #5B6478;
-  --muted:       #8892A6;
+  --muted:       #5B6478;
   --grid:        #DCE3EF;
   --line:        #C6D0E2;
   --border:      rgba(0,26,74,0.12);
@@ -48,7 +48,7 @@
   --critical:    #9B3B3B;
   --good-ink:    #2F6F4F;
 
-  --sans:  "Evolventa","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --sans:  "Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
   --serif: "Palatino Linotype","Book Antiqua",Palatino,"Times New Roman",Georgia,serif;
   --radius: 4px;
   color-scheme: light;
@@ -1386,6 +1386,23 @@ body.split table.clients td.col-contact { display: none; }
 @media (max-width: 720px) {
   .expbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   .find .btn.export-btn { min-width: 44px; padding: 0 12px; font-size: 18px; line-height: 1; }
+}
+
+/* Shared usability foundation: touch controls and reduced motion. */
+@media (pointer: coarse), (max-width: 720px) {
+  .btn, a.btn, .btn.sm, .icon-btn, .hbtn, .lang button,
+  .seg button, .chip, .sheet .check, .gate-home {
+    min-height: 44px;
+  }
+  .icon-btn, .hbtn, .lang button { min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 </style>
 </head>

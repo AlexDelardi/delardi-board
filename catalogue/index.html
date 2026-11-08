@@ -20,7 +20,7 @@
    Delardi Catalogue
    Third of the Delardi tools, beside the Weekly Board and the Client
    Instrument, and in the same brand system: the navies #001A4A / #082966,
-   Palatino Linotype as the accent face, Evolventa as the text face. A little
+   Palatino Linotype as the accent face, system sans-serif as the text face. A little
    more of a showroom than the other two: larger type for names, a quiet
    champagne hairline, generous tiles for a finger on an iPad.
    ========================================================================= */
@@ -32,7 +32,7 @@
   --surface-2:   #F7F5F0;
   --ink:         #001A4A;
   --ink-2:       #5B6478;
-  --muted:       #8892A6;
+  --muted:       #5B6478;
   --line:        #D8D3C7;
   --border:      rgba(0,26,74,0.11);
   --shadow:      0 1px 2px rgba(0,26,74,.05), 0 8px 24px rgba(0,26,74,.07);
@@ -41,13 +41,13 @@
   --header-ink:  #FFFFFF;
   --header-ink-2:#B9C6DE;
   --header-line: rgba(255,255,255,0.16);
-  --gold:        #A8894F;
+  --gold:        #80652F;
   --gold-soft:   rgba(168,137,79,.35);
   --tile:        linear-gradient(160deg, #F9F7F2 0%, #EEEAE0 100%);
   --focus:       #2E5490;
   --good:        #2F6F4F;
   --warning:     #A0701A;
-  --sans:  "Evolventa","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --sans:  "Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
   --serif: "Palatino Linotype","Book Antiqua",Palatino,"Times New Roman",Georgia,serif;
   color-scheme: light;
 }
@@ -217,7 +217,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .card .ph span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .card .ph.photo { background: #FFFFFF; padding: 0; }
 .card .ph.photo img { width: 100%; height: 100%; object-fit: contain; opacity: 1; }
-.card.out .ph.photo img { opacity: .55; }
+.card.out .ph.photo img { opacity: 1; }
 .mp-gallery { position: sticky; top: calc(var(--top-h, 64px) + 12px); }
 .g-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 12px; border: 1px solid var(--border); background: #FFFFFF;
   aspect-ratio: 1 / 1; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -243,7 +243,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .stock.transit { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
 .stock.transit::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
 .mp-transit { color: var(--warning); }
-.card.out .ph, .card.out .nm, .card.out .mat, .card.out .price { opacity: .5; }
+.card.out .ph { opacity: .8; }
 .card.out { box-shadow: none; }
 .dots { display: flex; gap: 4px; margin-top: 4px; }
 .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); }
@@ -416,7 +416,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
   .cards { grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
 @media (max-width: 720px) {
-  .top-row { padding: 10px 14px; gap: 8px; }
+  .top-row { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
   .brand .mark { height: 26px; }
   .brand .rule, .brand .sub, .brand .words, .hide-phone { display: none; }
   .phone-only { display: block; }
@@ -439,6 +439,23 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
   .listbar .search { flex-basis: 100%; max-width: none; }
   .listbar .search input { font-size: 16px; }
   .sheet { top: auto; left: 0; width: 100%; max-height: 88vh; border-radius: 14px 14px 0 0; }
+}
+
+/* Shared usability foundation: touch controls and reduced motion. */
+@media (pointer: coarse), (max-width: 720px) {
+  .btn, a.btn, .btn.sm, .icon-btn, .hbtn, .lang button,
+  .seg button, .chip, .sheet .check, .gate-home {
+    min-height: 44px;
+  }
+  .icon-btn, .hbtn, .lang button { min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 </style>
 </head>
@@ -482,6 +499,8 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
+  "Apply filters": "Применить фильтры",
+  "Catalogue home": "Главная каталога",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -952,18 +971,19 @@ function renderHeader() {
   }, [svg(S.hide ? ICON.eyeOff : ICON.eye)]);
   return el("header", { class: "top" }, [
     el("div", { class: "top-row" }, [
-      el("a", { class: "brand", href: "#/", "aria-label": tr("Home") }, [
+      el("a", { class: "brand", href: "../", "aria-label": tr("All tools") }, [
         el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi" }),
         el("span", { class: "rule" }),
         el("div", { class: "words" }, [el("div", { class: "title", text: tr("Catalogue") }), el("div", { class: "sub", text: tr("Watches & jewellery") })]),
       ]),
       el("span", { class: "spacer" }),
+      el("a", { class: "hbtn", href: "#/", text: tr("Catalogue home") }),
       S.locked ? null : clientButton(),
       S.locked ? null : hideBtn,
       langSwitch(),
       el("button", { class: "hbtn hide-phone", type: "button", title: tr("Switch between light and dark"), "aria-label": tr("Switch between light and dark"), onclick: () => { toggleTheme(); render(); } }, [svg(ICON.moon)]),
       S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock)]),
-      el("a", { class: "hbtn hide-phone", href: "../", text: tr("All tools") }),
+      el("a", { class: "hbtn", href: "../", text: tr("All tools") }),
     ]),
   ]);
 }
@@ -1340,7 +1360,7 @@ function renderSheet() {
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...filtersFrom(new URLSearchParams()), q: f.q, sort: f.sort }; rerender(); }, text: tr("Clear all") }),
-      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Done") }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Apply filters") }),
     ]),
   ]);
   layer.append(el("div", { class: "sheet-scrim", onclick: () => closeSheet() }), sheet);

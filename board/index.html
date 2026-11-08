@@ -10,7 +10,7 @@
 /* ===========================================================================
    Delardi Weekly Board
    Brand: DELARDI brandbook (short) — two official navies #001A4A / #082966,
-   Palatino Linotype as the accent face, Evolventa as the text face.
+   Palatino Linotype as the accent face, system sans-serif as the text face.
    The brand supplies one hue, so the four pillars are carried by a validated
    single-hue tonal ramp plus their names, and colour is reserved for status.
    ========================================================================= */
@@ -22,7 +22,7 @@
   --surface-2:   #F5F7FB;
   --ink:         #001A4A;
   --ink-2:       #5B6478;
-  --muted:       #8892A6;
+  --muted:       #5B6478;
   --grid:        #DCE3EF;
   --line:        #C6D0E2;
   --border:      rgba(0,26,74,0.12);
@@ -44,7 +44,7 @@
   --p-operations:#2E5490;
   --p-steering:  #7C97C4;
 
-  --sans:  "Evolventa","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --sans:  "Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
   --serif: "Palatino Linotype","Book Antiqua",Palatino,"Times New Roman",Georgia,serif;
   --radius: 4px;
   color-scheme: light;
@@ -628,6 +628,23 @@ html[data-theme="auto"].sysdark .nav-list button[aria-pressed="true"] { color: v
 @media print {
   .top, .toolbar, .meeting-nav, .drawer, .scrim { display: none !important; }
   .board { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Shared usability foundation: touch controls and reduced motion. */
+@media (pointer: coarse), (max-width: 720px) {
+  .btn, a.btn, .btn.sm, .icon-btn, .hbtn, .lang button,
+  .seg button, .chip, .sheet .check, .gate-home {
+    min-height: 44px;
+  }
+  .icon-btn, .hbtn, .lang button { min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 </style>
 </head>

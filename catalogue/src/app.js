@@ -31,6 +31,8 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
+  "Apply filters": "Применить фильтры",
+  "Catalogue home": "Главная каталога",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -501,18 +503,19 @@ function renderHeader() {
   }, [svg(S.hide ? ICON.eyeOff : ICON.eye)]);
   return el("header", { class: "top" }, [
     el("div", { class: "top-row" }, [
-      el("a", { class: "brand", href: "#/", "aria-label": tr("Home") }, [
+      el("a", { class: "brand", href: "../", "aria-label": tr("All tools") }, [
         el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi" }),
         el("span", { class: "rule" }),
         el("div", { class: "words" }, [el("div", { class: "title", text: tr("Catalogue") }), el("div", { class: "sub", text: tr("Watches & jewellery") })]),
       ]),
       el("span", { class: "spacer" }),
+      el("a", { class: "hbtn", href: "#/", text: tr("Catalogue home") }),
       S.locked ? null : clientButton(),
       S.locked ? null : hideBtn,
       langSwitch(),
       el("button", { class: "hbtn hide-phone", type: "button", title: tr("Switch between light and dark"), "aria-label": tr("Switch between light and dark"), onclick: () => { toggleTheme(); render(); } }, [svg(ICON.moon)]),
       S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock)]),
-      el("a", { class: "hbtn hide-phone", href: "../", text: tr("All tools") }),
+      el("a", { class: "hbtn", href: "../", text: tr("All tools") }),
     ]),
   ]);
 }
@@ -889,7 +892,7 @@ function renderSheet() {
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...filtersFrom(new URLSearchParams()), q: f.q, sort: f.sort }; rerender(); }, text: tr("Clear all") }),
-      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Done") }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Apply filters") }),
     ]),
   ]);
   layer.append(el("div", { class: "sheet-scrim", onclick: () => closeSheet() }), sheet);
