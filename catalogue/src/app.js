@@ -31,7 +31,6 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
-  "Apply filters": "Применить фильтры",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -397,35 +396,25 @@ function goBack(fallbackHash) {
 async function route() {
   if (S.locked) return render();
   const r = parseHash();
-  const session = S.session, routeHash = location.hash;
   if (r.view === "list") {
     const f = filtersFrom(r.params);
     const key = JSON.stringify(apiFilters(f));
     if (!S.list || S.list.key !== key) {
-      const list = S.list = { key, f, rows: null, total: 0, loading: true };
+      S.list = { key, f, rows: null, total: 0, loading: true };
       render();
       try {
         const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: 0 });
-        if (S.locked || S.session !== session || S.list !== list) return;
-        list.rows = d.rows; list.total = d.total;
-      } catch (e) {
-        if (S.locked || S.session !== session || S.list !== list) return;
-        list.error = e.message;
-      }
-      list.loading = false;
+        if (S.list.key !== key) return;
+        S.list.rows = d.rows; S.list.total = d.total;
+      } catch (e) { if (S.list.key === key) S.list.error = e.message; }
+      if (S.list.key === key) S.list.loading = false;
     }
   } else if (r.view === "model" && r.arg) {
     if (!S.model || S.model.id !== r.arg) {
-      const model = S.model = { id: r.arg, data: null };
+      S.model = { id: r.arg, data: null };
       render();
-      try {
-        const data = await call("model", { model_id: r.arg });
-        if (S.locked || S.session !== session || S.model !== model) return;
-        model.data = data; rememberModel(r.arg);
-      } catch (e) {
-        if (S.locked || S.session !== session || S.model !== model) return;
-        model.error = e.message;
-      }
+      try { S.model.data = await call("model", { model_id: r.arg }); rememberModel(r.arg); }
+      catch (e) { S.model.error = e.message; }
     }
   } else if (r.view === "start") {
     loadStart();
@@ -433,7 +422,6 @@ async function route() {
     const st = ["open", "fixed", "rejected"].includes(r.params.get("status")) ? r.params.get("status") : "open";
     if (!S.reports || S.reports.status !== st) { loadReports(st); return; }
   }
-  if (S.locked || S.session !== session || location.hash !== routeHash) return;
   render();
   if (r.view === "list" && S.list) window.scrollTo(0, S.list.keepScroll ? window.scrollY : (S.list.scrollY || 0));
   else window.scrollTo(0, 0);
@@ -593,11 +581,23 @@ const BRAND_LOGOS = ["Bulgari", "Chimento", "Chronoswiss", "Cyrus", "Dinh Van", 
   "Hublot", "Leo Pizzo", "Messika", "Palmiero", "Stephen Webster"];
 const logoSlug = (b) => b.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const brandLogo = (b) => (BRAND_LOGOS.includes(b) ? "brands/" + logoSlug(b) + ".png" : null);
+// v14 (9 Nov 2026): generic category-tile illustrations (navy+gold on cream,
+// one cohesive set) in catalogue/cat-tiles/. Keyed by category, kind of piece
+// and watch movement; a tile without one falls back to the serif word.
+const TILE_DIR = "cat-tiles/";
+const CAT_IMG = { watch: "cat-watches", jewellery: "cat-jewellery", accessory: "cat-accessories" };
+const TYPE_IMG = { ring: "type-ring", earrings: "type-earrings", necklace: "type-necklace", bracelet: "type-bracelet", cufflinks: "type-cufflinks", strap: "type-strap", clasp: "type-clasp", bracelet_element: "type-bracelet-element", watch: "cat-watches" };
+const MOVE_IMG = { automatic: "move-automatic", quartz: "move-quartz", manual: "move-manual" };
+const catImg = (k) => (CAT_IMG[k] ? TILE_DIR + CAT_IMG[k] + ".webp" : null);
+const typeImg = (k) => (TYPE_IMG[k] ? TILE_DIR + TYPE_IMG[k] + ".webp" : null);
+const moveImg = (k) => (MOVE_IMG[k] ? TILE_DIR + MOVE_IMG[k] + ".webp" : null);
 function tile(href, name, meta, opts = {}) {
-  const art = opts.logo
+  const art = opts.img
+    ? [el("img", { class: "catimg", src: opts.img, alt: opts.word || name, loading: "lazy" })]
+    : opts.logo
     ? [el("img", { class: "logo", src: opts.logo, alt: opts.word || name, loading: "lazy" })]
     : opts.word ? [el("div", { class: "word", text: opts.word })] : [el("img", { src: mono(), alt: "" })];
-  return el("a", { class: "tile" + (opts.dim ? " dim" : "") + (opts.logo ? " has-logo" : ""), href }, [
+  return el("a", { class: "tile" + (opts.dim ? " dim" : "") + (opts.logo ? " has-logo" : "") + (opts.img ? " has-img" : ""), href }, [
     el("div", { class: "art" }, art),
     el("div", { class: "body" }, [el("div", { class: "name", text: name }), S.client ? null : el("div", { class: "meta", text: meta })]),
   ]);
@@ -642,7 +642,7 @@ function renderCategories() {
   const by = catCounts();
   const href = (c) => (catOpensSub(c) ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
   return [...pageHead(tr("Category"), null),
-    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c) })))];
+    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c), img: catImg(c) })))];
 }
 // A category's sub-page: a tile per kind of piece (Rings, Necklaces…) — or, for
 // watches, a tile per movement (Automatic / Quartz / Hand-wound) with an "All
@@ -652,15 +652,15 @@ function renderCatSub(cat) {
   const head = [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }])];
   if (cat === "watch") {
     const by = catCounts().watch || { models: 0, in_stock: 0 };
-    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), dim: !by.in_stock })]
+    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), img: catImg("watch"), dim: !by.in_stock })]
       .concat(watchMoves().map((x) => tile(listHash({ category: "watch", movements: [x.key] }),
-        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), dim: !x.in_stock })));
+        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), img: moveImg(x.key), dim: !x.in_stock })));
     return [...head, el("div", { class: "tiles" }, tiles)];
   }
   const cats = (S.ref && S.ref.categories) || [];
   const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter(Boolean);
   return [...head, el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
-    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock })))];
+    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock })))];
 }
 function renderTypes() {
   const cats = (S.ref && S.ref.categories) || [];
@@ -669,7 +669,7 @@ function renderTypes() {
     const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === c && x.retail_category === t)).filter(Boolean);
     if (!rows.length) continue;
     out.push(el("h2", { class: "group-h" }, [catName(c)]));
-    out.push(el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ types: [x.retail_category] }), typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock }))));
+    out.push(el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ types: [x.retail_category] }), typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock }))));
   }
   return out;
 }
@@ -901,7 +901,7 @@ function renderSheet() {
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...filtersFrom(new URLSearchParams()), q: f.q, sort: f.sort }; rerender(); }, text: tr("Clear all") }),
-      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Apply filters") }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Done") }),
     ]),
   ]);
   layer.append(el("div", { class: "sheet-scrim", onclick: () => closeSheet() }), sheet);

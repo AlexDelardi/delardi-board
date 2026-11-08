@@ -32,7 +32,7 @@
   --surface-2:   #F7F5F0;
   --ink:         #001A4A;
   --ink-2:       #5B6478;
-  --muted:       #5B6478;
+  --muted:       #8892A6;
   --line:        #D8D3C7;
   --border:      rgba(0,26,74,0.11);
   --shadow:      0 1px 2px rgba(0,26,74,.05), 0 8px 24px rgba(0,26,74,.07);
@@ -42,7 +42,6 @@
   --header-ink-2:#B9C6DE;
   --header-line: rgba(255,255,255,0.16);
   --gold:        #A8894F;
-  --label:       #5B6478;
   --gold-soft:   rgba(168,137,79,.35);
   --tile:        linear-gradient(160deg, #F9F7F2 0%, #EEEAE0 100%);
   --focus:       #2E5490;
@@ -66,7 +65,6 @@
   --header-bg:   #000B1C;
   --header-line: rgba(255,255,255,0.13);
   --gold:        #C9AE78;
-  --label:       #C9AE78;
   --gold-soft:   rgba(201,174,120,.35);
   --tile:        linear-gradient(160deg, #06204A 0%, #021431 100%);
   --focus:       #8FA8CC;
@@ -171,6 +169,9 @@ h1.page { font-family: var(--serif); font-weight: 500; font-size: 30px; line-hei
 .tile .art img.logo { position: absolute; left: 14%; top: 27%; width: 72%; height: 46%; object-fit: contain; opacity: .9; }
 :root[data-theme="dark"] .tile .art img.logo { filter: brightness(0) invert(.94); }
 .tile.dim .art .logo { opacity: .4; }
+.tile.has-img .art { aspect-ratio: 1 / 1; }
+.tile .art img.catimg { width: 100%; height: 100%; object-fit: cover; opacity: 1; }
+.tile.dim .art img.catimg { opacity: .5; }
 .group-h { font-family: var(--serif); font-size: 18px; margin: 26px 0 10px; display: flex; align-items: baseline; gap: 10px; }
 .group-h:first-child { margin-top: 4px; }
 .group-h .c { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
@@ -219,7 +220,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .card .ph span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .card .ph.photo { background: #FFFFFF; padding: 0; }
 .card .ph.photo img { width: 100%; height: 100%; object-fit: contain; opacity: 1; }
-.card.out .ph.photo img { opacity: 1; }
+.card.out .ph.photo img { opacity: .55; }
 .mp-gallery { position: sticky; top: calc(var(--top-h, 64px) + 12px); }
 .g-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 12px; border: 1px solid var(--border); background: #FFFFFF;
   aspect-ratio: 1 / 1; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -232,7 +233,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .g-note { font-size: 12px; color: var(--muted); margin-top: 6px; }
 @media (max-width: 720px) { .mp-gallery { position: static; } .g-strip { aspect-ratio: 4 / 3; } .g-thumb { width: 48px; height: 48px; } }
 .card .b { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.card .brandname { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--label); font-weight: 600; }
+.card .brandname { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 .card .nm { font-family: var(--serif); font-size: 17px; line-height: 1.25; }
 .card .ref { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .card .mat { font-size: 13px; color: var(--ink-2); }
@@ -245,7 +246,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .stock.transit { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
 .stock.transit::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
 .mp-transit { color: var(--warning); }
-.card.out .ph { opacity: .8; }
+.card.out .ph, .card.out .nm, .card.out .mat, .card.out .price { opacity: .5; }
 .card.out { box-shadow: none; }
 .dots { display: flex; gap: 4px; margin-top: 4px; }
 .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); }
@@ -290,7 +291,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .mp-photo { aspect-ratio: 1 / 1; background: var(--tile); border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; position: sticky; top: calc(var(--top-h, 64px) + 12px); }
 .mp-photo img { width: 64px; opacity: .25; }
 .mp-photo span { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.mp-info .brandname { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--label); font-weight: 600; }
+.mp-info .brandname { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 .mp-title { font-family: var(--serif); font-weight: 500; font-size: 32px; line-height: 1.12; margin: 6px 0 6px; }
 .mp-sub { color: var(--ink-2); font-size: 14px; }
 .mp-sub .ref { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -325,7 +326,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .adv .lbl { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .desc { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ink); }
 .spec-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
-.spec-sec h3 { font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--label); margin: 14px 0 4px; font-weight: 600; }
+.spec-sec h3 { font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--gold); margin: 14px 0 4px; font-weight: 600; }
 .spec-sec dl, .owner dl { margin: 0; }
 .spec { display: grid; grid-template-columns: minmax(120px, 2fr) 3fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .spec dt { color: var(--ink-2); }
@@ -377,7 +378,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .rep { padding: 16px 18px; }
 .rep-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .rep-model { text-decoration: none; font-family: var(--serif); font-size: 17px; }
-.rep-model .brandname { font-family: var(--sans); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--label); font-weight: 600; }
+.rep-model .brandname { font-family: var(--sans); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 .rep-model .ref { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
 .rep-msg { margin: 10px 0; font-size: 14.5px; white-space: pre-wrap; }
 .rep-f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -418,7 +419,7 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
   .cards { grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
 @media (max-width: 720px) {
-  .top-row { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
+  .top-row { padding: 10px 14px; gap: 8px; }
   .brand .mark { height: 26px; }
   .brand .rule, .brand .sub, .brand .words, .hide-phone { display: none; }
   .phone-only { display: block; }
@@ -441,23 +442,6 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
   .listbar .search { flex-basis: 100%; max-width: none; }
   .listbar .search input { font-size: 16px; }
   .sheet { top: auto; left: 0; width: 100%; max-height: 88vh; border-radius: 14px 14px 0 0; }
-}
-
-/* Shared usability foundation: touch controls and reduced motion. */
-@media (pointer: coarse), (max-width: 720px) {
-  .btn, a.btn, .btn.sm, .icon-btn, .hbtn, .lang button,
-  .seg button, .chip, .sheet .check, .gate-home {
-    min-height: 44px;
-  }
-  .icon-btn, .hbtn, .lang button { min-width: 44px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
-    scroll-behavior: auto !important;
-  }
 }
 </style>
 </head>
@@ -501,7 +485,6 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
-  "Apply filters": "Применить фильтры",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -867,35 +850,25 @@ function goBack(fallbackHash) {
 async function route() {
   if (S.locked) return render();
   const r = parseHash();
-  const session = S.session, routeHash = location.hash;
   if (r.view === "list") {
     const f = filtersFrom(r.params);
     const key = JSON.stringify(apiFilters(f));
     if (!S.list || S.list.key !== key) {
-      const list = S.list = { key, f, rows: null, total: 0, loading: true };
+      S.list = { key, f, rows: null, total: 0, loading: true };
       render();
       try {
         const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: 0 });
-        if (S.locked || S.session !== session || S.list !== list) return;
-        list.rows = d.rows; list.total = d.total;
-      } catch (e) {
-        if (S.locked || S.session !== session || S.list !== list) return;
-        list.error = e.message;
-      }
-      list.loading = false;
+        if (S.list.key !== key) return;
+        S.list.rows = d.rows; S.list.total = d.total;
+      } catch (e) { if (S.list.key === key) S.list.error = e.message; }
+      if (S.list.key === key) S.list.loading = false;
     }
   } else if (r.view === "model" && r.arg) {
     if (!S.model || S.model.id !== r.arg) {
-      const model = S.model = { id: r.arg, data: null };
+      S.model = { id: r.arg, data: null };
       render();
-      try {
-        const data = await call("model", { model_id: r.arg });
-        if (S.locked || S.session !== session || S.model !== model) return;
-        model.data = data; rememberModel(r.arg);
-      } catch (e) {
-        if (S.locked || S.session !== session || S.model !== model) return;
-        model.error = e.message;
-      }
+      try { S.model.data = await call("model", { model_id: r.arg }); rememberModel(r.arg); }
+      catch (e) { S.model.error = e.message; }
     }
   } else if (r.view === "start") {
     loadStart();
@@ -903,7 +876,6 @@ async function route() {
     const st = ["open", "fixed", "rejected"].includes(r.params.get("status")) ? r.params.get("status") : "open";
     if (!S.reports || S.reports.status !== st) { loadReports(st); return; }
   }
-  if (S.locked || S.session !== session || location.hash !== routeHash) return;
   render();
   if (r.view === "list" && S.list) window.scrollTo(0, S.list.keepScroll ? window.scrollY : (S.list.scrollY || 0));
   else window.scrollTo(0, 0);
@@ -1063,11 +1035,23 @@ const BRAND_LOGOS = ["Bulgari", "Chimento", "Chronoswiss", "Cyrus", "Dinh Van", 
   "Hublot", "Leo Pizzo", "Messika", "Palmiero", "Stephen Webster"];
 const logoSlug = (b) => b.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const brandLogo = (b) => (BRAND_LOGOS.includes(b) ? "brands/" + logoSlug(b) + ".png" : null);
+// v14 (9 Nov 2026): generic category-tile illustrations (navy+gold on cream,
+// one cohesive set) in catalogue/cat-tiles/. Keyed by category, kind of piece
+// and watch movement; a tile without one falls back to the serif word.
+const TILE_DIR = "cat-tiles/";
+const CAT_IMG = { watch: "cat-watches", jewellery: "cat-jewellery", accessory: "cat-accessories" };
+const TYPE_IMG = { ring: "type-ring", earrings: "type-earrings", necklace: "type-necklace", bracelet: "type-bracelet", cufflinks: "type-cufflinks", strap: "type-strap", clasp: "type-clasp", bracelet_element: "type-bracelet-element", watch: "cat-watches" };
+const MOVE_IMG = { automatic: "move-automatic", quartz: "move-quartz", manual: "move-manual" };
+const catImg = (k) => (CAT_IMG[k] ? TILE_DIR + CAT_IMG[k] + ".webp" : null);
+const typeImg = (k) => (TYPE_IMG[k] ? TILE_DIR + TYPE_IMG[k] + ".webp" : null);
+const moveImg = (k) => (MOVE_IMG[k] ? TILE_DIR + MOVE_IMG[k] + ".webp" : null);
 function tile(href, name, meta, opts = {}) {
-  const art = opts.logo
+  const art = opts.img
+    ? [el("img", { class: "catimg", src: opts.img, alt: opts.word || name, loading: "lazy" })]
+    : opts.logo
     ? [el("img", { class: "logo", src: opts.logo, alt: opts.word || name, loading: "lazy" })]
     : opts.word ? [el("div", { class: "word", text: opts.word })] : [el("img", { src: mono(), alt: "" })];
-  return el("a", { class: "tile" + (opts.dim ? " dim" : "") + (opts.logo ? " has-logo" : ""), href }, [
+  return el("a", { class: "tile" + (opts.dim ? " dim" : "") + (opts.logo ? " has-logo" : "") + (opts.img ? " has-img" : ""), href }, [
     el("div", { class: "art" }, art),
     el("div", { class: "body" }, [el("div", { class: "name", text: name }), S.client ? null : el("div", { class: "meta", text: meta })]),
   ]);
@@ -1112,7 +1096,7 @@ function renderCategories() {
   const by = catCounts();
   const href = (c) => (catOpensSub(c) ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
   return [...pageHead(tr("Category"), null),
-    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c) })))];
+    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c), img: catImg(c) })))];
 }
 // A category's sub-page: a tile per kind of piece (Rings, Necklaces…) — or, for
 // watches, a tile per movement (Automatic / Quartz / Hand-wound) with an "All
@@ -1122,15 +1106,15 @@ function renderCatSub(cat) {
   const head = [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }])];
   if (cat === "watch") {
     const by = catCounts().watch || { models: 0, in_stock: 0 };
-    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), dim: !by.in_stock })]
+    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), img: catImg("watch"), dim: !by.in_stock })]
       .concat(watchMoves().map((x) => tile(listHash({ category: "watch", movements: [x.key] }),
-        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), dim: !x.in_stock })));
+        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), img: moveImg(x.key), dim: !x.in_stock })));
     return [...head, el("div", { class: "tiles" }, tiles)];
   }
   const cats = (S.ref && S.ref.categories) || [];
   const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter(Boolean);
   return [...head, el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
-    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock })))];
+    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock })))];
 }
 function renderTypes() {
   const cats = (S.ref && S.ref.categories) || [];
@@ -1139,7 +1123,7 @@ function renderTypes() {
     const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === c && x.retail_category === t)).filter(Boolean);
     if (!rows.length) continue;
     out.push(el("h2", { class: "group-h" }, [catName(c)]));
-    out.push(el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ types: [x.retail_category] }), typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), dim: !x.in_stock }))));
+    out.push(el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ types: [x.retail_category] }), typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock }))));
   }
   return out;
 }
@@ -1371,7 +1355,7 @@ function renderSheet() {
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...filtersFrom(new URLSearchParams()), q: f.q, sort: f.sort }; rerender(); }, text: tr("Clear all") }),
-      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Apply filters") }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHash(S.sheet); closeSheet(true, h); }, text: tr("Done") }),
     ]),
   ]);
   layer.append(el("div", { class: "sheet-scrim", onclick: () => closeSheet() }), sheet);

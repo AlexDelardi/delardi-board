@@ -58,7 +58,8 @@ and cover:
 - the iPad-portrait and phone layouts: tap targets, and nothing scrolling sideways
 - the dark theme
 
-188 checks as of 4 November 2026. Besides the list above, they cover:
+190 checks as of 9 November 2026. Besides the list above, they cover:
+- category tile illustrations (v14): the category and kind tiles render an image
 - sub-category pages (v11): a category with several kinds opens its kinds; a single-kind category (Accessories) goes straight to the list
 - the watch movement split (v13): Watches open an All watches / Automatic / Quartz / Hand-wound sub-page, each movement tile filtering the list
 - the spec tidy (v13): a stoneless piece reads one "No stones" line, and a row that doesn't apply to the kind of piece (ring size on earrings) is dropped while applicable unknowns still read TBC
@@ -74,6 +75,8 @@ and cover:
 - back closing panels
 - the idle lock on an iPad, held across a closed page and not applied on a desk computer
 - opening without a connection
+
+Category tile illustrations (v14 — 9 Nov 2026): the menu tiles (category, kind of piece, watch movement) carry a generic navy-and-gold-on-cream illustration instead of the serif-word placeholder. The set lives in `catalogue/cat-tiles/` (one cohesive style, generic unbranded objects); `CAT_IMG` / `TYPE_IMG` / `MOVE_IMG` in `app.js` map each tile to its file, `tile()` renders it (square art, `object-fit: cover`), and a tile without a mapped image still falls back to the word. Brand tiles keep their logos; collection tiles keep the word.
 
 ## The API
 

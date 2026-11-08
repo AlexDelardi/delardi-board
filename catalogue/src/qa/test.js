@@ -2,11 +2,10 @@
 // Playwright. catalogue-api is replaced by qa/mock.js (invented data).
 //   cd catalogue/src && python3 build.py && node qa/test.js
 const path = require("path");
-const { pathToFileURL } = require("url");
 const { chromium } = require("playwright");
 const { handle, MODELS } = require("./mock");
 
-const PAGE = pathToFileURL(path.resolve(__dirname, "..", "..", "index.html")).href;
+const PAGE = "file://" + path.resolve(__dirname, "..", "..", "index.html");
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/catalogue-api";
 let pass = 0, fail = 0;
 const ok = (cond, name, extra) => { if (cond) { pass++; } else { fail++; console.log("FAIL", name, extra === undefined ? "" : JSON.stringify(extra)); } };
@@ -265,8 +264,10 @@ const settle = (page) => page.waitForTimeout(150);
 
     // ----------------------------------------- sub-category drill-down (1)
     await page.goto(PAGE + "#/categories"); await settle(page);
+    ok(await count(page, ".tiles .tile .catimg") >= 3, "category tiles show an illustration", await count(page, ".tiles .tile .catimg"));
     await page.click(".tile .name:text-is('Jewellery')"); await settle(page);
     ok((await page.evaluate(() => location.hash)) === "#/cat/jewellery", "a category with several kinds opens a sub-page", await page.evaluate(() => location.hash));
+    ok(await count(page, ".tiles .tile .catimg") >= 4, "kind tiles show an illustration", await count(page, ".tiles .tile .catimg"));
     ok(await count(page, ".tiles .tile") === 4, "the jewellery sub-page shows its kinds of piece", await count(page, ".tiles .tile"));
     await page.click(".tile .name:text-is('Rings')"); await page.waitForSelector(".cards .card");
     const dd = log.at(-1);
