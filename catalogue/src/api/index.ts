@@ -1,4 +1,3 @@
-// REVIEW BRANCH: boundary hardening below is not deployed; verify separately before release.
 // Delardi Catalogue — catalogue-api
 //
 // Same shape as board-api and crm-api: this function is the only route to the

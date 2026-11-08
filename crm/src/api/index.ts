@@ -1,4 +1,3 @@
-// REVIEW BRANCH: boundary hardening below is not deployed; verify separately before release.
 // Delardi CRM instrument — crm-api
 //
 // Same shape as board-api: this function is the only route to the data, the

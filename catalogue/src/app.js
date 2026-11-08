@@ -32,7 +32,6 @@ const RECENT_MAX = 12;
    English. Anything missing simply shows in English. */
 const RU = {
   "Apply filters": "Применить фильтры",
-  "Catalogue home": "Главная каталога",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -514,19 +513,18 @@ function renderHeader() {
   }, [svg(S.hide ? ICON.eyeOff : ICON.eye)]);
   return el("header", { class: "top" }, [
     el("div", { class: "top-row" }, [
-      el("a", { class: "brand", href: "../", "aria-label": tr("All tools") }, [
+      el("a", { class: "brand", href: "#/", "aria-label": tr("Home") }, [
         el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi" }),
         el("span", { class: "rule" }),
         el("div", { class: "words" }, [el("div", { class: "title", text: tr("Catalogue") }), el("div", { class: "sub", text: tr("Watches & jewellery") })]),
       ]),
       el("span", { class: "spacer" }),
-      el("a", { class: "hbtn", href: "#/", text: tr("Catalogue home") }),
       S.locked ? null : clientButton(),
       S.locked ? null : hideBtn,
       langSwitch(),
       el("button", { class: "hbtn hide-phone", type: "button", title: tr("Switch between light and dark"), "aria-label": tr("Switch between light and dark"), onclick: () => { toggleTheme(); render(); } }, [svg(ICON.moon)]),
       S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock)]),
-      el("a", { class: "hbtn", href: "../", text: tr("All tools") }),
+      el("a", { class: "hbtn hide-phone", href: "../", text: tr("All tools") }),
     ]),
   ]);
 }
