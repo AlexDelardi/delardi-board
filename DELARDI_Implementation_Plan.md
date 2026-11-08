@@ -357,3 +357,31 @@ Evaluate the CRM's operational density separately from Catalogue's client-facing
 - Current batch: CRM error redaction, JSON object validation, response cache policy, fail-closed expiry checks, QA portability and build verification.
 - Do not describe current snapshots as fully reviewed or production-ready. Remaining UI work, browser testing, complete API role coverage and unavailable backend evidence remain explicit backlog items.
 - Claude receives the complete patch series after synthetic baseline `7de5666`, the plan, test outputs and file-by-file deployment impact. Apply patches to a branch based on the real repository; do not merge unrelated snapshot history.
+
+
+## 10. Existing-functionality audit — no new product features
+
+This programme repairs and improves existing capabilities. New dashboards, sales workflows, reservations, reminders, AI assistants and other feature additions are excluded unless separately requested. The items below are investigation targets, not claims that every item contains a defect.
+
+| Area | Required checks and remediation | Evidence for completion |
+|---|---|---|
+| Calculation correctness | Reconcile totals, averages, medians, segments, birthday windows and counts with synthetic records and existing business definitions | Boundary fixtures and list-to-dashboard reconciliation |
+| State consistency | Keep selected rows, detail cards, filters, counts and import/merge outcomes synchronised | Edit/refresh/navigation regressions |
+| Request races | Prevent slow searches/details from overwriting newer selections; ignore responses from superseded sessions | Controlled out-of-order promise tests |
+| Incomplete operations | Preserve recoverable drafts and state on save/import/upload failure; show success only after confirmation | Injected failure and retry cases |
+| Presentation semantics | Distinguish zero, missing, unknown, loading, unavailable and load failure | Rendered fixture matrix |
+| Search and sorting | Test RU/EN, phone punctuation, mixed case, nulls, numeric sort and ties | Expected ordered result fixtures |
+| Forms and validation | Validate actual dates/numbers, required fields and cancellation behaviour | Invalid/boundary input tests and dirty-form checks |
+| Dates and money | Check Tashkent timezone boundaries, birthdays, UZS grouping, rounding and precision | Time-frozen and numeric fixtures |
+| Permissions and locks | Align visible actions with rights; pending responses must not repopulate locked/session-switched state | Revocation/lock tests with in-flight reads |
+| Navigation | Test reload, deep links, multiple tabs, Back/Forward and expiry recovery | State-restoration regression cases |
+| Mobile/browser behaviour | Keyboard, rotation, safe areas, scrolling, fixed controls, iPad split views | Authorised rendered and real-device checks |
+| Language and wording | Remove ambiguous labels, missing translations and obsolete help | EN/RU copy inventory and long-label screens |
+| Source/deployment drift | Verify builds, stale comments, dead code and deployed API equivalence | Byte comparisons, caller checks and deployment hashes |
+| Realistic performance | Measure searches, request count, rendering and response sizes under representative volume | Reproducible baseline and after measurements |
+
+Execution rule: reproduce a problem, identify its cause, implement a focused fix, run a meaningful regression, and record the result. Avoid speculative changes and tests that merely restate implementation. Preserve current business meanings unless the existing result is demonstrably wrong.
+
+Current correctness batch: investigate Catalogue out-of-order model/list responses, CRM pending-list responses after locking, and even-sized CRM median calculations. Capture specific results in `UI_REVIEW_STATUS.md`; the rest of this matrix remains open until inspected and verified.
+
+Third-batch result: Catalogue model/list races, CRM lock/list responses and the even-count median were fixed. All 92 local checks passed (52 API boundaries, 21 UI foundations, 19 correctness); both HTML builds reproduce. Browser/device verification and API deployment remain pending.

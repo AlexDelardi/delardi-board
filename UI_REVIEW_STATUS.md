@@ -44,4 +44,17 @@ See `qa/README.md` for test commands, results and limitations.
 
 ## Claude handoff
 
+## Third batch: existing-functionality correctness
+
+- Plan section 10 explicitly excludes new product features and adds the existing-functionality audit matrix.
+- Catalogue model responses use request-object and session identity: a late success/error cannot overwrite a newer model, and responses cannot repopulate locked state.
+- Catalogue list responses use object identity, preventing an A → B → A navigation race that equal filter keys alone cannot detect.
+- Late Catalogue route completions cannot reset the scroll position of another route.
+- CRM list reads are invalidated by locking and discarded after session replacement.
+- CRM stats median now averages both middle values for an even number of clients; empty, single, odd and fractional cases are covered.
+- `qa/correctness.cjs`: 19 deterministic checks using actual source functions and controlled promises. These are not rendered browser checks.
+- Rebuilt CRM/Catalogue pages. API median fix is source only and requires separate deployment.
+
+## Complete review handoff
+
 Review changed source plus generated HTML and the API boundary fixes. Apply the complete patch series after synthetic baseline `7de5666` to a proper feature branch in the actual repository, run existing suites and rendered checks, fix findings, and only push when instructed. API source changes need a separate Supabase deployment; pushing the frontend does not apply them. No schema or role grants changed. Check phone header wrapping and long Russian labels before approval.

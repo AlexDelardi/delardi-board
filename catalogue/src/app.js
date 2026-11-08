@@ -398,25 +398,35 @@ function goBack(fallbackHash) {
 async function route() {
   if (S.locked) return render();
   const r = parseHash();
+  const session = S.session, routeHash = location.hash;
   if (r.view === "list") {
     const f = filtersFrom(r.params);
     const key = JSON.stringify(apiFilters(f));
     if (!S.list || S.list.key !== key) {
-      S.list = { key, f, rows: null, total: 0, loading: true };
+      const list = S.list = { key, f, rows: null, total: 0, loading: true };
       render();
       try {
         const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: 0 });
-        if (S.list.key !== key) return;
-        S.list.rows = d.rows; S.list.total = d.total;
-      } catch (e) { if (S.list.key === key) S.list.error = e.message; }
-      if (S.list.key === key) S.list.loading = false;
+        if (S.locked || S.session !== session || S.list !== list) return;
+        list.rows = d.rows; list.total = d.total;
+      } catch (e) {
+        if (S.locked || S.session !== session || S.list !== list) return;
+        list.error = e.message;
+      }
+      list.loading = false;
     }
   } else if (r.view === "model" && r.arg) {
     if (!S.model || S.model.id !== r.arg) {
-      S.model = { id: r.arg, data: null };
+      const model = S.model = { id: r.arg, data: null };
       render();
-      try { S.model.data = await call("model", { model_id: r.arg }); rememberModel(r.arg); }
-      catch (e) { S.model.error = e.message; }
+      try {
+        const data = await call("model", { model_id: r.arg });
+        if (S.locked || S.session !== session || S.model !== model) return;
+        model.data = data; rememberModel(r.arg);
+      } catch (e) {
+        if (S.locked || S.session !== session || S.model !== model) return;
+        model.error = e.message;
+      }
     }
   } else if (r.view === "start") {
     loadStart();
@@ -424,6 +434,7 @@ async function route() {
     const st = ["open", "fixed", "rejected"].includes(r.params.get("status")) ? r.params.get("status") : "open";
     if (!S.reports || S.reports.status !== st) { loadReports(st); return; }
   }
+  if (S.locked || S.session !== session || location.hash !== routeHash) return;
   render();
   if (r.view === "list" && S.list) window.scrollTo(0, S.list.keepScroll ? window.scrollY : (S.list.scrollY || 0));
   else window.scrollTo(0, 0);

@@ -5,6 +5,7 @@ Run from the repository root. No live credentials or private data are needed.
 ```powershell
 node qa/ui-foundations.cjs
 node qa/api-boundaries.cjs
+node qa/correctness.cjs
 python qa/check-builds.py
 ```
 
@@ -31,3 +32,7 @@ Browser execution has not been verified in this environment. Local-file browser 
 - `git diff --check` passed.
 
 Supabase source edits are **not deployed**. Deployment requires separate review and a smoke check on the proper target. The real Board API, database definitions and deployed security configuration remain unavailable.
+
+## Third-batch results
+
+`qa/correctness.cjs` adds 19 checks covering out-of-order Catalogue model/list responses, stale success and failure, lock/session changes, cross-route scroll preservation, CRM pending-list responses and median calculation boundaries. It evaluates real source functions against controlled promise responses; it does not claim browser rendering or database validation.

@@ -2047,14 +2047,14 @@ async function loadAll() {
 
 let listSeq = 0;
 async function loadList() {
-  const seq = ++listSeq;
+  const seq = ++listSeq, session = S.session;
   S.loading = true; renderListHost();
   try {
     const list = await call("clients", listParams());
-    if (seq !== listSeq) return;          // a newer request has superseded this one
+    if (seq !== listSeq || S.locked || S.session !== session) return;          // a newer request has superseded this one
     S.rows = list.rows || []; S.total = list.total || 0; S.error = null;
   } catch (e) {
-    if (seq !== listSeq) return;
+    if (seq !== listSeq || S.locked || S.session !== session) return;
     S.error = e.message;
   }
   S.loading = false;
@@ -3327,6 +3327,7 @@ function renderGate(message) {
   setTimeout(() => pass.focus(), 80);
 }
 function lockDown(message) {
+  ++listSeq; S.loading = false; // invalidate reads issued before this lock
   if (S.add) closeAddClient(true);
   if (S.exp) closeExport(true);
   S.session = null;

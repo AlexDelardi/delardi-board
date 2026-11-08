@@ -1297,7 +1297,9 @@ async function handle(req: Request, body: Record<string, unknown>) {
       clients: rows.length,
       total_spend: total,
       average_spend: rows.length ? Math.round(total / rows.length) : 0,
-      median_spend: spend.length ? spend[Math.floor(spend.length / 2)] : 0,
+      median_spend: spend.length ? (spend.length % 2
+        ? spend[Math.floor(spend.length / 2)]
+        : (spend[spend.length / 2 - 1] + spend[spend.length / 2]) / 2) : 0,
       top_decile_share: total ? topTen / total : 0,
       repeat_clients: rows.filter((r) => Number(r.purchase_occasions ?? 0) > 1).length,
       occasions,
