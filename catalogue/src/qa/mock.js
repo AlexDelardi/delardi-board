@@ -1,5 +1,8 @@
 // A stand-in for catalogue-api: invented models, invented references and
 // invented prices, so the checks run offline. Nothing here is real stock.
+const crypto = require("crypto");
+let V2 = false;                 // flip with setV2(true) to exercise filter_version 2
+function setV2(v) { V2 = !!v; }
 const BRANDS = ["Aurelle", "Castellane", "Montvert", "Orsino", "Valmont & Fils"];
 const COLLS = { Aurelle: ["Étoile", "Rivière"], Castellane: ["Nuit", "Soleil"], Montvert: ["Alpine", "Glacier"], Orsino: ["Corsa"], "Valmont & Fils": ["Héritage", "Atelier"] };
 const TYPES = [["jewellery", "ring"], ["jewellery", "earrings"], ["jewellery", "necklace"], ["jewellery", "bracelet"], ["watch", "watch"], ["accessory", "strap"]];
@@ -64,7 +67,119 @@ function reference() {
     expected: [],
     run: { id: 1, run_at: "2026-10-24T06:27:59Z", source_built: "2026-10-23", counts: {} },
     photo_base: PHOTO_BASE, can_manage: true, open_reports: REPORTS.filter((r) => r.status === "open").length,
+    capabilities: { filter_version: V2 ? 2 : 1 },
   };
+}
+
+/* --------------------------------------------------------- v2 filtering (mock)
+   A model-level stand-in for the server's variant-consistent matcher — enough to
+   drive the UI (facet counts, chips, hydration, pills), not a copy of its logic. */
+const szKey = (s) => "sz_" + crypto.createHash("md5").update("ring|" + s).digest("hex");
+const availOf = (m) => (m.in_stock ? "boutique" : m.qty_transit > 0 ? "transit" : "out");
+const presenceOf = (m) => ((m.stone_keys || []).length ? "with_stones" : m.category === "jewellery" ? "without_stones" : "unspecified");
+const sizesOf = (m) => (m.retail_category === "ring" ? (m.size_keys || []).map(szKey) : []);
+const caseOf = (m) => (m.category === "watch" ? (m.case_mm != null ? m.case_mm : "unspecified") : null);
+function normF(b) {
+  const f = b.filters || {};
+  const o = {
+    availability: ["all", "boutique", "transit", "out"].includes(f.availability) ? f.availability : "all",
+    category: ["watch", "jewellery", "accessory"].includes(f.category) ? f.category : null,
+    types: arr(f.types), brands: arr(f.brands), collections: arr(f.collections).filter((c) => c && typeof c === "object"),
+    materials: arr(f.materials), stone_types: arr(f.stone_types), movements: arr(f.movements),
+    sizes: arr(f.sizes), genders: arr(f.genders), case_diameters_mm: arr(f.case_diameters_mm).map(Number),
+    case_unspecified: !!f.case_unspecified,
+    stone_presence: ["with_stones", "without_stones", "unspecified"].includes(f.stone_presence) ? f.stone_presence : null,
+    price_min_uzs: f.price_min_uzs == null ? null : f.price_min_uzs, price_max_uzs: f.price_max_uzs == null ? null : f.price_max_uzs,
+    q: String(f.q || "").trim(), incomplete: !!f.incomplete,
+  };
+  const watchCtx = (!o.category || o.category === "watch") && (!o.types.length || o.types.includes("watch"));
+  const jewelCtx = (!o.category || o.category === "jewellery") && (!o.types.length || o.types.some((t) => ["ring", "necklace", "bracelet"].includes(t)));
+  if (!watchCtx) { o.movements = []; o.case_diameters_mm = []; o.case_unspecified = false; }
+  if (!jewelCtx) o.sizes = [];
+  o.collections = o.collections.filter((c) => !o.brands.length || o.brands.includes(c.brand));
+  o.types = o.category ? o.types.filter((t) => TYPES.some(([cat, rc]) => rc === t && cat === o.category)) : o.types;
+  return o;
+}
+function matchV2(m, F, skip) {
+  const on = (k) => skip !== k;
+  if (on("availability") && F.availability !== "all" && availOf(m) !== F.availability) return false;
+  if (on("category") && F.category && m.category !== F.category) return false;
+  if (on("types") && F.types.length && !F.types.includes(m.retail_category)) return false;
+  if (on("brands") && F.brands.length && !F.brands.includes(m.brand)) return false;
+  if (on("collections") && F.collections.length && !F.collections.some((c) => c.brand === m.brand && c.collection === m.collection)) return false;
+  if (on("genders") && F.genders.length && !F.genders.includes(m.gender)) return false;
+  if (on("materials") && F.materials.length && !(m.metal_keys || []).some((k) => F.materials.includes(k))) return false;
+  if (on("stone_types") && F.stone_types.length && !(m.stone_keys || []).some((k) => F.stone_types.includes(k))) return false;
+  if (on("stone_presence") && F.stone_presence && presenceOf(m) !== F.stone_presence) return false;
+  if (on("movements") && F.movements.length && !F.movements.includes(m.movement)) return false;
+  if (on("case_diameters_mm") && (F.case_diameters_mm.length || F.case_unspecified)) {
+    const c = caseOf(m);
+    const okNum = F.case_diameters_mm.length && c !== "unspecified" && c != null && F.case_diameters_mm.includes(c);
+    const okUns = F.case_unspecified && c === "unspecified";
+    if (!(okNum || okUns)) return false;
+  }
+  if (on("sizes") && F.sizes.length && !sizesOf(m).some((s) => F.sizes.includes(s))) return false;
+  if (F.price_min_uzs != null && m.price_max_uzs < F.price_min_uzs) return false;
+  if (F.price_max_uzs != null && m.price_min_uzs > F.price_max_uzs) return false;
+  if (F.incomplete && !(m.missing_crucial || []).length) return false;
+  if (F.q) { const ws = F.q.toLowerCase().split(/\s+/).filter(Boolean); if (!ws.every((w) => m._search.includes(w))) return false; }
+  return true;
+}
+const V2CMP = {
+  newest: (x, y) => (y.in_stock - x.in_stock) || (y.qty_transit - x.qty_transit) || (y.latest_arrival_year - x.latest_arrival_year) || x.brand.localeCompare(y.brand) || x.model_id.localeCompare(y.model_id),
+  brand: (x, y) => x.brand.localeCompare(y.brand) || x.model_id.localeCompare(y.model_id),
+  price_asc: (x, y) => x.price_min_uzs - y.price_min_uzs, price_desc: (x, y) => y.price_max_uzs - x.price_max_uzs,
+  reference: (x, y) => x.model_id.localeCompare(y.model_id), completeness: (x, y) => x.completeness - y.completeness,
+};
+function v2list(b) {
+  const F = normF(b);
+  const r = MODELS.filter((m) => matchV2(m, F, null)).sort(V2CMP[b.sort] || V2CMP.newest);
+  const limit = Math.min(200, b.limit || 60), offset = b.offset || 0;
+  return {
+    filter_version: 2, total: r.length, limit, offset, adjustments: [], revision: "0".repeat(32), normalised_filters: F,
+    rows: r.slice(offset, offset + limit).map((m) => ({
+      model_id: m.model_id, matched_variant_ids: m.colours ? m.colours.map((c) => c.variant_id) : [m.model_id],
+      preferred_variant_id: m.colours ? m.colours[0].variant_id : m.model_id, eligible_attributes: {}, eligible_availability: [availOf(m)],
+    })),
+  };
+}
+function v2facets(b) {
+  const F = normF(b);
+  const base = (skip) => MODELS.filter((m) => matchV2(m, F, skip));
+  const watchCtx = (!F.category || F.category === "watch") && (!F.types.length || F.types.includes("watch"));
+  const jewelCtx = (!F.category || F.category === "jewellery") && (!F.types.length || F.types.some((t) => ["ring", "necklace", "bracelet"].includes(t)));
+  const uniq = (xs) => [...new Set(xs)];
+  const group = (key, mode, applicable, defs) => {
+    const pool = base(key);
+    return { key, mode, applicable, options: defs.map((d) => {
+      const count = pool.filter(d.match).length;
+      return { value: d.value, count, selected: !!d.selected, disabled: count === 0 && !d.selected, metadata: d.metadata || null };
+    }) };
+  };
+  const brands = uniq(MODELS.map((m) => m.brand)).sort();
+  const colls = []; const seen = new Set();
+  for (const m of MODELS) if (m.collection) { const k = m.brand + "|" + m.collection; if (!seen.has(k)) { seen.add(k); colls.push({ brand: m.brand, collection: m.collection }); } }
+  const types = uniq(MODELS.map((m) => m.retail_category));
+  const mats = uniq([].concat(...MODELS.map((m) => m.metal_keys || [])));
+  const stones = uniq([].concat(...MODELS.map((m) => m.stone_keys || [])));
+  const cases = uniq(MODELS.filter((m) => m.category === "watch" && m.case_mm != null).map((m) => m.case_mm)).sort((a, b2) => a - b2);
+  const sizeVals = []; const sseen = new Set();
+  for (const m of MODELS) for (const s of sizesOf(m)) if (!sseen.has(s)) { sseen.add(s); sizeVals.push({ sz: s, label: (m.size_keys || [])[sizesOf(m).indexOf(s)] }); }
+  const facets = [
+    group("availability", "single", true, ["all", "boutique", "transit", "out"].map((v) => ({ value: v, selected: F.availability === v, match: (m) => v === "all" || availOf(m) === v }))),
+    group("category", "single", true, ["jewellery", "watch", "accessory"].map((v) => ({ value: v, selected: F.category === v, match: (m) => m.category === v }))),
+    group("types", "multi", true, types.filter((t) => !F.category || TYPES.some(([cat, rc]) => rc === t && cat === F.category)).map((v) => ({ value: v, selected: F.types.includes(v), match: (m) => m.retail_category === v }))),
+    group("sizes", "multi", jewelCtx, sizeVals.map((s) => ({ value: s.sz, selected: F.sizes.includes(s.sz), match: (m) => sizesOf(m).includes(s.sz), metadata: { kind: "ring_size", value: s.label, product_type: "ring", system: "unspecified", unit: null, provenance: ["boutique"] } }))),
+    group("brands", "multi", true, brands.map((v) => ({ value: v, selected: F.brands.includes(v), match: (m) => m.brand === v }))),
+    group("collections", "multi", true, colls.filter((c) => !F.brands.length || F.brands.includes(c.brand)).map((c) => ({ value: c, selected: F.collections.some((x) => x.brand === c.brand && x.collection === c.collection), match: (m) => m.brand === c.brand && m.collection === c.collection }))),
+    group("materials", "multi", true, mats.map((v) => ({ value: v, selected: F.materials.includes(v), match: (m) => (m.metal_keys || []).includes(v) }))),
+    group("stone_presence", "single", true, ["with_stones", "without_stones", "unspecified"].map((v) => ({ value: v, selected: F.stone_presence === v, match: (m) => presenceOf(m) === v }))),
+    group("stone_types", "multi", true, stones.map((v) => ({ value: v, selected: F.stone_types.includes(v), match: (m) => (m.stone_keys || []).includes(v) }))),
+    group("movements", "multi", watchCtx, ["automatic", "quartz", "manual"].map((v) => ({ value: v, selected: F.movements.includes(v), match: (m) => m.movement === v }))),
+    group("case_diameters_mm", "multi", watchCtx, [{ value: "unspecified", selected: F.case_unspecified, match: (m) => caseOf(m) === "unspecified" }].concat(cases.map((v) => ({ value: v, selected: F.case_diameters_mm.includes(v), match: (m) => caseOf(m) === v })))),
+    group("genders", "multi", true, ["women", "men", "unisex"].map((v) => ({ value: v, selected: F.genders.includes(v), match: (m) => m.gender === v }))),
+  ];
+  return { filter_version: 2, total: base(null).length, facets, adjustments: [], revision: "0".repeat(32), normalised_filters: F };
 }
 const arr = (v) => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);
 const strip = ({ _search, arrival_years, brand_raw, ...m }) => m;
@@ -157,6 +272,10 @@ function handle(b, log) {
     return [401, { error: "That passcode is not right." }];
   }
   if (b.token !== "t".repeat(64)) return [401, { error: "That session is not valid. Enter your passcode again." }];
+  if (b.filter_version === 2 || b.action === "facets") {
+    if (!V2) return [503, { error: "Something went wrong on the server." }];
+    return [200, b.action === "facets" ? v2facets(b) : v2list(b)];
+  }
   if (b.action === "reference") return [200, reference()];
   if (b.action === "list") return [200, list(b)];
   if (b.action === "model") return model(b);
@@ -176,4 +295,4 @@ function handle(b, log) {
   }
   return [400, { error: "Unknown action: " + b.action }];
 }
-module.exports = { handle, MODELS };
+module.exports = { handle, MODELS, setV2 };

@@ -1,3 +1,8 @@
+import { FilterInputError, normaliseFilterRequest } from "./filter-v2.ts";
+
+// Enable only after migration/backfill and staging checks have succeeded.
+const FILTER_V2_ENABLED = Deno.env.get("CATALOGUE_FILTER_V2_ENABLED") === "true";
+
 // Delardi Catalogue — catalogue-api
 //
 // Same shape as board-api and crm-api: this function is the only route to the
@@ -282,6 +287,21 @@ function listFilters(body: Record<string, unknown>): string[] {
 // --------------------------------------------------------------------- handle
 async function handle(req: Request, body: Record<string, unknown>) {
   const action = str(body.action, 40);
+// Insert inside handle(), immediately after the existing `const action = ...`.
+// This must run before the legacy list branch; leave that branch intact.
+if (body.filter_version !== undefined && body.filter_version !== 2) {
+  throw new HttpErr(400, "Unsupported filter_version.");
+}
+if (body.filter_version === 2 || action === "facets") {
+  await requireSession(body.token);
+  const request = normaliseFilterRequest(body);
+  if (!FILTER_V2_ENABLED) {
+    throw new HttpErr(503, "Catalogue filtering v2 is not enabled yet.");
+  }
+  const result = await rpc("cat_filter_v2", { p_request: request });
+  return { ...result, adjustments: [...request.adjustments, ...(result.adjustments ?? [])] };
+}
+
 
   if (action === "health") {
     await select("cat_import_runs?select=id&limit=1");
@@ -329,7 +349,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
       const { headers } = await db("cat_reports?status=eq.open&select=id&limit=1", {}, { Prefer: "count=exact" });
       openReports = Number((headers.get("content-range") ?? "/0").split("/")[1]) || 0;
     }
-    return { ...ref, can_manage: s.canManage, open_reports: openReports,
+    return { ...ref, capabilities: { filter_version: FILTER_V2_ENABLED ? 2 : 1 }, can_manage: s.canManage, open_reports: openReports,
       photo_base: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/` };
   }
 
@@ -540,7 +560,7 @@ Deno.serve(async (req: Request) => {
   try {
     return json(await handle(req, body));
   } catch (err) {
-    const status = err instanceof HttpErr ? err.status : 500;
+    const status = err instanceof HttpErr || err instanceof FilterInputError ? err.status : 500;
     const message = err instanceof Error ? err.message : "Unexpected error.";
     if (status >= 500) console.error("catalogue-api failure:", message);
     return json({ error: status >= 500 ? "Something went wrong on the server." : message }, status);

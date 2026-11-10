@@ -3,7 +3,7 @@
 //   cd catalogue/src && python3 build.py && node qa/test.js
 const path = require("path");
 const { chromium } = require("playwright");
-const { handle, MODELS } = require("./mock");
+const { handle, MODELS, setV2 } = require("./mock");
 
 const PAGE = "file://" + path.resolve(__dirname, "..", "..", "index.html");
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/catalogue-api";
@@ -524,6 +524,63 @@ const settle = (page) => page.waitForTimeout(150);
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     ok(bg === "rgb(0, 13, 34)", "dark page background", bg);
     await ctx.close();
+  }
+
+  // ======================================================= v2 server filtering
+  // The same page against catalogue-api filter_version 2: the reference reports
+  // capability 2, so the list and the sheet switch to the facets/list contract.
+  {
+    setV2(true);
+    const whiteGold = MODELS.filter((m) => m.metal_keys.includes("white_gold")).length;
+    const { ctx, page, log, errors } = await open(browser);
+    await unlock(page);
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    const firstList = log.filter((r) => r.action === "list").slice(-2);
+    ok(log.some((r) => r.filter_version === 2 && r.action === "list"), "v2: the list asks the server with filter_version 2");
+    ok(log.some((r) => r.action === "list" && r.ids && r.filter_version !== 2), "v2: display rows are hydrated through the v1 ids list");
+    ok(await count(page, ".cards .card") === 60, "v2: the first 60 matches render as cards");
+
+    // the filter sheet runs on live facets
+    await page.click(".listbar .btn:has-text('Filters')");
+    await page.waitForSelector(".sheet .grp:has-text('Brands') .chip");
+    ok(log.some((r) => r.action === "facets"), "v2: opening the filters asks for facets");
+    ok(await count(page, ".sheet .grp") >= 6, "v2: the sheet shows the facet groups");
+    ok(await count(page, ".sheet .chip .cnt") > 0, "v2: facet options carry live counts");
+    ok(await count(page, ".sheet .grp:has-text('Stock') .chip") === 4, "v2: availability offers all four states");
+
+    // pick a metal, apply, and the list narrows through v2
+    await page.click(".sheet .grp:has-text('Metal') .chip:has-text('White gold')");
+    await page.waitForTimeout(450);
+    await page.click(".sheet footer .btn.primary");
+    await page.waitForFunction(() => location.hash.includes("metal=white_gold"));
+    await page.waitForSelector(".cards .card");
+    const mr = log.filter((r) => r.filter_version === 2 && r.action === "list").at(-1);
+    ok(mr.filters.materials && mr.filters.materials[0] === "white_gold", "v2: a chosen metal reaches the server as filters.materials", mr.filters);
+    ok(await count(page, ".cards .card") === Math.min(60, whiteGold), "v2: the list shows only the matching models", { shown: await count(page, ".cards .card"), whiteGold });
+    ok(await count(page, ".pills .chip") === 1, "v2: the metal shows as a pill");
+    await page.click(".pills .chip:has-text('White gold')");
+    await page.waitForFunction(() => !location.hash.includes("metal=") && document.querySelectorAll(".pills .chip").length === 0);
+    ok(await count(page, ".pills .chip") === 0, "v2: a pill takes its filter off");
+
+    // the availability segment maps to the v2 availability
+    await page.click(".listbar .seg button:has-text('In stock')");
+    await page.waitForFunction(() => location.hash.includes("avail=boutique"));
+    await page.waitForTimeout(400);
+    const ar = log.filter((r) => r.filter_version === 2 && r.action === "list" && r.filters && r.filters.availability === "boutique").at(-1);
+    ok(ar && ar.filters.availability === "boutique", "v2: In stock maps to availability=boutique", log.filter((r) => r.filter_version === 2 && r.action === "list").at(-1));
+
+    // case size shows for watches, not for rings
+    await page.goto(PAGE + "#/list?category=watch"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet .grp:has-text('Brands') .chip");
+    ok(await count(page, ".sheet .grp:has-text('Case size')") === 1, "v2: watches get a case-size facet");
+    await page.click(".sheet header .btn:has-text('Close')");
+    await page.goto(PAGE + "#/list?type=ring"); await page.waitForSelector(".cards .card, .empty");
+    await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet .grp:has-text('Brands') .chip");
+    ok(await count(page, ".sheet .grp:has-text('Size') .chip") > 0 && await count(page, ".sheet .grp:has-text('Case size')") === 0, "v2: rings get a size facet and no case size");
+
+    ok(errors.length === 0, "v2: no script errors through the flow", errors);
+    await ctx.close();
+    setV2(false);
   }
 
   await browser.close();

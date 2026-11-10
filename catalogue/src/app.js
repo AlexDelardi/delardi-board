@@ -318,6 +318,7 @@ function parseHash() {
   return { view: parts[0] || "start", arg: parts[1] || null, params };
 }
 function listHash(f) {
+  if (v2on()) return listHashV2(f);
   const p = new URLSearchParams();
   for (const b of f.brands || []) p.append("brand", b);
   if (f.category) p.set("category", f.category);
@@ -397,17 +398,32 @@ async function route() {
   if (S.locked) return render();
   const r = parseHash();
   if (r.view === "list") {
-    const f = filtersFrom(r.params);
-    const key = JSON.stringify(apiFilters(f));
-    if (!S.list || S.list.key !== key) {
-      S.list = { key, f, rows: null, total: 0, loading: true };
-      render();
-      try {
-        const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: 0 });
-        if (S.list.key !== key) return;
-        S.list.rows = d.rows; S.list.total = d.total;
-      } catch (e) { if (S.list.key === key) S.list.error = e.message; }
-      if (S.list.key === key) S.list.loading = false;
+    if (v2on()) {
+      const o = filtersFromV2(r.params);
+      const key = "v2:" + JSON.stringify(v2Req(o));
+      if (!S.list || S.list.key !== key) {
+        S.list = { key, f: o, v2: true, rows: null, ids: [], total: 0, loading: true };
+        render();
+        try {
+          const d = await v2List(o, 0, PAGE);
+          if (S.list.key !== key) return;
+          S.list.rows = d.rows; S.list.ids = d.ids; S.list.total = d.total; S.list.pref = d.pref;
+        } catch (e) { if (S.list.key === key) S.list.error = e.message; }
+        if (S.list.key === key) S.list.loading = false;
+      }
+    } else {
+      const f = filtersFrom(r.params);
+      const key = JSON.stringify(apiFilters(f));
+      if (!S.list || S.list.key !== key) {
+        S.list = { key, f, rows: null, total: 0, loading: true };
+        render();
+        try {
+          const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: 0 });
+          if (S.list.key !== key) return;
+          S.list.rows = d.rows; S.list.total = d.total;
+        } catch (e) { if (S.list.key === key) S.list.error = e.message; }
+        if (S.list.key === key) S.list.loading = false;
+      }
     }
   } else if (r.view === "model" && r.arg) {
     if (!S.model || S.model.id !== r.arg) {
@@ -488,7 +504,7 @@ function render() {
   else if (r.view === "model") main.append(...renderModel());
   else if (r.view === "reports") main.append(...renderReports());
   else main.append(...renderStart());
-  if (S.sheet) renderSheet();
+  if (S.sheet) { if (S.sheetV2) renderSheetV2(); else renderSheet(); }
   if (S.report) renderReport();
   syncSticky();
 }
@@ -750,8 +766,10 @@ function listTitle(f) {
   return tr("Catalogue");
 }
 function renderList() {
-  const L = S.list || { f: filtersFrom(new URLSearchParams()), rows: null, total: 0 };
+  const v2 = !!(S.list ? S.list.v2 : v2on());
+  const L = S.list || { f: v2 ? emptyV2() : filtersFrom(new URLSearchParams()), rows: null, total: 0 };
   const f = L.f;
+  const title = v2 ? listTitleV2(f) : listTitle(f);
   const set = (patch) => { S.list.keepScroll = true; go(listHash({ ...f, ...patch })); };
   // Search in place: the address follows without filling the history.
   const q = el("input", { type: "search", value: f.q, placeholder: tr("Search in this list"), "aria-label": tr("Search in this list"), autocomplete: "off", enterkeyhint: "search",
@@ -766,20 +784,24 @@ function renderList() {
       }, 380);
     } });
   q.id = "q-list";
-  const n = activeFilterCount(f);
+  const n = v2 ? activeFilterCountV2(f) : activeFilterCount(f);
   const sort = el("select", { class: "btn hide-phone", "aria-label": tr("Sort"), onchange: (e) => set({ sort: e.target.value }) },
     SORTS.filter(([k]) => !S.client || k !== "completeness").map(([k, label]) => el("option", { value: k, selected: f.sort === k ? "selected" : null, text: tr(label) })));
+  const seg = v2
+    ? el("div", { class: "seg", role: "group", "aria-label": tr("Stock") }, [["all", "All"], ["boutique", "In stock"]].map(([k, label]) =>
+        el("button", { type: "button", "aria-pressed": f.availability === k ? "true" : "false", onclick: () => set({ availability: k }), text: tr(label) })))
+    : el("div", { class: "seg", role: "group", "aria-label": tr("Stock") }, [["all", "All"], ["in", "In stock"]].map(([k, label]) =>
+        el("button", { type: "button", "aria-pressed": f.stock === k ? "true" : "false", onclick: () => set({ stock: k }), text: tr(label) })));
   const bar = el("div", { class: "listbar" }, [
     el("div", { class: "search" }, [svg(ICON.search), q]),
-    el("div", { class: "seg", role: "group", "aria-label": tr("Stock") }, [["all", "All"], ["in", "In stock"]].map(([k, label]) =>
-      el("button", { type: "button", "aria-pressed": f.stock === k ? "true" : "false", onclick: () => set({ stock: k }), text: tr(label) }))),
-    el("button", { class: "btn", type: "button", onclick: () => openSheet(f) }, [svg(ICON.filter), tr("Filters"), n ? el("span", { class: "badge", text: String(n) }) : null]),
+    seg,
+    el("button", { class: "btn", type: "button", onclick: () => (v2 ? openSheetV2(f) : openSheet(f)) }, [svg(ICON.filter), tr("Filters"), n ? el("span", { class: "badge", text: String(n) }) : null]),
     sort,
   ]);
-  const pills = el("div", { class: "pills" }, pillsFor(f, set));
+  const pills = el("div", { class: "pills" }, v2 ? pillsForV2(f, set) : pillsFor(f, set));
   const out = [
-    crumbs([{ text: tr("Home"), href: "#/" }, { text: listTitle(f) }]),
-    el("h1", { class: "page", text: listTitle(f) }),
+    crumbs([{ text: tr("Home"), href: "#/" }, { text: title }]),
+    el("h1", { class: "page", text: title }),
     bar,
   ];
   if (L.error) { out.push(el("div", { class: "empty" }, [el("div", { class: "serif", text: L.error }), S.offline ? retryButton() : null])); return out; }
@@ -787,7 +809,7 @@ function renderList() {
   if (!L.rows) { out.push(el("div", { class: "cards" }, Array.from({ length: 8 }, () => el("div", { class: "skel" })))); return out; }
   if (!L.rows.length) {
     out.push(el("div", { class: "empty" }, [el("div", { class: "serif", text: tr("Nothing matches.") }), el("div", { text: tr("Try fewer words, or take a filter off.") }),
-      n || f.q ? el("p", {}, [el("a", { class: "btn", href: listHash({ stock: f.stock }), text: tr("Clear all") })]) : null]));
+      n || f.q ? el("p", {}, [el("a", { class: "btn", href: listHash(v2 ? { availability: f.availability } : { stock: f.stock }), text: tr("Clear all") })]) : null]));
     return out;
   }
   out.push(el("div", { class: "cards" }, L.rows.map(card)));
@@ -795,8 +817,13 @@ function renderList() {
     const more = el("button", { class: "btn", type: "button", onclick: async () => {
       more.disabled = true; more.textContent = "…";
       try {
-        const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: L.rows.length });
-        L.rows = L.rows.concat(d.rows); L.total = d.total;
+        if (v2) {
+          const d = await v2List(f, L.ids.length, PAGE);
+          L.ids = L.ids.concat(d.ids); L.rows = L.rows.concat(d.rows); L.total = d.total;
+        } else {
+          const d = await call("list", { ...apiFilters(f), limit: PAGE, offset: L.rows.length });
+          L.rows = L.rows.concat(d.rows); L.total = d.total;
+        }
       } catch (e) { toast(e.message); }
       const y = window.scrollY; render(); window.scrollTo(0, y);
     } }, [tr("Show more")]);
@@ -837,7 +864,7 @@ function sizeSort(a, b) {
 }
 function openSheet(f) { S.sheet = JSON.parse(JSON.stringify(f)); layerOpened(); renderSheet(); }
 function closeSheet(silent, navHash) {
-  S.sheet = null; $("#layer").innerHTML = "";
+  S.sheet = null; S.sheetV2 = false; S.sheetF = null; clearTimeout(S.sheetT); $("#layer").innerHTML = "";
   layerClosed(navHash);
   if (!silent) { const b = $(".listbar .btn"); if (b) b.focus(); }
 }
@@ -972,6 +999,276 @@ function toggleTheme() {
   applyTheme();
 }
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { applyTheme(); render(); });
+
+/* ===================================================================== v2 filtering
+   Server-driven filtering (catalogue-api filter_version 2). Live ONLY when the
+   reference says capabilities.filter_version === 2 (the CATALOGUE_FILTER_V2_ENABLED
+   flag). While it is 1, none of this runs and the page behaves exactly as before.
+   Three differences matter here:
+     * matching is variant-consistent, done on the server;
+     * the filter sheet shows live counts from the `facets` action, ruled-out
+       options greyed, groups that do not apply hidden;
+     * availability (all/boutique/transit/out), stone presence (with/without/
+       unspecified), discrete case diameters and typed sizes replace the v1 stock
+       toggle, no-stones box, case range and plain sizes.
+   The v2 `list` returns matches as model ids only, so the display rows are hydrated
+   through the v1 `list` (ids=…), reusing every card unchanged. */
+function v2on() { return !!(S.ref && S.ref.capabilities && S.ref.capabilities.filter_version === 2); }
+const AVAIL_NAMES = { all: ["All", "Все"], boutique: ["In stock", "В наличии"], transit: ["In transit", "В пути"], out: ["Sold out", "Нет в наличии"] };
+const PRESENCE_NAMES = { with_stones: ["With stones", "С камнями"], without_stones: ["No stones", "Без камней"], unspecified: ["Unspecified", "Не указано"] };
+const nmL = (map, k) => (map[k] ? map[k][LANG === "ru" ? 1 : 0] : k);
+const V2_GROUP_ORDER = ["availability", "category", "types", "sizes", "brands", "collections", "materials", "stone_presence", "stone_types", "movements", "case_diameters_mm", "genders"];
+const V2_GROUP_LABEL = { availability: "Stock", category: "Category", types: "Retail category", sizes: "Size", brands: "Brands", collections: "Collection", materials: "Metal", stone_presence: "Stones", stone_types: "Stone type", movements: "Movement", case_diameters_mm: "Case size, mm", genders: "Gender" };
+const SZ_RE = /^sz_[a-f0-9]{32}$/;
+S.sizeLabels = S.sizeLabels || {};
+function sizeLabel(sz) { return S.sizeLabels[sz] || tr("Size"); }
+
+function emptyV2() {
+  return { availability: "all", category: null, types: [], brands: [], collections: [], materials: [],
+    stone_presence: null, stone_types: [], movements: [], case_diameters_mm: [], case_unspecified: false,
+    sizes: [], genders: [], price_min_uzs: null, price_max_uzs: null, incomplete: false, q: "", sort: "newest" };
+}
+// Accept the loose objects tiles build (brands/category/types/collections/movements/
+// stock/metals/stones/sizes/q/pmin/pmax/sort) as well as a full v2 object, and normalise.
+function toV2(f) {
+  const o = emptyV2();
+  if (!f) return o;
+  o.q = f.q || ""; o.sort = SORTS.some(([k]) => k === f.sort) ? f.sort : "newest";
+  o.brands = (f.brands || []).slice();
+  o.category = CATS[f.category] ? f.category : null;
+  o.types = (f.types || []).filter((t) => TYPES[t]);
+  o.genders = (f.genders || []).filter((g) => GENDERS[g]);
+  o.materials = (f.materials || f.metals || []).filter((x) => typeof METAL_NAMES !== "undefined" && METAL_NAMES[x]);
+  o.stone_types = (f.stone_types || f.stones || []).filter((x) => typeof STONE_NAMES !== "undefined" && STONE_NAMES[x]);
+  o.movements = (f.movements || []).filter((x) => typeof MOVEMENT_NAMES !== "undefined" && MOVEMENT_NAMES[x]);
+  o.sizes = (f.sizes || []).filter((s) => SZ_RE.test(s));
+  o.case_diameters_mm = (f.case_diameters_mm || []).map(Number).filter((n) => n >= 10 && n <= 70);
+  o.case_unspecified = !!f.case_unspecified;
+  o.incomplete = !!f.incomplete;
+  o.price_min_uzs = f.price_min_uzs != null ? f.price_min_uzs : (f.pmin ? Math.round(f.pmin) : null);
+  o.price_max_uzs = f.price_max_uzs != null ? f.price_max_uzs : (f.pmax ? Math.round(f.pmax) : null);
+  if (["all", "boutique", "transit", "out"].includes(f.availability)) o.availability = f.availability;
+  else if (f.stock === "in") o.availability = "boutique";
+  else if (f.stock === "out") o.availability = "out";
+  else if (f.stock === "transit") o.availability = "transit";
+  if (["with_stones", "without_stones", "unspecified"].includes(f.stone_presence)) o.stone_presence = f.stone_presence;
+  else if (f.noStones) o.stone_presence = "without_stones";
+  o.collections = (f.collections || []).map((c) => (c && typeof c === "object" ? { brand: c.brand, collection: c.collection }
+    : (o.brands.length === 1 ? { brand: o.brands[0], collection: String(c) } : null))).filter(Boolean);
+  return o;
+}
+function listHashV2(f) {
+  const o = toV2(f);
+  const p = new URLSearchParams();
+  for (const b of o.brands) p.append("brand", b);
+  if (o.category) p.set("category", o.category);
+  for (const t of o.types) p.append("type", t);
+  for (const c of o.collections) p.append("coll", c.brand + "::" + c.collection);
+  for (const g of o.genders) p.append("gender", g);
+  for (const x of o.materials) p.append("metal", x);
+  for (const x of o.stone_types) p.append("stone", x);
+  for (const x of o.movements) p.append("movement", x);
+  for (const x of o.sizes) p.append("size", x);
+  for (const n of o.case_diameters_mm) p.append("case", n);
+  if (o.case_unspecified) p.set("casex", "1");
+  if (o.availability !== "all") p.set("avail", o.availability);
+  if (o.stone_presence) p.set("stonep", o.stone_presence);
+  if (o.q) p.set("q", o.q);
+  if (o.price_min_uzs) p.set("pmin", o.price_min_uzs);
+  if (o.price_max_uzs) p.set("pmax", o.price_max_uzs);
+  if (o.incomplete) p.set("incomplete", "1");
+  if (o.sort && o.sort !== "newest") p.set("sort", o.sort);
+  const s = p.toString();
+  return "#/list" + (s ? "?" + s : "");
+}
+function filtersFromV2(params) {
+  const o = emptyV2();
+  o.brands = params.getAll("brand");
+  o.category = CATS[params.get("category")] ? params.get("category") : null;
+  o.types = params.getAll("type").filter((t) => TYPES[t]);
+  o.collections = params.getAll("coll").map((s) => { const i = String(s).indexOf("::"); return i < 0 ? null : { brand: s.slice(0, i), collection: s.slice(i + 2) }; }).filter((c) => c && c.brand && c.collection);
+  o.genders = params.getAll("gender").filter((g) => GENDERS[g]);
+  o.materials = params.getAll("metal").filter((x) => typeof METAL_NAMES !== "undefined" && METAL_NAMES[x]);
+  o.stone_types = params.getAll("stone").filter((x) => typeof STONE_NAMES !== "undefined" && STONE_NAMES[x]);
+  o.movements = params.getAll("movement").filter((x) => typeof MOVEMENT_NAMES !== "undefined" && MOVEMENT_NAMES[x]);
+  o.sizes = params.getAll("size").filter((s) => SZ_RE.test(s));
+  o.case_diameters_mm = params.getAll("case").map(Number).filter((n) => n >= 10 && n <= 70);
+  o.case_unspecified = params.get("casex") === "1";
+  o.availability = ["boutique", "transit", "out"].includes(params.get("avail")) ? params.get("avail") : "all";
+  o.stone_presence = ["with_stones", "without_stones", "unspecified"].includes(params.get("stonep")) ? params.get("stonep") : null;
+  o.q = params.get("q") || "";
+  const num = (v) => { const n = Number(String(v || "").replace(/[^\d]/g, "")); return Number.isFinite(n) && n > 0 ? Math.round(n) : null; };
+  o.price_min_uzs = num(params.get("pmin")); o.price_max_uzs = num(params.get("pmax"));
+  o.incomplete = params.get("incomplete") === "1";
+  o.sort = SORTS.some(([k]) => k === params.get("sort")) ? params.get("sort") : "newest";
+  return o;
+}
+function v2FilterBody(o) {
+  const f = {};
+  if (o.types.length) f.types = o.types;
+  if (o.brands.length) f.brands = o.brands;
+  if (o.materials.length) f.materials = o.materials;
+  if (o.stone_types.length) f.stone_types = o.stone_types;
+  if (o.movements.length) f.movements = o.movements;
+  if (o.sizes.length) f.sizes = o.sizes;
+  if (o.genders.length) f.genders = o.genders;
+  if (o.category) f.category = o.category;
+  if (o.collections.length) f.collections = o.collections;
+  if (o.availability && o.availability !== "all") f.availability = o.availability;
+  if (o.stone_presence) f.stone_presence = o.stone_presence;
+  if (o.case_diameters_mm.length) f.case_diameters_mm = o.case_diameters_mm;
+  if (o.case_unspecified) f.case_unspecified = true;
+  if (o.price_min_uzs != null) f.price_min_uzs = o.price_min_uzs;
+  if (o.price_max_uzs != null) f.price_max_uzs = o.price_max_uzs;
+  if (o.q) f.q = o.q;
+  if (o.incomplete) f.incomplete = true;
+  return f;
+}
+const v2Req = (o, extra) => ({ filter_version: 2, filters: v2FilterBody(o), sort: o.sort || "newest", ...extra });
+// v2 list → match ids → hydrate display rows through the v1 list, kept in match order.
+async function v2List(o, offset, limit) {
+  const d = await call("list", v2Req(o, { limit, offset }));
+  const rows = d.rows || [];
+  const ids = rows.map((r) => r.model_id);
+  const pref = {}; for (const r of rows) pref[r.model_id] = r.preferred_variant_id || null;
+  let disp = [];
+  if (ids.length) {
+    const h = await call("list", { ids, limit: ids.length, sort: "reference" });
+    const by = new Map((h.rows || []).map((m) => [m.model_id, m]));
+    disp = ids.map((i) => by.get(i)).filter(Boolean);
+  }
+  return { rows: disp, ids, total: d.total || 0, pref };
+}
+function activeFilterCountV2(o) {
+  return o.brands.length + (o.category ? 1 : 0) + o.types.length + o.collections.length + o.genders.length +
+    (o.availability !== "all" ? 1 : 0) + o.materials.length + (o.stone_presence ? 1 : 0) + o.stone_types.length +
+    o.movements.length + o.case_diameters_mm.length + (o.case_unspecified ? 1 : 0) + o.sizes.length +
+    (o.price_min_uzs ? 1 : 0) + (o.price_max_uzs ? 1 : 0) + (o.incomplete ? 1 : 0);
+}
+function listTitleV2(o) {
+  if (o.collections.length === 1) return o.collections[0].collection;
+  if (o.brands.length === 1 && !o.types.length && !o.category) return o.brands[0];
+  if (o.types.length === 1) return (o.brands.length === 1 ? o.brands[0] + " · " : "") + typeName(o.types[0], true);
+  if (o.category) return (o.brands.length === 1 ? o.brands[0] + " · " : "") + catName(o.category);
+  if (o.q) return tr("Search: “{q}”", { q: o.q });
+  if (o.availability === "boutique") return tr("Everything in stock");
+  if (o.availability === "transit") return tr("In transit");
+  return tr("Catalogue");
+}
+function pillsForV2(o, set) {
+  const p = [];
+  const pill = (label, patch) => p.push(el("button", { class: "chip", type: "button", "aria-pressed": "true", onclick: () => set(patch) }, [label, el("span", { class: "x", "aria-hidden": "true", text: "×" })]));
+  o.brands.forEach((b) => pill(b, { brands: o.brands.filter((x) => x !== b), collections: o.collections.filter((c) => c.brand !== b) }));
+  if (o.category) pill(catName(o.category), { category: null });
+  o.types.forEach((t) => pill(typeName(t, true), { types: o.types.filter((x) => x !== t) }));
+  o.collections.forEach((c) => pill(c.collection, { collections: o.collections.filter((x) => !(x.brand === c.brand && x.collection === c.collection)) }));
+  o.genders.forEach((g) => pill(tr(GENDERS[g]), { genders: o.genders.filter((x) => x !== g) }));
+  if (o.availability !== "all") pill(nmL(AVAIL_NAMES, o.availability), { availability: "all" });
+  if (o.stone_presence) pill(nmL(PRESENCE_NAMES, o.stone_presence), { stone_presence: null });
+  o.materials.forEach((x) => pill(nm(METAL_NAMES, x), { materials: o.materials.filter((y) => y !== x) }));
+  o.stone_types.forEach((x) => pill(nm(STONE_NAMES, x), { stone_types: o.stone_types.filter((y) => y !== x) }));
+  o.movements.forEach((x) => pill(nm(MOVEMENT_NAMES, x), { movements: o.movements.filter((y) => y !== x) }));
+  o.case_diameters_mm.forEach((n) => pill(n + " " + (LANG === "ru" ? "мм" : "mm"), { case_diameters_mm: o.case_diameters_mm.filter((y) => y !== n) }));
+  if (o.case_unspecified) pill(tr("Case size, mm") + ": " + tr("Unspecified"), { case_unspecified: false });
+  o.sizes.forEach((s) => pill(tr("Size {s}", { s: sizeLabel(s) }), { sizes: o.sizes.filter((y) => y !== s) }));
+  if (o.price_min_uzs) pill(tr("price from {p}", { p: fmtAmt(o.price_min_uzs) }), { price_min_uzs: null });
+  if (o.price_max_uzs) pill(tr("price to {p}", { p: fmtAmt(o.price_max_uzs) }), { price_max_uzs: null });
+  if (o.incomplete) pill(tr("Key details TBC"), { incomplete: false });
+  if (o.q) pill("“" + o.q + "”", { q: "" });
+  return p;
+}
+function v2FacetLabel(key, value, meta) {
+  if (key === "availability") return nmL(AVAIL_NAMES, value);
+  if (key === "stone_presence") return nmL(PRESENCE_NAMES, value);
+  if (key === "category") return catName(value);
+  if (key === "types") return typeName(value, true);
+  if (key === "genders") return tr(GENDERS[value] || value);
+  if (key === "materials") return nm(METAL_NAMES, value);
+  if (key === "stone_types") return nm(STONE_NAMES, value);
+  if (key === "movements") return nm(MOVEMENT_NAMES, value);
+  if (key === "collections") return value && value.collection ? value.collection : String(value);
+  if (key === "sizes") return meta && meta.value ? meta.value : tr("Size");
+  if (key === "case_diameters_mm") return value === "unspecified" ? tr("Unspecified") : (value + " " + (LANG === "ru" ? "мм" : "mm"));
+  return String(value);
+}
+function v2IsSelected(o, key, value) {
+  if (key === "availability") return o.availability === value;
+  if (key === "stone_presence") return o.stone_presence === value;
+  if (key === "category") return o.category === value;
+  if (key === "collections") return o.collections.some((c) => c.brand === value.brand && c.collection === value.collection);
+  if (key === "case_diameters_mm") return value === "unspecified" ? o.case_unspecified : o.case_diameters_mm.includes(value);
+  return (o[key] || []).includes(value);
+}
+function v2Toggle(o, key, value) {
+  if (key === "availability") { o.availability = value; return; }
+  if (key === "stone_presence") { o.stone_presence = o.stone_presence === value ? null : value; return; }
+  if (key === "category") { o.category = o.category === value ? null : value; return; }
+  if (key === "collections") {
+    const has = o.collections.some((c) => c.brand === value.brand && c.collection === value.collection);
+    o.collections = has ? o.collections.filter((c) => !(c.brand === value.brand && c.collection === value.collection)) : [...o.collections, value];
+    return;
+  }
+  if (key === "case_diameters_mm") {
+    if (value === "unspecified") { o.case_unspecified = !o.case_unspecified; return; }
+    o.case_diameters_mm = o.case_diameters_mm.includes(value) ? o.case_diameters_mm.filter((x) => x !== value) : [...o.case_diameters_mm, value];
+    return;
+  }
+  const arr = o[key] || [];
+  o[key] = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
+}
+
+/* ------------------------------------------------------- v2 filter sheet */
+function openSheetV2(f) { S.sheet = toV2(f); S.sheetV2 = true; S.sheetF = null; S.sheetTotal = null; S.sheetSeq = (S.sheetSeq || 0); layerOpened(); fetchFacets(); renderSheetV2(); }
+async function fetchFacets() {
+  if (!S.sheet) return;
+  const token = ++S.sheetSeq;
+  try {
+    const d = await call("facets", v2Req(S.sheet, { limit: 1, offset: 0 }));
+    if (token !== S.sheetSeq || !S.sheet) return;
+    S.sheetF = d; S.sheetTotal = d.total || 0;
+    for (const fct of d.facets || []) if (fct.key === "sizes") for (const op of fct.options) if (op.metadata && op.metadata.value) S.sizeLabels[op.value] = op.metadata.value;
+    if (d.normalised_filters) { const sort = S.sheet.sort; const o = emptyV2(); const n = d.normalised_filters; for (const k of Object.keys(o)) if (k in n && n[k] != null) o[k] = n[k]; o.sort = sort; S.sheet = o; }
+    renderSheetV2();
+  } catch (e) { /* keep the last good facets */ }
+}
+function queueFacets() { renderSheetV2(); clearTimeout(S.sheetT); S.sheetT = setTimeout(fetchFacets, 200); }
+function renderSheetV2() {
+  const o = S.sheet;
+  const layer = $("#layer");
+  layer.innerHTML = "";
+  if (!o) return;
+  const grp = (label, kids) => el("div", { class: "grp" }, [el("div", { class: "lbl", text: label }), kids]);
+  const chip = (label, on, onclick, cnt, disabled) => el("button", { class: "chip", type: "button", "aria-pressed": on ? "true" : "false", "aria-disabled": disabled ? "true" : null, onclick }, [label, cnt !== undefined ? el("span", { class: "cnt", text: String(cnt) }) : null]);
+  const facets = (S.sheetF && S.sheetF.facets) || [];
+  const byKey = {}; for (const f of facets) byKey[f.key] = f;
+  const groups = [];
+  // Sort (phone only), first, like v1.
+  groups.push(el("div", { class: "phone-only" }, [grp(tr("Sort"), el("div", { class: "chiprow" }, SORTS.map(([k, l]) => chip(tr(l), o.sort === k, () => { o.sort = k; renderSheetV2(); }))))]));
+  for (const key of V2_GROUP_ORDER) {
+    const f = byKey[key];
+    if (!f || !f.applicable || !f.options.length) continue;
+    const row = el("div", { class: "chiprow" }, f.options.map((op) => {
+      const on = v2IsSelected(o, key, op.value);
+      return chip(v2FacetLabel(key, op.value, op.metadata), on, () => { v2Toggle(o, key, op.value); queueFacets(); }, op.count, op.disabled && !on);
+    }));
+    groups.push(grp(tr(V2_GROUP_LABEL[key] || key), row));
+  }
+  const parseAmt = (v) => { const n = Number(String(v).replace(/[^\d]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+  const pmin = el("input", { type: "text", inputmode: "numeric", placeholder: tr("from"), value: o.price_min_uzs || "", "aria-label": tr("Price, UZS") + " " + tr("from"), oninput: (e) => { o.price_min_uzs = parseAmt(e.target.value); clearTimeout(S.sheetT); S.sheetT = setTimeout(fetchFacets, 350); } });
+  const pmax = el("input", { type: "text", inputmode: "numeric", placeholder: tr("to"), value: o.price_max_uzs || "", "aria-label": tr("Price, UZS") + " " + tr("to"), oninput: (e) => { o.price_max_uzs = parseAmt(e.target.value); clearTimeout(S.sheetT); S.sheetT = setTimeout(fetchFacets, 350); } });
+  groups.push(grp(tr("Price, UZS"), el("div", { class: "range" }, [pmin, el("span", { text: "–" }), pmax])));
+  if (!S.client) groups.push(el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: o.incomplete ? "checked" : null, onchange: (e) => { o.incomplete = e.target.checked; queueFacets(); } }), tr("Only models with key details still TBC")])]));
+  const doneLabel = S.sheetTotal == null ? tr("Done") : tr("Show {n}", { n: S.sheetTotal });
+  const sheet = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": tr("Filters") }, [
+    el("header", {}, [el("h2", { text: tr("Filters") }), el("button", { class: "btn", type: "button", onclick: () => closeSheet(), text: tr("Close") })]),
+    el("div", { class: "scroll" }, groups),
+    el("footer", {}, [
+      el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...emptyV2(), q: o.q, sort: o.sort }; queueFacets(); }, text: tr("Clear all") }),
+      el("button", { class: "btn primary", type: "button", onclick: () => { const h = listHashV2(S.sheet); closeSheet(true, h); }, text: doneLabel }),
+    ]),
+  ]);
+  layer.append(el("div", { class: "sheet-scrim", onclick: () => closeSheet() }), sheet);
+}
 
 /* -------------------------------------------------------------------- init */
 (async function boot() {
