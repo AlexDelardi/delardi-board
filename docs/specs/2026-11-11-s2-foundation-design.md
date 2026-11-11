@@ -1,6 +1,6 @@
 # Sprint 2 — operational foundation: design
 
-**Date:** 11 November 2026 · **Status:** for Alex's sign-off · **Roadmap:** `Delardi_Tech_Roadmap_v2.md`, Sprint 2
+**Date:** 11 November 2026 · **Status:** approved by Alex, 11 Nov 2026 · **Roadmap:** `Delardi_Tech_Roadmap_v2.md`, Sprint 2
 **Approach chosen:** A — a new operational layer (`ops_`) next to the catalogue; the catalogue stays the floor's display.
 
 ## 1. Goal
@@ -25,6 +25,7 @@ Give every physical piece a permanent identity and state, give every sale a tick
 | 5 | Reserved / Booked-Out keep showing as "in stock" on the floor until Sprint 5 (they physically are) | Alex, 11 Nov |
 | 6 | States: In Transit, In Stock, Reserved, Booked-Out (Marketing), Damaged, Sold | Roadmap v2 §4.1 |
 | 7 | Colibri's extra states (примерка, брак, склад 2…) are all zero → not modelled | S1 report §3 |
+| 8 | No returns to suppliers: contracts don't allow them | Alex, 11 Nov |
 
 ## 3. Facts checked in the live database (11 Nov)
 
@@ -60,7 +61,7 @@ One row is inserted.
 | article | text | latest seen |
 | model_id, variant_id | text | **latest** catalogue IDs, matched by text (not a declared link, so catalogue rebuilds never touch pieces) |
 | size | text | |
-| state | text | check: `in_transit, in_stock, reserved, booked_out, damaged, sold, returned_to_supplier` |
+| state | text | check: `in_transit, in_stock, reserved, booked_out, damaged, sold` |
 | state_since | timestamptz | |
 | hold_client_id | text → crm_clients | Reserved: for whom (no cascade) |
 | hold_until | date | Reserved / Booked-Out: expected end |
@@ -71,9 +72,9 @@ One row is inserted.
 | sold_line_id | uuid → ops_ticket_lines | set when Sold through a ticket |
 | created_at, updated_at | timestamptz | |
 
-**Identity rule:** unique (brand, serial) **among pieces that are not Sold / Returned**. If Colibri later reuses a sold piece's serial for a new article, a **new** piece is created and a `serial_reused` review item is raised.
+**Identity rule:** unique (brand, serial) **among pieces that are not Sold**. If Colibri later reuses a sold piece's serial for a new article, a **new** piece is created and a `serial_reused` review item is raised.
 
-`returned_to_supplier` is added as a terminal state so the review queue can record "went back to the brand". It is not a floor state.
+Returns to suppliers are not modelled: no contract allows them (Alex, 11 Nov).
 
 ### 4.3 `ops_piece_events` — append-only history
 | Column | Type | Notes |
@@ -82,7 +83,7 @@ One row is inserted.
 | piece_id | uuid → ops_pieces | |
 | at | timestamptz | |
 | from_state, to_state | text | `from_state` null on creation |
-| reason | text | `initial_load, arrived, sold, refunded, reserved, released, booked_out, returned_from_loan, damaged, repaired, returned_to_supplier, review_resolved, serial_reused` |
+| reason | text | `initial_load, arrived, sold, refunded, reserved, released, booked_out, returned_from_loan, damaged, repaired, review_resolved, serial_reused` |
 | ref_kind, ref_id | text | `cat_run` / `ticket_line` / `review` / `manual` + id |
 | actor | text | person or `system` |
 | note | text | |
@@ -97,7 +98,7 @@ A trigger refuses UPDATE and DELETE on this table.
 | kind | text | `missing_from_export`, `serial_reused`, `ticket_conflict` |
 | raised_at, raised_run | | |
 | status | text | `open` / `resolved` / `auto_closed` |
-| resolution | text | `sold`, `returned_to_supplier`, `damaged`, `booked_out`, `still_in_stock` |
+| resolution | text | `sold`, `damaged`, `booked_out`, `still_in_stock` |
 | resolved_by, resolved_at, note | | |
 
 At most one **open** item per piece and kind.
@@ -158,7 +159,7 @@ All `SECURITY DEFINER`, fixed search path, executable by the server role only.
 |---|---|
 | `ops_has_right(actor, right)` | true if an active `board_users` row with that name has the right |
 | `ops_sync_pieces(run_id)` → counts | see §7 |
-| `ops_set_state(piece, state, actor, note, client, until)` | manual change; checks **manage stock**; allowed: In Stock ↔ Reserved / Booked-Out / Damaged, Damaged → Returned to supplier; never to or from Sold (tickets only); writes one event |
+| `ops_set_state(piece, state, actor, note, client, until)` | manual change; checks **manage stock**; allowed: In Stock ↔ Reserved / Booked-Out / Damaged; never to or from Sold (tickets only); writes one event |
 | `ops_resolve_review(review, resolution, actor, note)` | checks **manage stock**; applies the state, closes the item, writes the event |
 | `ops_initial_fill(actor)` | one-off: today's pieces → In Stock, in-transit → In Transit, event `initial_load`; refuses to run twice |
 
@@ -219,7 +220,6 @@ Re-running the same load changes nothing (idempotent). Returns counts: arrived, 
 - State, review and till screens; our ticket number generator (Sprint 5).
 - Models that disappear from a load are still removed (see §12.1).
 
-## 12. Points for Alex
+## 12. Notes agreed with Alex
 
 1. **Models are not "marked inactive" this sprint.** Earlier I said they would be. Keeping retired models would make them show up in the catalogue unless its API also learns to hide them, which is a catalogue code change. Models only drop out when Colibri stops listing them (the load already includes sold-out models), so the loss is rare. This sprint makes it **visible** in every load report; the real fix comes with the item master in Sprint 4, when the catalogue starts reading from our own data.
-2. **One extra terminal state, "Returned to supplier"**, so the review queue can record pieces that went back to the brand. It never shows on the floor.
