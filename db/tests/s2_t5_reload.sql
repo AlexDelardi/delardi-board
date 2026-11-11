@@ -4,7 +4,7 @@ do $$
 declare payload jsonb; payload2 jsonb; r jsonb; rep bigint; n_ev int;
   v_rep text; v_gone text; v_clone text; clone_attrs int; n_photos int;
 begin
-  perform ops_initial_fill('Alex');
+  if not exists (select 1 from ops_pieces) then perform ops_initial_fill('Alex'); end if;  -- live register is filled since 11 Nov
   create temp table t5_pieces on commit drop as select piece_id from ops_pieces;
   create temp table t5_variants on commit drop as select variant_id from cat_variants;
   n_photos := (select count(*) from cat_photos);

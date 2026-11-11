@@ -3,7 +3,7 @@ begin;
 do $$
 declare r jsonb; run bigint; s text; p uuid; t_serial text; t_variant text; t_piece uuid; n_ev int; s2 text; rv bigint;
 begin
-  perform ops_initial_fill('Alex');
+  if not exists (select 1 from ops_pieces) then perform ops_initial_fill('Alex'); end if;  -- live register is filled since 11 Nov
   select max(id) into run from cat_import_runs;
 
   -- idempotent: a sync right after the fill, and again, changes nothing but refresh

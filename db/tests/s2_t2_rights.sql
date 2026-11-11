@@ -6,12 +6,14 @@ declare r jsonb; p uuid; c text; rv bigint; n_ev int;
   expect_transit int := (select count(*) from cat_incoming i
                           where not exists (select 1 from cat_pieces s where upper(btrim(s.serial)) = upper(btrim(i.serial))));
 begin
-  -- initial fill
+  -- initial fill (checked only on an empty register; the live one is filled since 11 Nov)
+  if not exists (select 1 from ops_pieces) then
   r := ops_initial_fill('Alex');
   assert (r->>'in_stock')::int = expect_stock, format('in_stock %s <> %s', r->>'in_stock', expect_stock);
   assert (r->>'in_transit')::int = expect_transit, format('in_transit %s <> %s', r->>'in_transit', expect_transit);
   assert (select count(*) from ops_piece_events where reason = 'initial_load') = expect_stock + expect_transit, 'one event per piece';
   assert (select count(*) from ops_pieces where brand is null or brand = '') = 0, 'every piece has a brand';
+  end if;
   begin perform ops_initial_fill('Alex'); raise exception 'second fill allowed';
   exception when others then if sqlerrm not like '%initial fill already done%' then raise; end if; end;
 

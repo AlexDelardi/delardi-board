@@ -3,7 +3,7 @@ begin;
 do $$
 declare run bigint; c text; p uuid; t1 uuid; t2 uuid; l1 uuid; l2 uuid; n_ev int; s text; other_variant text;
 begin
-  perform ops_initial_fill('Alex');
+  if not exists (select 1 from ops_pieces) then perform ops_initial_fill('Alex'); end if;  -- live register is filled since 11 Nov
   select max(id) into run from cat_import_runs;
 
   -- T6: a client with purchases cannot be hard-deleted (pick one with no other linked rows, so only
