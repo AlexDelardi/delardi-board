@@ -1,11 +1,12 @@
 # Database structure
 
 `schema.sql` is the structure of the live Supabase database (schema `public`):
-54 tables, their keys, indexes, views, triggers and 80 functions.
-**No data and no keys** — it is a `pg_dump --schema-only` taken on 11 November 2026.
+61 tables, their keys, indexes, views, triggers and 88 functions.
+**No data and no keys** — it is a `pg_dump --schema-only` taken on 11 November 2026, after Sprint 2.
 
-- It is a snapshot, not a migration history. The 76 migrations applied so far
-  live in the database itself (`supabase_migrations.schema_migrations`).
+- It is a snapshot, not a migration history. The migrations applied so far live in the
+  database itself (`supabase_migrations.schema_migrations`); Sprint 2's are also in
+  `migrations/`, with their tests in `tests/` and an emergency undo in `rollback/`.
 - Refresh it after every migration with the same command used for the backups
   (see `S1_Map_Reality_Report_11Nov2026.md` in the Delardi project, §7),
   adding `--schema-only -f schema.sql`, and commit it with the change.
