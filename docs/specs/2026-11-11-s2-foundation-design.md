@@ -180,6 +180,16 @@ for each live piece In Stock / Reserved / Booked-Out / Damaged not in this load:
 
 Re-running the same load changes nothing (idempotent). Returns counts: arrived, still in transit, refreshed, review raised, review auto-closed.
 
+### 7a. Pieces that never arrive (added with Alex, 11 Nov 2026)
+
+A short delivery would otherwise leave pieces "In Transit" forever. The sync also:
+
+- **Dropped from the incoming list:** a piece In Transit that is in neither the stock export nor the incoming list → review `dropped_from_incoming` (once).
+- **Overdue:** a piece In Transit more than **60 days** after its shipment date (`cat_incoming.shipped_on`, copied to the piece; first sighting if none) → review `overdue_in_transit` (once).
+- Answers for both: **still coming** (`still_in_transit`, no change; flagged again only 60 days after the answer) or **not delivered** (`not_delivered` → new final state **Not received**, set only through a review, never by hand).
+- Not received pieces leave stock counts, keep their history, and no longer hold the serial: if it turns up later it becomes a new piece flagged `serial_reused`.
+- Overdue reviews close themselves when the piece arrives; dropped reviews when the serial is back in a load.
+
 ## 8. Rights and audit
 
 - **Manage stock:** Alex only. A floor employee is added by switching the flag; no rebuild.
