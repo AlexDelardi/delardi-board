@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict cP7dbeoE9n5fXlzZBOIpwaohgctj0CGj6XQesDI2thhTfRuIryRVgfLD34XEybf
+\restrict 0YQWGODP9ZgQ4DAIojEK3ow6oGWZJUxmwBBBtWTCxmnLD5HGMd3yT9ceY2khFTU
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.6
@@ -321,16 +321,30 @@ CREATE FUNCTION public.cat_load(p jsonb, p_source text) RETURNS jsonb
     SET search_path TO 'public'
     SET statement_timeout TO '120s'
     AS $$
-declare run_id bigint; c jsonb;
+declare run_id bigint; c jsonb; v_models_removed int; v_photos_unlinked int; v_variants_removed int;
+  v_variants_kept int; v_ops jsonb;
 begin
   perform set_config('cat.skip_v2', 'on', true);  -- one v2 rebuild at load end, not inside the mid-load overlay
   insert into cat_import_runs(source_file, source_built, notes)
     values (p_source, p->>'built', 'full load') returning id into run_id;
-  delete from cat_links where true; delete from cat_attributes where true; delete from cat_pieces where true;
-  delete from cat_expected_keys where true; delete from cat_variants where true;
+
+  create temp table _load_variant_ids on commit drop as
+    select distinct e->>'variant_id' variant_id from jsonb_array_elements(p->'variants') e;
+
+  delete from cat_links where true;
+  delete from cat_attributes a where a.variant_id in (select variant_id from _load_variant_ids);
+  delete from cat_pieces where true;
+  delete from cat_expected_keys where true;
+
   -- models still shipping (cat_incoming) are kept, with their photos, until Colibri has them
-  delete from cat_models where model_id not in (select e->>'model_id' from jsonb_array_elements(p->'models') e)
-    and model_id not in (select model_id from cat_incoming);
+  create temp table _load_models_gone on commit drop as
+    select model_id from cat_models
+     where model_id not in (select e->>'model_id' from jsonb_array_elements(p->'models') e)
+       and model_id not in (select model_id from cat_incoming);
+  v_models_removed := (select count(*) from _load_models_gone);
+  v_photos_unlinked := (select count(*) from cat_photos where model_id in (select model_id from _load_models_gone));
+  delete from cat_models where model_id in (select model_id from _load_models_gone);
+
   insert into cat_models
     select (r).* from (select jsonb_populate_record(null::cat_models,
       e || jsonb_build_object('import_run', run_id, 'updated_at', now(), 'search_text', '')) r
@@ -345,13 +359,39 @@ begin
     variant_count = excluded.variant_count, completeness = excluded.completeness,
     missing_crucial = excluded.missing_crucial, has_unconfirmed = excluded.has_unconfirmed,
     import_run = excluded.import_run, updated_at = excluded.updated_at;
+
   insert into cat_variants
     select (r).* from (select jsonb_populate_record(null::cat_variants,
       e || jsonb_build_object('import_run', run_id, 'updated_at', now())) r
-      from jsonb_array_elements(p->'variants') e) s;
+      from jsonb_array_elements(p->'variants') e) s
+  on conflict (variant_id) do update set
+    model_id = excluded.model_id, colour_code = excluded.colour_code, colour_name_en = excluded.colour_name_en,
+    colour_name_ru = excluded.colour_name_ru, material = excluded.material, in_stock = excluded.in_stock,
+    qty_stock = excluded.qty_stock, qty_in = excluded.qty_in, qty_sold = excluded.qty_sold,
+    price_uzs = excluded.price_uzs, arrival_years = excluded.arrival_years,
+    description_ru = excluded.description_ru, description_en = excluded.description_en,
+    found_online = excluded.found_online, confidence = excluded.confidence, sources = excluded.sources,
+    conflicts = excluded.conflicts, notes = excluded.notes, sort_order = excluded.sort_order,
+    import_run = excluded.import_run, updated_at = excluded.updated_at, qty_transit = excluded.qty_transit;
+
   insert into cat_pieces(serial, variant_id, size, price_uzs, import_run)
     select x.serial, x.variant_id, x.size, x.price_uzs, run_id
     from jsonb_to_recordset(p->'pieces') as x(serial text, variant_id text, size text, price_uzs bigint);
+
+  -- variants Colibri no longer sends: removed if nothing points at them, else kept and out of stock
+  delete from cat_variants v
+   where v.variant_id not in (select variant_id from _load_variant_ids)
+     and not exists (select 1 from cat_pieces x where x.variant_id = v.variant_id)
+     and not exists (select 1 from cat_incoming x where x.variant_id = v.variant_id)
+     and not exists (select 1 from cat_reports x where x.variant_id = v.variant_id)
+     and not exists (select 1 from cat_overlay x where x.variant_id = v.variant_id);
+  get diagnostics v_variants_removed = row_count;
+  update cat_variants v set in_stock = false, qty_stock = 0
+   where v.variant_id not in (select variant_id from _load_variant_ids)
+     and not exists (select 1 from cat_incoming x where x.variant_id = v.variant_id)
+     and (v.in_stock or v.qty_stock <> 0);
+  v_variants_kept := (select count(*) from cat_variants where variant_id not in (select variant_id from _load_variant_ids));
+
   insert into cat_attributes(variant_id, key, value, value_num, flag, import_run)
     select x.variant_id, x.key, x.value, x.value_num, x.flag, run_id
     from jsonb_to_recordset(p->'attributes') as x(variant_id text, key text, value text, value_num numeric, flag text);
@@ -364,13 +404,19 @@ begin
   perform cat_rebuild_facets();
   perform cat_rebuild_facets_v2_safe();   -- keep the v2 filter cache in step with this load
   perform cat_link_transactions();   -- CRM purchase lines follow the new catalogue
+  v_ops := ops_sync_pieces(run_id);  -- piece register follows the new catalogue (S2 §7)
   c := jsonb_build_object(
     'models', (select count(*) from cat_models), 'variants', (select count(*) from cat_variants),
     'pieces', (select count(*) from cat_pieces), 'attributes', (select count(*) from cat_attributes),
     'links', (select count(*) from cat_links), 'expected', (select count(*) from cat_expected_keys),
     'overlay', (select count(*) from cat_overlay),
-    'in_transit', (select coalesce(sum(qty_transit),0) from cat_variants));
+    'in_transit', (select coalesce(sum(qty_transit),0) from cat_variants),
+    'models_removed', v_models_removed, 'photos_unlinked', v_photos_unlinked,
+    'variants_removed', v_variants_removed, 'variants_kept_not_in_load', v_variants_kept,
+    'ops', v_ops);
   update cat_import_runs set counts = c where id = run_id;
+  drop table _load_variant_ids;
+  drop table _load_models_gone;
   return c || jsonb_build_object('run', run_id);
 end $$;
 
@@ -3640,6 +3686,353 @@ end $$;
 
 
 --
+-- Name: ops_apply_ticket_line(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_apply_ticket_line(p_line uuid, p_actor text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_kind text; v_piece uuid; v_status text; v_state text; v_sold_line uuid;
+begin
+  select l.kind, l.piece_id, t.status into v_kind, v_piece, v_status
+    from ops_ticket_lines l join ops_tickets t using (ticket_id)
+   where l.line_id = p_line;
+  if not found then raise exception 'ticket line % not found', p_line; end if;
+  if v_piece is null or v_status = 'void' then return; end if;
+
+  select state, sold_line_id into v_state, v_sold_line from ops_pieces where piece_id = v_piece for update;
+
+  if v_kind = 'sale' then
+    if v_state = 'sold' and v_sold_line = p_line then return; end if;
+    if v_state in ('sold', 'not_received') then
+      insert into ops_review(piece_id, kind, note)
+      select v_piece, 'ticket_conflict', format('sale line %s on a piece that is %s', p_line, v_state)
+       where not exists (select 1 from ops_review r
+                          where r.piece_id = v_piece and r.kind = 'ticket_conflict' and r.status = 'open');
+      return;
+    end if;
+    update ops_pieces
+       set state = 'sold', state_since = now(), sold_line_id = p_line,
+           hold_client_id = null, hold_until = null, state_note = null, updated_at = now()
+     where piece_id = v_piece;
+    insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+    values (v_piece, v_state, 'sold', 'sold', 'ticket_line', p_line::text, p_actor);
+    update ops_review set status = 'auto_closed', resolved_at = now(), resolved_by = p_actor
+     where piece_id = v_piece and status = 'open';
+
+  elsif v_kind = 'refund' then
+    if v_state <> 'sold' then return; end if;
+    -- the serial is already live again as another piece (reused after sale): flag instead of failing
+    if exists (select 1 from ops_pieces o, ops_pieces me
+                where me.piece_id = v_piece and o.piece_id <> v_piece
+                  and o.state not in ('sold', 'not_received')
+                  and o.brand = me.brand and upper(btrim(o.serial)) = upper(btrim(me.serial))) then
+      insert into ops_review(piece_id, kind, note)
+      select v_piece, 'ticket_conflict', format('refund line %s but the serial is live as another piece', p_line)
+       where not exists (select 1 from ops_review r
+                          where r.piece_id = v_piece and r.kind = 'ticket_conflict' and r.status = 'open');
+      return;
+    end if;
+    update ops_pieces
+       set state = 'in_stock', state_since = now(), sold_line_id = null, updated_at = now()
+     where piece_id = v_piece;
+    insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+    values (v_piece, 'sold', 'in_stock', 'refunded', 'ticket_line', p_line::text, p_actor);
+  end if;
+end $$;
+
+
+--
+-- Name: ops_has_right(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_has_right(p_actor text, p_right text) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+  select coalesce((
+    select case p_right when 'manage_stock' then u.can_manage_stock else false end
+      from board_users u
+     where u.name = p_actor and u.active
+     limit 1), false);
+$$;
+
+
+--
+-- Name: ops_initial_fill(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_initial_fill(p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_run bigint; v_stock int; v_transit int;
+begin
+  if not ops_has_right(p_actor, 'manage_stock') then
+    raise exception 'not allowed: % lacks manage stock', p_actor;
+  end if;
+  if exists (select 1 from ops_pieces) then raise exception 'initial fill already done'; end if;
+
+  select max(id) into v_run from cat_import_runs;
+
+  insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, size, state, last_seen_run, last_seen_at)
+  select 1, m.brand, btrim(p.serial), m.article, m.model_id, p.variant_id, p.size, 'in_stock', p.import_run, now()
+    from cat_pieces p
+    join cat_variants v on v.variant_id = p.variant_id
+    join cat_models   m on m.model_id   = v.model_id;
+  get diagnostics v_stock = row_count;
+
+  insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, size, state)
+  select 1, m.brand, btrim(i.serial), coalesce(i.article, m.article), m.model_id, i.variant_id, i.size, 'in_transit'
+    from cat_incoming i
+    left join cat_variants v on v.variant_id = i.variant_id
+    join cat_models m on m.model_id = coalesce(i.model_id, v.model_id)
+   where not exists (select 1 from cat_pieces s where upper(btrim(s.serial)) = upper(btrim(i.serial)));
+  get diagnostics v_transit = row_count;
+
+  insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+  select piece_id, null, state, 'initial_load', 'cat_run', v_run::text, p_actor from ops_pieces;
+
+  return jsonb_build_object('in_stock', v_stock, 'in_transit', v_transit);
+end $$;
+
+
+--
+-- Name: ops_move_state(uuid, text, text, text, text, date, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_move_state(p_piece uuid, p_state text, p_actor text, p_note text, p_client text, p_until date, p_reason text, p_ref_kind text, p_ref_id text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_from text; v_reason text;
+begin
+  select state into v_from from ops_pieces where piece_id = p_piece for update;
+  if not found then raise exception 'piece % not found', p_piece; end if;
+  if not ((v_from = 'in_stock' and p_state in ('reserved', 'booked_out', 'damaged'))
+       or (v_from in ('reserved', 'booked_out', 'damaged') and p_state = 'in_stock')
+       or (v_from = 'in_transit' and p_state = 'not_received' and p_ref_kind = 'review')) then
+    raise exception 'state % → % is not allowed', v_from, p_state;
+  end if;
+  v_reason := coalesce(p_reason, case
+    when p_state = 'reserved'   then 'reserved'
+    when p_state = 'booked_out' then 'booked_out'
+    when p_state = 'damaged'    then 'damaged'
+    when v_from  = 'reserved'   then 'released'
+    when v_from  = 'booked_out' then 'returned_from_loan'
+    when v_from  = 'damaged'    then 'repaired' end);
+  update ops_pieces
+     set state          = p_state,
+         state_since    = now(),
+         hold_client_id = case when p_state in ('reserved', 'booked_out') then p_client end,
+         hold_until     = case when p_state in ('reserved', 'booked_out') then p_until end,
+         state_note     = case when p_state = 'in_stock' then null else p_note end,
+         updated_at     = now()
+   where piece_id = p_piece;
+  insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor, note)
+  values (p_piece, v_from, p_state, v_reason, p_ref_kind, p_ref_id, p_actor, p_note);
+end $$;
+
+
+--
+-- Name: ops_piece_events_immutable(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_piece_events_immutable() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  raise exception 'ops_piece_events is append-only';
+end $$;
+
+
+--
+-- Name: ops_resolve_review(bigint, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_resolve_review(p_review bigint, p_resolution text, p_actor text, p_note text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_piece uuid; v_kind text; v_state text;
+begin
+  if not ops_has_right(p_actor, 'manage_stock') then
+    raise exception 'not allowed: % lacks manage stock', p_actor;
+  end if;
+  select r.piece_id, r.kind into v_piece, v_kind from ops_review r
+   where r.review_id = p_review and r.status = 'open' for update;
+  if not found then raise exception 'review % is not open', p_review; end if;
+  if p_resolution is null or p_resolution <> all (
+       case when v_kind in ('overdue_in_transit', 'dropped_from_incoming')
+            then array['still_in_transit', 'not_delivered']
+            else array['sold', 'damaged', 'booked_out', 'still_in_stock'] end) then
+    raise exception 'resolution % is not allowed for %', p_resolution, v_kind;
+  end if;
+  select state into v_state from ops_pieces where piece_id = v_piece for update;
+  if p_resolution = 'sold' then
+    if v_state <> 'sold' then raise exception 'state % → sold is not allowed', v_state; end if;
+  elsif p_resolution in ('damaged', 'booked_out') and v_state <> p_resolution then
+    perform ops_move_state(v_piece, p_resolution, p_actor, p_note, null, null,
+                           'review_resolved', 'review', p_review::text);
+  elsif p_resolution = 'not_delivered' and v_state <> 'not_received' then
+    perform ops_move_state(v_piece, 'not_received', p_actor, p_note, null, null,
+                           'review_resolved', 'review', p_review::text);
+  end if;
+  update ops_review
+     set status = 'resolved', resolution = p_resolution, resolved_by = p_actor,
+         resolved_at = now(), note = coalesce(p_note, note)
+   where review_id = p_review;
+end $$;
+
+
+--
+-- Name: ops_set_state(uuid, text, text, text, text, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_set_state(p_piece uuid, p_state text, p_actor text, p_note text DEFAULT NULL::text, p_client text DEFAULT NULL::text, p_until date DEFAULT NULL::date) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  if not ops_has_right(p_actor, 'manage_stock') then
+    raise exception 'not allowed: % lacks manage stock', p_actor;
+  end if;
+  perform ops_move_state(p_piece, p_state, p_actor, p_note, p_client, p_until, null, 'manual', null);
+end $$;
+
+
+--
+-- Name: ops_sync_pieces(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ops_sync_pieces(p_run bigint) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_arrived int := 0; v_transit int := 0; v_refreshed int := 0; v_raised int := 0; v_closed int := 0; n int;
+begin
+  -- this load: stock first, then incoming serials that are not in stock
+  create temp table ops_sync_load on commit drop as
+  select distinct on (l.brand, l.k) l.*
+    from (
+      select m.brand, upper(btrim(p.serial)) k, btrim(p.serial) serial, m.article, m.model_id,
+             p.variant_id, p.size, null::date shipped_on, 'in_stock' src, 1 pri
+        from cat_pieces p
+        join cat_variants v on v.variant_id = p.variant_id
+        join cat_models   m on m.model_id   = v.model_id
+      union all
+      select m.brand, upper(btrim(i.serial)), btrim(i.serial), coalesce(i.article, m.article), m.model_id,
+             i.variant_id, i.size, i.shipped_on, 'in_transit', 2
+        from cat_incoming i
+        left join cat_variants v on v.variant_id = i.variant_id
+        join cat_models m on m.model_id = coalesce(i.model_id, v.model_id)
+       where not exists (select 1 from cat_pieces s where upper(btrim(s.serial)) = upper(btrim(i.serial)))
+    ) l
+   order by l.brand, l.k, l.pri;
+
+  -- 1. in transit, now in stock → arrived
+  with moved as (
+    update ops_pieces o set state = 'in_stock', state_since = now(), updated_at = now()
+      from ops_sync_load l
+     where o.state = 'in_transit' and l.src = 'in_stock'
+       and o.brand = l.brand and upper(btrim(o.serial)) = l.k
+    returning o.piece_id)
+  insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+  select piece_id, 'in_transit', 'in_stock', 'arrived', 'cat_run', p_run::text, 'catalogue load' from moved;
+  get diagnostics v_arrived = row_count;
+
+  -- 2. refresh every live piece in this load (never its state)
+  update ops_pieces o
+     set article = l.article, model_id = l.model_id, variant_id = l.variant_id, size = l.size,
+         shipped_on = coalesce(l.shipped_on, o.shipped_on),
+         last_seen_run = p_run, last_seen_at = now()
+    from ops_sync_load l
+   where o.state not in ('sold', 'not_received') and o.brand = l.brand and upper(btrim(o.serial)) = l.k;
+  get diagnostics v_refreshed = row_count;
+
+  -- 3. auto-close reviews that no longer apply
+  update ops_review r
+     set status = 'auto_closed', resolved_at = now(), resolved_by = 'catalogue load'
+    from ops_pieces o
+   where r.piece_id = o.piece_id and r.status = 'open'
+     and o.state not in ('sold', 'not_received')
+     and ((r.kind in ('missing_from_export', 'dropped_from_incoming')
+           and exists (select 1 from ops_sync_load l where l.brand = o.brand and l.k = upper(btrim(o.serial))))
+       or (r.kind = 'overdue_in_transit' and o.state <> 'in_transit'));
+  get diagnostics v_closed = row_count;
+
+  -- 4. new pieces (no live piece with this brand + serial)
+  create temp table ops_sync_new on commit drop as
+  select l.* from ops_sync_load l
+   where not exists (select 1 from ops_pieces o
+                      where o.state not in ('sold', 'not_received') and o.brand = l.brand and upper(btrim(o.serial)) = l.k);
+  v_raised := v_raised + (select count(*) from ops_sync_new l
+                           where exists (select 1 from ops_pieces o where o.state in ('sold', 'not_received')
+                                            and o.brand = l.brand and upper(btrim(o.serial)) = l.k));
+  with ins as (
+    insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, size, state, shipped_on,
+                           last_seen_run, last_seen_at)
+    select 1, brand, serial, article, model_id, variant_id, size, src, shipped_on, p_run, now() from ops_sync_new
+    returning piece_id, state, brand, serial)
+  , ev as (
+    insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+    select piece_id, null, state, case when state = 'in_stock' then 'arrived' else 'initial_load' end,
+           'cat_run', p_run::text, 'catalogue load' from ins
+    returning piece_id)
+  insert into ops_review(piece_id, kind, raised_run, note)
+  select i.piece_id, 'serial_reused', p_run, 'serial was sold or not received before'
+    from ins i
+   where exists (select 1 from ops_pieces o where o.state in ('sold', 'not_received') and o.brand = i.brand
+                                              and upper(btrim(o.serial)) = upper(btrim(i.serial)));
+  v_arrived := v_arrived + (select count(*) from ops_sync_new where src = 'in_stock');
+  v_transit := (select count(*) from ops_sync_new where src = 'in_transit');
+
+  -- 5. live pieces on the floor not in this load and with no ticket line → review (once)
+  insert into ops_review(piece_id, kind, raised_run)
+  select o.piece_id, 'missing_from_export', p_run
+    from ops_pieces o
+   where o.state in ('in_stock', 'reserved', 'booked_out', 'damaged')
+     and not exists (select 1 from ops_sync_load l where l.brand = o.brand and l.k = upper(btrim(o.serial)))
+     and not exists (select 1 from ops_ticket_lines t
+                      where t.piece_id = o.piece_id or upper(btrim(t.serial_raw)) = upper(btrim(o.serial)))
+     and not exists (select 1 from ops_review r
+                      where r.piece_id = o.piece_id and r.kind = 'missing_from_export' and r.status = 'open');
+  get diagnostics n = row_count;
+  v_raised := v_raised + n;
+
+  -- 6. in transit but gone from the incoming list without arriving → review (once)
+  insert into ops_review(piece_id, kind, raised_run)
+  select o.piece_id, 'dropped_from_incoming', p_run
+    from ops_pieces o
+   where o.state = 'in_transit'
+     and not exists (select 1 from ops_sync_load l where l.brand = o.brand and l.k = upper(btrim(o.serial)))
+     and not exists (select 1 from ops_review r
+                      where r.piece_id = o.piece_id and r.kind = 'dropped_from_incoming' and r.status = 'open');
+  get diagnostics n = row_count;
+  v_raised := v_raised + n;
+
+  -- 7. in transit > 60 days after shipment (or first sighting) → review; after "still coming", 60 days after the answer
+  insert into ops_review(piece_id, kind, raised_run)
+  select o.piece_id, 'overdue_in_transit', p_run
+    from ops_pieces o
+   where o.state = 'in_transit'
+     and coalesce(o.shipped_on, o.first_seen_at::date) < current_date - 60
+     and not exists (select 1 from ops_review r
+                      where r.piece_id = o.piece_id and r.kind in ('overdue_in_transit', 'dropped_from_incoming')
+                        and (r.status = 'open' or r.resolved_at > now() - interval '60 days'));
+  get diagnostics n = row_count;
+  v_raised := v_raised + n;
+
+  drop table ops_sync_load;
+  drop table ops_sync_new;
+  return jsonb_build_object('arrived', v_arrived, 'in_transit', v_transit, 'refreshed', v_refreshed,
+                            'review_raised', v_raised, 'review_closed', v_closed);
+end $$;
+
+
+--
 -- Name: prune_board_ephemera(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3749,7 +4142,8 @@ CREATE TABLE public.board_users (
     crm_rep_label text,
     can_export_crm boolean DEFAULT false NOT NULL,
     can_view_catalogue boolean DEFAULT false NOT NULL,
-    can_manage_catalogue boolean DEFAULT false NOT NULL
+    can_manage_catalogue boolean DEFAULT false NOT NULL,
+    can_manage_stock boolean DEFAULT false NOT NULL
 );
 
 
@@ -4737,7 +5131,8 @@ CREATE TABLE public.crm_transactions (
     cat_variant_id text,
     cat_name_ru text,
     cat_name_en text,
-    cat_thumb_url text
+    cat_thumb_url text,
+    ticket_line_id uuid
 );
 
 
@@ -5141,6 +5536,198 @@ CREATE TABLE public.email_cache (
     reviewed boolean DEFAULT false NOT NULL,
     suggestion_id uuid,
     review_note text
+);
+
+
+--
+-- Name: ops_piece_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_piece_events (
+    event_id bigint NOT NULL,
+    piece_id uuid NOT NULL,
+    at timestamp with time zone DEFAULT now() NOT NULL,
+    from_state text,
+    to_state text NOT NULL,
+    reason text NOT NULL,
+    ref_kind text,
+    ref_id text,
+    actor text NOT NULL,
+    note text,
+    CONSTRAINT ops_piece_events_reason_check CHECK ((reason = ANY (ARRAY['initial_load'::text, 'arrived'::text, 'sold'::text, 'refunded'::text, 'reserved'::text, 'released'::text, 'booked_out'::text, 'returned_from_loan'::text, 'damaged'::text, 'repaired'::text, 'review_resolved'::text, 'serial_reused'::text]))),
+    CONSTRAINT ops_piece_events_ref_kind_check CHECK ((ref_kind = ANY (ARRAY['cat_run'::text, 'ticket_line'::text, 'review'::text, 'manual'::text])))
+);
+
+
+--
+-- Name: ops_piece_events_event_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_piece_events ALTER COLUMN event_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.ops_piece_events_event_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: ops_pieces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_pieces (
+    piece_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    store_id smallint NOT NULL,
+    brand text NOT NULL,
+    serial text NOT NULL,
+    article text,
+    model_id text,
+    variant_id text,
+    size text,
+    state text NOT NULL,
+    state_since timestamp with time zone DEFAULT now() NOT NULL,
+    hold_client_id text,
+    hold_until date,
+    state_note text,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_run bigint,
+    last_seen_at timestamp with time zone,
+    sold_line_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    shipped_on date,
+    CONSTRAINT ops_pieces_state_check CHECK ((state = ANY (ARRAY['in_transit'::text, 'in_stock'::text, 'reserved'::text, 'booked_out'::text, 'damaged'::text, 'sold'::text, 'not_received'::text])))
+);
+
+
+--
+-- Name: ops_review; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_review (
+    review_id bigint NOT NULL,
+    piece_id uuid NOT NULL,
+    kind text NOT NULL,
+    raised_at timestamp with time zone DEFAULT now() NOT NULL,
+    raised_run bigint,
+    status text DEFAULT 'open'::text NOT NULL,
+    resolution text,
+    resolved_by text,
+    resolved_at timestamp with time zone,
+    note text,
+    CONSTRAINT ops_review_kind_check CHECK ((kind = ANY (ARRAY['missing_from_export'::text, 'serial_reused'::text, 'ticket_conflict'::text, 'overdue_in_transit'::text, 'dropped_from_incoming'::text]))),
+    CONSTRAINT ops_review_resolution_check CHECK ((resolution = ANY (ARRAY['sold'::text, 'damaged'::text, 'booked_out'::text, 'still_in_stock'::text, 'still_in_transit'::text, 'not_delivered'::text]))),
+    CONSTRAINT ops_review_status_check CHECK ((status = ANY (ARRAY['open'::text, 'resolved'::text, 'auto_closed'::text])))
+);
+
+
+--
+-- Name: ops_review_review_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_review ALTER COLUMN review_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.ops_review_review_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: ops_stores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_stores (
+    store_id smallint NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    address text,
+    active boolean DEFAULT true NOT NULL,
+    opened_on date
+);
+
+
+--
+-- Name: ops_ticket_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_ticket_lines (
+    line_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    ticket_id uuid NOT NULL,
+    line_no integer NOT NULL,
+    kind text DEFAULT 'sale'::text NOT NULL,
+    article text,
+    item_name text,
+    size text,
+    model_id text,
+    variant_id text,
+    piece_id uuid,
+    serial_raw text,
+    qty integer DEFAULT 1 NOT NULL,
+    price_list numeric(14,0),
+    price_current numeric(14,0),
+    discount_pct numeric(6,4),
+    discount_amt numeric(14,0),
+    net numeric(14,0),
+    CONSTRAINT ops_ticket_lines_kind_check CHECK ((kind = ANY (ARRAY['sale'::text, 'refund'::text])))
+);
+
+
+--
+-- Name: ops_ticket_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_ticket_payments (
+    payment_id bigint NOT NULL,
+    ticket_id uuid NOT NULL,
+    method text NOT NULL,
+    amount numeric(14,0) NOT NULL,
+    raw text,
+    CONSTRAINT ops_ticket_payments_method_check CHECK ((method = ANY (ARRAY['cash'::text, 'card'::text, 'visa'::text, 'qr'::text, 'transfer'::text, 'other'::text])))
+);
+
+
+--
+-- Name: ops_ticket_payments_payment_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_ticket_payments ALTER COLUMN payment_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.ops_ticket_payments_payment_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: ops_tickets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_tickets (
+    ticket_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    store_id smallint NOT NULL,
+    source text NOT NULL,
+    ticket_no text NOT NULL,
+    sold_at date NOT NULL,
+    seller text,
+    seller_raw text,
+    client_id text,
+    card_no text,
+    entered_by text,
+    note text,
+    fiscal_ref text,
+    status text DEFAULT 'posted'::text NOT NULL,
+    source_file text,
+    loaded_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ops_tickets_source_check CHECK ((source = ANY (ARRAY['colibri'::text, 'delardi'::text]))),
+    CONSTRAINT ops_tickets_status_check CHECK ((status = ANY (ARRAY['posted'::text, 'void'::text])))
 );
 
 
@@ -5895,6 +6482,86 @@ ALTER TABLE ONLY public.email_cache
 
 
 --
+-- Name: ops_piece_events ops_piece_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_piece_events
+    ADD CONSTRAINT ops_piece_events_pkey PRIMARY KEY (event_id);
+
+
+--
+-- Name: ops_pieces ops_pieces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_pieces
+    ADD CONSTRAINT ops_pieces_pkey PRIMARY KEY (piece_id);
+
+
+--
+-- Name: ops_review ops_review_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_review
+    ADD CONSTRAINT ops_review_pkey PRIMARY KEY (review_id);
+
+
+--
+-- Name: ops_stores ops_stores_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_stores
+    ADD CONSTRAINT ops_stores_code_key UNIQUE (code);
+
+
+--
+-- Name: ops_stores ops_stores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_stores
+    ADD CONSTRAINT ops_stores_pkey PRIMARY KEY (store_id);
+
+
+--
+-- Name: ops_ticket_lines ops_ticket_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_lines
+    ADD CONSTRAINT ops_ticket_lines_pkey PRIMARY KEY (line_id);
+
+
+--
+-- Name: ops_ticket_lines ops_ticket_lines_ticket_id_line_no_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_lines
+    ADD CONSTRAINT ops_ticket_lines_ticket_id_line_no_key UNIQUE (ticket_id, line_no);
+
+
+--
+-- Name: ops_ticket_payments ops_ticket_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_payments
+    ADD CONSTRAINT ops_ticket_payments_pkey PRIMARY KEY (payment_id);
+
+
+--
+-- Name: ops_tickets ops_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_tickets
+    ADD CONSTRAINT ops_tickets_pkey PRIMARY KEY (ticket_id);
+
+
+--
+-- Name: ops_tickets ops_tickets_store_id_source_ticket_no_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_tickets
+    ADD CONSTRAINT ops_tickets_store_id_source_ticket_no_key UNIQUE (store_id, source, ticket_no);
+
+
+--
 -- Name: pillars pillars_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6211,10 +6878,59 @@ CREATE INDEX crm_transactions_date_idx ON public.crm_transactions USING btree (s
 
 
 --
+-- Name: crm_transactions_ticket_line; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX crm_transactions_ticket_line ON public.crm_transactions USING btree (ticket_line_id) WHERE (ticket_line_id IS NOT NULL);
+
+
+--
 -- Name: crm_tx_client_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX crm_tx_client_date_idx ON public.crm_transactions USING btree (client_id, sold_at DESC);
+
+
+--
+-- Name: ops_piece_events_piece; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ops_piece_events_piece ON public.ops_piece_events USING btree (piece_id, at);
+
+
+--
+-- Name: ops_pieces_live_serial; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ops_pieces_live_serial ON public.ops_pieces USING btree (brand, upper(btrim(serial))) WHERE (state <> ALL (ARRAY['sold'::text, 'not_received'::text]));
+
+
+--
+-- Name: ops_pieces_serial_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ops_pieces_serial_key ON public.ops_pieces USING btree (upper(btrim(serial)));
+
+
+--
+-- Name: ops_review_open; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ops_review_open ON public.ops_review USING btree (piece_id, kind) WHERE (status = 'open'::text);
+
+
+--
+-- Name: ops_ticket_lines_piece; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ops_ticket_lines_piece ON public.ops_ticket_lines USING btree (piece_id);
+
+
+--
+-- Name: ops_ticket_lines_serial; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ops_ticket_lines_serial ON public.ops_ticket_lines USING btree (upper(btrim(serial_raw)));
 
 
 --
@@ -6271,6 +6987,13 @@ CREATE TRIGGER crm_clients_touch BEFORE UPDATE ON public.crm_clients FOR EACH RO
 --
 
 CREATE TRIGGER crm_transactions_cat_link BEFORE INSERT OR UPDATE OF article, item ON public.crm_transactions FOR EACH ROW EXECUTE FUNCTION public.crm_transactions_cat_link();
+
+
+--
+-- Name: ops_piece_events ops_piece_events_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ops_piece_events_immutable BEFORE DELETE OR UPDATE ON public.ops_piece_events FOR EACH ROW EXECUTE FUNCTION public.ops_piece_events_immutable();
 
 
 --
@@ -6501,7 +7224,15 @@ ALTER TABLE ONLY public.crm_telegram_chats
 --
 
 ALTER TABLE ONLY public.crm_transactions
-    ADD CONSTRAINT crm_transactions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.crm_clients(client_id) ON DELETE CASCADE;
+    ADD CONSTRAINT crm_transactions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.crm_clients(client_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crm_transactions crm_transactions_ticket_line_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crm_transactions
+    ADD CONSTRAINT crm_transactions_ticket_line_id_fkey FOREIGN KEY (ticket_line_id) REFERENCES public.ops_ticket_lines(line_id) ON DELETE SET NULL;
 
 
 --
@@ -6510,6 +7241,86 @@ ALTER TABLE ONLY public.crm_transactions
 
 ALTER TABLE ONLY public.email_cache
     ADD CONSTRAINT email_cache_suggestion_id_fkey FOREIGN KEY (suggestion_id) REFERENCES public.suggestions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ops_piece_events ops_piece_events_piece_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_piece_events
+    ADD CONSTRAINT ops_piece_events_piece_id_fkey FOREIGN KEY (piece_id) REFERENCES public.ops_pieces(piece_id);
+
+
+--
+-- Name: ops_pieces ops_pieces_hold_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_pieces
+    ADD CONSTRAINT ops_pieces_hold_client_id_fkey FOREIGN KEY (hold_client_id) REFERENCES public.crm_clients(client_id);
+
+
+--
+-- Name: ops_pieces ops_pieces_sold_line_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_pieces
+    ADD CONSTRAINT ops_pieces_sold_line_fkey FOREIGN KEY (sold_line_id) REFERENCES public.ops_ticket_lines(line_id);
+
+
+--
+-- Name: ops_pieces ops_pieces_store_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_pieces
+    ADD CONSTRAINT ops_pieces_store_id_fkey FOREIGN KEY (store_id) REFERENCES public.ops_stores(store_id);
+
+
+--
+-- Name: ops_review ops_review_piece_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_review
+    ADD CONSTRAINT ops_review_piece_id_fkey FOREIGN KEY (piece_id) REFERENCES public.ops_pieces(piece_id);
+
+
+--
+-- Name: ops_ticket_lines ops_ticket_lines_piece_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_lines
+    ADD CONSTRAINT ops_ticket_lines_piece_id_fkey FOREIGN KEY (piece_id) REFERENCES public.ops_pieces(piece_id);
+
+
+--
+-- Name: ops_ticket_lines ops_ticket_lines_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_lines
+    ADD CONSTRAINT ops_ticket_lines_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.ops_tickets(ticket_id) ON DELETE CASCADE;
+
+
+--
+-- Name: ops_ticket_payments ops_ticket_payments_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_ticket_payments
+    ADD CONSTRAINT ops_ticket_payments_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.ops_tickets(ticket_id) ON DELETE CASCADE;
+
+
+--
+-- Name: ops_tickets ops_tickets_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_tickets
+    ADD CONSTRAINT ops_tickets_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.crm_clients(client_id);
+
+
+--
+-- Name: ops_tickets ops_tickets_store_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_tickets
+    ADD CONSTRAINT ops_tickets_store_id_fkey FOREIGN KEY (store_id) REFERENCES public.ops_stores(store_id);
 
 
 --
@@ -6835,6 +7646,48 @@ ALTER TABLE public.editor_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_cache ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: ops_piece_events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_piece_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_pieces; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_pieces ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_review; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_review ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_stores; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_stores ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_ticket_lines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_ticket_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_ticket_payments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_ticket_payments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ops_tickets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_tickets ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: pillars; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -6880,5 +7733,5 @@ ALTER TABLE public.write_log ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict cP7dbeoE9n5fXlzZBOIpwaohgctj0CGj6XQesDI2thhTfRuIryRVgfLD34XEybf
+\unrestrict 0YQWGODP9ZgQ4DAIojEK3ow6oGWZJUxmwBBBtWTCxmnLD5HGMd3yT9ceY2khFTU
 
