@@ -81,7 +81,7 @@ Sheet layout (sheet `Дневной отчет 2`): header row is the row whose 
 ### Task 3: Ticket loader and piece rule
 
 **Files:**
-- Create: `db/migrations/20261113_s3_ticket_load.sql`, `db/tests/s3_t1_load.sql`
+- Create: `db/migrations/20261113_s3_1_ticket_load.sql`, `db/tests/s3_t1_load.sql`
 
 **Interfaces:**
 - Consumes: payload of Task 2; Sprint 2 `ops_apply_ticket_line(p_line uuid, p_actor text)`, `ops_tickets (unique store_id, source, ticket_no)`, `ops_ticket_lines (unique ticket_id, line_no)`, `ops_ticket_payments`, `ops_pieces(last_seen_run)`, `cat_import_runs(id, run_at)`, `cat_match_article(text)` (returns a row with `model_id, variant_id`), `crm_rep_aliases(alias, source_name)`, `crm_sales_reps(source_name)`.
@@ -117,7 +117,7 @@ Behaviour (spec §4.2–4.3):
 ### Task 4: CRM link and monthly view
 
 **Files:**
-- Create: `db/migrations/20261113_s3_ticket_link.sql`, `db/tests/s3_t2_link.sql`
+- Create: `db/migrations/20261113_s3_2_ticket_link.sql`, `db/tests/s3_t2_link.sql`
 
 **Interfaces:**
 - Consumes: `ops_load_tickets` (Task 3); `crm_transactions(id, client_id, sold_at, article, net_uzs, ticket_line_id)`; `crm_clients(client_id, …)`.
@@ -162,7 +162,7 @@ Matching (spec §4.4): candidates are `crm_transactions` with `ticket_line_id is
 ### Task 6: Owner clean-up
 
 **Files:**
-- Create: `db/migrations/20261113_s3_zz_owner_cleanup.sql`, `db/tests/s3_t3_owner.sql`
+- Create: `db/migrations/20261113_s3_3_owner_cleanup.sql`, `db/tests/s3_t3_owner.sql`
 
 **Interfaces:**
 - Produces: table `crm_owner_cleanup_20261112(client_id text primary key, client_owner text, assigned_owner text, saved_at timestamptz default now())` — RLS on, no public grants; holds the before-values of every changed row.
