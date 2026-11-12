@@ -130,9 +130,10 @@ During the build: list serials that appear on more than one stock row in the 12 
 
 0. Backup (Alex).
 1. Migration `s3_ticket_functions`: new columns (§4.2), loader, link function, view.
-2. First load: `ops_load_tickets` with the four exports (606 tickets).
-3. `ops_link_crm_tickets`.
-4. Migration `s3_owner_cleanup`.
+2. Deploy `crm-import` v3: the existing one-time-key import function gains a `tickets` branch, so a large payload can reach the loader (added while planning; routine small loads can go through SQL).
+3. First load: `ops_load_tickets` with the four exports (606 tickets).
+4. `ops_link_crm_tickets`.
+5. Migration `s3_owner_cleanup`.
 
 Then: schema snapshot refresh, pull request, build report, roadmap update, data map update.
 
