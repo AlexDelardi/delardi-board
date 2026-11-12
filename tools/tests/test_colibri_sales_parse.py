@@ -1,4 +1,5 @@
 """Tests for tools/colibri_sales_parse.py. Fixtures are synthetic (invented values)."""
+import datetime
 import glob
 import os
 import sys
@@ -17,14 +18,12 @@ DATE = "2026-10-05"
 
 def item(no, article="A1 ", colour="", net=1000, qty=1, name="Item", note="", serial="",
          brand="Brand", seller="Seller", date=DATE):
-    import datetime
     d = datetime.datetime.strptime(date, "%Y-%m-%d")
     return [no, d, name, article, qty, "", seller, net, net, None, None, net, "", None, None,
             None, None, note, brand, colour, serial]
 
 
 def pay(no, text, note="", date=DATE):
-    import datetime
     d = datetime.datetime.strptime(date, "%Y-%m-%d")
     return [no, d] + [None] * 11 + [text, None, None, None, note, None, None, None]
 
@@ -112,6 +111,46 @@ def test_trailing_spaces_trimmed(tmp_path):
     line = out["tickets"][0]["lines"][0]
     assert line["serial_raw"] == "ZZ.00.12345"
     assert line["brand_raw"] is None and line["sk"] is None and line["vip"] is None
+
+
+def test_bare_vis_payment_gets_ticket_net(tmp_path):
+    out = one(tmp_path, [item(910, net=700), item(910, net=300), pay(910, "vis")], visa=1000)
+    assert out["tickets"][0]["payments"] == [{"method": "visa", "amount": 1000, "raw": "vis"}]
+
+
+def test_line_seller_and_ticket_seller(tmp_path):
+    out = one(tmp_path, [item(911, seller="Ann "), item(911, seller="Bob"), pay(911, "")])
+    t = out["tickets"][0]
+    assert [l["seller_raw"] for l in t["lines"]] == ["Ann", "Bob"]
+    assert t["seller_raw"] == "Ann"
+
+
+def test_footer_with_repeated_labels(tmp_path):
+    f = make(tmp_path / "Shop_X_01-Oct-26-09-Nov-26.xlsx", [item(912, net=123), pay(912, "кар")])
+    wb = openpyxl.load_workbook(f)
+    ws = wb["Дневной отчет 2"]
+    for row in ws.iter_rows():
+        if "КАР" in [c.value for c in row]:
+            for c in row:
+                c.value = None
+            for i, v in enumerate(["И", "И", 0, "КАР", "КАР", 123, "VISA", "VISA", 0], 1):
+                row[0].parent.cell(row=row[0].row, column=i, value=v)
+    wb.save(f)
+    assert P.parse_files([f])["summary"]["card"] == 123
+
+
+def test_footer_without_numbers_exits_cleanly(tmp_path):
+    f = make(tmp_path / "Shop_X_01-Oct-26-09-Nov-26.xlsx", [item(913), pay(913, "")])
+    wb = openpyxl.load_workbook(f)
+    ws = wb["Дневной отчет 2"]
+    for row in ws.iter_rows():
+        if "КАР" in [c.value for c in row]:
+            for c in row:
+                if isinstance(c.value, (int, float)):
+                    c.value = None
+    wb.save(f)
+    with pytest.raises(SystemExit):
+        P.parse_files([f])
 
 
 def test_overlapping_files_latest_wins(tmp_path):

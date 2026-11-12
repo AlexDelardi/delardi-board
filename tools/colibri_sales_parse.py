@@ -105,12 +105,18 @@ def parse_payment(raw, ticket_net):
 
 def _footer_totals(rows):
     """Return (card, visa) totals from the footer row holding КАР / VISA."""
+    def after(cells, label):
+        for c in cells[cells.index(label) + 1:]:
+            if isinstance(c, bool):
+                continue
+            if isinstance(c, (int, float)):
+                return float(c)
+        raise SystemExit(f"footer: no number after {label}")
+
     for row in rows:
         cells = [c for c in row if c is not None]
         if "КАР" in cells and "VISA" in cells:
-            card = cells[cells.index("КАР") + 1]
-            visa = cells[cells.index("VISA") + 1]
-            return float(card), float(visa)
+            return after(cells, "КАР"), after(cells, "VISA")
     raise SystemExit("footer КАР/VISA row not found")
 
 
@@ -147,6 +153,7 @@ def parse_file(path):
         f = _abs if refund else (lambda v: v)
         t["lines"].append({
             "line_no": len(t["lines"]) + 1,
+            "seller_raw": _txt(_cell(row, C_SELLER)),
             "kind": "refund" if refund else "sale",
             "article": article, "colour": colour,
             "item_name": _txt(_cell(row, C_NAME)), "size": _txt(_cell(row, C_SIZE)),
