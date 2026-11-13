@@ -7,21 +7,27 @@ alter table public.ops_ticket_lines add column brand_raw text;    -- brand as wr
 alter table public.ops_ticket_lines add column colour text;       -- colour code split off the article
 alter table public.ops_ticket_lines add column extra jsonb;       -- {"sk": discount-card letter, "vip": VIP rate}, raw
 
--- Brand key for matching only: lower-case, trimmed, known spellings folded. Raw values are never changed.
+-- Brand key for matching only: lower-case with spaces and punctuation removed ('Dinh Van', 'dinh van', 'DINH-VAN'
+-- agree), known spellings folded. Raw values are never changed. Letters and digits are never removed, whatever the
+-- database locale: a '[^[:alnum:]]' class would drop Cyrillic and accented letters under the C locale, so the class
+-- names what goes (ASCII space/punctuation, plus no-break space, dashes, curly quotes, guillemets, middle dot).
 create function public.ops_brand_key(p text) returns text
 language sql immutable security definer set search_path = public, pg_temp as $$
-  select case lower(btrim(p))
+  select case k
            when 'bvlgari' then 'bulgari'
-           when 'gp' then 'girard-perregaux'
-           else lower(btrim(p))
+           when 'gp' then 'girardperregaux'
+           else k
          end
+    from (select regexp_replace(lower(p), '[[:space:][:punct:]\u00a0\u00ab\u00b7\u00bb\u2010-\u2015\u2018-\u201f]',
+                                '', 'g') k) x
 $$;
 
 revoke execute on function public.ops_brand_key(text) from public, anon, authenticated;
 
 -- Load a payload of tickets (tools/colibri_sales_parse.py) into store 1, source colibri. Idempotent.
 --   new ticket            → insert ticket, lines, payments
---   same content          → nothing (header sold_at/seller_raw/client_raw/note, every line's fields, payments)
+--   same content          → nothing (header sold_at/seller_raw/client_raw/note, every line's fields, payments);
+--                           a line kept after a conflict that was already raised (open or resolved) counts as same
 --   different content     → header updated, lines updated in place by line_no, new lines added, payments replaced;
 --                           a line that sold a piece is never undone: if its serial (or kind) would change, or it
 --                           vanished, it is kept as is and raises a ticket_conflict review on the piece;
@@ -30,25 +36,33 @@ revoke execute on function public.ops_brand_key(text) from public, anon, authent
 -- with the same brand key and serial, last seen in a catalogue run dated (Tashkent) on or before the sale; the piece
 -- is sold through ops_apply_ticket_line. Refund lines never touch pieces.
 -- Result counts: lines = line rows inserted or updated, payments = payment rows inserted.
+-- sales_unmatched: tickets with a sale line that has a serial but no piece after the piece rule, dated on or after the
+-- Tashkent date of the latest catalogue run (a fresh sale whose piece was not found).
+-- cat_match_article is called once per distinct article among the lines written.
 create function public.ops_load_tickets(p jsonb, p_actor text) returns jsonb
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, pg_temp set statement_timeout to '120s' as $$
 declare
   v_t jsonb; v_l jsonb; v_no text; v_tid uuid; v_status text; v_sold_at date;
   v_seller_raw text; v_seller text; v_new ops_ticket_lines; v_old ops_ticket_lines;
   v_same boolean; v_n int; v_model text; v_variant text; v_pieces uuid[]; v_line record;
   n_new int := 0; n_changed int := 0; n_same int := 0; n_lines int := 0; n_pay int := 0; n_sold int := 0;
-  v_unmapped text[] := '{}'; v_mixed text[] := '{}'; v_changed text[] := '{}';
+  v_unmapped text[] := '{}'; v_mixed text[] := '{}'; v_changed text[] := '{}'; v_unmatched text[] := '{}';
+  v_match jsonb := '{}'; v_last_run date;
 begin
   if p_actor is null or btrim(p_actor) = '' then raise exception 'actor required'; end if;
+  v_last_run := (select (max(run_at) at time zone 'Asia/Tashkent')::date from cat_import_runs);
 
   for v_t in select value from jsonb_array_elements(coalesce(p->'tickets', '[]'::jsonb)) loop
     v_no := v_t->>'ticket_no';
     v_sold_at := (v_t->>'sold_at')::date;
 
-    -- seller: line 1's seller when lines carry one, else the ticket's; mapped alias first, then a rep's own name
-    v_seller_raw := coalesce(v_t->'lines'->0->>'seller_raw', v_t->>'seller_raw');
+    -- seller: the lowest line_no's seller when lines carry one, else the ticket's; mapped alias first, then a rep's name
+    v_seller_raw := coalesce(
+      (select x->>'seller_raw' from jsonb_array_elements(coalesce(v_t->'lines', '[]'::jsonb)) x
+        order by (x->>'line_no')::int limit 1),
+      v_t->>'seller_raw');
     v_seller := coalesce(
-      (select a.source_name from crm_rep_aliases a where lower(a.alias) = lower(btrim(v_seller_raw))
+      (select a.source_name from crm_rep_aliases a where lower(btrim(a.alias)) = lower(btrim(v_seller_raw))
         order by a.alias limit 1),
       (select s.source_name from crm_sales_reps s where s.source_name = btrim(v_seller_raw)));
     if v_seller is null and v_seller_raw is not null and not (btrim(v_seller_raw) = any (v_unmapped)) then
@@ -69,12 +83,21 @@ begin
       n_new := n_new + 1;
       v_same := false;
     else
-      -- same content?
+      -- same content? A sold line that the export now shows with another serial or kind, or no longer shows, is kept
+      -- as is (below); once its conflict review has been raised (same note, open or resolved) it counts as same.
       v_same := (select (t.sold_at, t.seller_raw, t.client_raw, t.note)
                         is not distinct from (v_sold_at, v_seller_raw, v_t->>'client_raw', v_t->>'note')
                    from ops_tickets t where t.ticket_id = v_tid)
-        and (select count(*) from ops_ticket_lines where ticket_id = v_tid)
-            = jsonb_array_length(coalesce(v_t->'lines', '[]'::jsonb))
+        and not exists (
+              select 1 from ops_ticket_lines o
+               where o.ticket_id = v_tid
+                 and not exists (select 1 from jsonb_array_elements(coalesce(v_t->'lines', '[]'::jsonb)) x
+                                  where (x->>'line_no')::int = o.line_no)
+                 and not (o.piece_id is not null and exists (
+                            select 1 from ops_review r
+                             where r.piece_id = o.piece_id and r.kind = 'ticket_conflict'
+                               and r.note = format('ticket %s line %s sold this piece but is missing from the sales export',
+                                                   v_no, o.line_no))))
         and not exists (
               select 1 from jsonb_array_elements(coalesce(v_t->'lines', '[]'::jsonb)) x
                cross join lateral jsonb_populate_record(null::ops_ticket_lines,
@@ -82,11 +105,20 @@ begin
                where not exists (
                        select 1 from ops_ticket_lines o
                         where o.ticket_id = v_tid and o.line_no = n.line_no
-                          and (o.kind, o.article, o.colour, o.item_name, o.size, o.qty, o.price_list, o.price_current,
-                               o.discount_pct, o.discount_amt, o.net, o.brand_raw, o.serial_raw, o.extra)
-                              is not distinct from
-                              (n.kind, n.article, n.colour, n.item_name, n.size, n.qty, n.price_list, n.price_current,
-                               n.discount_pct, n.discount_amt, n.net, n.brand_raw, n.serial_raw, n.extra)))
+                          and ((o.kind, o.article, o.colour, o.item_name, o.size, o.qty, o.price_list, o.price_current,
+                                o.discount_pct, o.discount_amt, o.net, o.brand_raw, o.serial_raw, o.extra)
+                               is not distinct from
+                               (n.kind, n.article, n.colour, n.item_name, n.size, n.qty, n.price_list, n.price_current,
+                                n.discount_pct, n.discount_amt, n.net, n.brand_raw, n.serial_raw, n.extra)
+                               or (o.piece_id is not null
+                                   and (upper(btrim(o.serial_raw)) is distinct from upper(btrim(n.serial_raw))
+                                        or o.kind is distinct from n.kind)
+                                   and exists (
+                                         select 1 from ops_review r
+                                          where r.piece_id = o.piece_id and r.kind = 'ticket_conflict'
+                                            and r.note = format('ticket %s line %s sold this piece but the sales export '
+                                                                'now shows serial %s (%s)', v_no, o.line_no,
+                                                                coalesce(n.serial_raw, 'none'), n.kind))))))
         and not exists (
               (select method, amount from ops_ticket_payments where ticket_id = v_tid
                except all
@@ -137,8 +169,13 @@ begin
                    v_l || jsonb_build_object('extra', jsonb_build_object('sk', v_l->'sk', 'vip', v_l->'vip')));
         v_model := null; v_variant := null;
         if v_new.article is not null then
-          select m.model_id, m.variant_id into v_model, v_variant from cat_match_article(v_new.article) m;
-          if v_model is null then v_variant := null; end if;
+          if v_match ? v_new.article then
+            v_model := v_match->v_new.article->>0; v_variant := v_match->v_new.article->>1;
+          else
+            select m.model_id, m.variant_id into v_model, v_variant from cat_match_article(v_new.article) m;
+            if v_model is null then v_variant := null; end if;
+            v_match := v_match || jsonb_build_object(v_new.article, jsonb_build_array(v_model, v_variant));
+          end if;
         end if;
 
         select * into v_old from ops_ticket_lines where ticket_id = v_tid and line_no = v_new.line_no;
@@ -209,13 +246,21 @@ begin
           end if;
         end if;
       end loop;
+
+      if v_sold_at >= v_last_run and not (v_no = any (v_unmatched)) and exists (
+           select 1 from ops_ticket_lines l
+            where l.ticket_id = v_tid and l.kind = 'sale' and l.serial_raw is not null and btrim(l.serial_raw) <> ''
+              and l.piece_id is null) then
+        v_unmatched := v_unmatched || v_no;
+      end if;
     end if;
   end loop;
 
   return jsonb_build_object(
     'tickets_new', n_new, 'tickets_changed', n_changed, 'tickets_same', n_same,
     'lines', n_lines, 'payments', n_pay, 'pieces_sold', n_sold,
-    'sellers_unmapped', to_jsonb(v_unmapped), 'mixed_sellers', to_jsonb(v_mixed), 'changed', to_jsonb(v_changed));
+    'sellers_unmapped', to_jsonb(v_unmapped), 'mixed_sellers', to_jsonb(v_mixed), 'changed', to_jsonb(v_changed),
+    'sales_unmatched', to_jsonb(v_unmatched));
 end $$;
 
 revoke execute on function public.ops_load_tickets(jsonb, text) from public, anon, authenticated;

@@ -83,18 +83,19 @@ Rules:
 
 New columns first (the Sprint 2 tables lack them): `ops_tickets.client_raw text` (client name as Colibri shows it); `ops_ticket_lines.brand_raw text`, `ops_ticket_lines.colour text`, `ops_ticket_lines.extra jsonb` (discount-card letter and VIP rate, kept raw).
 
-A ticket's seller is the seller of its first line; a ticket whose lines name different sellers is listed in the result (`mixed_sellers`).
+A ticket's seller is the seller of its lowest `line_no`; a ticket whose lines name different sellers is listed in the result (`mixed_sellers`).
 
 For each ticket in the payload (store 1, source `colibri`):
 - **New ticket:** insert ticket, lines, payments.
 - **Existing ticket, same content:** nothing.
-- **Existing ticket, different content:** update the header, update lines in place by `line_no`, add new lines, replace payments. A line that has already sold a piece and now differs in serial, or has disappeared, is **not** undone: it raises a `ticket_conflict` review on that piece and the old line is kept.
-- Seller: `seller_raw` as written; `seller` = the mapped `source_name` from `crm_rep_aliases` (case- and space-insensitive), or the raw value itself when it already is a rep's `source_name`, else null.
-- Brand on a line is normalised for matching only (lower-case, and `bvlgari` → `bulgari`, `gp` → `girard-perregaux`); the raw value is not changed.
-- Lines get `model_id` / `variant_id` through the existing `cat_match_article(article)` where it matches.
+- **Existing ticket, different content:** update the header, update lines in place by `line_no`, add new lines, replace payments. A line that has already sold a piece and now differs in serial, or has disappeared, is **not** undone: it raises a `ticket_conflict` review on that piece and the old line is kept. Once that review has been raised (open or resolved), a reload whose only difference is such a kept line counts as `tickets_same`: no payment rewrite, no new review.
+- Seller: `seller_raw` as written; `seller` = the mapped `source_name` from `crm_rep_aliases` (case-insensitive, spaces trimmed on both sides), or the raw value itself when it already is a rep's `source_name`, else null.
+- Brand on a line is normalised for matching only (`ops_brand_key`: lower-case, spaces and punctuation removed so `Dinh Van` / `dinh van` / `DINH-VAN` agree, then `bvlgari` → `bulgari`, `gp` → `girardperregaux`); letters and digits are never removed, whatever the database locale. The raw value is not changed.
+- Lines get `model_id` / `variant_id` through the existing `cat_match_article(article)` where it matches, called once per distinct article among the lines written.
+- The function runs with `statement_timeout = 120s`, as `cat_load` does (the first load goes through the API role, whose own timeout is a few seconds).
 - `source_file` on the ticket = the file the ticket came from.
 
-Returns `{tickets_new, tickets_changed, tickets_same, lines, payments, pieces_sold, sellers_unmapped: [...], mixed_sellers: [...], changed: [ticket numbers]}`. Function rules as in Sprint 2: security definer, pinned search path, no execute for public roles.
+Returns `{tickets_new, tickets_changed, tickets_same, lines, payments, pieces_sold, sellers_unmapped: [...], mixed_sellers: [...], changed: [ticket numbers], sales_unmatched: [ticket numbers]}`. `sales_unmatched` lists posted tickets with a sale line that has a serial but no piece after the piece rule (§4.3), dated on or after the Tashkent date of the latest `cat_import_runs.run_at`: a fresh sale whose piece was not found. Function rules as in Sprint 2: security definer, pinned search path, no execute for public roles.
 
 ### 4.3 Pieces — inside the loader, after the lines are written
 

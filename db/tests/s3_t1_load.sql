@@ -2,7 +2,7 @@
 begin;
 do $$
 declare
-  run bigint; p1 uuid; p2 uuid; p3 uuid; p4 uuid; r jsonb; l jsonb; ln jsonb; t1 jsonb; t2 jsonb;
+  run bigint; p1 uuid; p2 uuid; p3 uuid; p4 uuid; p5 uuid; r jsonb; pay_ids bigint[]; t3 jsonb; l jsonb; ln jsonb; t1 jsonb; t2 jsonb;
   pay_card jsonb; v_line uuid; v_tid uuid; n_lines int; n_pay int; n_tickets int; past timestamptz;
 begin
   -- fixtures
@@ -18,8 +18,23 @@ begin
   values (1, 'Bulgari', 'S3T-SER-3', 'in_transit', null) returning piece_id into p3;
   insert into ops_pieces(store_id, brand, serial, state, last_seen_run)
   values (1, 'Bulgari', 'S3T-SER-4', 'in_stock', run) returning piece_id into p4;
+  insert into ops_pieces(store_id, brand, serial, state, last_seen_run)
+  values (1, 'Dinh Van', 'S3T-SER-5', 'in_stock', run) returning piece_id into p5;
   insert into crm_sales_reps(source_name, label) values ('S3T Rep', 'S3T Rep label');
   insert into crm_rep_aliases(alias, source_name) values ('S3T Продавец', 'S3T Rep');
+  insert into crm_rep_aliases(alias, source_name) values (' S3T Alias Spaced ', 'S3T Rep');
+
+  -- the loader runs under its own statement timeout, as cat_load does
+  assert (select 'statement_timeout=120s' = any (proconfig) from pg_proc
+           where oid = 'public.ops_load_tickets(jsonb, text)'::regprocedure), 'loader has statement_timeout 120s';
+
+  -- brand key: case, spaces and punctuation do not matter; known spellings fold
+  assert ops_brand_key('Dinh Van') = ops_brand_key('dinh van') and ops_brand_key('dinh van') = ops_brand_key('DINH-VAN'),
+         'brand key: Dinh Van spellings agree';
+  assert ops_brand_key('gp') = ops_brand_key('Girard-Perregaux') and ops_brand_key(' GP ') = ops_brand_key('girard perregaux'),
+         'brand key: gp is Girard-Perregaux';
+  assert ops_brand_key('BVLGARI') = ops_brand_key('Bulgari'), 'brand key: Bvlgari is Bulgari';
+  assert ops_brand_key('Dinh Van') <> ops_brand_key('Bulgari'), 'brand key: different brands differ';
 
   -- a sale line template; cases override the keys they need
   l := jsonb_build_object('line_no', 1, 'kind', 'sale', 'article', 'S3T-ART-1', 'colour', 'RED',
@@ -103,6 +118,7 @@ begin
          'lines', jsonb_build_array(l || jsonb_build_object('brand_raw', 'BVLGARI', 'serial_raw', ' s3t-ser-1 '))))), 'test');
   select l.line_id into v_line from ops_ticket_lines l join ops_tickets t using (ticket_id) where t.ticket_no = 'S3T-3';
   assert (r->>'pieces_sold')::int = 1, 'after sighting: pieces_sold ' || r::text;
+  assert r->'sales_unmatched' = '[]'::jsonb, 'after sighting: matched sale not unmatched ' || r::text;
   assert (select state from ops_pieces where piece_id = p1) = 'sold', 'after sighting: piece sold';
   assert (select sold_line_id from ops_pieces where piece_id = p1) = v_line, 'after sighting: sold_line_id';
   assert (select piece_id from ops_ticket_lines where line_id = v_line) = p1, 'after sighting: line piece_id';
@@ -114,6 +130,7 @@ begin
          'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
          'lines', jsonb_build_array(l || jsonb_build_object('serial_raw', 'S3T-SER-2'))))), 'test');
   assert (r->>'pieces_sold')::int = 0, 'before sighting: pieces_sold ' || r::text;
+  assert r->'sales_unmatched' = '[]'::jsonb, 'before sighting: an old sale is not listed unmatched ' || r::text;
   assert (select state from ops_pieces where piece_id = p2) = 'in_stock', 'before sighting: piece in stock';
   assert (select l.piece_id from ops_ticket_lines l join ops_tickets t using (ticket_id) where t.ticket_no = 'S3T-4') is null,
          'before sighting: line has no piece';
@@ -125,23 +142,42 @@ begin
          'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
          'lines', jsonb_build_array(l || jsonb_build_object('serial_raw', 'S3T-SER-3'))))), 'test');
   assert (select state from ops_pieces where piece_id = p3) = 'in_transit', 'in transit: untouched';
+  assert r->'sales_unmatched' = '["S3T-5"]'::jsonb, 'in transit: fresh sale with no piece is listed unmatched ' || r::text;
   assert (select l.piece_id from ops_ticket_lines l join ops_tickets t using (ticket_id) where t.ticket_no = 'S3T-5') is null,
          'in transit: line has no piece';
   assert not exists (select 1 from ops_piece_events where piece_id = p3), 'in transit: no event';
 
-  -- serial changed on a selling line: line kept, piece stays sold, one conflict review, not repeated
-  for i in 1..2 loop
-    r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(jsonb_build_object(
+  -- serial changed on a selling line: line kept, piece stays sold, one conflict review, not repeated;
+  -- from the second load on the ticket counts as same (payments not rewritten), also after the review is resolved
+  t3 := jsonb_build_object(
            'ticket_no', 'S3T-3', 'sold_at', current_date::text, 'seller_raw', 'S3T Rep', 'client_raw', null, 'note', null,
-           'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
-           'lines', jsonb_build_array(l || jsonb_build_object('brand_raw', 'BVLGARI', 'serial_raw', 'S3T-SER-9'))))), 'test');
+           'source_file', 'S3T-sales.xlsx', 'payments', jsonb_build_array(pay_card),
+           'lines', jsonb_build_array(l || jsonb_build_object('brand_raw', 'BVLGARI', 'serial_raw', 'S3T-SER-9')));
+  for i in 1..3 loop
+    if i = 3 then
+      update ops_review set status = 'resolved', resolved_at = now(), resolved_by = 'S3T person'
+       where piece_id = p1 and kind = 'ticket_conflict';
+    end if;
+    r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t3)), 'test');
+    if i = 1 then
+      assert (r->>'tickets_changed')::int = 1, 'serial changed: first load is a change ' || r::text;
+      select array_agg(payment_id order by payment_id) into pay_ids
+        from ops_ticket_payments p join ops_tickets t using (ticket_id) where t.ticket_no = 'S3T-3';
+    else
+      assert (r->>'tickets_same')::int = 1 and (r->>'tickets_changed')::int = 0,
+             'serial changed: reload counts as same (round ' || i || ') ' || r::text;
+      assert (select array_agg(payment_id order by payment_id)
+                from ops_ticket_payments p join ops_tickets t using (ticket_id) where t.ticket_no = 'S3T-3') = pay_ids,
+             'serial changed: payments not rewritten (round ' || i || ')';
+    end if;
     assert (select state from ops_pieces where piece_id = p1) = 'sold', 'serial changed: piece stays sold';
     assert (select sold_line_id from ops_pieces where piece_id = p1) = v_line, 'serial changed: sold_line_id kept';
     assert (select serial_raw from ops_ticket_lines where line_id = v_line) = ' s3t-ser-1 ', 'serial changed: old serial kept';
     assert (select piece_id from ops_ticket_lines where line_id = v_line) = p1, 'serial changed: line keeps piece';
     assert (select count(*) from ops_review where piece_id = p1 and kind = 'ticket_conflict') = 1,
            'serial changed: exactly one conflict review (round ' || i || ')';
-    assert (select status from ops_review where piece_id = p1 and kind = 'ticket_conflict') = 'open', 'serial changed: review open';
+    assert (select status from ops_review where piece_id = p1 and kind = 'ticket_conflict')
+           = case when i = 3 then 'resolved' else 'open' end, 'serial changed: review status (round ' || i || ')';
   end loop;
 
   -- a selling line that disappears from the payload is kept and raises a conflict
@@ -160,6 +196,15 @@ begin
   assert (select state from ops_pieces where piece_id = p4) = 'sold', 'vanished line: piece stays sold';
   assert (select count(*) from ops_review where piece_id = p4 and kind = 'ticket_conflict' and status = 'open') = 1,
          'vanished line: conflict review';
+  update ops_review set status = 'resolved', resolved_at = now(), resolved_by = 'S3T person'
+   where piece_id = p4 and kind = 'ticket_conflict';
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(jsonb_build_object(
+         'ticket_no', 'S3T-6', 'sold_at', current_date::text, 'seller_raw', 'S3T Rep', 'client_raw', null, 'note', null,
+         'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
+         'lines', jsonb_build_array(l || jsonb_build_object('line_no', 2))))), 'test');
+  assert (r->>'tickets_same')::int = 1, 'vanished line: reload counts as same ' || r::text;
+  assert (select count(*) from ops_review where piece_id = p4 and kind = 'ticket_conflict') = 1,
+         'vanished line: review not raised again after it was resolved';
 
   -- mixed sellers: the ticket takes line 1's seller and is listed
   r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(jsonb_build_object(
@@ -170,8 +215,23 @@ begin
   assert (select seller from ops_tickets where ticket_no = 'S3T-7') = 'S3T Rep', 'mixed: seller from line 1';
   assert (r->'mixed_sellers') ? 'S3T-7', 'mixed: listed ' || r::text;
 
+  -- seller comes from the lowest line_no, whatever the payload order; alias side is trimmed
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(jsonb_build_object(
+         'ticket_no', 'S3T-8', 'sold_at', current_date::text, 'seller_raw', null, 'client_raw', null, 'note', null,
+         'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
+         'lines', jsonb_build_array(l || jsonb_build_object('line_no', 2, 'seller_raw', 'S3T Other'),
+                                    l || jsonb_build_object('line_no', 1, 'seller_raw', 's3t alias spaced'))))), 'test');
+  assert (select seller from ops_tickets where ticket_no = 'S3T-8') = 'S3T Rep', 'seller: lowest line_no, trimmed alias';
+
+  -- brand spelled with punctuation still finds its piece
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(jsonb_build_object(
+         'ticket_no', 'S3T-9', 'sold_at', current_date::text, 'seller_raw', 'S3T Rep', 'client_raw', null, 'note', null,
+         'source_file', 'S3T-sales.xlsx', 'payments', '[]'::jsonb,
+         'lines', jsonb_build_array(l || jsonb_build_object('brand_raw', 'DINH-VAN', 'serial_raw', 'S3T-SER-5'))))), 'test');
+  assert (select state from ops_pieces where piece_id = p5) = 'sold', 'brand DINH-VAN sells a Dinh Van piece ' || r::text;
+
   select count(*) into n_tickets from ops_tickets where ticket_no like 'S3T-%' and store_id = 1 and source = 'colibri';
-  assert n_tickets = 7, 'all tickets stored in store 1 / colibri';
+  assert n_tickets = 9, 'all tickets stored in store 1 / colibri';
 end $$;
 select 's3_t1 ok' as result;
 rollback;
