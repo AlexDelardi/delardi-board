@@ -104,7 +104,7 @@ All other lines keep `serial_raw` only; `piece_id` stays empty. Refund lines nev
 
 Today this marks four pieces Sold (tickets 758 and 759, 11 Nov).
 
-**Routine from now on:** sales export first, then the stock export. The stock sync already skips the "missing" flag for a piece that has a ticket line.
+**Routine from now on:** sales export first, then the stock export. The stock sync skips the "missing" flag only for a piece that a ticket line holds (`piece_id`); a serial that only appears as text on an old sale line does not switch the flag off (migration `20261113_s3_4_sync_ticket_rule.sql` re-creates Sprint 2 `ops_sync_pieces` with this one condition changed).
 
 ### 4.4 CRM link — `ops_link_crm_tickets(p_actor text) returns jsonb`
 
@@ -135,7 +135,7 @@ During the build: list serials that appear on more than one stock row in the 12 
 ## 5. Production steps (each needs Alex's yes)
 
 0. Backup (Alex).
-1. Migration `s3_ticket_functions`: new columns (§4.2), loader, link function, view.
+1. Migration `s3_ticket_functions`: new columns (§4.2), loader, link function, view, and the stock-sync rule of §4.3 (`s3_4_sync_ticket_rule`).
 2. Deploy `crm-import` v3: the existing one-time-key import function gains a `tickets` branch, so a large payload can reach the loader (added while planning; routine small loads can go through SQL).
 3. First load: `ops_load_tickets` with the four exports (606 tickets).
 4. `ops_link_crm_tickets`.
