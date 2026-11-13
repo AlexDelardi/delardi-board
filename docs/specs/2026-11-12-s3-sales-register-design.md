@@ -23,7 +23,7 @@ Put every Colibri sale since January 2023 into the ticket tables, tie each CRM p
 | 2 | Approach A: a parser in the repo plus one database function, run by Claude after each export (same pattern as the catalogue load) | Alex, 12 Nov |
 | 3 | Payments: record only what Colibri recorded (card, VISA, with amounts). No row for the unrecorded remainder | Alex, 12 Nov |
 | 4 | Historical serials are kept as text only and never create or change pieces | Alex, 12 Nov (after the 31 Dec 2024 stock report) |
-| 5 | Owner clean-up: blank → `Unassigned` in both owner fields | Alex, 12 Nov |
+| 5 | Owner clean-up: one way to say "no owner", without changing anyone's effective owner `coalesce(assigned_owner, client_owner)`: blank `client_owner` → `Unassigned`; blank `assigned_owner` → the row's `client_owner` when that is a real name, else `Unassigned` | Alex, 12 Nov; amended 13 Nov after the final review |
 | 6 | Subagents build and test; they never change the live database. Each live step is applied by Claude after Alex's yes | Alex, 12 Nov |
 
 ## 3. Facts checked (12 Nov)
@@ -120,7 +120,11 @@ Report (`claude/S3_Sales_Register_Reconciliation.md` in the project): the view p
 
 ### 4.6 Owner clean-up — migration `s3_owner_cleanup`
 
-Saves `(client_id, client_owner, assigned_owner)` of every row it will change into `crm_owner_cleanup_20261112`, then sets blank or empty `client_owner` and `assigned_owner` to `Unassigned`. Deleted and merged records included, so the rule holds everywhere.
+Saves `(client_id, client_owner, assigned_owner)` of every row it will change into `crm_owner_cleanup_20261112`, then fills the blank (null, empty or whitespace) owner fields:
+- `client_owner` blank → `Unassigned`;
+- `assigned_owner` blank → the row's `client_owner` when that is a real name (not blank, not `Unassigned`), else `Unassigned`.
+
+The app reads the owner as `coalesce(assigned_owner, client_owner)`, so no client with a named owner changes effective owner. Deleted and merged records included, so the rule holds everywhere.
 
 ### 4.7 Repeated serials in stock
 
@@ -152,7 +156,7 @@ Then: schema snapshot refresh, pull request, build report, roadmap update, data 
 | T9 | CRM link on real data | 2024: all 188 lines linked; nothing linked twice; 2022 untouched; re-run links 0 |
 | T10 | Two identical lines on one date | paired one to one |
 | T11 | Ticket whose lines point to two clients | no `client_id`; listed |
-| T12 | Owner clean-up | no blank owner left; saved list has exactly the changed rows |
+| T12 | Owner clean-up | no blank owner left; a blank `assigned_owner` takes a named `client_owner`; no named effective owner changes; saved list has exactly the changed rows |
 | T13 | Sprint 2 tests `s2_t1`–`s2_t5` | still pass |
 | T14 | Health checks and security advisor | 200; no new warnings |
 
