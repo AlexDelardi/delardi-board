@@ -17,7 +17,8 @@ SHEET = "Дневной отчет 2"
 TOLERANCE = 1.0  # UZS
 NOTE_MARK = "Примечание:"
 METHODS = {"кар": "card", "vis": "visa"}
-PAY_RE = re.compile(r"^\s*([^\s(]+)\s*(?:\(\s*([0-9.,]+)\s*\))?\s*$")
+PAY_RE = re.compile(r"^\s*([^\s(]+)\s*(?:\(\s*([0-9][0-9.,\s]*?)\s*\))?\s*$")
+TEXT_DATES = ((re.compile(r"\d{2}\.\d{2}\.\d{4}"), "%d.%m.%Y"), (re.compile(r"\d{4}-\d{2}-\d{2}"), "%Y-%m-%d"))
 NAME_RE = re.compile(r"_(\d{2}-[A-Za-z]{3}-\d{2})-(\d{2}-[A-Za-z]{3}-\d{2})\.xlsx$")
 
 # column indexes
@@ -62,9 +63,31 @@ def _ticket_no(v):
 
 
 def _date(v):
+    """Date cell -> 'YYYY-MM-DD'. Text must read DD.MM.YYYY or YYYY-MM-DD; anything else stops the parser."""
     if isinstance(v, (datetime.datetime, datetime.date)):
         return v.strftime("%Y-%m-%d")
-    return _txt(v)
+    s = _txt(v)
+    if s is None:
+        return None
+    for pattern, fmt in TEXT_DATES:
+        if pattern.fullmatch(s):
+            try:
+                return datetime.datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                break
+    raise SystemExit(f"unreadable date {s!r}: expected DD.MM.YYYY or YYYY-MM-DD")
+
+
+def _amount(text):
+    """Payment amount text -> number. Spaces and thousands commas allowed; '.' is the decimal mark."""
+    s = re.sub(r"\s", "", text)
+    if re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d+)?", s):
+        s = s.replace(",", "")
+    elif re.fullmatch(r"\d+,\d+", s):
+        s = s.replace(",", ".")
+    if not re.fullmatch(r"\d+(\.\d+)?", s):
+        raise SystemExit(f"unreadable payment amount: {text!r}")
+    return _num(float(s))
 
 
 def _file_end_date(path):
@@ -99,7 +122,7 @@ def parse_payment(raw, ticket_net):
     method = METHODS.get(m.group(1).lower()) if m else None
     if method is None:
         raise SystemExit(f"unknown payment text: {text!r}")
-    amount = _num(m.group(2)) if m.group(2) else ticket_net
+    amount = _amount(m.group(2)) if m.group(2) else ticket_net
     return {"method": method, "amount": amount, "raw": text}
 
 
@@ -135,8 +158,15 @@ def parse_file(path):
         if no is None:
             continue
         t = by_no.get(no)
+        sold_at = _date(_cell(row, C_DATE))
+        if t is not None and sold_at is not None:
+            if t["sold_at"] is None:
+                t["sold_at"] = sold_at
+            elif t["sold_at"] != sold_at:
+                raise SystemExit(f"{base}: ticket {no} has rows dated {t['sold_at']} and {sold_at}; "
+                                 "refusing to merge two sales under one number")
         if t is None:
-            t = {"ticket_no": no, "sold_at": _date(_cell(row, C_DATE)), "seller_raw": None,
+            t = {"ticket_no": no, "sold_at": sold_at, "seller_raw": None,
                  "client_raw": None, "note": None, "source_file": base, "lines": [],
                  "payments": []}
             by_no[no] = t

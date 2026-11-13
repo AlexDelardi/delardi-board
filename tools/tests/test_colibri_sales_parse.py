@@ -181,6 +181,44 @@ def test_cli_writes_payload(tmp_path, capsys):
     assert out.exists() and "tickets" in capsys.readouterr().out
 
 
+def with_date(row, value):
+    """The row with its Дата cell replaced by value as written (text, date or datetime)."""
+    return [row[0], value] + row[2:]
+
+
+@pytest.mark.parametrize("cell", [
+    datetime.datetime(2026, 10, 5, 14, 30), datetime.date(2026, 10, 5), "05.10.2026", " 2026-10-05 "])
+def test_date_cells_become_iso(tmp_path, cell):
+    out = one(tmp_path, [with_date(item(920), cell), with_date(pay(920, ""), cell)])
+    assert out["tickets"][0]["sold_at"] == "2026-10-05"
+
+
+@pytest.mark.parametrize("cell", ["10/05/2026", "5.10.26", "2026-13-01", "31.02.2026", "вчера"])
+def test_unreadable_text_date_exits(tmp_path, cell):
+    with pytest.raises(SystemExit, match="date"):
+        one(tmp_path, [with_date(item(921), cell), pay(921, "")])
+
+
+def test_one_ticket_number_on_two_dates_exits(tmp_path):
+    rows = [item(922, date="2026-10-05"), item(922, date="2026-10-06"), pay(922, "", date="2026-10-06")]
+    with pytest.raises(SystemExit, match="922"):
+        one(tmp_path, rows)
+
+
+@pytest.mark.parametrize("text, amount", [
+    ("кар(1,500,000)", 1500000), ("кар(1 500 000)", 1500000), ("vis( 1 500 000.50 )", 1500000.5),
+    ("vis(1,500,000.50)", 1500000.5), ("кар(1\u00a0500\u00a0000)", 1500000), ("vis(26077607.00)", 26077607)])
+def test_payment_amount_with_thousands_separators(tmp_path, text, amount):
+    card = amount if text.startswith("кар") else 0
+    out = one(tmp_path, [item(923, net=2000000), pay(923, text)], card=card, visa=amount - card)
+    assert out["tickets"][0]["payments"][0]["amount"] == amount
+
+
+def test_payment_amount_unreadable_exits(tmp_path):
+    with pytest.raises(SystemExit, match="payment"):
+        one(tmp_path, [item(924), pay(924, "кар(1,50,0)")])
+
+
 REAL = sorted(glob.glob("/home/claude/s3data/*.xlsx"))
 
 

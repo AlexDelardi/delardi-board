@@ -72,7 +72,9 @@ Rules:
 - `line_no` is the item row's order within its ticket. `kind` is `refund` when quantity is negative, else `sale`; `qty` and money are stored as absolute values for refunds, with `kind` carrying the sign.
 - Article and colour: `Код товара` is split on its last space only when the part after it equals `Код цвета`; otherwise the whole value is the article.
 - Note: text before `Примечание:` → `client_raw`; text after → `note`.
-- Payments: `кар` → `card`, `vis` → `visa`. A bare method gets the ticket's net total; `method(amount)` gets that amount. Blank → no payment row.
+- `sold_at` is always `YYYY-MM-DD`. A date cell may be a date or date-time; a text date must read `DD.MM.YYYY` or `YYYY-MM-DD`, anything else stops the parser.
+- Within one file, rows of one № with different dates stop the parser (two sales are never merged under one number).
+- Payments: `кар` → `card`, `vis` → `visa`. A bare method gets the ticket's net total; `method(amount)` gets that amount (spaces and thousands commas allowed, `.` is the decimal mark; an unreadable amount stops the parser). Blank → no payment row.
 - When files overlap, the ticket from the file with the latest end date wins.
 - Footer rows and rows without a numeric № are ignored.
 - The parser prints a summary (tickets, lines, refunds, date range, net total, card and VISA totals) and checks card and VISA totals against each file's footer; a mismatch stops it.
