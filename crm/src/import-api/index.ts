@@ -6,10 +6,12 @@
 // whose digest sits in crm_import_tokens (two hours, single use), claimed
 // before the load runs. Nothing here reads or returns CRM data.
 //
-// POST { import_key, source, chats?: [...], missed?: [...] }
-//   chats  -> crm_telegram_load(p, p_actor, p_source)  — skips chats already on file
-//   missed -> crm_missed_load(p, p_source)             — dedupes on telegram_id+asked_at+kind
-// Both loaders are idempotent, so retrying a half-finished request is safe.
+// POST { import_key, source, chats?: [...], missed?: [...], tickets?: {...} }
+//   chats   -> crm_telegram_load(p, p_actor, p_source)  — skips chats already on file
+//   missed  -> crm_missed_load(p, p_source)             — dedupes on telegram_id+asked_at+kind
+//   tickets -> ops_load_tickets(p, p_actor)             — sales tickets; p is the whole payload
+//              { source_files, tickets: [...], summary } made by tools/colibri_sales_parse.py
+// All three loaders are idempotent, so retrying a half-finished request is safe.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -17,6 +19,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAX_IMPORT_BYTES = 20_000_000;
 const MAX_ROWS = 20_000;
+const MAX_TICKETS = 5_000;
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +70,15 @@ function rows(v: unknown, what: string): Record<string, unknown>[] | null {
   return v as Record<string, unknown>[];
 }
 
+function ticketPayload(v: unknown): Record<string, unknown> | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) throw new HttpErr(400, `"tickets" must be an object.`);
+  const list = (v as Record<string, unknown>).tickets;
+  if (!Array.isArray(list)) throw new HttpErr(400, `"tickets.tickets" must be a list of tickets.`);
+  if (list.length > MAX_TICKETS) throw new HttpErr(413, `That is more than ${MAX_TICKETS} tickets.`);
+  return v as Record<string, unknown>;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
@@ -91,7 +103,8 @@ Deno.serve(async (req: Request) => {
 
     const chats = rows(body.chats, "chats");
     const missed = rows(body.missed, "missed");
-    if (!chats?.length && !missed?.length) throw new HttpErr(400, "Nothing to load.");
+    const tickets = ticketPayload(body.tickets);
+    if (!chats?.length && !missed?.length && !(tickets?.tickets as unknown[] | undefined)?.length) throw new HttpErr(400, "Nothing to load.");
     const source = typeof body.source === "string" ? body.source.slice(0, 300) : "unknown";
     const actor = typeof body.actor === "string" ? body.actor.slice(0, 80) : "Claude";
 
@@ -107,6 +120,7 @@ Deno.serve(async (req: Request) => {
     const out: Record<string, unknown> = { ok: true, source };
     if (chats?.length) out.chats = await rpc("crm_telegram_load", { p: chats, p_actor: actor, p_source: source });
     if (missed?.length) out.missed = await rpc("crm_missed_load", { p: missed, p_source: source });
+    if (tickets) out.tickets = await rpc("ops_load_tickets", { p: tickets, p_actor: "import:" + source });
     return json(out);
   } catch (e) {
     if (e instanceof HttpErr) return json({ error: e.message }, e.status);
