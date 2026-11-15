@@ -27,7 +27,7 @@ end $$;
 revoke execute on function public.pos_rep_source(text) from public, anon, authenticated;
 
 -- Suspend a sale (new, or replacing the lines of p.draft_id). Same shape as pos_post_sale without payments.
--- Client, walk-in and seller may still be open; whatever is given must be valid. A line may have no price yet.
+-- Only one suspended sale per mode (one till). Client, walk-in and seller may still be open; whatever is given must be valid. A line may have no price yet.
 -- The pieces are locked in piece_id order (as pos_post_sale does) and checked under the lock, so a suspend
 -- racing a post can never leave a draft holding a sold piece.
 create function public.pos_suspend(p jsonb, p_actor text) returns jsonb
@@ -100,6 +100,11 @@ begin
      where mode = v_mode and piece_id = pc.piece_id and draft_id is distinct from v_draft;
     if v_held is not null then raise exception 'piece % is in suspended sale %', pc.serial, v_held; end if;
   end loop;
+  -- one till: a new suspended sale only while none of this mode exists (pos_post_sale refuses every post
+  -- while another draft exists, so two would block each other); checked after the holds
+  if v_draft is null and exists (select 1 from pos_drafts where mode = v_mode) then
+    raise exception 'another sale is suspended';
+  end if;
 
   if v_draft is null then
     insert into pos_drafts(mode, client_id, walk_in, seller, fiscal_ref, created_by)

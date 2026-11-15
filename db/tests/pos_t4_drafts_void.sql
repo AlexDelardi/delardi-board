@@ -142,6 +142,10 @@ begin
             'lines', jsonb_build_array(jsonb_build_object('piece_id', p2), jsonb_build_object('piece_id', p3))), 'pos t4'),
          'piece ZZ.00.30003 is in suspended sale ' || d2);
   assert (select count(*) from pos_drafts where mode = 'live') = 1, 'refused suspend left no draft';
+  -- one till: a second new suspended sale in the same mode is refused (after the holds, above)
+  perform pg_temp.t4_refused(format('select pos_suspend(%L::jsonb, %L)', jsonb_build_object('walk_in', true,
+            'lines', jsonb_build_array(jsonb_build_object('piece_id', p2))), 'pos t4'), 'another sale is suspended');
+  assert (select count(*) from pos_drafts where mode = 'live') = 1, 'second suspend left no draft';
 
   -- replacing a draft's lines: its own piece is not held against it; an empty price is kept as empty
   res := pos_suspend(jsonb_build_object('draft_id', d2, 'walk_in', true,
@@ -276,6 +280,23 @@ begin
             from ops_tickets where ticket_id = v_tr), 'training status';
   assert (select state from ops_pieces where piece_id = p5) = 'in_stock', 'piece unchanged';
   assert (select count(*) from ops_piece_events where piece_id = p5) = v_ev0, 'no event';
+
+  ---------------- a training draft does not block a live suspend
+  d_tr := (pos_suspend(jsonb_build_object('walk_in', true,
+            'lines', jsonb_build_array(jsonb_build_object('piece_id', p2))), 'pos t4')->>'draft_id')::bigint;
+  perform pg_temp.t4_refused(format('select pos_suspend(%L::jsonb, %L)', jsonb_build_object('walk_in', true,
+            'lines', jsonb_build_array(jsonb_build_object('piece_id', p5))), 'pos t4'), 'another sale is suspended');
+  perform pos_set_mode('live', 'pos t4');
+  perform pos_cancel_draft(d_live, 'pos t4');
+  d3 := (pos_suspend(jsonb_build_object('walk_in', true,
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p2))), 'pos t4')->>'draft_id')::bigint;
+  assert (select mode from pos_drafts where draft_id = d3) = 'live'
+         and exists (select 1 from pos_drafts where draft_id = d_tr and mode = 'training'), 'live suspend beside a training draft';
+  -- updating the existing draft through draft_id still works while it is the one suspended sale
+  res := pos_suspend(jsonb_build_object('draft_id', d3, 'walk_in', true,
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p2, 'price_uzs', 20000000),
+                                      jsonb_build_object('piece_id', p5))), 'pos t4');
+  assert (res->>'draft_id')::bigint = d3 and (select count(*) from pos_draft_lines where draft_id = d3) = 2, 'draft updated';
 
   ---------------- privileges
   assert (select bool_and(p.prosecdef and p.proconfig @> array['search_path=public, pg_temp']
