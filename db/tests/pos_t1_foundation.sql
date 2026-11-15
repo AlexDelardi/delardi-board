@@ -1,6 +1,10 @@
 -- POS Task 1: foundation (rights, settings, barcode and ticket columns, drafts, training source).
 -- Invented fixtures only. Rolled back.
 begin;
+-- ALTER SEQUENCE is transactional, so the rollback leaves both sequences as they were (nextval alone is not
+-- rolled back): without this a second run would read 2 below and real ticket numbers would be burnt
+alter sequence pos_ticket_no_seq restart;
+alter sequence pos_training_no_seq restart;
 do $$
 declare r jsonb; today date := (now() at time zone 'Asia/Tashkent')::date; n int; p1 uuid; p2 uuid; d1 bigint; d2 bigint; m0 bigint; m1 bigint;
 begin
@@ -81,6 +85,8 @@ begin
   end;
 
   -- sequences exist and start at 1
+  assert (select count(*) from pg_sequences where schemaname = 'public' and start_value = 1
+            and sequencename in ('pos_ticket_no_seq', 'pos_training_no_seq')) = 2, 'sequences are defined to start at 1';
   assert nextval('pos_ticket_no_seq') = 1 and nextval('pos_training_no_seq') = 1, 'sequences start at 1';
 
   -- no access for the API roles, RLS on
