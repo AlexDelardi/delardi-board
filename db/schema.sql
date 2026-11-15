@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict vr9Nul0ecNLdYqAqRp9ykiL56fh6srrRMXXdpKSei0BRhe3VV4ftpz1EIkAmLCz
+\restrict au3GuyPxz9UODDoOKmuCQkjvFaKznd06vXNeeZA1pHBKB5gbNtfY4KKkFCvlEjK
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.6
@@ -3027,6 +3027,26 @@ end $$;
 
 
 --
+-- Name: crm_owner_cleanup_undo(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.crm_owner_cleanup_undo() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_changed integer;
+begin
+  update crm_clients c
+     set client_owner = s.client_owner, assigned_owner = s.assigned_owner
+    from crm_owner_cleanup_20261112 s
+   where c.client_id = s.client_id
+     and (c.client_owner, c.assigned_owner) is distinct from (s.client_owner, s.assigned_owner);
+  get diagnostics v_changed = row_count;
+  return v_changed;
+end $$;
+
+
+--
 -- Name: crm_phone_ids(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3853,7 +3873,7 @@ CREATE FUNCTION public.ops_link_crm_tickets(p_actor text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_temp'
     AS $$
-declare n_linked int := 0; v_n int; v_pass int;
+declare n_linked int := 0; v_n int; v_pass int; n_changed int; v_changed jsonb; v_result jsonb;
 begin
   if p_actor is null or btrim(p_actor) = '' then raise exception 'actor required'; end if;
 
@@ -3866,8 +3886,9 @@ begin
        where c.ticket_line_id is null and c.article is not null and c.net_uzs is not null
     ), lines as (
       select x.line_id, x.d, x.a, x.amt,
-             row_number() over (partition by x.d, x.a, x.amt order by x.ticket_no, x.line_no) rn
-        from (select l.line_id, t.sold_at d, t.ticket_no, l.line_no,
+             row_number() over (partition by x.d, x.a, x.amt
+                                order by x.store_id, x.ticket_no, x.line_no, x.line_id) rn
+        from (select l.line_id, t.sold_at d, t.store_id, t.ticket_no, l.line_no,
                      upper(btrim(case when v_pass = 1 then l.article || ' ' || l.colour else l.article end)) a,
                      case l.kind when 'refund' then -l.net else l.net end amt
                 from ops_ticket_lines l join ops_tickets t using (ticket_id)
@@ -3882,14 +3903,21 @@ begin
     n_linked := n_linked + v_n;
   end loop;
 
-  update ops_tickets t set client_id = k.client_id, updated_at = now()
-    from (select l.ticket_id, min(c.client_id) client_id
-            from crm_transactions c join ops_ticket_lines l on l.line_id = c.ticket_line_id
-           group by l.ticket_id having count(distinct c.client_id) = 1) k
-   where t.ticket_id = k.ticket_id and t.source = 'colibri' and t.client_id is null;
+  -- client recompute for every Colibri ticket with linked lines (crm_transactions.client_id is not null)
+  with u as (
+    update ops_tickets t set client_id = k.client_id, updated_at = now()
+      from (select l.ticket_id,
+                   case when count(distinct c.client_id) = 1 then min(c.client_id) end client_id
+              from crm_transactions c join ops_ticket_lines l on l.line_id = c.ticket_line_id
+             group by l.ticket_id) k
+     where t.ticket_id = k.ticket_id and t.source = 'colibri' and t.client_id is distinct from k.client_id
+    returning t.ticket_no)
+  select count(*), coalesce(jsonb_agg(ticket_no order by ticket_no), '[]'::jsonb) into n_changed, v_changed from u;
 
-  return jsonb_build_object(
+  v_result := jsonb_build_object(
     'linked', n_linked,
+    'tickets_client_changed', n_changed,
+    'tickets_client_changed_list', v_changed,
     'tickets_with_client', (select count(*) from ops_tickets where source = 'colibri' and client_id is not null),
     'tickets_mixed_clients', (
       select coalesce(jsonb_agg(ticket_no order by ticket_no), '[]'::jsonb)
@@ -3903,6 +3931,9 @@ begin
     'lines_unlinked', (select count(*) from ops_ticket_lines l join ops_tickets t using (ticket_id)
                         where t.source = 'colibri'
                           and not exists (select 1 from crm_transactions c where c.ticket_line_id = l.line_id)));
+
+  insert into ops_link_runs(actor, result) values (p_actor, v_result);
+  return v_result;
 end $$;
 
 
@@ -3919,8 +3950,11 @@ declare
   v_t jsonb; v_l jsonb; v_no text; v_tid uuid; v_status text; v_sold_at date;
   v_seller_raw text; v_seller text; v_new ops_ticket_lines; v_old ops_ticket_lines;
   v_same boolean; v_n int; v_model text; v_variant text; v_pieces uuid[]; v_line record;
+  v_old_sold_at date; v_remap boolean; v_piece uuid;
   n_new int := 0; n_changed int := 0; n_same int := 0; n_lines int := 0; n_pay int := 0; n_sold int := 0;
+  n_crm int := 0; n_remap int := 0;
   v_unmapped text[] := '{}'; v_mixed text[] := '{}'; v_changed text[] := '{}'; v_unmatched text[] := '{}';
+  v_ambiguous text[] := '{}';
   v_match jsonb := '{}'; v_last_run date;
 begin
   if p_actor is null or btrim(p_actor) = '' then raise exception 'actor required'; end if;
@@ -3947,7 +3981,7 @@ begin
       v_mixed := v_mixed || v_no;
     end if;
 
-    select ticket_id, status into v_tid, v_status
+    select ticket_id, status, sold_at into v_tid, v_status, v_old_sold_at
       from ops_tickets where store_id = 1 and source = 'colibri' and ticket_no = v_no;
 
     if v_tid is null then
@@ -3970,8 +4004,9 @@ begin
                  and not (o.piece_id is not null and exists (
                             select 1 from ops_review r
                              where r.piece_id = o.piece_id and r.kind = 'ticket_conflict'
-                               and r.note = format('ticket %s line %s sold this piece but is missing from the sales export',
-                                                   v_no, o.line_no))))
+                               and (r.status = 'open'
+                                    or r.note = format('ticket %s line %s sold this piece but is missing from the sales '
+                                                       'export', v_no, o.line_no)))))
         and not exists (
               select 1 from jsonb_array_elements(coalesce(v_t->'lines', '[]'::jsonb)) x
                cross join lateral jsonb_populate_record(null::ops_ticket_lines,
@@ -3990,9 +4025,10 @@ begin
                                    and exists (
                                          select 1 from ops_review r
                                           where r.piece_id = o.piece_id and r.kind = 'ticket_conflict'
-                                            and r.note = format('ticket %s line %s sold this piece but the sales export '
-                                                                'now shows serial %s (%s)', v_no, o.line_no,
-                                                                coalesce(n.serial_raw, 'none'), n.kind))))))
+                                            and (r.status = 'open'
+                                                 or r.note = format('ticket %s line %s sold this piece but the sales '
+                                                                    'export now shows serial %s (%s)', v_no, o.line_no,
+                                                                    coalesce(n.serial_raw, 'none'), n.kind)))))))
         and not exists (
               (select method, amount from ops_ticket_payments where ticket_id = v_tid
                except all
@@ -4006,9 +4042,44 @@ begin
 
       if v_same then
         n_same := n_same + 1;
+        -- refresh the mappings: seller, and each line's model/variant (same per-run cache as below)
+        v_remap := false;
+        update ops_tickets set seller = v_seller, updated_at = now()
+         where ticket_id = v_tid and seller is distinct from v_seller;
+        if found then v_remap := true; end if;
+        for v_old in select o.* from ops_ticket_lines o where o.ticket_id = v_tid order by o.line_no loop
+          v_model := null; v_variant := null;
+          if v_old.article is not null then
+            if v_match ? v_old.article then
+              v_model := v_match->v_old.article->>0; v_variant := v_match->v_old.article->>1;
+            else
+              select m.model_id, m.variant_id into v_model, v_variant from cat_match_article(v_old.article) m;
+              if v_model is null then v_variant := null; end if;
+              v_match := v_match || jsonb_build_object(v_old.article, jsonb_build_array(v_model, v_variant));
+            end if;
+          end if;
+          if (v_old.model_id, v_old.variant_id) is distinct from (v_model, v_variant) then
+            update ops_ticket_lines set model_id = v_model, variant_id = v_variant where line_id = v_old.line_id;
+            v_remap := true;
+          end if;
+        end loop;
+        if v_remap then n_remap := n_remap + 1; end if;
       else
         n_changed := n_changed + 1;
         v_changed := v_changed || v_no;
+        -- moved to an earlier date after it sold pieces: flag each piece (the date is still updated)
+        if v_sold_at < v_old_sold_at then
+          for v_piece in
+            select distinct o.piece_id from ops_ticket_lines o where o.ticket_id = v_tid and o.piece_id is not null
+          loop
+            insert into ops_review(piece_id, kind, note)
+            select v_piece, 'ticket_conflict',
+                   format('ticket %s date moved from %s to %s after it sold this piece', v_no,
+                          to_char(v_old_sold_at, 'YYYY-MM-DD'), to_char(v_sold_at, 'YYYY-MM-DD'))
+             where not exists (select 1 from ops_review r
+                                where r.piece_id = v_piece and r.kind = 'ticket_conflict' and r.status = 'open');
+          end loop;
+        end if;
         update ops_tickets
            set sold_at = v_sold_at, seller = v_seller, seller_raw = v_seller_raw, client_raw = v_t->>'client_raw',
                note = v_t->>'note', source_file = v_t->>'source_file', updated_at = now()
@@ -4022,6 +4093,8 @@ begin
                               where (x->>'line_no')::int = o.line_no)
         loop
           if v_old.piece_id is null then
+            select count(*) into v_n from crm_transactions where ticket_line_id = v_old.line_id;
+            n_crm := n_crm + v_n;
             delete from ops_ticket_lines where line_id = v_old.line_id;
           else
             insert into ops_review(piece_id, kind, note)
@@ -4118,6 +4191,8 @@ begin
           if exists (select 1 from ops_pieces where piece_id = v_pieces[1] and sold_line_id = v_line.line_id) then
             n_sold := n_sold + 1;
           end if;
+        elsif cardinality(v_pieces) > 1 and not (v_no = any (v_ambiguous)) then
+          v_ambiguous := v_ambiguous || v_no;
         end if;
       end loop;
 
@@ -4134,7 +4209,8 @@ begin
     'tickets_new', n_new, 'tickets_changed', n_changed, 'tickets_same', n_same,
     'lines', n_lines, 'payments', n_pay, 'pieces_sold', n_sold,
     'sellers_unmapped', to_jsonb(v_unmapped), 'mixed_sellers', to_jsonb(v_mixed), 'changed', to_jsonb(v_changed),
-    'sales_unmatched', to_jsonb(v_unmatched));
+    'sales_unmatched', to_jsonb(v_unmatched),
+    'crm_links_cleared', n_crm, 'remapped', n_remap, 'pieces_ambiguous', to_jsonb(v_ambiguous));
 end $$;
 
 
@@ -5891,6 +5967,32 @@ CREATE TABLE public.email_cache (
 
 
 --
+-- Name: ops_link_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ops_link_runs (
+    run_id bigint NOT NULL,
+    run_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor text NOT NULL,
+    result jsonb NOT NULL
+);
+
+
+--
+-- Name: ops_link_runs_run_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_link_runs ALTER COLUMN run_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.ops_link_runs_run_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: ops_piece_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6874,6 +6976,14 @@ ALTER TABLE ONLY public.email_cache
 
 ALTER TABLE ONLY public.email_cache
     ADD CONSTRAINT email_cache_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ops_link_runs ops_link_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ops_link_runs
+    ADD CONSTRAINT ops_link_runs_pkey PRIMARY KEY (run_id);
 
 
 --
@@ -8047,6 +8157,12 @@ ALTER TABLE public.editor_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_cache ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: ops_link_runs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ops_link_runs ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: ops_piece_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -8134,5 +8250,5 @@ ALTER TABLE public.write_log ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vr9Nul0ecNLdYqAqRp9ykiL56fh6srrRMXXdpKSei0BRhe3VV4ftpz1EIkAmLCz
+\unrestrict au3GuyPxz9UODDoOKmuCQkjvFaKznd06vXNeeZA1pHBKB5gbNtfY4KKkFCvlEjK
 
