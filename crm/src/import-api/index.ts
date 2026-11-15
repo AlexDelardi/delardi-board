@@ -104,14 +104,16 @@ Deno.serve(async (req: Request) => {
     const chats = rows(body.chats, "chats");
     const missed = rows(body.missed, "missed");
     const tickets = ticketPayload(body.tickets);
-    if (!chats?.length && !missed?.length && !(tickets?.tickets as unknown[] | undefined)?.length) throw new HttpErr(400, "Nothing to load.");
+    const ticketCount = (tickets?.tickets as unknown[] | undefined)?.length ?? 0;
+    if (!chats?.length && !missed?.length && !ticketCount) throw new HttpErr(400, "Nothing to load.");
     const source = typeof body.source === "string" ? body.source.slice(0, 300) : "unknown";
     const actor = typeof body.actor === "string" ? body.actor.slice(0, 80) : "Claude";
 
     // Claim the key first, so a second request with it fails even mid-load.
     const now = new Date().toISOString();
     const claimed = await db(
-      `crm_import_tokens?token_hash=eq.${await sha256hex(key)}&purpose=eq.crm_load&used_at=is.null&expires_at=gt.${now}`,
+      `crm_import_tokens?token_hash=eq.${await sha256hex(key)}` +
+        `&purpose=eq.crm_load&used_at=is.null&expires_at=gt.${now}`,
       { method: "PATCH", body: JSON.stringify({ used_at: now }) },
       { Prefer: "return=representation" },
     ) as unknown[] | null;
@@ -120,7 +122,8 @@ Deno.serve(async (req: Request) => {
     const out: Record<string, unknown> = { ok: true, source };
     if (chats?.length) out.chats = await rpc("crm_telegram_load", { p: chats, p_actor: actor, p_source: source });
     if (missed?.length) out.missed = await rpc("crm_missed_load", { p: missed, p_source: source });
-    if (tickets) out.tickets = await rpc("ops_load_tickets", { p: tickets, p_actor: "import:" + source });
+    if (tickets && ticketCount)
+      out.tickets = await rpc("ops_load_tickets", { p: tickets, p_actor: "import:" + source });
     return json(out);
   } catch (e) {
     if (e instanceof HttpErr) return json({ error: e.message }, e.status);

@@ -118,6 +118,12 @@ def test_bare_vis_payment_gets_ticket_net(tmp_path):
     assert out["tickets"][0]["payments"] == [{"method": "visa", "amount": 1000, "raw": "vis"}]
 
 
+def test_summary_net_subtracts_refunds(tmp_path):
+    out = one(tmp_path, [item(910, net=1000000), item(911, qty=-1, net=-200000), pay(911, "")])
+    assert out["summary"]["net"] == 800000
+    assert out["summary"]["refunds"] == 1
+
+
 def test_line_seller_and_ticket_seller(tmp_path):
     out = one(tmp_path, [item(911, seller="Ann "), item(911, seller="Bob"), pay(911, "")])
     t = out["tickets"][0]

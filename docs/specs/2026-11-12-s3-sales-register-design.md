@@ -87,21 +87,23 @@ A ticket's seller is the seller of its lowest `line_no`; a ticket whose lines na
 
 For each ticket in the payload (store 1, source `colibri`):
 - **New ticket:** insert ticket, lines, payments.
-- **Existing ticket, same content:** nothing.
-- **Existing ticket, different content:** update the header, update lines in place by `line_no`, add new lines, replace payments. A line that has already sold a piece and now differs in serial, or has disappeared, is **not** undone: it raises a `ticket_conflict` review on that piece and the old line is kept. Once that review has been raised (open or resolved), a reload whose only difference is such a kept line counts as `tickets_same`: no payment rewrite, no new review.
+- **Existing ticket, same content:** content untouched; the mappings are refreshed: `seller` from the current aliases and reps, and each line's `model_id` / `variant_id` from `cat_match_article` (same per-run cache). A ticket where either differed counts in `remapped` and still counts as `tickets_same`; payments are not touched.
+- **Existing ticket, different content:** update the header, update lines in place by `line_no`, add new lines, replace payments. A line that has already sold a piece and now differs in serial, or has disappeared, is **not** undone: it raises a `ticket_conflict` review on that piece and the old line is kept. Once that review has been raised (open or resolved), or while any `ticket_conflict` review is open on that piece, a reload whose only difference is such a kept line counts as `tickets_same`: no payment rewrite, no new review. A line without a piece that has disappeared is deleted; CRM rows that pointed to it lose their link (counted in `crm_links_cleared`). A ticket moved to an **earlier** `sold_at` raises a `ticket_conflict` review on each piece its lines hold (note `ticket <no> date moved from <old> to <new> after it sold this piece`; none when one is already open there); the date is still updated.
 - Seller: `seller_raw` as written; `seller` = the mapped `source_name` from `crm_rep_aliases` (case-insensitive, spaces trimmed on both sides), or the raw value itself when it already is a rep's `source_name`, else null.
 - Brand on a line is normalised for matching only (`ops_brand_key`: lower-case, spaces and punctuation removed so `Dinh Van` / `dinh van` / `DINH-VAN` agree, then `bvlgari` → `bulgari`, `gp` → `girardperregaux`); letters and digits are never removed, whatever the database locale. The raw value is not changed.
-- Lines get `model_id` / `variant_id` through the existing `cat_match_article(article)` where it matches, called once per distinct article among the lines written.
-- The function runs with `statement_timeout = 120s`, as `cat_load` does (the first load goes through the API role, whose own timeout is a few seconds).
+- Lines get `model_id` / `variant_id` through the existing `cat_match_article(article)` where it matches, called once per distinct article among the lines written or remapped.
+- The function sets `statement_timeout = 120s` for itself. That does not lift a shorter timeout already running for the calling statement, so loads through the API stay small; the full history loads in about one second.
 - `source_file` on the ticket = the file the ticket came from.
 
-Returns `{tickets_new, tickets_changed, tickets_same, lines, payments, pieces_sold, sellers_unmapped: [...], mixed_sellers: [...], changed: [ticket numbers], sales_unmatched: [ticket numbers]}`. `sales_unmatched` lists posted tickets with a sale line that has a serial but no piece after the piece rule (§4.3), dated on or after the Tashkent date of the latest `cat_import_runs.run_at`: a fresh sale whose piece was not found. Function rules as in Sprint 2: security definer, pinned search path, no execute for public roles.
+Returns `{tickets_new, tickets_changed, tickets_same, lines, payments, pieces_sold, sellers_unmapped: [...], mixed_sellers: [...], changed: [ticket numbers], sales_unmatched: [ticket numbers], crm_links_cleared, remapped, pieces_ambiguous: [ticket numbers]}`. `crm_links_cleared`: CRM rows whose line was deleted. `remapped`: same-content tickets whose seller or a line's model/variant mapping was refreshed. `pieces_ambiguous`: tickets with a sale line that found two or more candidate pieces (§4.3). `sales_unmatched` lists posted tickets with a sale line that has a serial but no piece after the piece rule (§4.3), dated on or after the Tashkent date of the latest `cat_import_runs.run_at`: a fresh sale whose piece was not found. Function rules as in Sprint 2: security definer, pinned search path, no execute for public roles.
 
 ### 4.3 Pieces — inside the loader, after the lines are written
 
 For each **sale** line with a serial, find the live piece (state not `sold` / `not_received`) with the same normalised brand and `upper(btrim(serial))`. Set `piece_id` and call `ops_apply_ticket_line` **only if** the ticket's `sold_at` is on or after the date (Asia/Tashkent) of the catalogue run in which the piece was last seen (`ops_pieces.last_seen_run` → `cat_import_runs.run_at`). In-transit pieces with no sighting are never matched.
 
-All other lines keep `serial_raw` only; `piece_id` stays empty. Refund lines never change a piece in this sprint (the three that exist are from 2023).
+When two or more live pieces qualify, nothing is sold and the ticket is listed in `pieces_ambiguous`.
+
+All other lines keep `serial_raw` only; `piece_id` stays empty. Two guards (tested in `s3_t5`): refund lines never take a piece or change one in this sprint (the three that exist are from 2023); and a line that sold a piece and is later exported as a refund is kept as a sale, the piece stays sold, and a `ticket_conflict` review is raised on it.
 
 Today this marks four pieces Sold (tickets 758 and 759, 11 Nov).
 
@@ -109,11 +111,13 @@ Today this marks four pieces Sold (tickets 758 and 759, 11 Nov).
 
 ### 4.4 CRM link — `ops_link_crm_tickets(p_actor text) returns jsonb`
 
-Pairs unlinked `crm_transactions` rows with unlinked ticket lines one to one on: same sale date, same article (trimmed, upper-case, with the colour suffix when the CRM article has one), same net amount (refund lines match negative CRM amounts). Several identical candidates are paired in order of `line_no` and CRM id. Sets `crm_transactions.ticket_line_id`.
+Pairs unlinked `crm_transactions` rows with unlinked ticket lines one to one on: same sale date, same article (trimmed, upper-case, with the colour suffix when the CRM article has one), same net amount (refund lines match negative CRM amounts). Several identical candidates are paired in a fixed order: lines by `(store_id, ticket_no, line_no, line_id)` against CRM rows by `id`. Sets `crm_transactions.ticket_line_id`.
 
-A ticket gets `client_id` when every linked line of that ticket points to the same client; otherwise it stays empty and is listed.
+Client recompute (every run): for each Colibri ticket that has linked lines, `client_id` is recomputed from the clients of its linked CRM rows — exactly one distinct client → that client; more than one → empty, and the ticket is listed in `tickets_mixed_clients`. So a ticket's client also changes when the clients of its already linked CRM rows change — e.g. after `crm_merge`, which moves purchases to the kept client but does not touch `ops_tickets.client_id`. Tickets with no linked lines are left alone: a ticket that loses its last linked row keeps its client (`crm_transactions.client_id` is never null, so every linked row names a client). `client_id` on Colibri tickets is owned by this function; screens that set a client come with the till (S5) and will need their own rule.
 
-Returns `{linked, tickets_with_client, tickets_mixed_clients: [...], crm_unlinked_2023plus, lines_unlinked}`. Re-running it only works on what is still unlinked.
+Run log: each run inserts one row into `ops_link_runs(run_id, run_at, actor, result)` — the actor and the result it returns. RLS on, no grants to `anon`/`authenticated` on the table or its identity sequence.
+
+Returns `{linked, tickets_client_changed, tickets_client_changed_list: [...], tickets_with_client, tickets_mixed_clients: [...], crm_unlinked_2023plus, lines_unlinked}`; `tickets_client_changed` counts the tickets whose `client_id` this run changed and `tickets_client_changed_list` names them (ticket_no, sorted). Re-running it only links what is still unlinked, and only changes a client when the ticket's client set changed — a newly linked line, or a linked CRM row that now names another client (e.g. after `crm_merge`).
 
 ### 4.5 Reconciliation — view `ops_ticket_monthly` and a report
 
@@ -128,6 +132,8 @@ Saves `(client_id, client_owner, assigned_owner)` of every row it will change in
 - `assigned_owner` blank → the row's `client_owner` when that is a real name (not blank, not `Unassigned`), else `Unassigned`.
 
 The app reads the owner as `coalesce(assigned_owner, client_owner)`, so no client with a named owner changes effective owner. Deleted and merged records included, so the rule holds everywhere.
+
+`crm_owner_cleanup_undo()` (migration `s3_7_owner_undo`) restores both owner fields of every saved client from `crm_owner_cleanup_20261112`, returns the rows changed, and keeps the saved rows.
 
 ### 4.7 Repeated serials in stock
 
