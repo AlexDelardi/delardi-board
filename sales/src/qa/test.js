@@ -137,6 +137,11 @@ async function shot(page, name) {
     await page.waitForSelector("#toast.show");
     check("scan adds one: the same piece twice is refused", (await page.$$("#lines .line")).length === 1 &&
       /already in this sale/i.test(await page.textContent("#toast")));
+    // (b) a single-match barcode scanned twice more (scanner double-fire): still one line
+    await scan(page, "2000000000031");
+    await scan(page, "2000000000031");
+    await page.waitForTimeout(300);
+    check("scan adds one: a double-fired scan still leaves one line", (await page.$$("#lines .line")).length === 1);
 
     // barcode many
     await scan(page, "2000000000024");
@@ -149,6 +154,19 @@ async function shot(page, name) {
     await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 2);
     check("barcode many: clicking a sellable one adds it", /ZZ\.00\.2000[12]/.test(await lineText(page, 2, ".l-serial")));
     check("barcode many: the list closes", !(await page.isVisible("#sugg .sg")));
+    // (a) the same shared barcode scanned again: the list opens again, nothing is added
+    await scan(page, "2000000000024");
+    await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length === 3);
+    await page.waitForTimeout(300);
+    check("barcode many: a re-scan opens the list again, nothing added", (await page.$$("#lines .line")).length === 2);
+    const left = await page.$$eval("#sugg button.sg", (ns) => ns.length);
+    check("barcode many: the picked piece is greyed 'Already in this sale', the other still tappable",
+      left === 1 && /Already in this sale/.test(await page.textContent("#sugg")), String(left));
+    await page.press("#q", "Enter");
+    await page.waitForTimeout(300);
+    check("barcode many: Enter again still adds nothing", (await page.$$("#lines .line")).length === 2);
+    await page.fill("#q", "");
+    await page.waitForSelector("#sugg .sg", { state: "detached" });
 
     // a held piece and a piece in transit are greyed with their state in words
     await page.fill("#q", "Messika");

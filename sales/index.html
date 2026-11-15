@@ -955,12 +955,17 @@ async function onSearchKey(ev) {
   if (!q) return;
   const pieces = (S.search.q === q && S.search.pieces && !S.search.busy) ? S.search.pieces : await runSearch(q);
   if (!pieces) return;
-  const addable = pieces.filter((p) => p.sellable && !inSale(p));
-  if (addable.length === 1) { addPiece(addable[0], true); return; }
-  if (!addable.length && pieces.some((p) => p.sellable && inSale(p))) {
+  // Spec §5.1: Enter adds only when exactly one sellable piece matches (as the
+  // API reports it, whatever is already on the sale). Several sellable pieces
+  // on one barcode always open the list, so the seller taps the serial — a
+  // second scan never silently picks the other copy.
+  const sellable = pieces.filter((p) => p.sellable);
+  if (sellable.length === 1) {
+    if (!inSale(sellable[0])) { addPiece(sellable[0], true); return; }
     toast(tr("Already in this sale."));
     ev.target.select();
     closeSugg();
+    return;
   }
   // otherwise the list stays open to pick from (or says nothing was found)
 }

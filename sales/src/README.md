@@ -35,9 +35,10 @@ The brand marks (`brand/`) are substituted as data URIs.
   `#/ticket/<ticket_id>`, `#/admin`. The last three are placeholders until
   Task 8 replaces their entries in `ROUTES`.
 - **Search:** suggestions after two characters (250 ms pause). Enter adds the
-  piece when exactly one piece found can still be added (so scanning a shared
-  barcode twice adds the second identical piece); otherwise the list stays open
-  to pick from. Pieces that cannot be sold are greyed with their state in
+  piece only when exactly one sellable piece matches (as the API reports it,
+  whatever is already on the sale); if that piece is already on the sale it
+  says so and adds nothing. Several sellable pieces on one barcode always open
+  the list, so the seller taps the serial — a re-scan never picks the other copy. Pieces that cannot be sold are greyed with their state in
   words, or "in suspended sale #n".
 - **Money:** whole so'm. Line net = round(price × (1 − discount/100)), half away
   from zero, computed in integers (BigInt) exactly as the database rounds; the
