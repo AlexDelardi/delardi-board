@@ -8,12 +8,13 @@
 // 404 unknown ticket, 409 the database refused (message verbatim).
 
 const PASSCODES = {
-  demo: { name: "Till Manager", rights: { view: true, post: true, void: true, manage: true } },
-  rep: { name: "Dilnoza A.", rights: { view: true, post: true, void: false, manage: false } },
-  look: { name: "Viewer", rights: { view: true, post: false, void: false, manage: false } },
-  none: { name: "Nobody", rights: { view: false, post: false, void: false, manage: false } },
-  // Sales rights, but crm-api answers 403: the till offers Walk-in only
-  nocrm: { name: "Counter Seller", rights: { view: true, post: true, void: false, manage: false } },
+  demo: { name: "Till Manager", rights: { view: true, post: true, void: true, manage: true, crm: true } },
+  rep: { name: "Dilnoza A.", rights: { view: true, post: true, void: false, manage: false, crm: true } },
+  look: { name: "Viewer", rights: { view: true, post: false, void: false, manage: false, crm: false } },
+  none: { name: "Nobody", rights: { view: false, post: false, void: false, manage: false, crm: false } },
+  // Sales rights but no CRM view right: crm-api answers 403, the till offers Walk-in only,
+  // and sales-api shows clients by reference only (no name, no raw client text)
+  nocrm: { name: "Counter Seller", rights: { view: true, post: true, void: false, manage: false, crm: false } },
 };
 const SELLERS = ["Dilnoza A.", "Malika B.", "Shared (store)"];
 const CASH_NOTICE = 170000000;
@@ -88,7 +89,7 @@ function seedTickets(pieces) {
       [{ payment_id: 3, method: "cash", amount: 24600000, raw: null, card_type: null }]),
     t({ ticket_id: "30000000-0000-4000-8000-000000000004", source: "delardi", ticket_no: "D-000002", sold_at: tkDate(2),
       seller: "Malika B.", client_id: "DLD-9001", entered_by: "Malika B.",
-      receipt_text: "DELARDI\nTashkent, 1 Example Street\nTicket D-000002\nSeller: Malika B.\nClient: DLD-9001\nChimento Armillas Ring · ZZ.00.12002\n15 000 000 −10% = 13 500 000\nTotal 13 500 000\nHumo 13 500 000" },
+      receipt_text: "DELARDI\nTashkent, 1 Example Street\nTicket D-000002\nSeller: Malika B.\nClient: Соколова Мария Андреевна\nChimento Armillas Ring · ZZ.00.12002\n15 000 000 −10% = 13 500 000\nTotal 13 500 000\nHumo 13 500 000" },
       [{ line_id: LINE_D2, article: "ZZ-CH-1202", item_name: "Armillas Ring", brand_raw: "Chimento",
         serial_raw: "ZZ.00.12002", price_list: 15000000, price_current: 15000000, discount_pct: 10, discount_amt: 1500000, net: 13500000 }],
       [{ payment_id: 4, method: "card", amount: 13500000, raw: null, card_type: "humo" }]),
@@ -184,8 +185,11 @@ function post(sale, actor) {
     paid += x.amount;
     if (x.method === "cash") cash += x.amount;
   }
-  if (sale.draft_id && !st.drafts.some((d) => d.draft_id === sale.draft_id && d.mode === st.mode))
-    return err(409, "suspended sale " + sale.draft_id + " not found");
+  if (sale.draft_id) {
+    const d = st.drafts.find((x) => x.draft_id === sale.draft_id);
+    if (!d) return err(409, "suspended sale " + sale.draft_id + " no longer exists");
+    if (d.mode !== st.mode) return err(409, "suspended sale " + sale.draft_id + " belongs to the other mode");
+  }
   if (st.drafts.some((d) => d.mode === st.mode && d.draft_id !== sale.draft_id)) return err(409, "another sale is suspended");
   if (paid !== total) return err(409, "payments " + paid + " do not match total " + total);
   if (sale.draft_id) st.drafts = st.drafts.filter((d) => d.draft_id !== sale.draft_id);
@@ -285,6 +289,22 @@ function tickets(f) {
     rows: rows.slice((page - 1) * 50, page * 50) }];
 }
 
+// post and suspend: the page says which mode it shows (expect_mode, required), and a
+// client may be named only with the CRM view right — as sales-api and pos_post_sale do.
+function saleGuard(body, u) {
+  if (!["training", "live"].includes(body.expect_mode)) return err(400, "Reload the page: it did not say which mode it shows.");
+  if (!u.rights.crm && body.sale && body.sale.client_id) return err(403, "Your account cannot attach clients — use Walk-in.");
+  if (body.expect_mode !== st.mode) return err(409, "the till was switched to " + st.mode + " — reload");
+  return null;
+}
+// Without the CRM view right: clients by reference only.
+function withoutClientData(x) {
+  const t = { ...x.ticket };
+  delete t.client_raw;
+  if (t.receipt_text && t.client_id) t.receipt_text = t.receipt_text.replace(/^Client: .*$/m, "Client: " + t.client_id);
+  return { ticket: t, lines: x.lines, payments: x.payments };
+}
+
 function handle(body) {
   st.calls.push(body);
   if (!body || typeof body !== "object") return err(400, "Body must be a JSON object.");
@@ -312,13 +332,13 @@ function handle(body) {
     case "search":
       if (body.q !== undefined && typeof body.q !== "string") return err(400, "q must be text.");
       return [200, { mode: st.mode, pieces: search(body.q) }];
-    case "post": return post(body.sale, u.name);
+    case "post": return saleGuard(body, u) || post(body.sale, u.name);
     case "drafts": return [200, { mode: st.mode, drafts: st.drafts.filter((d) => d.mode === st.mode).sort((a, b) => b.draft_id - a.draft_id)
       .map((d) => ({ draft_id: d.draft_id, created_by: d.created_by, created_at: d.created_at, client_id: d.client_id, walk_in: d.walk_in,
         seller: d.seller, lines: d.lines.map((l) => { const p = st.pieces.find((x) => x.piece_id === l.piece_id);
           return { piece_id: l.piece_id, serial: p.serial, brand: p.brand, model_name: p.model_name, price_uzs: l.price_uzs,
             discount_pct: l.discount_pct, seller: l.seller }; }) })) }];
-    case "suspend": return suspend(body.sale, u.name);
+    case "suspend": return saleGuard(body, u) || suspend(body.sale, u.name);
     case "cancel_draft": {
       const d = st.drafts.find((x) => x.draft_id === body.draft_id && x.mode === st.mode);
       if (!d) return err(409, "suspended sale " + body.draft_id + " not found");
@@ -328,14 +348,18 @@ function handle(body) {
     case "ticket": {
       const t = st.tickets.find((x) => x.ticket.ticket_id === body.ticket_id);
       if (!t) return err(404, "No sale with that reference.");
-      return [200, t];
+      return [200, u.rights.crm ? t : withoutClientData(t)];
     }
     case "ticket_by_line": {
       const t = st.tickets.find((x) => x.lines.some((l) => l.line_id === body.line_id));
       if (!t) return err(404, "No sale with that reference.");
       return [200, { ticket_id: t.ticket.ticket_id }];
     }
-    case "tickets": return tickets(body.filters || {});
+    case "tickets": {
+      const r = tickets(body.filters || {});
+      if (r[0] === 200 && !u.rights.crm) r[1].rows = r[1].rows.map((x) => { const o = { ...x }; delete o.client_name; return o; });
+      return r;
+    }
     case "void": {
       const t = st.tickets.find((x) => x.ticket.ticket_id === body.ticket_id);
       if (!t) return err(404, "No sale with that reference.");
@@ -496,4 +520,6 @@ module.exports = {
   get state() { return st; },
   // another till sells the piece behind the page's back
   sellBehind(serial) { const p = st.pieces.find((x) => x.serial === serial); p.state = "sold"; },
+  // the manager switches the till on another device
+  switchModeBehind(mode) { st.mode = mode; if (mode === "live" && !st.go_live_date) st.go_live_date = tkDate(0); },
 };

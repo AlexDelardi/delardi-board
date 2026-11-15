@@ -18,12 +18,12 @@ deploy (`verify_jwt false`, like crm-api), and the two are kept identical.
 
 | Status | When |
 |---|---|
-| `400` | The request is malformed: unknown action, a missing or wrongly typed field, a bad date, a seller label that is no rep's label in a ticket filter. |
+| `400` | The request is malformed: unknown action, a missing or wrongly typed field (including a `post` / `suspend` without `expect_mode`: "Reload the page: it did not say which mode it shows."), a bad date, a seller label that is no rep's label in a ticket filter. |
 | `401` | No token, an unknown token, an expired session, or a wrong passcode at `unlock`. |
-| `403` | The session is not a Sales session, the login is no longer active, or it lacks the right the action needs. |
+| `403` | The session is not a Sales session, the login is no longer active, or it lacks the right the action needs. Also `post` / `suspend` naming a client from a login without the CRM view right: "Your account cannot attach clients — use Walk-in." |
 | `404` | `ticket` / `ticket_by_line` with an id that matches nothing. |
 | `405` | Not `POST`. |
-| `409` | The database refused the request: every `raise exception` from a `pos_*` function comes back here with its message **verbatim** (the messages are written for the screen, e.g. `piece ZZ.00.30001 is not in stock`, `payments 29925000 do not match total 29925001`, `another sale is suspended`, `already void`). Also: a suspended sale that is not in the current mode, and asking for test tickets while the till is Live. |
+| `409` | The database refused the request: every `raise exception` from a `pos_*` function comes back here with its message **verbatim** (the messages are written for the screen, e.g. `piece ZZ.00.30001 is not in stock`, `payments 29925000 do not match total 29925001`, `another sale is suspended`, `already void`). Among them: `the till was switched to live — reload` (or `training`) when `expect_mode` is not the till's mode, `suspended sale 5 no longer exists`, `suspended sale 5 belongs to the other mode`. Also: cancelling a suspended sale that is not in the current mode, and asking for test tickets while the till is Live. |
 | `429` | Ten failed unlocks from one address within an hour. |
 | `500` | Anything else. The body is `{ error: "Something went wrong on the server." }`; the detail goes to the function log only. |
 
@@ -41,9 +41,10 @@ deploy (`verify_jwt false`, like crm-api), and the two are kept identical.
 | `post` | `can_post_sales` | `search`, `post`, `suspend`, `drafts`, `cancel_draft` |
 | `void` | `can_void_sales` | `void` |
 | `manage` | `can_manage_till` | `set_mode`, `clear_training` |
+| `crm` | `can_view_crm` | Client data in this tool: client names, Colibri's raw client text, the client's name on a receipt; naming a client on `post` / `suspend`. Without it, clients are shown by `client_id` only and sales are Walk-in only. |
 
 - A Sales session needs at least `view` or `post`; `ping` and `reference` need only a valid Sales session.
-- `rights` is always `{ view, post, void, manage }`, all booleans.
+- `rights` is always `{ view, post, void, manage, crm }`, all booleans.
 - The actor recorded on posts, suspends, voids, cancels and mode changes is the
   login's name (`board_users.name`). The page never sends it.
 
@@ -74,7 +75,7 @@ never carries `seller_raw`, `card_no`, `source_file` or a line's raw `extra`.
 Rate limited as crm-api: every attempt writes `auth_attempts`; 10 failures
 from one IP in an hour → `429`. Wrong passcode → `401`; a login with neither
 `view` nor `post` → `403`.
-→ `{ token, name, expires_at, rights: {view, post, void, manage} }`
+→ `{ token, name, expires_at, rights: {view, post, void, manage, crm} }`
 
 ### `ping {token}` — any Sales session
 → `{ ok: true, name, rights, mode }` — `mode` is `"training"` or `"live"`.
@@ -93,7 +94,12 @@ brand, collection or model name. At most 20, sellable first. Empty `q` → no pi
 model_name, colour, size, metal_keys: [], stone_keys: [], price_uzs, state,
 held: null | {draft_id}, sellable } ] }`
 
-### `post {token, sale}` — post
+### `post {token, expect_mode, sale}` — post
+`expect_mode` (required): `"training"` or `"live"`, the mode the screen shows.
+`pos_post_sale` compares it with the till's mode under its lock and refuses a
+difference with `409` `the till was switched to <mode> — reload`; the page then
+reloads `reference` and shows the message.
+
 `sale`:
 ```
 { client_id?: "DLD-…"|"PRS-…", walk_in?: bool,     // exactly one of the two
@@ -101,15 +107,21 @@ held: null | {draft_id}, sellable } ] }`
   lines: [ { piece_id: uuid, price_uzs: int, discount_pct?: number, seller?: "<label>" } ],   // 1–50
   payments: [ { method: "cash"|"card"|"transfer", card_type?: "uzcard"|"humo"|"visa", amount: int } ] }  // ≤ 10
 ```
-Posted in the till's current mode, all or nothing. `draft_id` (resuming a
-suspended sale) must be a suspended sale of the current mode, or `409`.
+Posted in the till's current mode, all or nothing. `client_id` needs the `crm`
+right (`403` otherwise). `draft_id` (resuming a suspended sale) is locked by
+`pos_post_sale` after the pieces; a draft that is gone is refused with
+`suspended sale <id> no longer exists`, one of the other mode with
+`suspended sale <id> belongs to the other mode` (both `409`). Its lines may
+have been edited since it was suspended. A posted draft is removed and logged in
+`pos_settings_log` (`field 'draft_posted'`, `new_value '<draft_id> → <ticket_no>'`).
 → `{ ticket_id, ticket_no, mode, total, cash_notice }` — `ticket_no` is
 `D-000001…` (live) or `T-000001…` (training); `cash_notice` is true when the
 cash paid is above `cash_notice_uzs`. The receipt is read with `ticket`.
 
-### `suspend {token, sale}` — post
-Same `sale` as `post` without `payments`; client, walk-in, seller and prices may
-still be empty. With `draft_id` it replaces that suspended sale's lines.
+### `suspend {token, expect_mode, sale}` — post
+Same `expect_mode` and `sale` as `post` without `payments`; client, walk-in,
+seller and prices may still be empty (`client_id` needs the `crm` right). With
+`draft_id` it replaces that suspended sale's lines.
 → `{ draft_id }`
 
 ### `drafts {token}` — post
@@ -134,6 +146,7 @@ ticket_no, source, sold_at, status, seller, client_id, client_name, walk_in,
 items, lines, net } ] }`
 - `count`: every filtered ticket; `void_count`: the void ones among them;
   `net_total`: posted tickets only, refunds negative.
+- Without the `crm` right a row carries no `client_name` (only `client_id`).
 
 ### `ticket {token, ticket_id}` — view
 → `{ ticket: {…}, lines: [ … ], payments: [ … ], client_name }`
@@ -145,6 +158,9 @@ items, lines, net } ] }`
   discount_pct, discount_amt, net, seller` — `seller` is the line's own seller
   label, `null` when it is the ticket's seller.
 - `payments[]`: `payment_id, method, amount, raw, card_type`.
+- Without the `crm` right: no `client_name` in the answer, no `client_raw` on
+  the ticket, and `receipt_text`'s `Client: <name>` line reads
+  `Client: <client_id>` (`Client: Walk-in` is unchanged).
 - Unknown id → `404`.
 
 ### `ticket_by_line {token, line_id}` — view

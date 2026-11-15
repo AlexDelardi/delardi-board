@@ -111,13 +111,16 @@ function pctText(n) {
   if (!n) return "";
   return String(Number(Number(n).toFixed(4)));
 }
-// Typed text → a discount the database can hold: 0 … 99.9999, four decimals.
+// Typed text → a discount the database can hold: 0 … 99.9999, at most four decimals,
+// one decimal separator (dot or comma). Anything else is invalid and not taken.
 function parsePct(s) {
-  const t = String(s || "").replace(",", ".").replace(/[^\d.]/g, "");
-  const n = parseFloat(t);
-  if (!isFinite(n) || n <= 0) return { pct: 0, capped: false };
-  if (n > MAX_DISCOUNT) return { pct: MAX_DISCOUNT, capped: true };
-  return { pct: Math.round(n * 10000) / 10000, capped: false };
+  const t = String(s === null || s === undefined ? "" : s).trim();
+  if (!t) return { pct: 0, capped: false, invalid: false };
+  if (!/^(\d+([.,]\d{0,4})?|[.,]\d{1,4})$/.test(t)) return { pct: null, capped: false, invalid: true };
+  const n = parseFloat(t.replace(",", "."));
+  if (!isFinite(n) || n <= 0) return { pct: 0, capped: false, invalid: false };
+  if (n > MAX_DISCOUNT) return { pct: MAX_DISCOUNT, capped: true, invalid: false };
+  return { pct: Math.round(n * 10000) / 10000, capped: false, invalid: false };
 }
 const inSale = (p) => S.sale.lines.some((l) => l.piece_id === p.piece_id);
 const stateWords = (p) => inSale(p) ? tr("Already in this sale")
@@ -241,19 +244,37 @@ function refreshNumbers() {
   const b = $("#to-pay");
   if (b) b.disabled = !saleReady();
 }
-const saleReady = () => S.sale.lines.length > 0 && S.sale.lines.every((l) => l.price_uzs > 0);
+const saleReady = () => S.sale.lines.length > 0 && S.sale.lines.every((l) => l.price_uzs > 0 && !l.priceBad && !l.discBad);
 function renderLine(l, i) {
+  // a text that is not accepted stays on screen, marked, and holds the sale back (l.priceBad / l.discBad)
+  const takePrice = (input) => {
+    const r = readAmount(input.value);
+    l.priceBad = r.invalid ? input.value : null;
+    l.price_uzs = r.invalid ? null : r.value;
+    markInvalid(input, r.invalid);
+    return r;
+  };
   const price = el("input", { type: "text", class: "l-price", inputmode: "numeric", autocomplete: "off",
-    value: l.price_uzs === null || l.price_uzs === undefined ? "" : fmtUZS(l.price_uzs), "aria-label": tr("Price") + " " + l.serial,
-    oninput: (ev) => { l.price_uzs = parseAmount(ev.target.value); refreshNumbers(); },
-    onchange: (ev) => { ev.target.value = l.price_uzs === null ? "" : fmtUZS(l.price_uzs); } });
+    value: l.priceBad ? l.priceBad : l.price_uzs === null || l.price_uzs === undefined ? "" : fmtUZS(l.price_uzs),
+    "aria-label": tr("Price") + " " + l.serial, "aria-invalid": l.priceBad ? "true" : null,
+    oninput: (ev) => { takePrice(ev.target); refreshNumbers(); },
+    onchange: (ev) => { if (!takePrice(ev.target).invalid) ev.target.value = l.price_uzs === null ? "" : fmtUZS(l.price_uzs); refreshNumbers(); } });
+  const takePct = (input) => {
+    const r = parsePct(input.value);
+    l.discBad = r.invalid ? input.value : null;
+    markInvalid(input, r.invalid);
+    if (!r.invalid) { l.discount_pct = r.pct; S.lastPct = r.pct; }
+    return r;
+  };
   const disc = el("input", { type: "text", class: "l-disc", inputmode: "decimal", autocomplete: "off", placeholder: "0",
-    value: pctText(l.discount_pct), "aria-label": tr("Discount") + " " + l.serial,
-    oninput: (ev) => { const r = parsePct(ev.target.value); l.discount_pct = r.pct; S.lastPct = r.pct; refreshNumbers(); },
+    value: l.discBad ? l.discBad : pctText(l.discount_pct), "aria-label": tr("Discount") + " " + l.serial,
+    "aria-invalid": l.discBad ? "true" : null,
+    oninput: (ev) => { takePct(ev.target); refreshNumbers(); },
     onchange: (ev) => {
-      const r = parsePct(ev.target.value);
+      const r = takePct(ev.target);
       if (r.capped) toast(tr("A discount can be at most 99.9999%."));
-      l.discount_pct = r.pct; S.lastPct = r.pct; ev.target.value = pctText(r.pct); refreshNumbers();
+      if (!r.invalid) ev.target.value = pctText(r.pct);
+      refreshNumbers();
     } });
   const sellerBox = el("span", { class: "l-seller-box" });
   if (l.sellerOpen) {
@@ -315,7 +336,7 @@ function renderSale(main) {
         title: S.lastPct ? tr("Gives every line {p}%", { p: pctText(S.lastPct) }) : tr("Type a discount on a line first."),
         onclick: () => {
           if (S.lastPct === null) { toast(tr("Type a discount on a line first.")); return; }
-          s.lines.forEach((l) => { l.discount_pct = S.lastPct; });
+          s.lines.forEach((l) => { l.discount_pct = S.lastPct; l.discBad = null; });
           renderAll();
         } }, tr("Same % for all lines"))) : null,
     foot));
@@ -359,7 +380,7 @@ async function suspendSale() {
   if (s.walk_in) sale.walk_in = true; else if (s.client_id) sale.client_id = s.client_id;
   suspending = true;
   try {
-    const r = await api("suspend", { sale });
+    const r = await api("suspend", { sale, expect_mode: S.mode });
     S.sale = newSale(); S.lastPct = null;
     toast(tr("Sale suspended as #{n}.", { n: r.draft_id }));
     await loadDrafts();

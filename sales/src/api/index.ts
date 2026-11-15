@@ -7,8 +7,10 @@
 //   1. Unlock checks board_users.can_view_sales / can_post_sales, and the
 //      session it issues carries can_use_sales and nothing else, so a Sales
 //      token opens no other area and no other area's token opens Sales.
-//   2. Rights (view, post, void, manage the till) are re-read from board_users
-//      on every call.
+//   2. Rights (view, post, void, manage the till, and the CRM view right) are
+//      re-read from board_users on every call. Without the CRM view right a
+//      login sees clients by reference only (no name, no raw Colibri client
+//      text, no name on a receipt) and can post or suspend Walk-in sales only.
 //   3. The work is done by the pos_* database functions; their refusals
 //      (raise exception, SQLSTATE P0001) come back as 409 with the sentence
 //      verbatim, because they are written for the screen.
@@ -275,7 +277,7 @@ function clientIp(req: Request) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
-interface Rights { view: boolean; post: boolean; void: boolean; manage: boolean }
+interface Rights { view: boolean; post: boolean; void: boolean; manage: boolean; crm: boolean }
 type Need = keyof Rights;
 
 interface Session {
@@ -283,13 +285,14 @@ interface Session {
   rights: Rights;
 }
 
-const RIGHT_COLUMNS = "can_view_sales,can_post_sales,can_void_sales,can_manage_till";
+const RIGHT_COLUMNS = "can_view_sales,can_post_sales,can_void_sales,can_manage_till,can_view_crm";
 const NO_ACCESS = "This account does not have access to Sales.";
 const NEED_MESSAGES: Record<Need, string> = {
   view: "Your account cannot look up sales.",
   post: "Your account cannot make sales.",
   void: "Your account cannot void sales.",
   manage: "Your account cannot manage the till.",
+  crm: "Your account cannot attach clients — use Walk-in.",
 };
 
 function rightsOf(u: Record<string, unknown>): Rights {
@@ -298,6 +301,7 @@ function rightsOf(u: Record<string, unknown>): Rights {
     post: !!u.can_post_sales,
     void: !!u.can_void_sales,
     manage: !!u.can_manage_till,
+    crm: !!u.can_view_crm,
   };
 }
 
@@ -348,11 +352,32 @@ async function settings(): Promise<Settings> {
   };
 }
 
-// A suspended sale the page names must be one of the current mode's. Posting
-// with another mode's draft_id, or cancelling it, is refused here.
+// A suspended sale the page cancels must be one of the current mode's. (Posting
+// one is checked by pos_post_sale itself, under a lock.)
 async function requireDraftInMode(draftId: number, mode: string) {
   const rows = await select(`pos_drafts?draft_id=eq.${draftId}&mode=eq.${mode}&select=draft_id`);
   if (!rows?.length) throw new HttpErr(409, `suspended sale ${draftId} not found`);
+}
+
+// The mode the page shows, sent with post and suspend; pos_post_sale and
+// pos_suspend refuse it under their lock when the till has been switched since.
+function expectMode(v: unknown): string {
+  const m = enumOrNull(v, MODES, "expect_mode");
+  if (!m) throw new HttpErr(400, "Reload the page: it did not say which mode it shows.");
+  return m;
+}
+
+// Without the CRM view right a sale may not name a client.
+function requireWalkInUnlessCrm(sess: Session, sale: Record<string, unknown>) {
+  if (!sess.rights.crm && sale.client_id !== null) throw new HttpErr(403, NEED_MESSAGES.crm);
+}
+
+// Client data a login without the CRM view right may not see: the client's
+// name and Colibri's raw client text go; the reference stays. The receipt's
+// "Client: <name>" line becomes "Client: <client_id>" (Walk-in stays).
+function receiptWithoutName(text: unknown, clientId: unknown): unknown {
+  if (typeof text !== "string" || clientId === null || clientId === undefined || clientId === "") return text;
+  return text.replace(/^Client: .*$/m, `Client: ${clientId}`);
 }
 
 // ------------------------------------------------------------------ actions
@@ -431,16 +456,16 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "post") {
     const sess = await requireSales(body.token, "post");
     const sale = saleIn(body.sale, true);
-    if (sale.draft_id !== null) {
-      const s = await settings();
-      await requireDraftInMode(sale.draft_id as number, s.mode);
-    }
+    sale.expect_mode = expectMode(body.expect_mode);
+    requireWalkInUnlessCrm(sess, sale);
     return await rpc("pos_post_sale", { p: sale, p_actor: sess.name });
   }
 
   if (action === "suspend") {
     const sess = await requireSales(body.token, "post");
     const sale = saleIn(body.sale, false);
+    sale.expect_mode = expectMode(body.expect_mode);
+    requireWalkInUnlessCrm(sess, sale);
     return await rpc("pos_suspend", { p: sale, p_actor: sess.name });
   }
 
@@ -463,7 +488,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
 
   // ------------------------------------------------------------- view right
   if (action === "tickets") {
-    await requireSales(body.token, "view");
+    const sess = await requireSales(body.token, "view");
     const f = obj(body.filters, "filters");
     const training = bool(f.training, "training");
     if (training) {
@@ -486,6 +511,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const rows = ((res.rows ?? []) as Array<Record<string, unknown>>).map((r) => {
       const out = pick(r, LIST_ROW_KEYS);
       out.seller = asLabel(reps, out.seller);
+      if (!sess.rights.crm) delete out.client_name;
       return out;
     });
     return {
@@ -495,7 +521,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
   }
 
   if (action === "ticket") {
-    await requireSales(body.token, "view");
+    const sess = await requireSales(body.token, "view");
     const id = uuid(body.ticket_id, "sale");
     const [doc, reps] = await Promise.all([rpc("pos_ticket_detail", { p_ticket: id }), repMap()]);
     if (!doc?.ticket) throw new HttpErr(404, "No sale with that reference.");
@@ -509,6 +535,11 @@ async function handle(req: Request, body: Record<string, unknown>) {
       return out;
     });
     const payments = ((doc.payments ?? []) as Array<Record<string, unknown>>).map((y) => pick(y, PAYMENT_KEYS));
+    if (!sess.rights.crm) {
+      delete t.client_raw;
+      t.receipt_text = receiptWithoutName(t.receipt_text, t.client_id);
+      return { ticket: t, lines, payments };
+    }
     return { ticket: t, lines, payments, client_name: doc.client_name ?? null };
   }
 

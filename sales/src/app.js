@@ -61,6 +61,10 @@ const RU = {
   "Your account cannot make sales.": "Ваша учётная запись не может проводить продажи.",
   "Your account cannot void sales.": "Ваша учётная запись не может аннулировать продажи.",
   "Your account cannot manage the till.": "Ваша учётная запись не может управлять кассой.",
+  "Your account cannot attach clients — use Walk-in.": "Ваша учётная запись не может указывать клиента — выберите «Без карты клиента».",
+  "the till was switched to live — reload": "Касса переключена в рабочий режим — страница обновлена, проверьте продажу.",
+  "the till was switched to training — reload": "Касса переключена в режим обучения — страница обновлена, проверьте продажу.",
+  "Reload the page: it did not say which mode it shows.": "Обновите страницу: она не сообщила, в каком режиме работает.",
   "No sale with that reference.": "Продажи с таким номером нет.",
   "Add at least one piece.": "Добавьте хотя бы одно изделие.",
   "Something went wrong on the server.": "Ошибка на сервере.",
@@ -114,7 +118,7 @@ function newSale() {
   return { draft_id: null, client_id: null, client_name: null, walk_in: false, seller: "", lines: [], payments: [], fiscal_ref: "" };
 }
 const S = {
-  token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false },
+  token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false, crm: false },
   mode: null, ref: null,             // ref: the `reference` answer (sellers, cash notice, address)
   locked: true, gateMessage: null,
   sale: newSale(),
@@ -151,12 +155,24 @@ function fmtUZS(n) {
   const x = Math.round(Number(n));
   return (x < 0 ? "-" : "") + String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
-// Grouped digits in, a whole number out ("31 500 000" → 31500000); null if none.
-function parseAmount(s) {
-  const d = String(s === null || s === undefined ? "" : s).replace(/\D/g, "").replace(/^0+(?=\d)/, "");
-  if (!d) return null;
-  if (d.length > 14) return Number(d.slice(0, 14));       // numeric(14,0)
-  return Number(d);
+// Typed text → whole so'm. Grouping by spaces, no-break spaces, dots or commas is
+// fine ("31 500 000", "31.500.000"); a trailing decimal part (".00", ",5") is
+// dropped, since amounts are whole so'm; a minus sign makes it invalid.
+// → { value: number | null (empty), invalid: boolean }
+function readAmount(s) {
+  const t = String(s === null || s === undefined ? "" : s).trim();
+  if (!t) return { value: null, invalid: false };
+  if (/[-−–]/.test(t)) return { value: null, invalid: true };
+  const d = t.replace(/[.,]\d{1,2}$/, "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (!d) return { value: null, invalid: true };
+  return { value: Number(d.length > 14 ? d.slice(0, 14) : d), invalid: false };   // numeric(14,0)
+}
+// The amount, or null when empty or invalid.
+function parseAmount(s) { const r = readAmount(s); return r.invalid ? null : r.value; }
+// A field whose text was not accepted is marked (red border, aria-invalid).
+function markInvalid(input, bad) {
+  if (!input) return;
+  if (bad) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
 }
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString(LANG === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -218,12 +234,28 @@ async function api(action, body) {
   if (!res.ok) {
     // A lost session locks the page; the sale on screen is kept.
     if (res.status === 401 && action !== "unlock") lockDown(data.error);
+    // The till was switched on another device: show the mode it is in now, and read the settings again.
+    const sw = res.status === 409 && /^the till was switched to (training|live) — reload$/.exec(data.error || "");
+    if (sw) {
+      syncMode(sw[1]);
+      try { await loadReference(); } catch (e) { /* the message still shows */ }
+    }
     const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
     err.status = res.status;
     err.raw = data.error || "";            // the server's sentence as sent, before any translation
     throw err;
   }
+  if (data && (data.mode === "training" || data.mode === "live")) syncMode(data.mode);
   return data;
+}
+// Every answer that says which mode the till is in keeps the page (and the TRAINING banner) in step.
+function syncMode(mode) {
+  if (S.mode === mode) return;
+  S.mode = mode;
+  if (S.locked) return;
+  if (route().name === "admin") { renderAll(); return; }
+  const h = document.querySelector("#app > header.top");
+  if (h) h.replaceWith(renderHeader());
 }
 
 /* ----------------------------------------------------------------- dialogs
@@ -430,7 +462,7 @@ function toggleTheme() {
 async function loadReference() {
   const r = await api("reference");
   // the owner list for the add-client form comes from crm-api's reference
-  S.ref = Object.assign(r, crmRefFields()); S.mode = r.mode; S.rights = r.rights || S.rights;
+  S.ref = Object.assign(r, crmRefFields()); S.rights = r.rights || S.rights; syncMode(r.mode);
 }
 
 /* -------------------------------------------------------------------- init */

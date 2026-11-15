@@ -681,10 +681,10 @@ async function shot(page, name) {
     // a test sale and a suspended test sale, to clear
     const tok = await page.evaluate(() => JSON.parse(sessionStorage.getItem("sales_session")).token);
     const p = mock.state.pieces.find((x) => x.serial === "ZZ.00.30001");
-    mock.handle({ action: "post", token: tok, sale: { walk_in: true, seller: "Dilnoza A.", lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }],
+    mock.handle({ action: "post", token: tok, expect_mode: "training", sale: { walk_in: true, seller: "Dilnoza A.", lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }],
       payments: [{ method: "cash", amount: 31500000 }] } });
     const w = mock.state.pieces.find((x) => x.serial === "ZZ.00.40001");
-    mock.handle({ action: "suspend", token: tok, sale: { lines: [{ piece_id: w.piece_id, price_uzs: 245000000 }] } });
+    mock.handle({ action: "suspend", token: tok, expect_mode: "training", sale: { lines: [{ piece_id: w.piece_id, price_uzs: 245000000 }] } });
     await page.click("#clear-training");
     await page.waitForSelector("#confirm-dialog");
     await page.click("#confirm-ok");
@@ -759,6 +759,156 @@ async function shot(page, name) {
       await ctx.close();
     });
   }
+
+  /* ================================================== final-review fixes */
+  // ---------------------------------------------- I2: the till switched elsewhere
+  await run("stale mode", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await addPay(page, "cash", "31 500 000");
+    const n0 = mock.state.tickets.length;
+    mock.switchModeBehind("live");                       // Alex goes Live on the PC
+    mock.state.calls.length = 0;
+    await page.click("#post");
+    await page.waitForFunction(() => /switched to live/.test(document.querySelector("#toast").textContent) &&
+      document.querySelector("#toast").classList.contains("show"));
+    const first = mock.state.calls.find((c) => c.action === "post");
+    check("stale mode: the post carries the mode the screen shows", first && first.expect_mode === "training", JSON.stringify(first));
+    check("stale mode: refused, nothing posted", mock.state.tickets.length === n0);
+    check("stale mode: the message is shown", norm(await page.textContent("#toast")) === "the till was switched to live — reload",
+      norm(await page.textContent("#toast")));
+    await page.waitForSelector(".training-band", { state: "detached" });
+    check("stale mode: the TRAINING banner goes", !(await page.$(".training-band")));
+    check("stale mode: the reference is reloaded", mock.state.calls.some((c) => c.action === "reference"));
+    check("stale mode: still on the payment screen, sale kept", !!(await page.$("#screen-pay")) && (await page.$$(".pay-row")).length === 1);
+    mock.state.calls.length = 0;
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    const again = mock.state.calls.find((c) => c.action === "post");
+    check("stale mode: posting again (now knowingly Live) goes through as D-", /D-000003/.test(await page.textContent("#screen-receipt")) &&
+      again && again.expect_mode === "live", JSON.stringify(again && again.expect_mode));
+    check("stale mode: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("mode from replies", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    check("mode from replies: TRAINING at first", !!(await page.$(".training-band")));
+    mock.switchModeBehind("live");
+    await page.fill("#q", "Messika");
+    await page.waitForSelector(".training-band", { state: "detached", timeout: 5000 }).catch(() => {});
+    check("mode from replies: a search answer in Live removes the banner", !(await page.$(".training-band")));
+    mock.switchModeBehind("training");
+    await page.evaluate(() => loadDrafts());
+    await page.waitForSelector(".training-band", { timeout: 5000 }).catch(() => {});
+    check("mode from replies: a drafts answer in training brings it back", !!(await page.$(".training-band")));
+    mock.switchModeBehind("live");
+    await page.evaluate(() => api("ping"));
+    await page.waitForSelector(".training-band", { state: "detached", timeout: 5000 }).catch(() => {});
+    check("mode from replies: a ping answer updates it too", !(await page.$(".training-band")) && await page.evaluate(() => S.mode === "live"));
+    mock.switchModeBehind("training");
+    await addLine(page, "2000000000031");
+    await page.selectOption("#seller", "Dilnoza A.");
+    mock.switchModeBehind("live");
+    mock.state.calls.length = 0;
+    await page.click("#suspend");
+    await page.waitForFunction(() => /switched to live/.test(document.querySelector("#toast").textContent));
+    const sus = mock.state.calls.find((c) => c.action === "suspend");
+    check("mode from replies: suspend carries expect_mode and is refused after a switch", sus && sus.expect_mode === "training" &&
+      mock.state.drafts.length === 0 && (await page.$$("#lines .line")).length === 1, JSON.stringify(sus && sus.expect_mode));
+    check("mode from replies: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------ I3: Sales rights, no CRM view right
+  await run("sales only, no crm", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { login: false });
+    await login(page, "nocrm");
+    await page.waitForSelector("#screen-sale");
+    check("sales only: rights.crm is false", await page.evaluate(() => S.rights.crm === false));
+    await page.click("a.view-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets a.tk-row");
+    const list = norm(await page.textContent("#screen-tickets"));
+    const row = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
+    check("sales only: the list shows the client reference, not the name", row === "DLD-9001" && !/Соколова/.test(list), row);
+    const listCall = mock.state.calls.filter((c) => c.action === "tickets").pop();
+    const [, listRes] = mock.handle(Object.assign({}, listCall));
+    check("sales only: no client_name in the list answer", listRes.rows.every((r) => !("client_name" in r)), JSON.stringify(listRes.rows[0]));
+    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002'))");
+    await page.waitForSelector("#screen-ticket .tl-row");
+    await page.click("#show-receipt");
+    await page.waitForSelector("#screen-ticket .receipt");
+    const det = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
+    check("sales only: the receipt says Client: DLD-9001, without the name", /Client: DLD-9001/.test(det) && !/Соколова/.test(det), det);
+    await page.goBack();
+    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const det2 = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
+    check("sales only: Colibri's raw client text is not shown", !/Invented Buyer/.test(det2), det2);
+    // a walk-in receipt is unchanged
+    const tok = await page.evaluate(() => JSON.parse(sessionStorage.getItem("sales_session")).token);
+    const [, d1] = mock.handle({ action: "ticket", token: tok, ticket_id: "30000000-0000-4000-8000-000000000003" });
+    check("sales only: a Walk-in receipt keeps 'Client: Walk-in'", /Client: Walk-in/.test(d1.ticket.receipt_text));
+    const p = mock.state.pieces.find((x) => x.serial === "ZZ.00.30001");
+    const [st403, b403] = mock.handle({ action: "post", token: tok, expect_mode: "training", sale: { client_id: "DLD-9001", seller: "Dilnoza A.",
+      lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }], payments: [{ method: "cash", amount: 31500000 }] } });
+    check("sales only: (contract) a post naming a client is 403", st403 === 403 && b403.error === "Your account cannot attach clients — use Walk-in.", b403.error);
+    // the page posts Walk-in, which goes through
+    await page.click("a.view-tab[href='#/sale']");
+    await page.waitForSelector("#screen-sale");
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await addPay(page, "cash", "31 500 000");
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    check("sales only: a Walk-in sale posts", /T-000001/.test(await page.textContent("#screen-receipt")));
+    check("sales only: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ---------------------------------------------------- amounts and discounts
+  await run("amount input", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    const price = "#lines .line:nth-child(1) input.l-price";
+    const priceIs = () => page.evaluate(() => S.sale.lines[0].price_uzs);
+    const inv = (sel) => page.$eval(sel, (n) => n.getAttribute("aria-invalid") === "true");
+    for (const [typed, want] of [["31500000.00", 31500000], ["31 500 000,00", 31500000], ["31.500.000", 31500000],
+      ["31 500 000", 31500000], ["31\u00a0500\u00a0000", 31500000], ["31500000.5", 31500000]]) {
+      await page.fill(price, typed);
+      check(`amount: "${typed}" → ${want}`, (await priceIs()) === want && !(await inv(price)), String(await priceIs()));
+    }
+    await page.fill(price, "-5");
+    check("amount: a minus sign is refused (invalid, no price)", (await priceIs()) === null && (await inv(price)) &&
+      (await page.$eval("#to-pay", (b) => b.disabled)), String(await priceIs()));
+    await page.fill(price, "31500000");
+    check("amount: a good value clears the invalid mark", !(await inv(price)) && (await priceIs()) === 31500000);
+    // discount
+    const disc = "#lines .line:nth-child(1) input.l-disc";
+    const pctIs = () => page.evaluate(() => S.sale.lines[0].discount_pct);
+    await page.fill(disc, "12,5");
+    check("discount: a comma works as the decimal separator", (await pctIs()) === 12.5 && !(await inv(disc)), String(await pctIs()));
+    await page.fill(disc, "2.1234");
+    check("discount: four decimals accepted", (await pctIs()) === 2.1234 && !(await inv(disc)), String(await pctIs()));
+    for (const bad of ["2.12345", "1.2.3", "-5", "5%x"]) {
+      await page.fill(disc, bad);
+      check(`discount: "${bad}" is refused (invalid, To pay disabled)`, (await inv(disc)) && (await page.$eval("#to-pay", (b) => b.disabled)) &&
+        (await pctIs()) === 2.1234, String(await pctIs()));
+    }
+    await page.fill(disc, "5");
+    check("discount: a good value clears the invalid mark", !(await inv(disc)) && (await pctIs()) === 5 && !(await page.$eval("#to-pay", (b) => b.disabled)));
+    // payment amount
+    await toPay(page);
+    await addPay(page, "cash", "29925000.00");
+    check("payment: \"29925000.00\" is 29 925 000, not ×100", norm(await valOf(page, ".pay-row:nth-child(1) input.amt")) === "29 925 000" &&
+      (await postEnabled(page)), await valOf(page, ".pay-row:nth-child(1) input.amt"));
+    await page.fill(".pay-row:nth-child(1) input.amt", "-29925000");
+    await page.dispatchEvent(".pay-row:nth-child(1) input.amt", "change");
+    check("payment: a minus sign is refused", (await inv(".pay-row:nth-child(1) input.amt")) && !(await postEnabled(page)));
+    check("amount input: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
 
   await browser.close();
   console.log(results.join("\n"));

@@ -92,11 +92,20 @@ function refreshPay() {
   if (w) w.textContent = why || "";
 }
 function renderPayRow(p, i) {
+  // a text that is not accepted (a minus sign) stays on screen, marked, with no amount
+  const take = (input) => {
+    const r = readAmount(input.value);
+    p.bad = r.invalid ? input.value : null;
+    p.amount = r.invalid ? null : r.value;
+    markInvalid(input, r.invalid);
+    return r;
+  };
   const amt = el("input", { type: "text", class: "amt", inputmode: "numeric", autocomplete: "off",
-    value: p.amount === null || p.amount === undefined ? "" : fmtUZS(p.amount), "aria-label": tr("Amount"),
+    value: p.bad ? p.bad : p.amount === null || p.amount === undefined ? "" : fmtUZS(p.amount), "aria-label": tr("Amount"),
+    "aria-invalid": p.bad ? "true" : null,
     onfocus: (ev) => ev.target.select(),
-    oninput: (ev) => { p.amount = parseAmount(ev.target.value); refreshPay(); },
-    onchange: (ev) => { p.amount = parseAmount(ev.target.value); ev.target.value = p.amount === null ? "" : fmtUZS(p.amount); refreshPay(); } });
+    oninput: (ev) => { take(ev.target); refreshPay(); },
+    onchange: (ev) => { if (!take(ev.target).invalid) ev.target.value = p.amount === null ? "" : fmtUZS(p.amount); refreshPay(); } });
   return el("li", { class: "pay-row" },
     el("div", { class: "p-m" }, tr(METHOD_LABEL[p.method]), p.card_type ? el("small", { text: "· " + CARD_LABEL[p.card_type] }) : null),
     amt,
@@ -118,7 +127,7 @@ async function postSale() {
   const b = $("#post");
   if (b) { b.disabled = true; b.textContent = tr("Posting…"); }
   try {
-    const r = await api("post", { sale });
+    const r = await api("post", { sale, expect_mode: S.mode });
     posting = false;
     S.lastPosted = r;
     S.sale = newSale();                 // posted: nothing left to post twice

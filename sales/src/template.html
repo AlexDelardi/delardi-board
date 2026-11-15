@@ -187,6 +187,7 @@ input[type=text], input[type=search], input[type=password], select, textarea {
 }
 select { padding-right: 28px; }
 select.unset { color: var(--muted); }
+input[aria-invalid="true"] { border-color: var(--critical); box-shadow: 0 0 0 2px color-mix(in srgb, var(--critical) 35%, transparent); }
 .needs { box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 60%, transparent); }
 
 /* search */
