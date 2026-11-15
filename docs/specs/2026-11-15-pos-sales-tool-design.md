@@ -138,7 +138,13 @@ Alex chose **A** on 15 Nov 2026.
   - for a client sale, one CRM purchase row per line is written and linked to its ticket line, and the client's purchase figures are recomputed;
   - two people can't sell the same piece at the same moment;
   - if anything fails, nothing is saved.
-- **The receipt** opens on screen after posting. It shows the Delardi logo, ticket number, date and time, seller label, client display name or "Walk-in", each line (brand, model, serial, price, discount, net), the total and the payments. It is stored as text with the ticket, so printing or emailing can be added later.
+- **The receipt** opens on screen after posting. It shows:
+  - the Delardi logo and the shop address (as Colibri's printed ticket does);
+  - the ticket number, date and time, seller label, and client display name or "Walk-in";
+  - each line (brand, model, serial, price, discount, net), the total and the payments.
+
+  It follows the Delardi house design (`Delardi_Deck_Design_Guide.md` and the brand marks the other tools already use). It is stored as text with the ticket, so printing or emailing can be added later.
+- **The whole tool** uses the same Delardi look as the CRM and the catalogue.
 
 ### 5.4 Suspend, cancel, void
 
@@ -219,6 +225,14 @@ Alex chose **A** on 15 Nov 2026.
    - payments keep the existing method values: `cash`, `card` for Uzcard and Humo, `visa` for Visa, `transfer` for bank transfer;
    - a `card_type` field records Uzcard, Humo or Visa;
    - `ops_ticket_monthly`'s card/visa columns stay as they are.
+
+### 5.9 Checked against the Colibri internals review (15 Nov)
+
+`Colibri_Internals_Static_Review_11Nov2026.md` agrees with this design: barcodes are EAN-13 and print as plain Windows labels; a serial is a reused field on the item row, not a tracked piece; stock is held per delivery. Alex decided the three points it raised:
+- **Client loyalty discounts:** Colibri cards carry a personal %, a VIP %, accumulated spend and cashback. **No automatic loyalty discount.** The seller enters the discount by hand.
+- **Payment types:** Colibri also offers Click, Payme, Unired, Kaspi and more. **Not added.** Cash, Uzcard, Humo, Visa and bank transfer only.
+- **Correcting a posted sale:** Colibri can reopen a posted sale and change its client, seller or payments. **Not added.** The only fix is Void and re-post.
+- **Added:** the shop address and the Delardi house design on the receipt.
 
 ## 6. Left to the builder
 
