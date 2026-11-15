@@ -100,7 +100,7 @@ Alex chose **A** on 15 Nov 2026.
 │ CRM owner: Karina (view in CRM ↗)            │
 │ Purchases: 6 · 412 000 000 · last 14 Oct 26  │
 │  14 Oct 26  Messika ring         38 500 000  │
-│  … (all, each opens its ticket)              │
+│  … (all; ticketed lines open their ticket)   │
 │ Notes / important dates (as in the CRM card) │
 │                     [Use this client] [Walk-in]│
 └──────────────────────────────────────────────┘
@@ -108,7 +108,7 @@ Alex chose **A** on 15 Nov 2026.
 - **Search** works like the CRM client list: name or client reference.
 - **"+ New"** is the CRM's existing add-client form (crm-api `client_add` → `crm_client_add`), with its duplicate check. The new client is attached to the sale straight away.
 - **What the panel shows:** exactly what the CRM card shows this person, under the same rights. No ABC class and no lifecycle tag.
-- **Purchase history** comes from tickets, so each line opens its ticket.
+- **Purchase history** lists every CRM purchase for the client; lines linked to a ticket open it (see 5.8.3).
 - **The CRM owner is shown read-only** with a link to the client in the CRM. Nothing in the sale changes the CRM owner.
 - **Three different people per sale:**
   - **CRM owner**: the client's assigned associate, untouched by the sale;
