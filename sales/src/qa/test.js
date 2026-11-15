@@ -10,6 +10,8 @@ const HTML_FILE = path.join(__dirname, "..", "..", "index.html");   // sales/ind
 const ROOT = "https://alexdelardi.github.io/delardi-board/";
 const PAGE_URL = ROOT + "sales/";
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/sales-api";
+const CRM_API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-api";
+const LANDING = path.join(__dirname, "..", "..", "..", "index.html");   // the root landing page
 const SHOTS = process.env.SHOTS || "";   // a folder to save screenshots in, if set
 
 let pass = 0, fail = 0;
@@ -40,6 +42,11 @@ async function setup(browser, viewport, opts = {}) {
       const [status, data] = mock.handle(JSON.parse(r.request().postData() || "{}"));
       return r.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
     }
+    if (u === CRM_API) {
+      if (r.request().method() === "OPTIONS") return r.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "*" }, body: "ok" });
+      const [status, data] = mock.crmHandle(JSON.parse(r.request().postData() || "{}"));
+      return r.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
+    }
     foreign.push(u);
     return r.fulfill({ status: 404, body: "" });
   });
@@ -52,7 +59,7 @@ async function login(page, pass = "demo") {
   await page.waitForSelector("#gate-pass");
   await page.fill("#gate-pass", pass);
   await page.click(".gate-card button[type=submit]");
-  if (pass === "demo") await page.waitForSelector("#gate", { state: "detached" });
+  if (!["wrong", "none"].includes(pass)) await page.waitForSelector("#gate", { state: "detached" });
 }
 async function scan(page, code) {
   await page.fill("#q", code);
@@ -134,7 +141,7 @@ async function shot(page, name) {
     check("scan adds one: the box is cleared for the next scan", (await valOf(page, "#q")) === "");
     // the same piece again is refused
     await scan(page, "2000000000031");
-    await page.waitForSelector("#toast.show");
+    await page.waitForFunction(() => /already in this sale/i.test(document.querySelector("#toast").textContent)).catch(() => {});
     check("scan adds one: the same piece twice is refused", (await page.$$("#lines .line")).length === 1 &&
       /already in this sale/i.test(await page.textContent("#toast")));
     // (b) a single-match barcode scanned twice more (scanner double-fire): still one line
@@ -335,6 +342,8 @@ async function shot(page, name) {
     check("russian: Новая продажа on the sale screen", /Новая продажа/.test(txt));
     check("russian: the line keeps its piece", (await page.$$("#lines .line")).length === 1 && /Белое золото/.test(await lineText(page, 1, ".l-spec")));
     check("russian: the banner is in Russian", /ОБУЧЕНИЕ/.test(await page.textContent(".training-band")));
+    check("russian: Walk-in reads as the till's word, not the CRM's 'how we met'", norm(await page.textContent("#walk-in")) === "Без карты клиента",
+      norm(await page.textContent("#walk-in")));
     check("russian: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -384,6 +393,372 @@ async function shot(page, name) {
     await shot(page, "ipad-gate-768x1024");
     await ctx.close();
   });
+
+  /* ======================================================== Task 8 checks */
+  const openClientPanel = async (page, q) => {
+    await page.click("#find-client");
+    await page.waitForSelector("#client-q");
+    if (q) {
+      await page.fill("#client-q", q);
+      await page.waitForSelector("#client-results .cl-row");
+    }
+  };
+  const openSokolova = async (page) => {
+    await openClientPanel(page, "Соколова");
+    await page.click("#client-results .cl-row >> nth=0");
+    await page.waitForSelector("#client-card .cc-name");
+  };
+
+  // --------------------------------------------------- client search and use
+  await run("client search and use", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1024, height: 768 });
+    check("client: the login also opened a CRM session", mock.crm.calls.some((c) => c.action === "unlock" && c.passcode === "demo"));
+    await addLine(page, "2000000000031");
+    await openClientPanel(page, "Соколова");
+    const rows = await page.$$eval("#client-results .cl-row", (ns) => ns.map((n) => n.textContent));
+    check("client search: Соколова finds DLD-9001", rows.length === 1 && /Соколова Мария Андреевна/.test(rows[0]) && /DLD-9001/.test(rows[0]), rows.join("|"));
+    check("client search: the search went to crm-api with the CRM token",
+      mock.crm.calls.some((c) => c.action === "clients" && c.q === "Соколова" && mock.crm.sessions.has(c.token)));
+    await page.click("#client-results .cl-row >> nth=0");
+    await page.waitForSelector("#client-card .cc-name");
+    const card = norm(await page.textContent("#client-card"));
+    check("client panel: the display name", /Соколова Мария Андреевна/.test(card), card);
+    check("client panel: the owner label", /Dilnoza A\./.test(norm(await page.textContent("#client-card .cc-owner"))), card);
+    const href = await page.getAttribute("#client-card a.cc-crm", "href");
+    check("client panel: 'View in CRM ↗' links to the CRM card (../crm/#DLD-9001, the CRM's deep link)", /^\.\.\/crm\/#DLD-9001$/.test(href || "") &&
+      /View in CRM ↗/.test(await page.textContent("#client-card a.cc-crm")), href);
+    check("client panel: purchase count and total from the rollup", /2 purchases/.test(card) && /54 700 000/.test(card), card);
+    check("client panel: the last purchase date", card.includes(mock.tkDate(2).split("-").reverse().join(".")), card);
+    check("client panel: notes as the card shows them", /Looking for a gift for her sister/.test(card) && /Prefers an appointment after 18:00/.test(card), card);
+    check("client panel: important dates", /Wedding anniversary/.test(card) && /Child's birthday/.test(card), card);
+    const all = await page.evaluate(() => document.body.innerText);
+    check("client panel: no ABC class anywhere", !/\bABC\b/.test(all) && !/Class A\b/.test(all), "");
+    check("client panel: no lifecycle / segment tag anywhere", !/Champion/.test(all) && !/\bActive\b/.test(all), "");
+    check("client panel: + New offered (CRM editor)", await page.isVisible("#new-client"));
+    await shot(page, "client-panel-1024x768");
+    await page.click("#use-client");
+    await page.waitForSelector("#client-panel", { state: "detached" });
+    const slot = norm(await page.textContent("#screen-sale .client-slot"));
+    check("client use: the sale shows the client", /Соколова Мария Андреевна/.test(slot) && /DLD-9001/.test(slot), slot);
+    check("client use: Walk-in is off", (await page.getAttribute("#walk-in", "aria-pressed")) === "false");
+    await toPay(page, { walkIn: false });
+    await addPay(page, "cash", "31 500 000");
+    check("client use: Post enabled with a client and no Walk-in", await postEnabled(page));
+    mock.state.calls.length = 0;
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    const sent = mock.state.calls.find((c) => c.action === "post");
+    check("client use: the post carries client_id DLD-9001 and no walk_in", sent && sent.sale.client_id === "DLD-9001" && !sent.sale.walk_in,
+      JSON.stringify(sent && sent.sale));
+    check("client: only the two APIs are asked", foreign.length === 0, foreign.join(" "));
+    check("client: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // --------------------------------------------------- purchase opens ticket
+  await run("purchase opens ticket", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await openSokolova(page);
+    const n = (await page.$$("#client-card .purchase")).length;
+    const links = await page.$$("#client-card .purchase.link");
+    const plain = await page.$$eval("#client-card .purchase:not(.link)", (ns) => ns.map((x) => x.tagName + ":" + x.querySelectorAll("a,button").length));
+    check("purchase: two rows from the card's transactions", n === 2, String(n));
+    check("purchase: the row with a ticket line is a link", links.length === 1);
+    check("purchase: the row without one is not a link", plain.length === 1 && /^(LI|DIV):0$/.test(plain[0]), plain.join(","));
+    await links[0].click();
+    await page.waitForSelector("#screen-ticket");
+    check("purchase: opens #/ticket/<id> of D-000002", /#\/ticket\/30000000-0000-4000-8000-000000000004$/.test(page.url()) &&
+      /D-000002/.test(await page.textContent("#screen-ticket")), page.url());
+    check("purchase: looked up with ticket_by_line", mock.state.calls.some((c) => c.action === "ticket_by_line" && c.line_id === "20000000-0000-4000-8000-000000000202"));
+    check("purchase: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------ add client
+  await run("add client", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await openClientPanel(page);
+    await page.click("#new-client");
+    await page.waitForSelector("#addwrap #add-name");
+    check("add client: the CRM add-client form opens", /Add a client/.test(await page.textContent("#addwrap")));
+    const owners = await page.$$eval("#add-owner option", (os) => os.map((o) => o.value));
+    check("add client: the owner choice lists the CRM reps", owners.includes("Dilnoza A.") && owners.includes("Shared (store)") && !owners.includes("Nodira T."), owners.join(","));
+    await page.fill("#add-name", "Новикова Елена Петровна");
+    await page.click("#addwrap form button[type=submit]");
+    await page.waitForSelector("#addwrap", { state: "detached" });
+    await page.waitForFunction(() => /PRS-9001/.test(document.querySelector("#screen-sale .client-slot").textContent));
+    const slot = norm(await page.textContent("#screen-sale .client-slot"));
+    check("add client: the new PRS- client is on the sale", /PRS-9001/.test(slot) && /Новикова Елена Петровна/.test(slot), slot);
+    check("add client: the panel is closed", !(await page.$("#client-panel")));
+    const add = mock.crm.calls.find((c) => c.action === "client_add");
+    check("add client: sent to crm-api with the CRM token", !!add && mock.crm.sessions.has(add.token) && add.name === "Новикова Елена Петровна");
+    check("add client: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // --------------------------------------------------------- no crm access
+  await run("no crm access", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { login: false });
+    await login(page, "nocrm");
+    await page.waitForSelector("#screen-sale");
+    const slot = norm(await page.textContent("#screen-sale .client-slot"));
+    check("no crm access: the line is shown", /No CRM access — Walk-in only/.test(slot), slot);
+    check("no crm access: only Walk-in is offered", !!(await page.$("#walk-in")) && !(await page.$("#find-client")) && !(await page.$("#new-client")));
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    const pay = norm(await page.textContent("#screen-pay .client-slot"));
+    check("no crm access: the payment screen says so too", /No CRM access — Walk-in only/.test(pay) && !(await page.$("#find-client")), pay);
+    check("no crm access: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------ suspend and block
+  await run("suspend and block", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    check("suspend: 'Suspended (0)' at first", /Suspended \(0\)/.test(await page.textContent("#suspended")));
+    await addLine(page, "2000000000031");
+    await page.selectOption("#seller", "Dilnoza A.");
+    await page.click("#suspend");
+    await page.waitForFunction(() => /Suspended \(1\)/.test(document.querySelector("#suspended")?.textContent));
+    check("suspend: 'Suspended (1)'", true);
+    check("suspend: the screen is cleared", (await page.$$("#lines .line")).length === 0 && (await valOf(page, "#seller")) === "");
+    const sus = mock.state.calls.find((c) => c.action === "suspend");
+    check("suspend: sent the lines and the seller", sus && sus.sale.lines.length === 1 && sus.sale.seller === "Dilnoza A." && !sus.sale.payments,
+      JSON.stringify(sus && sus.sale));
+    // the list
+    await page.click("#suspended");
+    await page.waitForSelector("#drafts .draft");
+    const d = norm(await page.textContent("#drafts"));
+    check("suspended list: the draft with its piece and seller", /ZZ\.00\.30001/.test(d) && /Dilnoza A\./.test(d) && /#8/.test(d), d);
+    await shot(page, "suspended-1024x768");
+    await page.click("#drafts-panel-close");
+    // a second suspend is refused → the pop-up
+    await addLine(page, "2000000000048");
+    await page.click("#suspend");
+    await page.waitForSelector("#conflict");
+    check("suspend: a second suspend opens the pop-up", /another sale is suspended/i.test(await page.textContent("#conflict")));
+    check("suspend: the pop-up names the suspended sale", /ZZ\.00\.30001/.test(await page.textContent("#conflict")));
+    await page.click("#conflict-close");
+    check("suspend: the sale on screen is kept", (await page.$$("#lines .line")).length === 1);
+    // post is refused → the pop-up, Resume restores the lines
+    await toPay(page);
+    await addPay(page, "cash", "245 000 000");
+    await page.click("#post");
+    await page.waitForSelector("#conflict");
+    check("post blocked: the pop-up offers Resume and Cancel", !!(await page.$("#conflict-resume")) && !!(await page.$("#conflict-cancel")));
+    await shot(page, "conflict-1024x768");
+    await page.click("#conflict-resume");
+    await page.waitForSelector("#screen-sale");
+    await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 1);
+    check("resume: the suspended lines are back", /ZZ\.00\.30001/.test(await lineText(page, 1, ".l-serial")));
+    check("resume: the seller is back", (await valOf(page, "#seller")) === "Dilnoza A.");
+    check("resume: draft_id is kept", await page.evaluate(() => S.sale.draft_id === 8));
+    // post the resumed sale: the draft goes
+    await toPay(page);
+    await addPay(page, "cash", "31 500 000");
+    mock.state.calls.length = 0;
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    const sent = mock.state.calls.find((c) => c.action === "post");
+    check("resume: the post carries draft_id 8", sent && sent.sale.draft_id === 8, JSON.stringify(sent && sent.sale));
+    await page.click("#new-sale");
+    await page.waitForFunction(() => /Suspended \(0\)/.test(document.querySelector("#suspended")?.textContent));
+    check("resume: after posting, 'Suspended (0)'", true);
+    // cancel asks first
+    await addLine(page, "2000000000048");
+    await page.click("#suspend");
+    await page.waitForFunction(() => /Suspended \(1\)/.test(document.querySelector("#suspended")?.textContent));
+    await page.click("#suspended");
+    await page.waitForSelector("#drafts .draft");
+    await page.click("#drafts .draft-cancel");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-cancel");
+    check("cancel: saying no keeps it", !mock.state.calls.some((c) => c.action === "cancel_draft") && mock.state.drafts.length === 1);
+    await page.click("#drafts .draft-cancel");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => /Suspended \(0\)/.test(document.querySelector("#suspended")?.textContent));
+    check("cancel: confirmed → cancel_draft, 'Suspended (0)'", mock.state.drafts.length === 0);
+    check("suspend: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------ tickets list
+  await run("tickets list", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await page.click("a.view-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets a.tk-row");
+    const nos = () => page.$$eval("#screen-tickets a.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
+    let list = await nos();
+    check("tickets: the last 30 days by default (no T-, not the 45-day-old one)", list.length === 4 && !list.includes("C-103900") && !list.some((x) => /^T-/.test(x)), list.join(","));
+    check("tickets: the From box says 30 days back", (await valOf(page, "#tk-from")) === mock.tkDate(29) && (await valOf(page, "#tk-to")) === mock.tkDate(0),
+      await valOf(page, "#tk-from"));
+    const sum = norm(await page.textContent("#tk-sum"));
+    check("tickets: the count and total line", /4 tickets/.test(sum) && /69 500 000/.test(sum), sum);
+    const refund = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230')) .tk-net"));
+    check("tickets: a refund shows negative", refund === "-9 800 000", refund);
+    check("tickets: test sales offered only while training", (await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
+    await shot(page, "tickets-1024x768");
+    await page.selectOption("#tk-source", "delardi");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 2);
+    list = await nos();
+    check("tickets: source 'ours' shows only D-/T-", list.length === 2 && list.every((x) => /^[DT]-/.test(x)), list.join(","));
+    await page.selectOption("#tk-source", "");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
+    await page.fill("#tk-q", "ZZ.00.11001");
+    await page.press("#tk-q", "Enter");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 1);
+    list = await nos();
+    check("tickets: search by serial finds the Colibri ticket", list.length === 1 && list[0] === "C-104233", list.join(","));
+    await page.fill("#tk-q", "");
+    await page.press("#tk-q", "Enter");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
+    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const det = norm(await page.textContent("#screen-ticket"));
+    check("ticket detail: the refund line shows negative", /-9 800 000/.test(norm(await page.textContent("#screen-ticket .tl-row .tl-net"))), det);
+    check("ticket detail: Colibri is read-only (no Void, no Receipt)", !(await page.$("#void")) && !(await page.$("#show-receipt")) && /read-only/i.test(det), det);
+    await page.goBack();
+    await page.waitForSelector("#screen-tickets a.tk-row");
+    check("tickets: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------------- void
+  await run("void", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/ticket/30000000-0000-4000-8000-000000000003" });
+    await page.waitForSelector("#screen-ticket .tl-row");
+    check("void: our posted ticket offers Receipt and Void", !!(await page.$("#show-receipt")) && !!(await page.$("#void")));
+    await page.click("#show-receipt");
+    await page.waitForSelector("#screen-ticket .receipt");
+    check("void: the receipt shows", /D-000001/.test(await page.textContent("#screen-ticket .receipt")));
+    await page.click("#void");
+    await page.waitForSelector("#void-reason");
+    mock.state.calls.length = 0;
+    await page.click("#void-go");
+    await page.waitForSelector("#void-form .form-err");
+    check("void: no reason → blocked, nothing sent", !mock.state.calls.some((c) => c.action === "void") && !(await page.$("#confirm-dialog")));
+    await page.fill("#void-reason", "The client changed her mind at the counter.");
+    await page.click("#void-go");
+    await page.waitForSelector("#confirm-dialog");
+    await shot(page, "void-confirm-1024x768");
+    await page.click("#confirm-ok");
+    await page.waitForSelector("#era-reminder");
+    const det = norm(await page.textContent("#screen-ticket"));
+    check("void: status VOIDED", /VOIDED/.test(norm(await page.textContent("#screen-ticket .tk-status"))), det);
+    check("void: the Era reminder", norm(await page.textContent("#era-reminder")) === "Cancel the fiscal receipt in Era as well.");
+    check("void: the reason was sent", mock.state.calls.some((c) => c.action === "void" && c.reason === "The client changed her mind at the counter."));
+    check("void: the reason is shown", /changed her mind/.test(det), det);
+    check("void: no stray 'null' on the ticket", !/\bnull\b/.test(await page.evaluate(() => document.querySelector("#screen-ticket").innerText)));
+    check("void: no Void button on a void ticket", !(await page.$("#void")));
+    await shot(page, "ticket-1024x768");
+    check("void: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    // without the void right there is no Void button
+    const b = await setup(browser, { width: 1024, height: 768 }, { login: false, hash: "#/ticket/30000000-0000-4000-8000-000000000004" });
+    await login(b.page, "rep");
+    await b.page.waitForSelector("#screen-ticket .tl-row");
+    check("void: no button without the void right", !(await b.page.$("#void")) && !!(await b.page.$("#show-receipt")));
+    await b.ctx.close();
+  });
+
+  // ------------------------------------------------------------------ admin
+  await run("admin", async () => {
+    const a = await setup(browser, { width: 1024, height: 768 }, { login: false });
+    await login(a.page, "rep");
+    await a.page.waitForSelector("#screen-sale");
+    check("admin: no tab without manage", !(await a.page.$("a.view-tab[href='#/admin']")));
+    await a.page.evaluate(() => { location.hash = "#/admin"; });
+    await a.page.waitForTimeout(200);
+    check("admin: the screen holds no switch without manage", !(await a.page.$("#mode-live")) && !(await a.page.$("#clear-training")));
+    await a.ctx.close();
+
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await page.click("a.view-tab[href='#/admin']");
+    await page.waitForSelector("#screen-admin #mode-live");
+    check("admin: training now", (await page.getAttribute("#mode-training", "aria-pressed")) === "true");
+    check("admin: no go-live date yet", /not yet/i.test(await page.textContent("#go-live")));
+    // a test sale and a suspended test sale, to clear
+    const tok = await page.evaluate(() => JSON.parse(sessionStorage.getItem("sales_session")).token);
+    const p = mock.state.pieces.find((x) => x.serial === "ZZ.00.30001");
+    mock.handle({ action: "post", token: tok, sale: { walk_in: true, seller: "Dilnoza A.", lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }],
+      payments: [{ method: "cash", amount: 31500000 }] } });
+    const w = mock.state.pieces.find((x) => x.serial === "ZZ.00.40001");
+    mock.handle({ action: "suspend", token: tok, sale: { lines: [{ piece_id: w.piece_id, price_uzs: 245000000 }] } });
+    await page.click("#clear-training");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForSelector("#clear-result");
+    const cr = norm(await page.textContent("#clear-result"));
+    check("admin: clear test sales shows what was cleared", /1 test ticket\b/.test(cr) && /1 suspended test sale\b/.test(cr), cr);
+    await shot(page, "admin-1024x768");
+    await page.click("#mode-live");
+    await page.waitForSelector("#confirm-dialog");
+    const txt = norm(await page.textContent("#confirm-dialog"));
+    check("admin: Live asks to confirm and says what Live means", /real/i.test(txt) && /sold/i.test(txt) && /CRM/.test(txt), txt);
+    await page.click("#confirm-cancel");
+    check("admin: saying no keeps training", !!(await page.$(".training-band")) && mock.state.mode === "training");
+    await page.click("#mode-live");
+    await page.click("#confirm-ok");
+    await page.waitForSelector(".training-band", { state: "detached" });
+    check("admin: Live removes the TRAINING banner", mock.state.mode === "live" && !(await page.$(".training-band")));
+    check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(mock.tkDate(0).split("-").reverse().join(".")),
+      await page.textContent("#go-live"));
+    await page.click("a.view-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets a.tk-row");
+    check("admin: Live → no test-sales option in the ticket list", !(await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
+    check("admin: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------ landing tile
+  await run("landing tile", async () => {
+    const html = fs.readFileSync(LANDING, "utf8");
+    const tile = /<a class="tool" href="sales\/" data-tool="sales">([\s\S]*?)<\/a>/.exec(html);
+    check("landing tile: a fourth tile links to sales/", (html.match(/<a class="tool" /g) || []).length === 4 && !!tile);
+    check("landing tile: named Sales / Продажи", !!tile && /data-i18n="sales_name">Sales</.test(tile[1]) && /sales_name: "Продажи"/.test(html));
+    check("landing tile: reads the unlock state only", !!tile && /data-session="sales_session"/.test(tile[1]));
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { login: false });
+    await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: html }));
+    await page.goto(ROOT);
+    check("landing tile: the landing page shows it", /Sales/.test(await page.textContent("a.tool[data-tool=sales]")));
+    check("landing tile: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------- the new screens on iPad
+  for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    const tag = vp.width + "x" + vp.height;
+    await run("ipad screens " + tag, async () => {
+      const { ctx, page, errors } = await setup(browser, vp, { touch: true });
+      await openSokolova(page);
+      check(`ipad ${tag}: client panel — no sideways scroll`, await noHScroll(page));
+      let small = await smallButtons(page);
+      check(`ipad ${tag}: client panel — buttons ≥ 44 px`, small.length === 0, small.join(", "));
+      await shot(page, "ipad-client-" + tag);
+      await page.click("#client-close");
+      await page.click("a.view-tab[href='#/tickets']");
+      await page.waitForSelector("#screen-tickets a.tk-row");
+      check(`ipad ${tag}: tickets — no sideways scroll`, await noHScroll(page));
+      small = await smallButtons(page);
+      check(`ipad ${tag}: tickets — buttons ≥ 44 px`, small.length === 0, small.join(", "));
+      await shot(page, "ipad-tickets-" + tag);
+      await page.click("#screen-tickets a.tk-row >> nth=0");
+      await page.waitForSelector("#screen-ticket .tl-row");
+      check(`ipad ${tag}: ticket — no sideways scroll`, await noHScroll(page));
+      small = await smallButtons(page);
+      check(`ipad ${tag}: ticket — buttons ≥ 44 px`, small.length === 0, small.join(", "));
+      await shot(page, "ipad-ticket-" + tag);
+      await page.click("a.view-tab[href='#/admin']");
+      await page.waitForSelector("#screen-admin #mode-live");
+      check(`ipad ${tag}: admin — no sideways scroll`, await noHScroll(page));
+      small = await smallButtons(page);
+      check(`ipad ${tag}: admin — buttons ≥ 44 px`, small.length === 0, small.join(", "));
+      await shot(page, "ipad-admin-" + tag);
+      check(`ipad ${tag} screens: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    });
+  }
 
   await browser.close();
   console.log(results.join("\n"));

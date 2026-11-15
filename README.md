@@ -4,10 +4,11 @@ One repository, four pages:
 
 | Path | Page |
 |---|---|
-| `/` — `index.html` | **Landing page.** Links to the three tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
+| `/` — `index.html` | **Landing page.** Links to the four tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
 | `/board/` — `board/index.html` | **Weekly Board.** A private page for the weekly leadership meeting: topics tracked across **Marketing · Retail · Operations · Company Steering**, with a week-by-week record of what was said about each one. |
 | `/crm/` — `crm/index.html` | **Client Instrument.** The CRM spring clean — see below. |
 | `/catalogue/` — `catalogue/index.html` | **Catalogue.** Every watch and piece of jewellery for the floor — see below. |
+| `/sales/` — `sales/index.html` | **Sales (the till).** Scan a piece, choose the client (read from the CRM through crm-api, or Walk-in), take payment, print the receipt; suspended sales, the ticket list with void, and Training / Live for the manager. Talks only to `sales-api` and `crm-api`. Source and build: `sales/src/` (see `sales/src/README.md`). |
 
 The board lived at the root until 21 September 2026. The old address now opens
 the landing page, one click from the board.

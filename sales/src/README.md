@@ -1,8 +1,8 @@
 # Delardi Sales (the till) — source (`sales/src/`)
 
 `sales/index.html` is one self-contained file: the page, its styles, its script
-and the brand marks, with no network request except to `sales-api` (and, from
-Task 8, `crm-api`). That file is **built**, not edited by hand.
+and the brand marks, with no network request except to `sales-api` and
+`crm-api`. That file is **built**, not edited by hand.
 
 ## Building the page
 
@@ -17,10 +17,14 @@ python3 build.py        # writes ../index.html
 
 | File | What is in it |
 |---|---|
-| `app.js` | the shell: state `S`, `api()`, the dictionary (`tr`, `RU`), `el()`, `toast()`, routes and `go()`, the passcode card, the idle lock, the header and the TRAINING band, the `renderClientSlot()` stub, and the init block at the end |
-| `sale.js` | the sale screen: search and scan, the lines, discounts, sellers, the total |
+| `app.js` | the shell: state `S`, `api()`, the dictionary (`tr`, `RU`), `el()`, `toast()`, `modal()` and `confirmBox()`, routes and `go()`, the passcode card, the idle lock, the header and the TRAINING band, and the init block at the end |
+| `sale.js` | the sale screen: search and scan, the lines, discounts, sellers, the total; suspended sales (Suspend, the "Suspended (n)" list, Resume, Cancel, the "another sale is suspended" pop-up) |
 | `pay.js` | the payment screen, posting, and the receipt |
-| `crmshim.js`, `../../crm/src/addclient.js`, `client.js`, `tickets.js`, `admin.js` | Task 8 — skipped with a printed note while they are not there |
+| `crmshim.js` | the CRM session (crm-api `unlock` with the same passcode) and the free names `crm/src/addclient.js` needs |
+| `../../crm/src/addclient.js` | the CRM's own add-client form, **unchanged** |
+| `client.js` | the client on a sale: the slot, the search and the client panel |
+| `tickets.js` | the ticket list, one ticket, its receipt, and void |
+| `admin.js` | `#/admin`: Training / Live, the go-live date, clearing test sales |
 
 The brand marks (`brand/`) are substituted as data URIs.
 
@@ -32,8 +36,32 @@ The brand marks (`brand/`) are substituted as data URIs.
   passcode card over the page. The sale on screen is kept; the token is dropped.
 - **TRAINING** shows on every screen while the till is in training.
 - **Routes:** `#/sale`, `#/pay`, `#/receipt/<ticket_id>`, `#/tickets`,
-  `#/ticket/<ticket_id>`, `#/admin`. The last three are placeholders until
-  Task 8 replaces their entries in `ROUTES`.
+  `#/ticket/<ticket_id>`, `#/admin` (shown only with the manage right).
+- **The client:** at login the page sends the same passcode to crm-api
+  `unlock` and keeps that CRM session for the tab. If crm-api answers 401 or
+  403, the till offers Walk-in only and says "No CRM access — Walk-in only".
+  Otherwise Find client searches crm-api `clients` (300 ms pause) and opens
+  the panel from `client`: name, the CRM owner (read-only) with
+  "View in CRM ↗" (`../crm/#<id>`, the CRM's deep link), purchase count and
+  total from the card's `rollup`, the last purchase, the purchases (a row with
+  `ticket_line_id` opens its ticket through `ticket_by_line`), notes and
+  important dates. **No ABC class and no lifecycle tag.** "+ New" (CRM
+  editors only) opens the CRM's own add-client form; the record it makes goes
+  on the sale.
+- **Suspended sales:** one per mode. Suspend sets the sale aside (its pieces
+  are held) and clears the screen; "Suspended (n)" lists it with Resume and
+  Cancel (Cancel asks first). Resume puts it back, keeping its `draft_id`.
+  When Suspend or Post is refused with "another sale is suspended", a pop-up
+  offers to resume or cancel that sale.
+- **Tickets:** search, a date range (last 30 days, Tashkent, by default),
+  seller, source and status, with the count and net total. Colibri tickets are
+  read-only; refund lines show negative. Sales from this till show their
+  receipt, and a login with the void right can void a posted one, with a
+  reason and a confirm; the page then reminds you to cancel the fiscal receipt
+  in Era as well. Test sales are offered only while the till is in training.
+- **Admin:** Training / Live with a confirm that says what Live means, the
+  go-live date, and "Clear test sales" (confirm), which says how many test
+  tickets and suspended test sales it removed.
 - **Search:** suggestions after two characters (250 ms pause). Enter adds the
   piece only when exactly one sellable piece matches (as the API reports it,
   whatever is already on the sale); if that piece is already on the sale it
@@ -59,14 +87,17 @@ SHOTS=/some/folder node qa/test.js     # also saves screenshots there
 ```
 
 `qa/mock.js` is an in-memory stand-in for `sales-api` that follows
-`api/README.md` (actions, shapes, 400/401/403/404/409 with `{error}`). Every
-piece, rep and client in it is invented: serials `ZZ.00.xxxxx`, barcodes
-`200…`. The checks run in Chromium through Playwright: login, scan, a shared
+`api/README.md` (actions, shapes, 400/401/403/404/409 with `{error}`), and a
+second one for `crm-api` (`crmHandle`: unlock, ping, reference, clients,
+client, client_add, in `crm/src/api/index.ts`'s shapes). Every piece, rep,
+ticket and client in it is invented: serials `ZZ.00.xxxxx`, barcodes `200…`,
+clients `DLD-9xxx` / `PRS-9xxx`. The checks run in Chromium through Playwright: login, scan, a shared
 barcode, discounts and rounding, the Post guard, split payments, the cash
 notice, posting and the receipt, a 409, the idle lock (with Playwright's
-clock), Russian, and the iPad sizes (1024×768 and 768×1024: no sideways
-scroll, buttons at least 44 px). The run also fails if the page asks for
-anything but the API.
+clock), Russian, the client panel, adding a client, no CRM access, suspended
+sales, the ticket list, void, admin, the landing tile, and the iPad sizes
+(1024×768 and 768×1024: no sideways scroll, buttons at least 44 px). The run
+also fails if the page asks for anything but the two APIs.
 
 ## The API
 

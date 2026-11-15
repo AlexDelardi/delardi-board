@@ -123,11 +123,14 @@ async function postSale() {
     S.lastPosted = r;
     S.sale = newSale();                 // posted: nothing left to post twice
     S.lastPct = null;
+    if (sale.draft_id) loadDrafts();    // a resumed suspended sale is gone once posted
     go("#/receipt/" + encodeURIComponent(r.ticket_id));
   } catch (e) {
     posting = false;
     if (b) b.textContent = tr("Post sale");
-    if (e.status !== 401) toast(e.message);     // a 401 already shows the passcode card
+    // one suspended sale blocks every post until it is resumed or cancelled
+    if (/another sale is suspended/.test(e.raw || "")) openSuspendConflict();
+    else if (e.status !== 401) toast(e.message);     // a 401 already shows the passcode card
     refreshPay();
   }
 }

@@ -5,8 +5,8 @@
    issued only in exchange for a personal passcode, and only to someone who has
    been given Sales rights. Until a passcode is accepted the page holds nothing.
 
-   Globals other modules build on (Task 8): S, api(), tr() with RU, el(),
-   toast(), go(), ROUTES, renderClientSlot(), fmtUZS(), lineNet(), saleTotal().
+   Globals other modules build on: S, api(), tr() with RU, el(), toast(),
+   go(), ROUTES, modal(), confirmBox(), fmtUZS(), lineNet(), saleTotal().
    ========================================================================= */
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/sales-api";
 const LOGO_WORDMARK = "__WORDMARK__";
@@ -66,15 +66,13 @@ const RU = {
   "Something went wrong on the server.": "Ошибка на сервере.",
   "No connection. Check the Wi-Fi and try again.": "Нет связи. Проверьте Wi-Fi и попробуйте ещё раз.",
   "Request failed ({n})": "Ошибка запроса ({n})",
-  // client slot
+  // client slot (client.js)
   "Client": "Клиент",
   "Walk-in": "Без карты клиента",
-  "Find client": "Найти клиента",
-  "Client search arrives with the next update. Use Walk-in for now.": "Поиск клиента появится в следующем обновлении. Пока выберите «Без карты клиента».",
-  // placeholders
-  "Ticket lookup arrives with the next update.": "Поиск чеков появится в следующем обновлении.",
-  "Till settings arrive with the next update.": "Настройки кассы появятся в следующем обновлении.",
-  "Back to the sale": "Вернуться к продаже",
+  // dialogs
+  "Yes": "Да",
+  "Cancel": "Отмена",
+  "Close": "Закрыть",
 };
 // Counted nouns: English one/many; Russian one/few/many.
 const PL = {
@@ -222,22 +220,59 @@ async function api(action, body) {
     if (res.status === 401 && action !== "unlock") lockDown(data.error);
     const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
     err.status = res.status;
+    err.raw = data.error || "";            // the server's sentence as sent, before any translation
     throw err;
   }
   return data;
 }
 
+/* ----------------------------------------------------------------- dialogs
+   modal(id, title, body, foot): a sheet over the page (not inside #app, so a
+   redraw of the page leaves it open). confirmBox() asks yes / no and resolves
+   to true or false. */
+function modal(id, title, body, foot, cls) {
+  const old = document.getElementById(id);
+  if (old) old.remove();
+  const close = () => { const h = document.getElementById(id); if (h) h.remove(); };
+  const host = el("div", { id, class: "modal-wrap" + (cls ? " " + cls : "") },
+    el("div", { class: "modal-scrim", onclick: close }),
+    el("section", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
+      el("div", { class: "modal-head" },
+        el("h3", { id: id + "-title", text: title }),
+        el("button", { class: "btn subtle close", type: "button", id: id + "-close", "aria-label": tr("Close"), onclick: close, text: "×" })),
+      el("div", { class: "modal-body" }, body),
+      foot ? el("div", { class: "modal-foot" }, foot) : null));
+  document.body.appendChild(host);
+  return { host, close };
+}
+function confirmBox({ title, body, ok, danger }) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
+    const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
+      el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
+      el("button", { type: "button", class: "btn subtle", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+    ], "confirm");
+    // closing it any other way (×, the scrim) is a no
+    new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
+      .observe(document.body, { childList: true });
+    setTimeout(() => { const b = $("#confirm-cancel"); if (b && !touchDevice()) b.focus(); }, 30);
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("#confirm-dialog")) { e.preventDefault(); e.stopImmediatePropagation(); $("#confirm-cancel").click(); }
+}, true);
+
 /* ------------------------------------------------------------------ routes
    #/sale  #/pay  #/receipt/<ticket_id>  #/tickets  #/ticket/<ticket_id>  #/admin
-   Each name maps to a function (main, arg) that fills <main>. Later modules
-   replace entries (tickets, ticket, admin arrive with Task 8). */
+   Each name maps to a function (main, arg) that fills <main>. */
 const ROUTES = {
   sale: (main) => renderSale(main),
   pay: (main) => renderPay(main),
   receipt: (main, id) => renderReceipt(main, id),
-  tickets: (main) => placeholder(main, "Tickets", "Ticket lookup arrives with the next update."),
-  ticket: (main) => placeholder(main, "Tickets", "Ticket lookup arrives with the next update."),
-  admin: (main) => placeholder(main, "Admin", "Till settings arrive with the next update."),
+  tickets: (main) => renderTickets(main),          // tickets.js
+  ticket: (main, id) => renderTicket(main, id),     // tickets.js
+  admin: (main) => renderAdmin(main),               // admin.js
 };
 function route() {
   const m = /^#\/([a-z]+)(?:\/([^/?#]+))?/.exec(location.hash || "");
@@ -249,28 +284,9 @@ function go(r) {
   if (location.hash === h) renderAll(); else location.hash = h;
 }
 window.addEventListener("hashchange", () => { if (!S.locked) renderAll(); });
-function placeholder(main, title, text) {
-  main.append(el("div", { class: "placeholder" },
-    el("h1", { text: tr(title) }), el("p", { text: tr(text) }),
-    el("a", { class: "btn", href: "#/sale", text: tr("Back to the sale") })));
-}
 
 /* ------------------------------------------------------------- the client
-   Task 8 replaces this with the client panel. Here: Walk-in works, Find client
-   says it is coming. */
-function renderClientSlot(container) {
-  const s = S.sale;
-  container.append(el("div", { class: "client-slot" },
-    el("span", { class: "lbl", text: tr("Client") + ":" }),
-    el("button", { class: "btn", type: "button", id: "walk-in", "aria-pressed": s.walk_in ? "true" : "false",
-      onclick: () => {
-        s.walk_in = !s.walk_in;
-        if (s.walk_in) { s.client_id = null; s.client_name = null; }
-        renderAll();
-      } }, tr("Walk-in")),
-    el("button", { class: "btn", type: "button", id: "find-client",
-      onclick: () => toast(tr("Client search arrives with the next update. Use Walk-in for now.")) }, tr("Find client"))));
-}
+   renderClientSlot(container) — the client on a sale — is client.js's. */
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
@@ -327,7 +343,11 @@ function renderGate() {
       const r = await api("unlock", { passcode: pass.value });
       S.token = r.token; S.name = r.name; S.expires_at = r.expires_at; S.rights = r.rights;
       sstore(SESSION_KEY, JSON.stringify({ token: r.token, name: r.name, expires_at: r.expires_at, rights: r.rights }));
+      // The client panel reads the CRM with a CRM session of its own: the same
+      // passcode, sent to crm-api. Without CRM rights the till is Walk-in only.
+      await crmUnlock(pass.value);
       await loadReference();
+      loadDrafts();
       S.locked = false; S.gateMessage = null;
       activeNow();
       renderAll();
@@ -359,6 +379,7 @@ function renderGate() {
 // Drop the token and ask for the passcode again. The sale on screen stays.
 function lockDown(message) {
   S.token = null;
+  crmDrop();
   sstore(SESSION_KEY, null);
   sstore(ACTIVE_KEY, null);
   S.locked = true;
@@ -408,7 +429,8 @@ function toggleTheme() {
 
 async function loadReference() {
   const r = await api("reference");
-  S.ref = r; S.mode = r.mode; S.rights = r.rights || S.rights;
+  // the owner list for the add-client form comes from crm-api's reference
+  S.ref = Object.assign(r, crmRefFields()); S.mode = r.mode; S.rights = r.rights || S.rights;
 }
 
 /* -------------------------------------------------------------------- init */
@@ -431,6 +453,7 @@ function restoreSession() {
     const last = Number(sstore(ACTIVE_KEY) || 0);
     if (touchDevice() && last && Date.now() - last >= IDLE_MIN * 60000) { sstore(SESSION_KEY, null); return false; }
     S.token = s.token; S.name = s.name; S.expires_at = s.expires_at; S.rights = s.rights || S.rights;
+    crmRestore();
     return true;
   } catch (e) { return false; }
 }
@@ -440,7 +463,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", app
   applyTheme();
   document.documentElement.lang = LANG;
   if (restoreSession()) {
-    try { await loadReference(); S.locked = false; activeNow(); }
+    try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); }
     catch (e) { if (e.status !== 401) { S.token = null; sstore(SESSION_KEY, null); } }
   }
   if (S.locked) $("#app").innerHTML = "";          // nothing behind the gate

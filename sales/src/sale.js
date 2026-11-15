@@ -42,6 +42,35 @@ Object.assign(RU, {
   "Every piece needs a price.": "У каждого изделия должна быть цена.",
   "size {s}": "размер {s}",
   "so'm": "сум",
+  // suspended sales
+  "Suspended ({n})": "Отложенные ({n})",
+  "Suspend": "Отложить",
+  "Sets this sale aside; its pieces are held for it until it is resumed or cancelled.":
+    "Откладывает продажу; изделия держатся за ней, пока её не продолжат или не отменят.",
+  "Suspended sales": "Отложенные продажи",
+  "No sale is suspended.": "Отложенных продаж нет.",
+  "Resume": "Продолжить",
+  "Cancel it": "Отменить её",
+  "Sale suspended as #{n}.": "Продажа отложена под №{n}.",
+  "Suspended sale #{n}": "Отложенная продажа №{n}",
+  "{who}, {when}": "{who}, {when}",
+  "no seller yet": "продавец не выбран",
+  "no client yet": "клиент не выбран",
+  "Resume suspended sale #{n}?": "Продолжить отложенную продажу №{n}?",
+  "The sale on screen will be cleared.": "Продажа на экране будет очищена.",
+  "Cancel suspended sale #{n}?": "Отменить отложенную продажу №{n}?",
+  "Its pieces are released and nothing of it is kept.": "Её изделия освобождаются, от неё ничего не остаётся.",
+  "Cancel the suspended sale": "Отменить отложенную продажу",
+  "Keep it": "Оставить",
+  "Suspended sale #{n} cancelled.": "Отложенная продажа №{n} отменена.",
+  "Suspended sale #{n} resumed.": "Отложенная продажа №{n} продолжена.",
+  "Another sale is suspended": "Уже есть отложенная продажа",
+  "The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.":
+    "Касса держит только одну отложенную продажу: пока её не продолжат или не отменят, ничего другого нельзя ни отложить, ни провести.",
+  "Resume it (the sale on screen is cleared), or cancel it and carry on with this one.":
+    "Продолжите её (продажа на экране будет очищена) или отмените её и продолжайте эту.",
+  "Resume it": "Продолжить её",
+  "Resumed suspended sale #{n}. Post it, or suspend it again.": "Продолжена отложенная продажа №{n}. Проведите её или снова отложите.",
 });
 
 // Material and stone words, as the catalogue shows them (catalogue/src/model.js).
@@ -274,7 +303,9 @@ function renderSale(main) {
       title: s.lines.some((l) => !(l.price_uzs > 0)) ? tr("Every piece needs a price.") : null,
       onclick: () => go("#/pay") }, tr("Payment →")));
   main.append(el("section", { class: "sheet", id: "screen-sale" },
-    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }), el("div", { class: "aside" }, sellerSelect())),
+    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }),
+      el("div", { class: "aside" }, suspendTools(), sellerSelect())),
+    s.draft_id ? el("p", { class: "resumed", text: tr("Resumed suspended sale #{n}. Post it, or suspend it again.", { n: s.draft_id }) }) : null,
     el("div", { class: "search" },
       el("span", { class: "glass", "aria-hidden": "true", html: '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11.6 11.6 16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>' }),
       q, sugg),
@@ -289,4 +320,135 @@ function renderSale(main) {
         } }, tr("Same % for all lines"))) : null,
     foot));
   renderSugg();
+}
+
+/* ========================================================= suspended sales
+   One suspended sale per mode (the database refuses a second, and refuses
+   any post while one is waiting, with "another sale is suspended"). Its
+   pieces are held for it. Resume puts it back on the screen, keeping its
+   draft_id, so posting it (or suspending it again) is that same sale. */
+S.drafts = null;
+async function loadDrafts() {
+  if (!S.rights.post || !S.token) { S.drafts = []; refreshSuspended(); return S.drafts; }
+  try {
+    const r = await api("drafts");
+    S.drafts = r.drafts || [];
+  } catch (e) { if (S.drafts === null) S.drafts = []; }
+  refreshSuspended();
+  return S.drafts;
+}
+function refreshSuspended() {
+  const b = $("#suspended");
+  if (b) b.textContent = tr("Suspended ({n})", { n: (S.drafts || []).length });
+}
+function suspendTools() {
+  return [
+    el("button", { type: "button", class: "btn", id: "suspended", onclick: openDrafts }, tr("Suspended ({n})", { n: (S.drafts || []).length })),
+    el("button", { type: "button", class: "btn", id: "suspend", disabled: S.sale.lines.length ? null : true,
+      title: tr("Sets this sale aside; its pieces are held for it until it is resumed or cancelled."), onclick: suspendSale }, tr("Suspend")),
+  ];
+}
+let suspending = false;
+async function suspendSale() {
+  const s = S.sale;
+  if (suspending || !s.lines.length) return;
+  const sale = {
+    seller: s.seller || null, fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(), draft_id: s.draft_id || null,
+    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs > 0 ? l.price_uzs : null, discount_pct: l.discount_pct || 0, seller: l.seller || null })),
+  };
+  if (s.walk_in) sale.walk_in = true; else if (s.client_id) sale.client_id = s.client_id;
+  suspending = true;
+  try {
+    const r = await api("suspend", { sale });
+    S.sale = newSale(); S.lastPct = null;
+    toast(tr("Sale suspended as #{n}.", { n: r.draft_id }));
+    await loadDrafts();
+    go("#/sale");
+  } catch (e) {
+    if (/another sale is suspended/.test(e.raw || "")) openSuspendConflict();
+    else if (e.status !== 401) toast(e.message);
+  } finally { suspending = false; }
+}
+function draftSummary(d) {
+  const total = d.lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
+  const when = new Date(d.created_at);
+  const stamp = isNaN(when) ? "" : fmtStampDay(d.created_at) + " " + fmtTime(d.created_at);
+  return [
+    el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
+      el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
+    el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
+      el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
+      el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
+    el("div", { class: "draft-m muted" }, [
+      d.walk_in ? walkInText() : d.client_id || tr("no client yet"),
+      d.seller || tr("no seller yet"),
+      tr("Total") + " " + fmtUZS(total),
+    ].join(" · ")),
+  ];
+}
+function draftToSale(d) {
+  const s = newSale();
+  Object.assign(s, { draft_id: d.draft_id, client_id: d.client_id || null, walk_in: !!d.walk_in, seller: d.seller || "" });
+  s.lines = d.lines.map((l) => ({
+    piece_id: l.piece_id, serial: l.serial, barcode: null, brand: l.brand, article: null, collection: null, model_name: l.model_name,
+    colour: null, size: null, metal_keys: [], stone_keys: [], list_price: l.price_uzs, price_uzs: l.price_uzs,
+    discount_pct: Number(l.discount_pct) || 0, seller: l.seller || null, sellerOpen: false,
+  }));
+  return s;
+}
+async function resumeDraft(d, ask) {
+  const s = S.sale;
+  if (ask && s.lines.length && s.draft_id !== d.draft_id) {
+    const yes = await confirmBox({ title: tr("Resume suspended sale #{n}?", { n: d.draft_id }), body: tr("The sale on screen will be cleared."), ok: tr("Resume") });
+    if (!yes) return;
+  }
+  ["drafts-panel", "conflict"].forEach((id) => { const h = document.getElementById(id); if (h) h.remove(); });
+  S.sale = draftToSale(d); S.lastPct = null;
+  toast(tr("Suspended sale #{n} resumed.", { n: d.draft_id }));
+  go("#/sale");
+  if (S.sale.client_id && S.crm) {
+    const id = S.sale.client_id;
+    try { const c = await call("client", { id }); if (S.sale.client_id === id) { S.sale.client_name = cardName(c); renderAll(); } } catch (e) { /* the reference will do */ }
+  }
+}
+async function cancelDraft(d) {
+  const yes = await confirmBox({ title: tr("Cancel suspended sale #{n}?", { n: d.draft_id }), body: tr("Its pieces are released and nothing of it is kept."),
+    ok: tr("Cancel the suspended sale"), danger: true });
+  if (!yes) return false;
+  try {
+    await api("cancel_draft", { draft_id: d.draft_id });
+    if (S.sale.draft_id === d.draft_id) S.sale.draft_id = null;
+    toast(tr("Suspended sale #{n} cancelled.", { n: d.draft_id }));
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+  await loadDrafts();
+  return true;
+}
+async function openDrafts() {
+  const render = () => {
+    const list = S.drafts || [];
+    modal("drafts-panel", tr("Suspended sales"), el("div", { id: "drafts" },
+      list.length ? list.map((d) => el("div", { class: "draft" }, draftSummary(d),
+        el("div", { class: "draft-act" },
+          el("button", { type: "button", class: "btn primary draft-resume", onclick: () => resumeDraft(d, true) }, tr("Resume")),
+          el("button", { type: "button", class: "btn draft-cancel", onclick: async () => { if (await cancelDraft(d)) render(); } }, tr("Cancel it")))))
+        : el("p", { class: "muted", text: tr("No sale is suspended.") })));
+  };
+  render();
+  await loadDrafts();
+  if ($("#drafts-panel")) render();
+}
+// "another sale is suspended", from Suspend or from Post: show that sale and
+// offer to resume it or cancel it.
+async function openSuspendConflict() {
+  await loadDrafts();
+  const d = (S.drafts || [])[0];
+  if (!d) { toast(tr("Another sale is suspended")); return; }
+  const m = modal("conflict", tr("Another sale is suspended"), [
+    el("p", { text: tr("The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.") }),
+    el("div", { class: "draft" }, draftSummary(d)),
+    el("p", { class: "muted", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
+  ], [
+    el("button", { type: "button", class: "btn primary", id: "conflict-resume", onclick: () => resumeDraft(d, false) }, tr("Resume it")),
+    el("button", { type: "button", class: "btn", id: "conflict-cancel", onclick: async () => { if (await cancelDraft(d)) m.close(); } }, tr("Cancel it")),
+  ]);
 }

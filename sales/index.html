@@ -336,9 +336,180 @@ button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
 .receipt-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: flex-end; }
 
 .muted { color: var(--muted); font-size: 13.5px; }
-.placeholder { max-width: 640px; margin: 40px auto; text-align: center; color: var(--ink-2); }
-.placeholder h1 { font-family: var(--serif); font-weight: 600; color: var(--ink); }
 .notice-box { max-width: 640px; margin: 20px auto; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+
+/* -------------------------------------------------------- Task 8: dialogs */
+.btn.danger { background: var(--critical); color: #FFFFFF; border-color: var(--critical); }
+.btn.danger:hover:not(:disabled) { opacity: .9; background: var(--critical); }
+.modal-wrap { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.modal-wrap.confirm { z-index: 80; }
+.modal-scrim { position: fixed; inset: 0; background: rgba(0,8,24,.45); }
+.modal {
+  position: relative; width: min(620px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.28);
+}
+.confirm .modal { width: min(460px, 100%); }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 18px; border-bottom: 1px solid var(--grid); }
+.modal-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; line-height: 1.3; }
+.close { font-size: 22px; line-height: 1; }
+.modal-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.modal-body p { margin: 0; line-height: 1.5; }
+.modal-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--grid); }
+
+/* ---------------------------------------------- the client on a sale */
+.client-chip { display: inline-flex; align-items: baseline; gap: 2px; padding: 0 4px; font-size: 14px; max-width: 100%; overflow-wrap: anywhere; }
+.client-chip .cid, .cc-name .cid { color: var(--muted); font-weight: 500; font-size: 13px; font-family: var(--sans); }
+.no-crm { font-size: 13px; color: var(--ink-2); padding: 4px 10px; border: 1px dashed var(--line); border-radius: 8px; }
+.cpbox { width: min(700px, 100%); }
+.cp-search input { width: 100%; min-height: 50px; font-size: 16px; background: var(--surface-2); }
+.cl-list { display: flex; flex-direction: column; gap: 2px; }
+.cl-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; width: 100%;
+  border: 0; background: none; border-radius: 8px; padding: 8px 12px; min-height: 52px;
+}
+.cl-row:hover, .cl-row.on { background: var(--row-hover); }
+.cl-name { font-weight: 600; font-size: 15px; }
+.cl-meta { font-size: 12.5px; color: var(--ink-2); }
+.client-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
+.cc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+.cc-name { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.cc-crm { text-decoration: none; }
+.cc-owner { font-size: 14px; }
+.cc-owner .k { color: var(--ink-2); }
+.cc-facts { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14px; }
+.cc-facts span:first-child { font-weight: 600; }
+.cc-sec h5 { margin: 0 0 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.purchases { display: flex; flex-direction: column; }
+.purchase {
+  display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%;
+  min-height: 44px; padding: 6px 8px; border: 0; border-top: 1px solid var(--grid); background: none; text-align: left; font-size: 14px;
+}
+.purchase:first-child { border-top: 0; }
+.purchase.link { cursor: pointer; border-radius: 6px; }
+.purchase.link .pu-item { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
+.purchase.link:hover { background: var(--row-hover); }
+.pu-date { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pu-item { overflow-wrap: anywhere; }
+.pu-net { text-align: right; }
+.cc-note { margin: 0 0 4px; font-size: 14px; line-height: 1.45; }
+.cc-note .when { color: var(--muted); font-size: 12.5px; }
+.cc-dates { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.cc-dates li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+/* the CRM's add-client form (crm/src/addclient.js), in the CRM's own look */
+.addwrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.add-scrim { position: fixed; inset: 0; background: rgba(0,8,24,.45); }
+.addbox { position: relative; width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+.addbox .sheet-head { position: sticky; top: 0; background: var(--surface); z-index: 1; padding: 8px 8px 8px 16px; }
+.addbox .sheet-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.editor { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.editor fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.editor legend, .editor .lbl { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 0; margin: 0 0 2px; }
+.editor input[type=text], .editor input[type=tel], .editor select, .editor textarea { width: 100%; }
+.editor fieldset.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.editor .opt { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.editor .opt input { width: 20px; height: 20px; margin: 0; accent-color: var(--navy-2); }
+.editor .hint { font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.45; }
+.form-err { margin: 0; color: var(--critical); font-size: 13.5px; font-weight: 500; }
+.form-actions, .editor .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.add-dup { font-size: 13px; background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); border-radius: 8px; padding: 8px 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+
+/* ------------------------------------------------------- suspended sales */
+.resumed { margin: 10px 20px 0; padding: 8px 12px; border-radius: 8px; font-size: 13.5px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--ink-2); }
+.draft { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.draft + .draft { margin-top: 10px; }
+.draft-lines { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.draft-lines li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; overflow-wrap: anywhere; }
+.draft-m { font-size: 13px; }
+.draft-act { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------------------------------------------------------------- tickets */
+.tk-pad { padding: 12px 20px; margin: 0; }
+.tk-filters { display: grid; grid-template-columns: 165px 165px repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 20px 6px; align-items: end; }
+.tk-filters .tk-q { grid-column: 1 / -1; }
+.tk-filters .tk-q input { width: 100%; }
+.tk-filters select { width: 100%; }
+.tk-date-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tk-date-f span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.tk-date-f input { min-height: var(--tap); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--surface); color: var(--ink); width: 100%; }
+.tk-train-note { margin: 6px 20px 0; padding: 8px 12px; font-size: 13px; border-radius: 8px;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 16%, var(--surface)) 0 14px, color-mix(in srgb, var(--warning) 9%, var(--surface)) 14px 28px); }
+.tk-sum { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 10px 20px; font-size: 14.5px; border-bottom: 1px solid var(--grid); }
+.tk-list { display: flex; flex-direction: column; padding: 0 12px 10px; }
+.tk-row {
+  display: grid; align-items: center; gap: 2px 12px; padding: 10px 8px; min-height: 52px;
+  grid-template-columns: 88px 92px 80px 100px minmax(0, 1.2fr) minmax(0, 1.4fr) 112px 92px;
+  border-top: 1px solid var(--grid); text-decoration: none; color: inherit; font-size: 14px;
+}
+a.tk-row:hover { background: var(--row-hover); }
+.tk-headrow { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; border-top: 0; min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+.tk-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-no { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tk-net, .tk-h-net { text-align: right; }
+.tk-row.is-void .tk-net { text-decoration: line-through; color: var(--muted); }
+.tk-st { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); justify-self: start; }
+.tk-st.void { border-color: var(--critical); color: var(--critical); letter-spacing: .06em; }
+.tk-status { display: inline-flex; }
+.tk-pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 6px 20px 16px; }
+@media (max-width: 900px) {
+  .tk-filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .tk-filters > .tk-date-f { grid-column: span 3; }
+  .tk-filters > select { grid-column: span 2; }
+  .tk-headrow { display: none; }
+  .tk-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "no net" "client st" "meta meta"; }
+  .tk-no { grid-area: no; } .tk-net { grid-area: net; } .tk-client { grid-area: client; } .tk-row > .tk-st { grid-area: st; justify-self: end; }
+  .tk-date, .tk-src, .tk-seller { grid-row: 3; font-size: 12.5px; color: var(--ink-2); }
+  .tk-row { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "no no no net" "client client client st" "date src seller seller" "items items items items"; }
+  .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; font-size: 12.5px; color: var(--ink-2); }
+}
+.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 20px; margin: 0; padding: 14px 20px; }
+.tk-meta .kv { min-width: 0; }
+.tk-meta dt { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.tk-meta dd { margin: 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.ro-note { margin: 0 20px; font-size: 13px; color: var(--ink-2); }
+.era-reminder { margin: 8px 20px 0; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 14px;
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); }
+.tl-lines { list-style: none; margin: 0; padding: 4px 20px; }
+.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 130px; gap: 4px 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--grid); }
+.tl-row:first-child { border-top: 0; }
+.tl-title { font-weight: 600; overflow-wrap: anywhere; }
+.tl-title .tag { margin-left: 8px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--serious); color: var(--serious); }
+.tl-meta { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.tl-price, .tl-net { text-align: right; }
+.tl-price small { color: var(--muted); }
+.tl-net { font-weight: 600; }
+.tl-row.refund .tl-net { color: var(--serious); }
+.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.tl-pays { flex: 1 1 260px; min-width: 0; }
+.tl-pays h5 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.tl-pay { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; max-width: 360px; }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 20px 16px; }
+.void-form { margin: 0 20px 14px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--critical) 40%, transparent); border-radius: 8px;
+  display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--critical) 5%, var(--surface)); }
+.void-form .lbl { font-size: 13px; font-weight: 600; }
+.void-form textarea { width: 100%; padding: 10px 12px; resize: vertical; }
+.tk-receipt { max-width: 560px; margin: 0 auto 20px; padding: 0 20px; }
+@media (max-width: 720px) {
+  .tk-filters, .tk-sum, .tk-meta, .tl-lines, .tl-foot, .tk-actions { padding-left: 14px; padding-right: 14px; }
+  .tk-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tk-filters > .tk-date-f, .tk-filters > select { grid-column: auto; }
+  .tl-row { grid-template-columns: minmax(0, 1fr) auto; } .tl-price { grid-column: 1; text-align: left; }
+}
+
+/* ------------------------------------------------------------------ admin */
+.admin-body { padding: 6px 20px 20px; display: flex; flex-direction: column; }
+.admin-sec { padding: 16px 0; border-top: 1px solid var(--grid); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.admin-sec:first-child { border-top: 0; }
+.admin-sec h2 { margin: 0; font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.admin-sec p { margin: 0; max-width: 640px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg .btn { border: 0; border-radius: 0; min-width: 120px; }
+.seg .btn + .btn { border-left: 1px solid var(--line); }
+.big-date { font-family: var(--serif); font-size: 20px; }
+.ok-line { color: var(--good-ink); font-weight: 600; }
 
 /* -------------------------------------------------------------------- gate */
 #app.gated { filter: blur(9px) saturate(.9); pointer-events: none; user-select: none; }
@@ -384,6 +555,10 @@ button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
   .l-net { align-self: end; padding-bottom: 10px; }
 }
 @media (max-width: 720px) {
+  .modal-wrap { padding: 0; align-items: flex-end; }
+  .modal { width: 100%; max-height: 92vh; border-radius: 10px 10px 0 0; }
+  .addwrap { padding: 0; align-items: flex-end; }
+  .addbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
   main { padding: 12px 10px 120px; }
   .top-row { padding: 8px 12px; }
   .brand .rule, .brand .sub { display: none; }
@@ -403,6 +578,8 @@ button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
 
 @media print {
   .top, .training-band, .receipt-actions, .receipt-head, .toast, .watermark { display: none !important; }
+  #screen-ticket > :not(.tk-receipt) { display: none !important; }
+  #screen-ticket { border: 0; box-shadow: none; }
   main { padding: 0; }
   .receipt { box-shadow: none; border: 0; }
 }
@@ -421,8 +598,8 @@ button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
    issued only in exchange for a personal passcode, and only to someone who has
    been given Sales rights. Until a passcode is accepted the page holds nothing.
 
-   Globals other modules build on (Task 8): S, api(), tr() with RU, el(),
-   toast(), go(), ROUTES, renderClientSlot(), fmtUZS(), lineNet(), saleTotal().
+   Globals other modules build on: S, api(), tr() with RU, el(), toast(),
+   go(), ROUTES, modal(), confirmBox(), fmtUZS(), lineNet(), saleTotal().
    ========================================================================= */
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/sales-api";
 const LOGO_WORDMARK = "data:image/png;base64,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";
@@ -482,15 +659,13 @@ const RU = {
   "Something went wrong on the server.": "Ошибка на сервере.",
   "No connection. Check the Wi-Fi and try again.": "Нет связи. Проверьте Wi-Fi и попробуйте ещё раз.",
   "Request failed ({n})": "Ошибка запроса ({n})",
-  // client slot
+  // client slot (client.js)
   "Client": "Клиент",
   "Walk-in": "Без карты клиента",
-  "Find client": "Найти клиента",
-  "Client search arrives with the next update. Use Walk-in for now.": "Поиск клиента появится в следующем обновлении. Пока выберите «Без карты клиента».",
-  // placeholders
-  "Ticket lookup arrives with the next update.": "Поиск чеков появится в следующем обновлении.",
-  "Till settings arrive with the next update.": "Настройки кассы появятся в следующем обновлении.",
-  "Back to the sale": "Вернуться к продаже",
+  // dialogs
+  "Yes": "Да",
+  "Cancel": "Отмена",
+  "Close": "Закрыть",
 };
 // Counted nouns: English one/many; Russian one/few/many.
 const PL = {
@@ -638,22 +813,59 @@ async function api(action, body) {
     if (res.status === 401 && action !== "unlock") lockDown(data.error);
     const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
     err.status = res.status;
+    err.raw = data.error || "";            // the server's sentence as sent, before any translation
     throw err;
   }
   return data;
 }
 
+/* ----------------------------------------------------------------- dialogs
+   modal(id, title, body, foot): a sheet over the page (not inside #app, so a
+   redraw of the page leaves it open). confirmBox() asks yes / no and resolves
+   to true or false. */
+function modal(id, title, body, foot, cls) {
+  const old = document.getElementById(id);
+  if (old) old.remove();
+  const close = () => { const h = document.getElementById(id); if (h) h.remove(); };
+  const host = el("div", { id, class: "modal-wrap" + (cls ? " " + cls : "") },
+    el("div", { class: "modal-scrim", onclick: close }),
+    el("section", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
+      el("div", { class: "modal-head" },
+        el("h3", { id: id + "-title", text: title }),
+        el("button", { class: "btn subtle close", type: "button", id: id + "-close", "aria-label": tr("Close"), onclick: close, text: "×" })),
+      el("div", { class: "modal-body" }, body),
+      foot ? el("div", { class: "modal-foot" }, foot) : null));
+  document.body.appendChild(host);
+  return { host, close };
+}
+function confirmBox({ title, body, ok, danger }) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
+    const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
+      el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
+      el("button", { type: "button", class: "btn subtle", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+    ], "confirm");
+    // closing it any other way (×, the scrim) is a no
+    new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
+      .observe(document.body, { childList: true });
+    setTimeout(() => { const b = $("#confirm-cancel"); if (b && !touchDevice()) b.focus(); }, 30);
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("#confirm-dialog")) { e.preventDefault(); e.stopImmediatePropagation(); $("#confirm-cancel").click(); }
+}, true);
+
 /* ------------------------------------------------------------------ routes
    #/sale  #/pay  #/receipt/<ticket_id>  #/tickets  #/ticket/<ticket_id>  #/admin
-   Each name maps to a function (main, arg) that fills <main>. Later modules
-   replace entries (tickets, ticket, admin arrive with Task 8). */
+   Each name maps to a function (main, arg) that fills <main>. */
 const ROUTES = {
   sale: (main) => renderSale(main),
   pay: (main) => renderPay(main),
   receipt: (main, id) => renderReceipt(main, id),
-  tickets: (main) => placeholder(main, "Tickets", "Ticket lookup arrives with the next update."),
-  ticket: (main) => placeholder(main, "Tickets", "Ticket lookup arrives with the next update."),
-  admin: (main) => placeholder(main, "Admin", "Till settings arrive with the next update."),
+  tickets: (main) => renderTickets(main),          // tickets.js
+  ticket: (main, id) => renderTicket(main, id),     // tickets.js
+  admin: (main) => renderAdmin(main),               // admin.js
 };
 function route() {
   const m = /^#\/([a-z]+)(?:\/([^/?#]+))?/.exec(location.hash || "");
@@ -665,28 +877,9 @@ function go(r) {
   if (location.hash === h) renderAll(); else location.hash = h;
 }
 window.addEventListener("hashchange", () => { if (!S.locked) renderAll(); });
-function placeholder(main, title, text) {
-  main.append(el("div", { class: "placeholder" },
-    el("h1", { text: tr(title) }), el("p", { text: tr(text) }),
-    el("a", { class: "btn", href: "#/sale", text: tr("Back to the sale") })));
-}
 
 /* ------------------------------------------------------------- the client
-   Task 8 replaces this with the client panel. Here: Walk-in works, Find client
-   says it is coming. */
-function renderClientSlot(container) {
-  const s = S.sale;
-  container.append(el("div", { class: "client-slot" },
-    el("span", { class: "lbl", text: tr("Client") + ":" }),
-    el("button", { class: "btn", type: "button", id: "walk-in", "aria-pressed": s.walk_in ? "true" : "false",
-      onclick: () => {
-        s.walk_in = !s.walk_in;
-        if (s.walk_in) { s.client_id = null; s.client_name = null; }
-        renderAll();
-      } }, tr("Walk-in")),
-    el("button", { class: "btn", type: "button", id: "find-client",
-      onclick: () => toast(tr("Client search arrives with the next update. Use Walk-in for now.")) }, tr("Find client"))));
-}
+   renderClientSlot(container) — the client on a sale — is client.js's. */
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
@@ -743,7 +936,11 @@ function renderGate() {
       const r = await api("unlock", { passcode: pass.value });
       S.token = r.token; S.name = r.name; S.expires_at = r.expires_at; S.rights = r.rights;
       sstore(SESSION_KEY, JSON.stringify({ token: r.token, name: r.name, expires_at: r.expires_at, rights: r.rights }));
+      // The client panel reads the CRM with a CRM session of its own: the same
+      // passcode, sent to crm-api. Without CRM rights the till is Walk-in only.
+      await crmUnlock(pass.value);
       await loadReference();
+      loadDrafts();
       S.locked = false; S.gateMessage = null;
       activeNow();
       renderAll();
@@ -775,6 +972,7 @@ function renderGate() {
 // Drop the token and ask for the passcode again. The sale on screen stays.
 function lockDown(message) {
   S.token = null;
+  crmDrop();
   sstore(SESSION_KEY, null);
   sstore(ACTIVE_KEY, null);
   S.locked = true;
@@ -824,7 +1022,8 @@ function toggleTheme() {
 
 async function loadReference() {
   const r = await api("reference");
-  S.ref = r; S.mode = r.mode; S.rights = r.rights || S.rights;
+  // the owner list for the add-client form comes from crm-api's reference
+  S.ref = Object.assign(r, crmRefFields()); S.mode = r.mode; S.rights = r.rights || S.rights;
 }
 
 /* ===========================================================================
@@ -871,6 +1070,35 @@ Object.assign(RU, {
   "Every piece needs a price.": "У каждого изделия должна быть цена.",
   "size {s}": "размер {s}",
   "so'm": "сум",
+  // suspended sales
+  "Suspended ({n})": "Отложенные ({n})",
+  "Suspend": "Отложить",
+  "Sets this sale aside; its pieces are held for it until it is resumed or cancelled.":
+    "Откладывает продажу; изделия держатся за ней, пока её не продолжат или не отменят.",
+  "Suspended sales": "Отложенные продажи",
+  "No sale is suspended.": "Отложенных продаж нет.",
+  "Resume": "Продолжить",
+  "Cancel it": "Отменить её",
+  "Sale suspended as #{n}.": "Продажа отложена под №{n}.",
+  "Suspended sale #{n}": "Отложенная продажа №{n}",
+  "{who}, {when}": "{who}, {when}",
+  "no seller yet": "продавец не выбран",
+  "no client yet": "клиент не выбран",
+  "Resume suspended sale #{n}?": "Продолжить отложенную продажу №{n}?",
+  "The sale on screen will be cleared.": "Продажа на экране будет очищена.",
+  "Cancel suspended sale #{n}?": "Отменить отложенную продажу №{n}?",
+  "Its pieces are released and nothing of it is kept.": "Её изделия освобождаются, от неё ничего не остаётся.",
+  "Cancel the suspended sale": "Отменить отложенную продажу",
+  "Keep it": "Оставить",
+  "Suspended sale #{n} cancelled.": "Отложенная продажа №{n} отменена.",
+  "Suspended sale #{n} resumed.": "Отложенная продажа №{n} продолжена.",
+  "Another sale is suspended": "Уже есть отложенная продажа",
+  "The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.":
+    "Касса держит только одну отложенную продажу: пока её не продолжат или не отменят, ничего другого нельзя ни отложить, ни провести.",
+  "Resume it (the sale on screen is cleared), or cancel it and carry on with this one.":
+    "Продолжите её (продажа на экране будет очищена) или отмените её и продолжайте эту.",
+  "Resume it": "Продолжить её",
+  "Resumed suspended sale #{n}. Post it, or suspend it again.": "Продолжена отложенная продажа №{n}. Проведите её или снова отложите.",
 });
 
 // Material and stone words, as the catalogue shows them (catalogue/src/model.js).
@@ -1103,7 +1331,9 @@ function renderSale(main) {
       title: s.lines.some((l) => !(l.price_uzs > 0)) ? tr("Every piece needs a price.") : null,
       onclick: () => go("#/pay") }, tr("Payment →")));
   main.append(el("section", { class: "sheet", id: "screen-sale" },
-    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }), el("div", { class: "aside" }, sellerSelect())),
+    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }),
+      el("div", { class: "aside" }, suspendTools(), sellerSelect())),
+    s.draft_id ? el("p", { class: "resumed", text: tr("Resumed suspended sale #{n}. Post it, or suspend it again.", { n: s.draft_id }) }) : null,
     el("div", { class: "search" },
       el("span", { class: "glass", "aria-hidden": "true", html: '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11.6 11.6 16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>' }),
       q, sugg),
@@ -1118,6 +1348,137 @@ function renderSale(main) {
         } }, tr("Same % for all lines"))) : null,
     foot));
   renderSugg();
+}
+
+/* ========================================================= suspended sales
+   One suspended sale per mode (the database refuses a second, and refuses
+   any post while one is waiting, with "another sale is suspended"). Its
+   pieces are held for it. Resume puts it back on the screen, keeping its
+   draft_id, so posting it (or suspending it again) is that same sale. */
+S.drafts = null;
+async function loadDrafts() {
+  if (!S.rights.post || !S.token) { S.drafts = []; refreshSuspended(); return S.drafts; }
+  try {
+    const r = await api("drafts");
+    S.drafts = r.drafts || [];
+  } catch (e) { if (S.drafts === null) S.drafts = []; }
+  refreshSuspended();
+  return S.drafts;
+}
+function refreshSuspended() {
+  const b = $("#suspended");
+  if (b) b.textContent = tr("Suspended ({n})", { n: (S.drafts || []).length });
+}
+function suspendTools() {
+  return [
+    el("button", { type: "button", class: "btn", id: "suspended", onclick: openDrafts }, tr("Suspended ({n})", { n: (S.drafts || []).length })),
+    el("button", { type: "button", class: "btn", id: "suspend", disabled: S.sale.lines.length ? null : true,
+      title: tr("Sets this sale aside; its pieces are held for it until it is resumed or cancelled."), onclick: suspendSale }, tr("Suspend")),
+  ];
+}
+let suspending = false;
+async function suspendSale() {
+  const s = S.sale;
+  if (suspending || !s.lines.length) return;
+  const sale = {
+    seller: s.seller || null, fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(), draft_id: s.draft_id || null,
+    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs > 0 ? l.price_uzs : null, discount_pct: l.discount_pct || 0, seller: l.seller || null })),
+  };
+  if (s.walk_in) sale.walk_in = true; else if (s.client_id) sale.client_id = s.client_id;
+  suspending = true;
+  try {
+    const r = await api("suspend", { sale });
+    S.sale = newSale(); S.lastPct = null;
+    toast(tr("Sale suspended as #{n}.", { n: r.draft_id }));
+    await loadDrafts();
+    go("#/sale");
+  } catch (e) {
+    if (/another sale is suspended/.test(e.raw || "")) openSuspendConflict();
+    else if (e.status !== 401) toast(e.message);
+  } finally { suspending = false; }
+}
+function draftSummary(d) {
+  const total = d.lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
+  const when = new Date(d.created_at);
+  const stamp = isNaN(when) ? "" : fmtStampDay(d.created_at) + " " + fmtTime(d.created_at);
+  return [
+    el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
+      el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
+    el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
+      el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
+      el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
+    el("div", { class: "draft-m muted" }, [
+      d.walk_in ? walkInText() : d.client_id || tr("no client yet"),
+      d.seller || tr("no seller yet"),
+      tr("Total") + " " + fmtUZS(total),
+    ].join(" · ")),
+  ];
+}
+function draftToSale(d) {
+  const s = newSale();
+  Object.assign(s, { draft_id: d.draft_id, client_id: d.client_id || null, walk_in: !!d.walk_in, seller: d.seller || "" });
+  s.lines = d.lines.map((l) => ({
+    piece_id: l.piece_id, serial: l.serial, barcode: null, brand: l.brand, article: null, collection: null, model_name: l.model_name,
+    colour: null, size: null, metal_keys: [], stone_keys: [], list_price: l.price_uzs, price_uzs: l.price_uzs,
+    discount_pct: Number(l.discount_pct) || 0, seller: l.seller || null, sellerOpen: false,
+  }));
+  return s;
+}
+async function resumeDraft(d, ask) {
+  const s = S.sale;
+  if (ask && s.lines.length && s.draft_id !== d.draft_id) {
+    const yes = await confirmBox({ title: tr("Resume suspended sale #{n}?", { n: d.draft_id }), body: tr("The sale on screen will be cleared."), ok: tr("Resume") });
+    if (!yes) return;
+  }
+  ["drafts-panel", "conflict"].forEach((id) => { const h = document.getElementById(id); if (h) h.remove(); });
+  S.sale = draftToSale(d); S.lastPct = null;
+  toast(tr("Suspended sale #{n} resumed.", { n: d.draft_id }));
+  go("#/sale");
+  if (S.sale.client_id && S.crm) {
+    const id = S.sale.client_id;
+    try { const c = await call("client", { id }); if (S.sale.client_id === id) { S.sale.client_name = cardName(c); renderAll(); } } catch (e) { /* the reference will do */ }
+  }
+}
+async function cancelDraft(d) {
+  const yes = await confirmBox({ title: tr("Cancel suspended sale #{n}?", { n: d.draft_id }), body: tr("Its pieces are released and nothing of it is kept."),
+    ok: tr("Cancel the suspended sale"), danger: true });
+  if (!yes) return false;
+  try {
+    await api("cancel_draft", { draft_id: d.draft_id });
+    if (S.sale.draft_id === d.draft_id) S.sale.draft_id = null;
+    toast(tr("Suspended sale #{n} cancelled.", { n: d.draft_id }));
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+  await loadDrafts();
+  return true;
+}
+async function openDrafts() {
+  const render = () => {
+    const list = S.drafts || [];
+    modal("drafts-panel", tr("Suspended sales"), el("div", { id: "drafts" },
+      list.length ? list.map((d) => el("div", { class: "draft" }, draftSummary(d),
+        el("div", { class: "draft-act" },
+          el("button", { type: "button", class: "btn primary draft-resume", onclick: () => resumeDraft(d, true) }, tr("Resume")),
+          el("button", { type: "button", class: "btn draft-cancel", onclick: async () => { if (await cancelDraft(d)) render(); } }, tr("Cancel it")))))
+        : el("p", { class: "muted", text: tr("No sale is suspended.") })));
+  };
+  render();
+  await loadDrafts();
+  if ($("#drafts-panel")) render();
+}
+// "another sale is suspended", from Suspend or from Post: show that sale and
+// offer to resume it or cancel it.
+async function openSuspendConflict() {
+  await loadDrafts();
+  const d = (S.drafts || [])[0];
+  if (!d) { toast(tr("Another sale is suspended")); return; }
+  const m = modal("conflict", tr("Another sale is suspended"), [
+    el("p", { text: tr("The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.") }),
+    el("div", { class: "draft" }, draftSummary(d)),
+    el("p", { class: "muted", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
+  ], [
+    el("button", { type: "button", class: "btn primary", id: "conflict-resume", onclick: () => resumeDraft(d, false) }, tr("Resume it")),
+    el("button", { type: "button", class: "btn", id: "conflict-cancel", onclick: async () => { if (await cancelDraft(d)) m.close(); } }, tr("Cancel it")),
+  ]);
 }
 
 /* ===========================================================================
@@ -1245,11 +1606,14 @@ async function postSale() {
     S.lastPosted = r;
     S.sale = newSale();                 // posted: nothing left to post twice
     S.lastPct = null;
+    if (sale.draft_id) loadDrafts();    // a resumed suspended sale is gone once posted
     go("#/receipt/" + encodeURIComponent(r.ticket_id));
   } catch (e) {
     posting = false;
     if (b) b.textContent = tr("Post sale");
-    if (e.status !== 401) toast(e.message);     // a 401 already shows the passcode card
+    // one suspended sale blocks every post until it is resumed or cancelled
+    if (/another sale is suspended/.test(e.raw || "")) openSuspendConflict();
+    else if (e.status !== 401) toast(e.message);     // a 401 already shows the passcode card
     refreshPay();
   }
 }
@@ -1345,6 +1709,178 @@ async function renderReceipt(main, id) {
         el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) }))));
   }
   wrap.append(actions());
+}
+
+/* ===========================================================================
+   The CRM, as the till sees it (Task 8)
+   The till reads clients through crm-api, the CRM's own edge function, with a
+   CRM session of its own: at login the page sends the same passcode to
+   crm-api `unlock`. A login without CRM rights gets 403 there, and the till
+   then offers Walk-in only. There is no database key here either.
+
+   crm/src/addclient.js is built into this page UNCHANGED. It was written for
+   the CRM page, so this file defines exactly the free names it uses and the
+   till does not otherwise have:
+     call, canEdit, SHARED, isShared, who, radio, maskDmy, dmyToIso,
+     pushOverlay, popOverlay, openCard, refreshBehind.
+   ($, el, blank, tr, RU, S and toast come from app.js.) addclient.js declares
+   canAdd itself (canAdd = () => canEdit()), so it is not declared here.
+   ========================================================================= */
+const CRM_API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-api";
+const CRM_KEY = "sales_crm_session";          // sessionStorage: gone when the tab closes
+S.crm = null;                                 // { token, can_edit, name, expires_at, ref: {my_rep, sales_reps} } or null
+
+Object.assign(RU, {
+  "No CRM access — Walk-in only": "Нет доступа к клиентской базе — только «Без карты клиента»",
+  "The CRM session has ended. Lock and unlock the till to search clients again.":
+    "Сеанс клиентской базы закончился. Заблокируйте и снова откройте кассу, чтобы искать клиентов.",
+  // what addclient.js says, as the CRM page translates it
+  "Name": "Имя",
+  "Female": "Женский",
+  "Male": "Мужской",
+  "Date of birth": "Дата рождения",
+  "Owner": "Ответственный",
+  "Note (optional)": "Заметка (необязательно)",
+  "Saving…": "Сохраняем…",
+  "Cancel": "Отмена",
+  "Close": "Закрыть",
+  "Unnamed record": "Без имени",
+  "dd.mm.yyyy": "дд.мм.гггг",
+  "Me ({name})": "Я ({name})",
+  "Shared (store)": "Общий список (бутик)",
+  "Telegram": "Telegram",
+  "Other": "Другое",
+  "Write the client's name.": "Напишите имя клиента.",
+  "Enter the date as dd.mm.yyyy, for example 14.03.1988.": "Введите дату в формате дд.мм.гггг, например 14.03.1988.",
+  "Enter the phone number, for example +998 90 123 45 67.": "Введите номер, например +998 90 123 45 67.",
+  "Your account can view client records but not change them.": "Ваша учётная запись может просматривать данные клиентов, но не изменять их.",
+  "This account does not have access to the CRM.": "У этой учётной записи нет доступа к клиентской базе.",
+});
+
+/* -------------------------------------------------------------- the session */
+function crmStore(v) {
+  try {
+    if (v === undefined) return JSON.parse(sessionStorage.getItem(CRM_KEY) || "null");
+    if (v === null) sessionStorage.removeItem(CRM_KEY);
+    else sessionStorage.setItem(CRM_KEY, JSON.stringify({ token: v.token, can_edit: v.can_edit, name: v.name, expires_at: v.expires_at }));
+  } catch (e) { /* storage blocked: the CRM session lives in memory only */ }
+  return null;
+}
+// At login: the same passcode, to crm-api. 401 or 403 (or no answer) → no CRM.
+async function crmUnlock(passcode) {
+  S.crm = null;
+  crmStore(null);
+  try {
+    const res = await fetch(CRM_API, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unlock", passcode }) });
+    if (!res.ok) return false;
+    const r = await res.json();
+    if (!r || !r.token) return false;
+    S.crm = { token: r.token, can_edit: !!r.can_edit, name: r.name, expires_at: r.expires_at, ref: null };
+    crmStore(S.crm);
+    await crmLoadRef();
+    return true;
+  } catch (e) {
+    S.crm = null;
+    return false;
+  }
+}
+// The owner choice of the add-client form reads S.ref.my_rep and S.ref.sales_reps.
+async function crmLoadRef() {
+  if (!S.crm) return;
+  try {
+    const r = await call("reference");
+    if (S.crm) S.crm.ref = { my_rep: r.my_rep || null, sales_reps: r.sales_reps || [] };
+    if (S.ref) Object.assign(S.ref, crmRefFields());
+  } catch (e) { /* the form still offers the shared list */ }
+}
+const crmRefFields = () => (S.crm && S.crm.ref) ? { my_rep: S.crm.ref.my_rep, sales_reps: S.crm.ref.sales_reps } : { my_rep: null, sales_reps: [] };
+function crmRestore() {
+  const s = crmStore();
+  if (s && s.token && new Date(s.expires_at).getTime() > Date.now()) { S.crm = Object.assign({ ref: null }, s); crmLoadRef(); }
+  else S.crm = null;
+}
+function crmDrop() { S.crm = null; crmStore(null); }
+
+/* ------------------------------------------------- what addclient.js needs */
+// crm-api with the CRM token. A dead CRM session leaves the till as it is,
+// Walk-in only, and says so once.
+async function call(action, payload = {}) {
+  if (!S.crm) throw new Error(tr("No CRM access — Walk-in only"));
+  const body = Object.assign({ action }, payload, { token: S.crm.token });
+  let res;
+  try {
+    res = await fetch(CRM_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error(tr("No connection. Check the Wi-Fi and try again."));
+  }
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* empty body */ }
+  if (!res.ok) {
+    if (res.status === 401) {
+      crmDrop();
+      toast(tr("The CRM session has ended. Lock and unlock the till to search clients again."));
+      if (typeof closeClientPanel === "function") closeClientPanel();
+      renderAll();
+    }
+    const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+function canEdit() { return !!(S.crm && S.crm.can_edit); }
+const SHARED = "Shared (store)";
+const isShared = (o) => o === SHARED || o === "Unassigned";
+// Owners and reps: labels translate, names don't (as the CRM shows them).
+function who(v) {
+  if (blank(v)) return v;
+  const m = /^Sales rep (\d+)$/.exec(String(v));
+  if (m) return LANG === "ru" ? "Продавец " + m[1] : String(v);
+  return tr(String(v));
+}
+function radio(name, value, checked, label, onpick, extra) {
+  return el("label", { class: "opt" }, [
+    el("input", { type: "radio", name, value, checked: checked ? true : null, onchange: () => onpick(value) }),
+    el("span", {}, [label, extra || null]),
+  ]);
+}
+// dd.mm.yyyy on screen, ISO to the server (as in crm/src/app.js).
+function maskDmy(v) {
+  const d = String(v || "").replace(/\D/g, "").slice(0, 8);
+  return d.slice(0, 2) + (d.length > 2 ? "." + d.slice(2, 4) : "") + (d.length > 4 ? "." + d.slice(4) : "");
+}
+function dmyToIso(t) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(t || ""));
+  if (!m) return null;
+  const [dd, mm, yy] = [+m[1], +m[2], +m[3]];
+  const x = new Date(Date.UTC(yy, mm - 1, dd));
+  if (x.getUTCFullYear() !== yy || x.getUTCMonth() !== mm - 1 || x.getUTCDate() !== dd) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+// The till routes by hash, so an overlay takes no history step here: the
+// form simply opens and closes, and `then` runs at once.
+function pushOverlay() { /* no history step on the till */ }
+function popOverlay(name, then) { if (then) then(); return false; }
+// "Open the card": on the till that means the client goes on the sale.
+// Called after the form adds a client, or when the seller picks the record
+// the form found already on file. The form is already closed by then.
+async function openCard(id) {
+  if (!id) return;
+  const s = S.sale;
+  s.client_id = id; s.client_name = null; s.walk_in = false;
+  if (typeof closeClientPanel === "function") closeClientPanel();
+  renderAll();
+  try {
+    const card = await call("client", { id });
+    if (S.sale.client_id === id) { S.sale.client_name = cardName(card); renderAll(); }
+  } catch (e) { /* the reference alone still identifies the client */ }
+}
+function refreshBehind() { /* nothing behind the form needs reloading on the till */ }
+// The name the CRM shows for a record.
+function cardName(card) {
+  const c = (card && card.client) || {}, q = (card && card.queue) || {};
+  return q.display_name || c.name_confirmed || c.name_colibri || c.name_marketing || null;
 }
 
 /* ===========================================================================
@@ -1572,6 +2108,604 @@ function addClientButton(compact) {
     compact ? [el("span", { "aria-hidden": "true", text: "+" })] : [el("span", { "aria-hidden": "true", text: "+ " }), tr("Add a client")]);
 }
 
+/* ===========================================================================
+   The client on a sale (spec §5.2) — read from the CRM through crm-api
+   The till never shows a client's ABC class or lifecycle tag: the panel holds
+   what a seller needs at the counter — who the client is, who looks after
+   them in the CRM, what they bought here, notes and important dates.
+   Without CRM access (no CRM rights for this passcode) only Walk-in is offered.
+   "View in CRM ↗" opens ../crm/#<id>: the form the CRM page reads to open a
+   card (crm/src/floor.js), relative so it works under the site's sub-path.
+   ========================================================================= */
+Object.assign(RU, {
+  "Find client": "Найти клиента",
+  "Change": "Изменить",
+  "Find a client": "Найти клиента",
+  "Name, phone or DLD-…": "Имя, телефон или DLD-…",
+  "Type at least two characters.": "Введите хотя бы два символа.",
+  "No client found for “{q}”.": "По запросу «{q}» клиентов нет.",
+  "Loading the client…": "Загружаем клиента…",
+  "Could not open this client: {e}": "Не удалось открыть клиента: {e}",
+  "Owner": "Ответственный",
+  "View in CRM ↗": "Открыть в базе ↗",
+  "Opens the client's card in the Client Instrument": "Открывает карточку клиента в клиентской базе",
+  "Last purchase {d}": "Последняя покупка {d}",
+  "No purchases on file.": "Покупок нет.",
+  "Purchases": "Покупки",
+  "Opens the ticket": "Открывает чек",
+  "Notes": "Заметки",
+  "About the client": "О клиенте",
+  "Important dates": "Важные даты",
+  "Wedding anniversary": "Годовщина свадьбы",
+  "Partner's birthday": "День рождения партнёра",
+  "Child's birthday": "День рождения ребёнка",
+  "Use this client": "Выбрать этого клиента",
+  "+ New": "+ Новый",
+  "Client on this sale: {n}": "Клиент продажи: {n}",
+  "The ticket for this purchase is not in the till.": "Чека этой покупки в кассе нет.",
+});
+PL.purchase = { en: ["purchase", "purchases"], ru: ["покупка", "покупки", "покупок"] };
+// addclient.js gives RU "Walk-in" its own CRM meaning ("how we met"), so the
+// till's Walk-in button keeps its own wording here.
+const walkInText = () => (LANG === "ru" ? "Без карты клиента" : "Walk-in");
+// "2026-11-14" → "14.11.2026"
+function fmtDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "—";
+}
+// A timestamp → its local day (the till's own clock: Tashkent), "15.11.2026".
+function fmtStampDay(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return fmtDay(iso);
+  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
+}
+const CLIENT_DATE_KINDS = { anniversary: "Wedding anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Other" };
+
+/* -------------------------------------------------------- the slot on a sale */
+function renderClientSlot(container) {
+  const s = S.sale;
+  const walk = el("button", { class: "btn", type: "button", id: "walk-in", "aria-pressed": s.walk_in ? "true" : "false",
+    onclick: () => setWalkIn(!s.walk_in) }, walkInText());
+  container.append(el("div", { class: "client-slot" },
+    el("span", { class: "lbl", text: tr("Client") + ":" }),
+    s.client_id ? el("span", { class: "client-chip", id: "client-chip" },
+      el("b", { text: s.client_name || s.client_id }), s.client_name ? el("span", { class: "cid", text: " · " + s.client_id }) : null) : null,
+    walk,
+    S.crm ? el("button", { class: "btn", type: "button", id: "find-client", onclick: openClientPanel }, tr(s.client_id ? "Change" : "Find client"))
+      : el("span", { class: "no-crm", text: tr("No CRM access — Walk-in only") })));
+}
+function setWalkIn(on) {
+  const s = S.sale;
+  s.walk_in = on;
+  if (on) { s.client_id = null; s.client_name = null; }
+  renderAll();
+}
+function useClient(id, name) {
+  const s = S.sale;
+  s.client_id = id; s.client_name = name || null; s.walk_in = false;
+  closeClientPanel();
+  renderAll();
+  toast(tr("Client on this sale: {n}", { n: name || id }));
+}
+
+/* ------------------------------------------------------------- the panel */
+let cpTimer = null;
+function openClientPanel() {
+  if (!S.crm) return;
+  S.cp = { q: "", rows: null, busy: false, seq: 0, id: null, card: null, err: null, loading: false };
+  renderClientPanel();
+  const q = $("#client-q");
+  if (q && !touchDevice()) q.focus();
+}
+function closeClientPanel() {
+  clearTimeout(cpTimer);
+  S.cp = null;
+  const h = $("#client-panel");
+  if (h) h.remove();
+}
+async function cpSearch(q) {
+  const cp = S.cp;
+  if (!cp) return;
+  const seq = ++cp.seq;
+  cp.busy = true;
+  try {
+    const r = await call("clients", { q, limit: 8 });
+    if (!S.cp || seq !== S.cp.seq) return;
+    cp.rows = r.rows || []; cp.err = null;
+  } catch (e) {
+    if (!S.cp || seq !== S.cp.seq) return;
+    cp.rows = null; cp.err = e.message;
+  }
+  cp.busy = false;
+  renderClientPanel();
+}
+async function cpOpen(id) {
+  const cp = S.cp;
+  if (!cp) return;
+  cp.id = id; cp.card = null; cp.loading = true; cp.err = null;
+  renderClientPanel();
+  try {
+    const card = await call("client", { id });
+    if (!S.cp || S.cp.id !== id) return;
+    cp.card = card;
+  } catch (e) {
+    if (!S.cp || S.cp.id !== id) return;
+    cp.err = tr("Could not open this client: {e}", { e: e.message });
+  }
+  cp.loading = false;
+  renderClientPanel();
+}
+async function openPurchaseTicket(line_id) {
+  try {
+    const r = await api("ticket_by_line", { line_id });
+    closeClientPanel();
+    go("#/ticket/" + encodeURIComponent(r.ticket_id));
+  } catch (e) {
+    if (e.status === 404) toast(tr("The ticket for this purchase is not in the till."));
+    else if (e.status !== 401) toast(e.message);
+  }
+}
+function clientCard(card) {
+  const c = card.client || {}, roll = card.rollup || { lines: 0, net: 0 };
+  const id = c.client_id, name = cardName(card) || tr("Unnamed record");
+  const tx = card.transactions || [];
+  const last = c.last_purchase_at || (tx[0] && tx[0].sold_at) || null;
+  const canOpen = !!S.rights.view;
+  const purchase = (t) => {
+    const kids = [
+      el("span", { class: "pu-date", text: fmtDay(t.sold_at) }),
+      el("span", { class: "pu-item" }, [t.brand, (LANG === "ru" ? t.cat_name_ru : t.cat_name_en) || t.item].filter(Boolean).join(" · ")),
+      el("span", { class: "pu-net money", text: fmtUZS(t.net_uzs) }),
+    ];
+    return t.ticket_line_id && canOpen
+      ? el("button", { type: "button", class: "purchase link", title: tr("Opens the ticket"), onclick: () => openPurchaseTicket(t.ticket_line_id) }, kids)
+      : el("div", { class: "purchase" }, kids);
+  };
+  const notes = (card.events || []).filter((e) => e.action === "note" && !blank(e.note));
+  const about = card.personal && !blank(card.personal.about) ? card.personal.about : null;
+  const dates = card.important_dates || [];
+  return el("div", { class: "client-card", id: "client-card" },
+    el("div", { class: "cc-head" },
+      el("h4", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
+      el("a", { class: "btn subtle cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
+        title: tr("Opens the client's card in the Client Instrument"), text: tr("View in CRM ↗") })),
+    el("div", { class: "cc-owner" }, el("span", { class: "k", text: tr("Owner") + ": " }), el("b", { text: blank(c.client_owner) ? "—" : who(c.client_owner) })),
+    el("div", { class: "cc-facts" },
+      el("span", {}, pl(roll.lines || 0, "purchase")),
+      el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
+      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDay(last) }) }) : null),
+    el("div", { class: "cc-sec" }, el("h5", { text: tr("Purchases") }),
+      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
+    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Notes") }),
+      about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
+      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtStampDay(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
+    dates.length ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Important dates") }),
+      el("ul", { class: "cc-dates" }, dates.map((d) => {
+        const k = tr(CLIENT_DATE_KINDS[d.kind] || d.kind);
+        const what = d.kind === "other" ? (d.label || k) : k + (blank(d.label) ? "" : " (" + d.label + ")");
+        const when = String(d.day).padStart(2, "0") + "." + String(d.month).padStart(2, "0") + (d.year ? "." + d.year : "");
+        return el("li", {}, el("span", { text: what }), el("span", { class: "money", text: when }));
+      }))) : null);
+}
+function renderClientPanel() {
+  const cp = S.cp;
+  if (!cp) return;
+  let host = $("#client-panel");
+  const focused = $("#client-q") === document.activeElement;
+  const pos = focused ? $("#client-q").selectionStart : null;
+  if (!host) { host = el("div", { id: "client-panel", class: "modal-wrap" }); document.body.appendChild(host); }
+  host.innerHTML = "";
+  const q = el("input", { type: "search", id: "client-q", autocomplete: "off", spellcheck: "false", value: cp.q,
+    placeholder: tr("Name, phone or DLD-…"), "aria-label": tr("Find a client"),
+    oninput: (ev) => {
+      cp.q = ev.target.value;
+      clearTimeout(cpTimer);
+      const t = cp.q.trim();
+      if (t.length < 2) { cp.seq++; cp.rows = null; cp.busy = false; renderClientPanel(); return; }
+      cpTimer = setTimeout(() => cpSearch(t), 300);
+    } });
+  let results = null;
+  if (cp.rows) {
+    results = cp.rows.length
+      ? cp.rows.map((r) => el("button", { type: "button", class: "cl-row" + (r.client_id === cp.id ? " on" : ""), onclick: () => cpOpen(r.client_id) },
+          el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
+          el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
+            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDay(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
+      : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
+  } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
+  const body = [];
+  if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
+  if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
+  if (cp.card) body.push(clientCard(cp.card));
+  const box = el("section", { class: "modal cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
+    el("div", { class: "modal-head" },
+      el("h3", { id: "cp-title", text: tr("Find a client") }),
+      el("button", { class: "btn subtle close", type: "button", id: "client-close", "aria-label": tr("Close"), onclick: closeClientPanel, text: "×" })),
+    el("div", { class: "modal-body" },
+      el("div", { class: "cp-search" }, q),
+      el("div", { id: "client-results", class: "cl-list" }, results),
+      body),
+    el("div", { class: "modal-foot" },
+      cp.card ? el("button", { type: "button", class: "btn primary", id: "use-client",
+        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null,
+      el("button", { type: "button", class: "btn", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
+      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New")) : null));
+  host.append(el("div", { class: "modal-scrim", onclick: closeClientPanel }), box);
+  if (focused) { const n = $("#client-q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.cp && !S.add && !$("#confirm-dialog")) { e.preventDefault(); closeClientPanel(); }
+});
+
+/* ===========================================================================
+   Tickets (spec §5.5): the list, one ticket, its receipt, and void
+   Colibri tickets are read-only here. A sale from this till (delardi, or
+   training while the till is in training) can show its receipt, and can be
+   voided by a login with the void right — with a reason, after a confirm.
+   Voiding here does not touch the fiscal receipt: Era is separate, so the
+   page says so.
+   ========================================================================= */
+Object.assign(RU, {
+  "Search: ticket no., client, serial, article, brand": "Поиск: № чека, клиент, серийный номер, артикул, бренд",
+  "Search tickets": "Поиск чеков",
+  "From": "С",
+  "To": "По",
+  "All sellers": "Все продавцы",
+  "All sources": "Все источники",
+  "This till": "Эта касса",
+  "Test sales (training)": "Тестовые продажи (обучение)",
+  "Any status": "Любой статус",
+  "Posted": "Проведён",
+  "Void": "Аннулирован",
+  "VOIDED": "АННУЛИРОВАН",
+  "Source": "Источник",
+  "Status": "Статус",
+  "Loading tickets…": "Загружаем чеки…",
+  "No ticket matches.": "Чеков не найдено.",
+  "{n} void": "аннулировано: {n}",
+  "net {x} so'm": "нетто {x} сум",
+  "Date": "Дата",
+  "Ticket": "Чек",
+  "Items": "Изделия",
+  "Net": "Нетто",
+  "← Newer": "← Новее",
+  "Older →": "Старше →",
+  "Page {p} of {n}": "Стр. {p} из {n}",
+  "Test sales are listed apart: nothing in them is real.": "Тестовые продажи показаны отдельно: в них нет ничего настоящего.",
+  "← Tickets": "← Чеки",
+  "Colibri": "Colibri",
+  "Training": "Обучение",
+  "From Colibri — read-only.": "Из Colibri — только просмотр.",
+  "Entered by": "Провёл(а)",
+  "Era receipt no.": "Номер чека Era",
+  "Void reason": "Причина аннулирования",
+  "Voided by": "Аннулировал(а)",
+  "Refund": "Возврат",
+  "Payments": "Оплата",
+  "Receipt": "Чек",
+  "Hide the receipt": "Скрыть чек",
+  "Why is this sale being voided?": "Почему продажа аннулируется?",
+  "Void this sale": "Аннулировать продажу",
+  "Write the reason for the void.": "Напишите причину аннулирования.",
+  "Void {no}?": "Аннулировать {no}?",
+  "Its pieces go back in stock and the client's purchase is taken off the CRM record.":
+    "Изделия вернутся в наличие, а покупка будет убрана из карточки клиента.",
+  "A test sale: nothing real changes.": "Тестовая продажа: ничего настоящего не меняется.",
+  "Reason: {r}": "Причина: {r}",
+  "{no} voided.": "{no} аннулирован.",
+  "Cancel the fiscal receipt in Era as well.": "Отмените также фискальный чек в Era.",
+  "No ticket with that reference.": "Чека с таким номером нет.",
+  "seller": "продавец",
+});
+PL.ticket = { en: ["ticket", "tickets"], ru: ["чек", "чека", "чеков"] };
+const SOURCE_LABEL = { colibri: "Colibri", delardi: "This till", training: "Training" };
+const ours = (t) => t.source === "delardi" || t.source === "training";
+const tkToday = (back) => new Date(Date.now() + 5 * 3600e3 - (back || 0) * 86400e3).toISOString().slice(0, 10);   // Tashkent
+
+/* -------------------------------------------------------------------- list */
+S.tk = null;
+function tkState() {
+  if (!S.tk) S.tk = { f: { q: "", from: tkToday(29), to: tkToday(0), seller: "", source: "", status: "" }, page: 1, data: null, err: null, seq: 0 };
+  // test sales are offered only while the till is in training
+  if (S.tk.f.source === "training" && S.mode !== "training") { S.tk.f.source = ""; S.tk.page = 1; }
+  return S.tk;
+}
+function tkFilters() {
+  const f = S.tk.f, out = { page: S.tk.page };
+  if (!blank(f.q)) out.q = f.q.trim();
+  if (f.from) out.from = f.from;
+  if (f.to) out.to = f.to;
+  if (f.seller) out.seller = f.seller;
+  if (f.source === "training") out.training = true; else if (f.source) out.source = f.source;
+  if (f.status) out.status = f.status;
+  return out;
+}
+async function loadTickets() {
+  const tk = S.tk, seq = ++tk.seq;
+  tk.busy = true; renderTkList();
+  try {
+    const r = await api("tickets", { filters: tkFilters() });
+    if (seq !== tk.seq) return;
+    tk.data = r; tk.err = null;
+  } catch (e) {
+    if (seq !== tk.seq) return;
+    tk.err = e.message;
+  }
+  tk.busy = false;
+  renderTkList();
+}
+function tkSet(patch) { Object.assign(S.tk.f, patch); S.tk.page = 1; loadTickets(); }
+let tkTimer = null;
+function renderTickets(main) {
+  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  const tk = tkState(), f = tk.f;
+  const opt = (v, t, cur) => el("option", { value: v, text: t, selected: v === cur ? true : null });
+  const sel = (id, label, cur, opts, key) => {
+    const s = el("select", { id, "aria-label": label, onchange: (ev) => tkSet({ [key]: ev.target.value }) }, opts);
+    s.value = cur;
+    return s;
+  };
+  const q = el("input", { type: "search", id: "tk-q", value: f.q, autocomplete: "off", spellcheck: "false",
+    placeholder: tr("Search: ticket no., client, serial, article, brand"), "aria-label": tr("Search tickets"),
+    oninput: (ev) => { f.q = ev.target.value; clearTimeout(tkTimer); tkTimer = setTimeout(() => tkSet({}), 400); },
+    onkeydown: (ev) => { if (ev.key === "Enter") { ev.preventDefault(); clearTimeout(tkTimer); tkSet({ q: ev.target.value }); } } });
+  const date = (id, label, key) => el("label", { class: "tk-date-f" }, el("span", { text: tr(label) }),
+    el("input", { type: "date", id, value: f[key], onchange: (ev) => tkSet({ [key]: ev.target.value }) }));
+  main.append(el("section", { class: "sheet", id: "screen-tickets" },
+    el("div", { class: "sheet-head" }, el("h1", { text: tr("Tickets") })),
+    el("div", { class: "tk-filters" },
+      el("div", { class: "tk-q" }, q),
+      date("tk-from", "From", "from"), date("tk-to", "To", "to"),
+      sel("tk-seller", tr("Seller"), f.seller, [opt("", tr("All sellers"), f.seller), ...((S.ref && S.ref.sellers) || []).map((x) => opt(x, x, f.seller))], "seller"),
+      sel("tk-source", tr("Source"), f.source, [opt("", tr("All sources")), opt("colibri", tr("Colibri")), opt("delardi", tr("This till")),
+        S.mode === "training" ? opt("training", tr("Test sales (training)")) : null].filter(Boolean), "source"),
+      sel("tk-status", tr("Status"), f.status, [opt("", tr("Any status")), opt("posted", tr("Posted")), opt("void", tr("Void"))], "status")),
+    f.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
+    el("div", { id: "tk-body" })));
+  renderTkList();
+  loadTickets();
+}
+function tkStatus(status) {
+  return el("span", { class: "tk-st" + (status === "void" ? " void" : "") }, status === "void" ? tr("VOIDED") : tr("Posted"));
+}
+function renderTkList() {
+  const box = $("#tk-body");
+  if (!box || !S.tk) return;
+  const tk = S.tk, d = tk.data;
+  box.innerHTML = "";
+  if (tk.err) { box.append(el("p", { class: "form-err tk-pad", role: "alert", text: tk.err })); return; }
+  if (!d) { box.append(el("p", { class: "loading", text: tr("Loading tickets…") })); return; }
+  const pages = Math.max(1, Math.ceil(d.count / (d.page_size || 50)));
+  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" },
+    el("b", { text: pl(d.count, "ticket") }),
+    d.void_count ? el("span", { text: tr("{n} void", { n: d.void_count }) }) : null,
+    el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }),
+    tk.busy ? el("span", { class: "muted", text: tr("Searching…") }) : null));
+  if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
+  box.append(el("div", { class: "tk-list", id: "tk-list", role: "table", "aria-label": tr("Tickets") },
+    el("div", { class: "tk-row tk-headrow", role: "row" }, ["Date", "Ticket", "Source", "Seller", "Client", "Items", "Net", "Status"]
+      .map((h) => el("span", { role: "columnheader", class: "tk-h-" + h.toLowerCase(), text: tr(h) }))),
+    d.rows.map((r) => el("a", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), role: "row", href: "#/ticket/" + encodeURIComponent(r.ticket_id) },
+      el("span", { class: "tk-date", text: fmtDay(r.sold_at) }),
+      el("span", { class: "tk-no", text: r.ticket_no }),
+      el("span", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
+      el("span", { class: "tk-seller", text: r.seller || "—" }),
+      el("span", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
+      el("span", { class: "tk-items", text: r.items || "—" }),
+      el("span", { class: "tk-net money", text: fmtUZS(r.net) }),
+      tkStatus(r.status)))));
+  if (pages > 1) {
+    const pg = (p) => { tk.page = p; loadTickets(); };
+    box.append(el("div", { class: "tk-pager" },
+      el("button", { type: "button", class: "btn", disabled: tk.page <= 1 ? true : null, onclick: () => pg(tk.page - 1) }, tr("← Newer")),
+      el("span", { class: "muted", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
+      el("button", { type: "button", class: "btn", disabled: tk.page >= pages ? true : null, onclick: () => pg(tk.page + 1) }, tr("Older →"))));
+  }
+}
+
+/* ------------------------------------------------------------- one ticket */
+async function renderTicket(main, id) {
+  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  const wrap = el("section", { class: "sheet", id: "screen-ticket" }, el("p", { class: "loading", text: tr("Loading…") }));
+  main.append(wrap);
+  let doc;
+  try { doc = await api("ticket", { ticket_id: id }); }
+  catch (e) {
+    if (!wrap.isConnected) return;
+    wrap.innerHTML = "";
+    wrap.append(el("div", { class: "sheet-head" }, el("h1", { text: tr("Ticket") }),
+      el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
+      el("p", { class: "form-err tk-pad", role: "alert", text: e.status === 404 ? tr("No ticket with that reference.") : e.message }));
+    return;
+  }
+  if (!wrap.isConnected) return;
+  drawTicket(wrap, doc, { receipt: false, voidOpen: false, reason: "", err: null });
+}
+function drawTicket(wrap, doc, ui) {
+  const t = doc.ticket, lines = doc.lines || [], pays = doc.payments || [];
+  const mine = ours(t), voided = t.status === "void";
+  const canVoid = mine && !voided && S.rights.void;
+  const total = lines.reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+  const redraw = () => { wrap.innerHTML = ""; drawTicket(wrap, doc, ui); };
+  const kv = (k, v) => blank(v) ? null : el("div", { class: "kv" }, el("dt", { text: tr(k) }), el("dd", {}, v));
+  const client = doc.client_name ? doc.client_name + (t.client_id ? " · " + t.client_id : "") : t.walk_in ? walkInText() : (t.client_id || t.client_raw || null);
+  const lineRow = (l) => {
+    const refund = l.kind === "refund";
+    const sign = (n) => (n === null || n === undefined || n === "") ? null : (refund ? -Math.abs(Number(n)) : Number(n));
+    return el("li", { class: "tl-row" + (refund ? " refund" : "") },
+      el("div", { class: "tl-info" },
+        el("div", { class: "tl-title" }, [l.brand_raw, l.item_name].filter(Boolean).join(" · ") || l.article || "—",
+          refund ? el("span", { class: "tag", text: tr("Refund") }) : null),
+        el("div", { class: "tl-meta" }, [l.serial_raw, l.article, l.size ? tr("size {s}", { s: l.size }) : null, l.seller ? tr("Seller: {s}", { s: l.seller }) : null]
+          .filter(Boolean).join(" · "))),
+      el("div", { class: "tl-price money" }, fmtUZS(sign(l.price_current)),
+        Number(l.discount_pct) ? el("small", { text: " −" + pctText(l.discount_pct) + "%" }) : null),
+      el("div", { class: "tl-net money", text: fmtUZS(sign(l.net)) }));
+  };
+  const payText = (p) => tr(METHOD_LABEL[p.method] || p.method || "") + (p.card_type ? " · " + (CARD_LABEL[p.card_type] || p.card_type) : "");
+  const actions = [];
+  if (mine && t.receipt_text) actions.push(el("button", { type: "button", class: "btn", id: "show-receipt", "aria-expanded": ui.receipt ? "true" : "false",
+    onclick: () => { ui.receipt = !ui.receipt; redraw(); } }, tr(ui.receipt ? "Hide the receipt" : "Receipt")));
+  if (canVoid && !ui.voidOpen) actions.push(el("button", { type: "button", class: "btn danger", id: "void",
+    onclick: () => { ui.voidOpen = true; ui.err = null; redraw(); const r = $("#void-reason"); if (r) r.focus(); } }, tr("Void")));
+  const submitVoid = async () => {
+    const reason = ui.reason.trim();
+    if (!reason) { ui.err = tr("Write the reason for the void."); redraw(); return; }
+    const yes = await confirmBox({ title: tr("Void {no}?", { no: t.ticket_no }),
+      body: [tr(t.source === "training" ? "A test sale: nothing real changes." : "Its pieces go back in stock and the client's purchase is taken off the CRM record."),
+        tr("Reason: {r}", { r: reason })],
+      ok: tr("Void this sale"), danger: true });
+    if (!yes) return;
+    try {
+      await api("void", { ticket_id: t.ticket_id, reason });
+      toast(tr("{no} voided.", { no: t.ticket_no }));
+      const fresh = await api("ticket", { ticket_id: t.ticket_id });
+      if (!wrap.isConnected) return;
+      Object.assign(doc, fresh);
+      ui.voidOpen = false; ui.err = null;
+      redraw();
+    } catch (e) {
+      if (e.status === 401) return;
+      ui.err = e.message; redraw();
+    }
+  };
+  // Node.append would print a null as "null": the optional parts go through filter(Boolean)
+  wrap.append(...[
+    el("div", { class: "sheet-head" },
+      el("h1", { text: t.ticket_no }),
+      el("span", { class: "tk-status" }, tkStatus(t.status)),
+      el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
+    t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
+    el("dl", { class: "tk-meta" },
+      kv("Date", fmtDay(t.sold_at)),
+      kv("Source", tr(SOURCE_LABEL[t.source] || t.source)),
+      kv("Seller", t.seller),
+      kv("Client", client),
+      kv("Entered by", t.entered_by ? who(t.entered_by) : null),
+      kv("Era receipt no.", t.fiscal_ref),
+      voided ? kv("Void reason", t.void_reason) : null,
+      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? fmtStampDay(t.voided_at) : null].filter(Boolean).join(", ")) : null),
+    !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
+    voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
+    el("ol", { class: "tl-lines" }, lines.map(lineRow)),
+    el("div", { class: "tl-foot" },
+      el("div", { class: "tl-pays" }, el("h5", { text: tr("Payments") }),
+        pays.length ? pays.map((p) => el("div", { class: "tl-pay" }, el("span", { text: payText(p) }), el("span", { class: "money", text: fmtUZS(p.amount) })))
+          : el("p", { class: "muted", text: "—" })),
+      el("div", { class: "total" }, el("div", { class: "t-l", text: tr("Total") }),
+        el("div", { class: "t-v" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
+    ui.voidOpen ? el("form", { class: "void-form", id: "void-form", onsubmit: (ev) => { ev.preventDefault(); submitVoid(); } },
+      el("label", { for: "void-reason", class: "lbl", text: tr("Why is this sale being voided?") }),
+      el("textarea", { id: "void-reason", rows: "3", maxlength: "500", value: ui.reason, oninput: (ev) => { ui.reason = ev.target.value; if (ui.err && ui.reason.trim()) { ui.err = null; const x = $("#void-form .form-err"); if (x) x.remove(); } } }),
+      ui.err ? el("p", { class: "form-err", role: "alert", text: ui.err }) : null,
+      el("p", { class: "muted", text: tr("Cancel the fiscal receipt in Era as well.") }),
+      el("div", { class: "form-actions" },
+        el("button", { type: "submit", class: "btn danger", id: "void-go" }, tr("Void this sale")),
+        el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,
+    actions.length ? el("div", { class: "tk-actions" }, actions) : null,
+    ui.receipt && t.receipt_text ? el("div", { class: "tk-receipt" },
+      el("article", { class: "receipt", "aria-label": t.ticket_no },
+        el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
+        el("div", { class: "rc-body" }, receiptLines(t.receipt_text), el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))),
+      el("div", { class: "receipt-actions" }, el("button", { type: "button", class: "btn", onclick: () => window.print() }, tr("Print")))) : null,
+  ].filter(Boolean));
+}
+
+/* ===========================================================================
+   Admin (#/admin) — only for a login with the manage right
+   Training or Live, the go-live date, and clearing the test sales. Every
+   change is logged by the server with who and when.
+   ========================================================================= */
+Object.assign(RU, {
+  "Loading…": "Загрузка…",
+  "Till mode": "Режим кассы",
+  "Training": "Обучение",
+  "Live": "Боевой режим",
+  "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.":
+    "Касса в режиме обучения: проведённые сейчас продажи — тестовые (T-…). Изделия остаются в наличии, в клиентскую базу и месячные цифры ничего не попадает.",
+  "The till is Live: every sale posted here is real (D-…).": "Касса в боевом режиме: каждая проведённая продажа настоящая (D-…).",
+  "Switch the till to Live?": "Перевести кассу в боевой режим?",
+  "Live means every sale posted here is real: its pieces are marked sold, the purchase goes on the client's CRM record, and the ticket counts in the monthly figures.":
+    "Боевой режим — каждая проведённая здесь продажа настоящая: изделия отмечаются проданными, покупка попадает в карточку клиента в базе, а чек входит в месячные цифры.",
+  "Test sales stay apart and are never counted. Do this once the team has practised.":
+    "Тестовые продажи остаются отдельно и никогда не учитываются. Делайте это, когда команда потренировалась.",
+  "Go Live": "Включить боевой режим",
+  "Switch the till back to Training?": "Вернуть кассу в режим обучения?",
+  "From now on, sales posted here are test sales: pieces stay in stock and nothing reaches the CRM or the figures. Real sales already posted stay as they are.":
+    "С этого момента продажи здесь тестовые: изделия остаются в наличии, в базу и цифры ничего не попадает. Уже проведённые настоящие продажи не меняются.",
+  "Switch to Training": "Включить обучение",
+  "The till is Live.": "Касса в боевом режиме.",
+  "The till is in training.": "Касса в режиме обучения.",
+  "Go-live date": "Дата запуска",
+  "Not yet — the till has not been Live.": "Ещё нет — касса не работала в боевом режиме.",
+  "Test sales": "Тестовые продажи",
+  "Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.":
+    "Удаляет все тестовые чеки и все отложенные тестовые продажи. Настоящие продажи не затрагиваются.",
+  "Clear test sales": "Очистить тестовые продажи",
+  "Clear every test sale?": "Очистить все тестовые продажи?",
+  "This cannot be undone.": "Это нельзя отменить.",
+  "Clear them": "Очистить",
+  "Cleared: {t} and {d}.": "Очищено: {t} и {d}.",
+});
+PL.testTicket = { en: ["test ticket", "test tickets"], ru: ["тестовый чек", "тестовых чека", "тестовых чеков"] };
+PL.testDraft = { en: ["suspended test sale", "suspended test sales"], ru: ["отложенная тестовая продажа", "отложенные тестовые продажи", "отложенных тестовых продаж"] };
+S.adminCleared = null;
+
+function renderAdmin(main) {
+  if (!S.rights.manage) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot manage the till.") })); return; }
+  const live = S.mode === "live";
+  const goLive = S.ref && S.ref.go_live_date;
+  main.append(el("section", { class: "sheet", id: "screen-admin" },
+    el("div", { class: "sheet-head" }, el("h1", { text: tr("Admin") })),
+    el("div", { class: "admin-body" },
+      el("div", { class: "admin-sec" },
+        el("h2", { text: tr("Till mode") }),
+        el("div", { class: "seg", role: "group", "aria-label": tr("Till mode") },
+          el("button", { type: "button", class: "btn", id: "mode-training", "aria-pressed": live ? "false" : "true", onclick: () => switchMode("training") }, tr("Training")),
+          el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
+        el("p", { class: "muted", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
+          : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
+      el("div", { class: "admin-sec" },
+        el("h2", { text: tr("Go-live date") }),
+        el("p", { id: "go-live", class: goLive ? "big-date" : "muted", text: goLive ? fmtDay(goLive) : tr("Not yet — the till has not been Live.") })),
+      el("div", { class: "admin-sec" },
+        el("h2", { text: tr("Test sales") }),
+        el("p", { class: "muted", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
+        el("button", { type: "button", class: "btn", id: "clear-training", onclick: clearTraining }, tr("Clear test sales")),
+        S.adminCleared ? el("p", { class: "ok-line", id: "clear-result", role: "status", text: tr("Cleared: {t} and {d}.",
+          { t: pl(S.adminCleared.tickets, "testTicket"), d: pl(S.adminCleared.drafts, "testDraft") }) }) : null))));
+}
+async function switchMode(mode) {
+  if (mode === S.mode) return;
+  const toLive = mode === "live";
+  const yes = await confirmBox(toLive
+    ? { title: tr("Switch the till to Live?"), ok: tr("Go Live"), danger: true,
+        body: [tr("Live means every sale posted here is real: its pieces are marked sold, the purchase goes on the client's CRM record, and the ticket counts in the monthly figures."),
+          tr("Test sales stay apart and are never counted. Do this once the team has practised.")] }
+    : { title: tr("Switch the till back to Training?"), ok: tr("Switch to Training"),
+        body: tr("From now on, sales posted here are test sales: pieces stay in stock and nothing reaches the CRM or the figures. Real sales already posted stay as they are.") });
+  if (!yes) return;
+  try {
+    await api("set_mode", { mode });
+    await loadReference();
+    S.adminCleared = null;
+    S.tk = null;                       // the ticket filters belong to the old mode
+    await loadDrafts();                // suspended sales are per mode
+    renderAll();
+    toast(tr(toLive ? "The till is Live." : "The till is in training."));
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+}
+async function clearTraining() {
+  const yes = await confirmBox({ title: tr("Clear every test sale?"), ok: tr("Clear them"), danger: true,
+    body: [tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched."), tr("This cannot be undone.")] });
+  if (!yes) return;
+  try {
+    S.adminCleared = await api("clear_training");
+    await loadDrafts();
+    renderAll();
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+}
+
 /* -------------------------------------------------------------------- init */
 function renderAll() {
   const app = $("#app");
@@ -1592,6 +2726,7 @@ function restoreSession() {
     const last = Number(sstore(ACTIVE_KEY) || 0);
     if (touchDevice() && last && Date.now() - last >= IDLE_MIN * 60000) { sstore(SESSION_KEY, null); return false; }
     S.token = s.token; S.name = s.name; S.expires_at = s.expires_at; S.rights = s.rights || S.rights;
+    crmRestore();
     return true;
   } catch (e) { return false; }
 }
@@ -1601,7 +2736,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", app
   applyTheme();
   document.documentElement.lang = LANG;
   if (restoreSession()) {
-    try { await loadReference(); S.locked = false; activeNow(); }
+    try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); }
     catch (e) { if (e.status !== 401) { S.token = null; sstore(SESSION_KEY, null); } }
   }
   if (S.locked) $("#app").innerHTML = "";          // nothing behind the gate
