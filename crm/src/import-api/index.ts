@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
     const out: Record<string, unknown> = { ok: true, source };
     if (chats?.length) out.chats = await rpc("crm_telegram_load", { p: chats, p_actor: actor, p_source: source });
     if (missed?.length) out.missed = await rpc("crm_missed_load", { p: missed, p_source: source });
-    if (tickets && (tickets.tickets as unknown[]).length)
+    if (tickets && ticketCount)
       out.tickets = await rpc("ops_load_tickets", { p: tickets, p_actor: "import:" + source });
     return json(out);
   } catch (e) {
