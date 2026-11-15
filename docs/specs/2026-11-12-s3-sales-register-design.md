@@ -133,6 +133,8 @@ Saves `(client_id, client_owner, assigned_owner)` of every row it will change in
 
 The app reads the owner as `coalesce(assigned_owner, client_owner)`, so no client with a named owner changes effective owner. Deleted and merged records included, so the rule holds everywhere.
 
+`crm_owner_cleanup_undo()` (migration `s3_7_owner_undo`) restores both owner fields of every saved client from `crm_owner_cleanup_20261112`, returns the rows changed, and keeps the saved rows.
+
 ### 4.7 Repeated serials in stock
 
 During the build: list serials that appear on more than one stock row in the 12 Nov report, by brand. Findings go in the build report. No rule changes in this sprint.

@@ -55,6 +55,27 @@ begin
 
   assert not exists (select 1 from crm_clients where client_owner is null or btrim(client_owner) = ''
                         or assigned_owner is null or btrim(assigned_owner) = ''), 'no blank owners remain';
+
+  -- undo: restores the saved before-values, also over a later manual edit; saved rows are kept
+  update crm_clients set assigned_owner = 'S3T Later' where client_id = 'S3T-OWN-4';
+  n := crm_owner_cleanup_undo();
+  assert n = 5, format('undo should change 5 rows, got %s', n);
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-1';
+  assert r.client_owner is null and r.assigned_owner is null, 'undo: client 1 null/null';
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-2';
+  assert r.client_owner = '' and r.assigned_owner = 'S3T Rep A', 'undo: client 2';
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-3';
+  assert r.client_owner = 'S3T Rep A' and r.assigned_owner = 'S3T Rep B', 'undo: client 3 untouched';
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-4';
+  assert r.client_owner = 'S3T Rep' and r.assigned_owner is null, 'undo: client 4 back to Rep/null';
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-5';
+  assert r.client_owner = 'S3T Rep B' and r.assigned_owner = '  ', 'undo: client 5';
+  select client_owner, assigned_owner into r from crm_clients where client_id = 'S3T-OWN-6';
+  assert r.client_owner = 'Unassigned' and r.assigned_owner is null, 'undo: client 6 Unassigned/null';
+  select count(*) into n from crm_owner_cleanup_20261112 where client_id like 'S3T-%';
+  assert n = 5, 'undo keeps the saved rows';
+  n := crm_owner_cleanup_undo();
+  assert n = 0, format('second undo should change 0 rows, got %s', n);
 end $$;
 select 's3_t3_owner ok' as result;
 rollback;
