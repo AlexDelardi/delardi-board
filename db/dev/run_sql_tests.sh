@@ -5,13 +5,19 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PATTERN="${1:-s3_}"
-PSQL_CMD=(psql -h /tmp/delardi-pg -p 5544 -U postgres -d postgres -v ON_ERROR_STOP=1 -X)
+# shellcheck source=db/dev/env.sh
+. "$ROOT/db/dev/env.sh"
 
 cd "$ROOT"
 fail=0
 shopt -s nullglob
-for f in db/tests/"$PATTERN"*.sql; do
-  out=$("${PSQL_CMD[@]}" -f "$f" 2>&1)
+files=(db/tests/"$PATTERN"*.sql)
+if [ ${#files[@]} -eq 0 ]; then
+  echo "no tests match db/tests/${PATTERN}*.sql"
+  exit 1
+fi
+for f in "${files[@]}"; do
+  out=$("${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -f "$f" 2>&1)
   rc=$?
   if [ $rc -eq 0 ] && grep -q ' ok' <<<"$out"; then
     echo "PASS $f"
