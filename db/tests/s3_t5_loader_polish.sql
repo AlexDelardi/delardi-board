@@ -4,7 +4,7 @@
 begin;
 do $$
 declare
-  run bigint; p3 uuid; p4 uuid; p5a uuid; p5b uuid; p6 uuid; p7 uuid; r jsonb; l jsonb; t jsonb;
+  run bigint; p3 uuid; p4 uuid; p5a uuid; p5b uuid; p6 uuid; p7 uuid; p8 uuid; r jsonb; l jsonb; t jsonb;
   v_tid uuid; v_line uuid; v_crm bigint; pay_ids bigint[];
 begin
   -- fixtures
@@ -25,6 +25,8 @@ begin
   values (1, 'S3T Brand', 'ZZ.00.55556', 'in_stock', run) returning piece_id into p6;
   insert into ops_pieces(store_id, brand, serial, state, last_seen_run)
   values (1, 'S3T Brand', 'ZZ.00.55557', 'in_stock', run) returning piece_id into p7;
+  insert into ops_pieces(store_id, brand, serial, state, last_seen_run)
+  values (1, 'S3T Brand', 'ZZ.00.55558', 'in_stock', run) returning piece_id into p8;
   insert into crm_sales_reps(source_name, label) values ('S3T Rep', 'S3T Rep label');
   insert into crm_clients(client_id, record_type) values ('S3T-C1', 'client');
 
@@ -62,10 +64,12 @@ begin
   select array_agg(payment_id order by payment_id) into pay_ids
     from ops_ticket_payments p join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P2';
   insert into crm_rep_aliases(alias, source_name) values ('S3T Новый', 'S3T Rep');
+  update ops_tickets set updated_at = timestamptz '2030-01-01 00:00+05' where ticket_no = 'S3T-P2';
   r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t)), 'test');
   assert (r->>'tickets_same')::int = 1 and (r->>'tickets_changed')::int = 0, 'remap: still same ' || r::text;
   assert (r->>'remapped')::int = 1, 'remap: remapped 1 ' || r::text;
   assert (select seller from ops_tickets where ticket_no = 'S3T-P2') = 'S3T Rep', 'remap: seller now mapped';
+  assert (select updated_at from ops_tickets where ticket_no = 'S3T-P2') = now(), 'remap: updated_at set';
   assert (select array_agg(payment_id order by payment_id)
             from ops_ticket_payments p join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P2') = pay_ids,
          'remap: payments untouched';
@@ -76,7 +80,35 @@ begin
   assert (r->>'remapped')::int = 0, 'quiet: remapped 0 ' || r::text;
   assert r->'changed' = '[]'::jsonb, 'quiet: changed empty ' || r::text;
 
-  -- date moved earlier on a ticket that sold a piece: review, date still updated, piece stays sold
+  -- remap, model/variant half: a line whose article had no catalogue match picks up a match added since the load
+  t := t || jsonb_build_object('ticket_no', 'S3T-P9', 'seller_raw', 'S3T Rep',
+         'lines', jsonb_build_array(l || jsonb_build_object('article', 'S3T-ART-9')));
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t)), 'test');
+  assert (r->>'tickets_new')::int = 1, 'model remap: new ' || r::text;
+  assert (select (l2.model_id, l2.variant_id) is not distinct from (null::text, null::text)
+            from ops_ticket_lines l2 join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P9'),
+         'model remap: no match yet';
+  select array_agg(payment_id order by payment_id) into pay_ids
+    from ops_ticket_payments p join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P9';
+  insert into cat_article_alias(article, model_id, variant_id, reason)
+  values ('S3TART9', 'S3T-MODEL-9', 'S3T-VARIANT-9', 'S3T test');
+  assert (select (m.model_id, m.variant_id) = ('S3T-MODEL-9'::text, 'S3T-VARIANT-9'::text)
+            from cat_match_article('S3T-ART-9') m), 'model remap: alias matches';
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t)), 'test');
+  assert (r->>'tickets_same')::int = 1 and (r->>'tickets_changed')::int = 0, 'model remap: still same ' || r::text;
+  assert (r->>'remapped')::int = 1, 'model remap: remapped 1 ' || r::text;
+  assert (select (l2.model_id, l2.variant_id) = ('S3T-MODEL-9'::text, 'S3T-VARIANT-9'::text)
+            from ops_ticket_lines l2 join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P9'),
+         'model remap: line mapped';
+  assert (select array_agg(payment_id order by payment_id)
+            from ops_ticket_payments p join ops_tickets t2 using (ticket_id) where t2.ticket_no = 'S3T-P9')
+         = pay_ids, 'model remap: payments untouched';
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t)), 'test');
+  assert (r->>'tickets_same')::int = 1 and (r->>'remapped')::int = 0, 'model remap: quiet reload ' || r::text;
+
+  -- date moved earlier on a ticket that sold a piece: review, date still updated, piece stays sold; the note's dates
+  -- are ISO whatever the session DateStyle
+  perform set_config('datestyle', 'SQL, DMY', true);
   t := t || jsonb_build_object('ticket_no', 'S3T-P3', 'seller_raw', 'S3T Rep', 'payments', '[]'::jsonb,
          'lines', jsonb_build_array(l || jsonb_build_object('serial_raw', 'ZZ.00.55553')));
   r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t)), 'test');
@@ -90,11 +122,19 @@ begin
          like '%date moved from 2030-03-10 to 2030-03-01%', 'date moved: note';
   assert (select sold_at from ops_tickets where ticket_no = 'S3T-P3') = date '2030-03-01', 'date moved: date updated';
   assert (select state from ops_pieces where piece_id = p3) = 'sold', 'date moved: piece stays sold';
+  perform set_config('datestyle', 'ISO, MDY', true);
 
-  -- a date moved later raises nothing
-  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t || jsonb_build_object('sold_at', '2030-03-05'))),
+  -- a date moved later raises nothing (a fresh ticket and piece, so no open review masks a wrong comparison)
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t || jsonb_build_object(
+         'ticket_no', 'S3T-P8', 'lines', jsonb_build_array(l || jsonb_build_object('serial_raw', 'ZZ.00.55558'))))),
          'test');
-  assert (select count(*) from ops_review where piece_id = p3) = 1, 'date later: no further review';
+  assert (select state from ops_pieces where piece_id = p8) = 'sold', 'date later: piece sold first ' || r::text;
+  r := ops_load_tickets(jsonb_build_object('tickets', jsonb_build_array(t || jsonb_build_object(
+         'ticket_no', 'S3T-P8', 'sold_at', '2030-03-15',
+         'lines', jsonb_build_array(l || jsonb_build_object('serial_raw', 'ZZ.00.55558'))))), 'test');
+  assert (r->>'tickets_changed')::int = 1, 'date later: change ' || r::text;
+  assert (select sold_at from ops_tickets where ticket_no = 'S3T-P8') = date '2030-03-15', 'date later: date updated';
+  assert not exists (select 1 from ops_review where piece_id = p8), 'date later: no review';
 
   -- kept sold line while another conflict review is open on its piece: the guard blocks its own review, and the
   -- reload after the change counts as same

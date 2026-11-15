@@ -16,14 +16,20 @@ otherwise). It lives in `/tmp/delardi-pg`, port 5544, trust auth.
 `db/schema.version` holds the one-line file name of the last migration included
 in the snapshot. `start` loads `db/schema.sql`, then applies every
 `db/migrations/*.sql` whose file name sorts after that name, in name order
-(with `ON_ERROR_STOP=1`). After refreshing `db/schema.sql`, set
+(with `ON_ERROR_STOP=1`, byte order: `env.sh` sets `LC_ALL=C`). `start` fails
+at once if `db/schema.version` does not name a file in `db/migrations/`. After refreshing `db/schema.sql`, set
 `db/schema.version` to the last migration it contains; otherwise `start` fails
 re-applying migrations the snapshot already has.
 
 `db/schema.sql` is schema-only (no rows, no GRANT/REVOKE), so `start` also runs
 `db/dev/snapshot_fixup.sql` before the migrations: it adds fake seed rows (the
-store, Alex with the manage-stock right) and re-applies the production
-revokes on `ops_*`. The `s2_t2`-`s2_t5` tests also need production-sized
+store, Alex with the manage-stock right), sets Supabase-style default
+privileges (every table, sequence and function a migration creates in
+`public` is granted to `anon`, `authenticated` and `service_role`, as on
+Supabase), and revokes from `anon`/`authenticated` every table and sequence
+already in the snapshot and execute on its `ops_*` functions. So a migration
+that forgets a revoke leaves the object granted here too, and the rights
+assertions in `db/tests/` catch it. The `s2_t2`-`s2_t5` tests also need production-sized
 catalogue and CRM data, so they cannot pass on this database; the `s3_` tests can.
 
 ## Commands
@@ -45,4 +51,5 @@ Loading `schema.sql` reports three harmless errors, and `start` whitelists
 exactly these: `transaction_timeout`, `schema "public" already exists`,
 `schema "extensions" does not exist`. Any other `ERROR:` line in
 `schema_load.err` fails the start. It also checks at least 61 public tables and
-that `ops_load_tickets(jsonb,text)` and `ops_link_crm_tickets(text)` exist.
+that `ops_load_tickets(jsonb,text)` and `ops_link_crm_tickets(text)` exist; if
+that check fails it prints `schema_load.err` too.

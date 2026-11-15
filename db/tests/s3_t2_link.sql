@@ -142,6 +142,8 @@ begin
   assert (r->>'linked')::int = 8, 'linked ' || r::text;
   assert (r->>'tickets_with_client')::int = base_clients + 5, 'tickets_with_client (A, B, C, D, H) ' || r::text;
   assert (r->>'tickets_client_changed')::int = 5, 'tickets_client_changed (A, B, C, D, H) ' || r::text;
+  assert r->'tickets_client_changed_list' = '["S3T-A", "S3T-B", "S3T-C", "S3T-D", "S3T-H"]'::jsonb,
+         'tickets_client_changed_list (A, B, C, D, H) ' || r::text;
   -- one to one: no line is linked twice
   assert not exists (select 1 from crm_transactions where ticket_line_id is not null
                       group by ticket_line_id having count(*) > 1), 'a line linked twice';
@@ -154,7 +156,9 @@ begin
   r2 := ops_link_crm_tickets('S3T tester');
   assert (r2->>'linked')::int = 0, 're-run: linked ' || r2::text;
   assert (r2->>'tickets_client_changed')::int = 0, 're-run: tickets_client_changed ' || r2::text;
-  assert (r2 - 'linked' - 'tickets_client_changed') = (r - 'linked' - 'tickets_client_changed'),
+  assert r2->'tickets_client_changed_list' = '[]'::jsonb, 're-run: tickets_client_changed_list ' || r2::text;
+  assert (r2 - 'linked' - 'tickets_client_changed' - 'tickets_client_changed_list')
+         = (r - 'linked' - 'tickets_client_changed' - 'tickets_client_changed_list'),
          're-run: same counts ' || r2::text || ' vs ' || r::text;
   assert (select string_agg(id || ':' || coalesce(ticket_line_id::text, '-'), ',' order by id)
             from crm_transactions where client_id like 'S3T-%') = snap_links, 're-run: links unchanged';
@@ -174,12 +178,14 @@ begin
   assert (r3->'tickets_mixed_clients') ? 'S3T-A', 'recompute: S3T-A listed ' || r3::text;
   assert (r3->'tickets_mixed_clients') ? 'S3T-F', 'recompute: S3T-F still listed ' || r3::text;
   assert (r3->>'tickets_client_changed')::int = 1, 'recompute: tickets_client_changed ' || r3::text;
+  assert r3->'tickets_client_changed_list' = '["S3T-A"]'::jsonb, 'recompute: tickets_client_changed_list ' || r3::text;
   assert (r3->>'tickets_with_client')::int = base_clients + 4, 'recompute: tickets_with_client ' || r3::text;
   assert (r3->>'lines_unlinked')::int = base_lines + 1, 'recompute: lines_unlinked ' || r3::text;
   -- tickets without linked lines are left alone: E keeps a hand-set client
   update ops_tickets set client_id = 'S3T-C2' where ticket_no = 'S3T-E';
   r3 := ops_link_crm_tickets('S3T tester');
   assert (r3->>'tickets_client_changed')::int = 0, 'unlinked ticket: no change ' || r3::text;
+  assert r3->'tickets_client_changed_list' = '[]'::jsonb, 'unlinked ticket: empty list ' || r3::text;
   assert (select client_id from ops_tickets where ticket_no = 'S3T-E') = 'S3T-C2', 'unlinked ticket: client kept';
   update ops_tickets set client_id = null where ticket_no = 'S3T-E';
 
@@ -193,6 +199,10 @@ begin
   assert not has_table_privilege('anon', 'public.ops_link_runs', 'select'), 'run log: anon select';
   assert not has_table_privilege('authenticated', 'public.ops_link_runs', 'select'), 'run log: authenticated select';
   assert not has_table_privilege('authenticated', 'public.ops_link_runs', 'insert'), 'run log: authenticated insert';
+  assert not has_sequence_privilege('anon', 'public.ops_link_runs_run_id_seq', 'usage,select,update'),
+         'run log: anon on sequence';
+  assert not has_sequence_privilege('authenticated', 'public.ops_link_runs_run_id_seq', 'usage,select,update'),
+         'run log: authenticated on sequence';
 
   -- view, January 2030: 7 tickets; sale lines A×2, B, D×2, E, F×2, H = 9; refund C;
   -- net 120000+200000+600000+400000+110000+80000-5000 = 1505000; card 100000+600000+110000 = 810000; visa 150000

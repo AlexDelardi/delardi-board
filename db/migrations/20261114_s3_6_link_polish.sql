@@ -11,6 +11,7 @@ create table public.ops_link_runs (
 );
 alter table public.ops_link_runs enable row level security;
 revoke all on public.ops_link_runs from public, anon, authenticated;
+revoke all on sequence public.ops_link_runs_run_id_seq from public, anon, authenticated;
 
 -- Pair still-unlinked crm_transactions rows one to one with Colibri ticket lines no CRM row points to yet.
 -- Keys: same date; same article, upper-case and trimmed, the line's article taken as article || ' ' || colour
@@ -18,10 +19,14 @@ revoke all on public.ops_link_runs from public, anon, authenticated;
 -- refund: net_uzs = -net). Identical candidates pair in a fixed order: lines by (store_id, ticket_no, line_no,
 -- line_id) against CRM rows by id.
 -- Then every Colibri ticket with linked lines gets its client recomputed from them: one distinct client -> that
--- client; more than one -> null. client_id on Colibri tickets is owned by this function; screens that set a
--- client come with the till (S5) and will need their own rule. Tickets with no linked lines are left alone.
+-- client; more than one -> null. So a ticket's client also changes when the clients of its already linked CRM rows
+-- change (e.g. after crm_merge, which moves purchases to the kept client but not ops_tickets.client_id).
+-- client_id on Colibri tickets is owned by this function; screens that set a client come with the till (S5) and
+-- will need their own rule. Tickets with no linked lines (including one that lost its last linked row) keep
+-- their client.
 -- Each run is logged in ops_link_runs (actor, result).
 -- Result: linked = rows linked by this run; tickets_client_changed = tickets whose client_id this run changed;
+-- tickets_client_changed_list = their ticket_no values, sorted;
 -- the other keys describe the state after the run:
 --   tickets_with_client   Colibri tickets with a client_id
 --   tickets_mixed_clients Colibri tickets whose linked lines name more than one client
@@ -29,7 +34,7 @@ revoke all on public.ops_link_runs from public, anon, authenticated;
 --   lines_unlinked        Colibri ticket lines no CRM row points to
 create or replace function public.ops_link_crm_tickets(p_actor text) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare n_linked int := 0; v_n int; v_pass int; n_changed int; v_result jsonb;
+declare n_linked int := 0; v_n int; v_pass int; n_changed int; v_changed jsonb; v_result jsonb;
 begin
   if p_actor is null or btrim(p_actor) = '' then raise exception 'actor required'; end if;
 
@@ -59,19 +64,21 @@ begin
     n_linked := n_linked + v_n;
   end loop;
 
-  -- client recompute for every Colibri ticket with linked lines (linked CRM rows without a client are ignored;
-  -- a ticket whose linked rows name no client is left alone)
-  update ops_tickets t set client_id = k.client_id, updated_at = now()
-    from (select l.ticket_id,
-                 case when count(distinct c.client_id) = 1 then min(c.client_id) end client_id
-            from crm_transactions c join ops_ticket_lines l on l.line_id = c.ticket_line_id
-           group by l.ticket_id having count(distinct c.client_id) >= 1) k
-   where t.ticket_id = k.ticket_id and t.source = 'colibri' and t.client_id is distinct from k.client_id;
-  get diagnostics n_changed = row_count;
+  -- client recompute for every Colibri ticket with linked lines (crm_transactions.client_id is not null)
+  with u as (
+    update ops_tickets t set client_id = k.client_id, updated_at = now()
+      from (select l.ticket_id,
+                   case when count(distinct c.client_id) = 1 then min(c.client_id) end client_id
+              from crm_transactions c join ops_ticket_lines l on l.line_id = c.ticket_line_id
+             group by l.ticket_id) k
+     where t.ticket_id = k.ticket_id and t.source = 'colibri' and t.client_id is distinct from k.client_id
+    returning t.ticket_no)
+  select count(*), coalesce(jsonb_agg(ticket_no order by ticket_no), '[]'::jsonb) into n_changed, v_changed from u;
 
   v_result := jsonb_build_object(
     'linked', n_linked,
     'tickets_client_changed', n_changed,
+    'tickets_client_changed_list', v_changed,
     'tickets_with_client', (select count(*) from ops_tickets where source = 'colibri' and client_id is not null),
     'tickets_mixed_clients', (
       select coalesce(jsonb_agg(ticket_no order by ticket_no), '[]'::jsonb)

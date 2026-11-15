@@ -9,7 +9,8 @@
 --   same content          → content untouched (header sold_at/seller_raw/client_raw/note, every line's fields,
 --                           payments); a sold line kept after its conflict was raised (a review with its note, open or
 --                           resolved), or kept while any ticket_conflict review is open on its piece, counts as same.
---                           The mappings are refreshed: seller from the current aliases/reps, each line's
+--                           The mappings are refreshed: seller from the current aliases/reps (updated_at set
+--                           when it changes), each line's
 --                           model_id/variant_id from cat_match_article; a ticket where either differed counts in remapped
 --   different content     → header updated, lines updated in place by line_no, new lines added, payments replaced;
 --                           a line that sold a piece is never undone: if its serial (or kind) would change, or it
@@ -128,7 +129,8 @@ begin
         n_same := n_same + 1;
         -- refresh the mappings: seller, and each line's model/variant (same per-run cache as below)
         v_remap := false;
-        update ops_tickets set seller = v_seller where ticket_id = v_tid and seller is distinct from v_seller;
+        update ops_tickets set seller = v_seller, updated_at = now()
+         where ticket_id = v_tid and seller is distinct from v_seller;
         if found then v_remap := true; end if;
         for v_old in select o.* from ops_ticket_lines o where o.ticket_id = v_tid order by o.line_no loop
           v_model := null; v_variant := null;
@@ -157,7 +159,8 @@ begin
           loop
             insert into ops_review(piece_id, kind, note)
             select v_piece, 'ticket_conflict',
-                   format('ticket %s date moved from %s to %s after it sold this piece', v_no, v_old_sold_at, v_sold_at)
+                   format('ticket %s date moved from %s to %s after it sold this piece', v_no,
+                          to_char(v_old_sold_at, 'YYYY-MM-DD'), to_char(v_sold_at, 'YYYY-MM-DD'))
              where not exists (select 1 from ops_review r
                                 where r.piece_id = v_piece and r.kind = 'ticket_conflict' and r.status = 'open');
           end loop;

@@ -23,6 +23,14 @@ stop_cluster() {
 }
 
 start_cluster() {
+  # the last migration in the snapshot; must be a real migration file, else every newer one is misjudged
+  local base
+  base=$(tr -d '[:space:]' < "$ROOT/db/schema.version")
+  if [ -z "$base" ] || [ ! -f "$ROOT/db/migrations/$base" ]; then
+    echo "db/schema.version names '$base', which is not a file in db/migrations/" >&2
+    exit 1
+  fi
+
   id "$PGUSER_OS" >/dev/null 2>&1 || useradd -m "$PGUSER_OS"
   stop_cluster
   rm -rf "$PGDIR"
@@ -60,6 +68,8 @@ SQL
   fn2=$("${PSQL_CMD[@]}" -Atc "select to_regprocedure('public.ops_link_crm_tickets(text)') is not null")
   if [ "$tables" -lt 61 ] || [ "$fn1" != "t" ] || [ "$fn2" != "t" ]; then
     echo "schema load check failed: tables=$tables ops_load_tickets=$fn1 ops_link_crm_tickets=$fn2" >&2
+    echo "schema_load.err:" >&2
+    cat "$PGDIR/schema_load.err" >&2
     exit 1
   fi
 
@@ -67,8 +77,7 @@ SQL
   "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/dev/snapshot_fixup.sql" >/dev/null
 
   # Migrations newer than the snapshot named in db/schema.version, in name order.
-  local base f
-  base=$(tr -d '[:space:]' < "$ROOT/db/schema.version")
+  local f
   for f in "$ROOT"/db/migrations/*.sql; do
     [ -e "$f" ] || continue
     [[ "$(basename "$f")" > "$base" ]] || continue
