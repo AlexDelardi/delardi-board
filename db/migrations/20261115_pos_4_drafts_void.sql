@@ -78,8 +78,11 @@ begin
     end if;
   end loop;
 
-  -- mode (held steady against a switch)
+  -- mode (held steady against a switch); as pos_post_sale, a page showing another mode is refused
   select mode into v_mode from pos_settings where id = 1 for share;
+  if p ? 'expect_mode' and (p->>'expect_mode') is distinct from v_mode then
+    raise exception 'the till was switched to % — reload', v_mode;
+  end if;
 
   -- pieces: locked in piece_id order, then checked under the lock; the draft row after them,
   -- the same order as pos_post_sale (pieces, then deleting its draft), so the two cannot deadlock

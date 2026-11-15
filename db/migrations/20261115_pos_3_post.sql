@@ -102,11 +102,13 @@ end $$;
 revoke execute on function public.pos_receipt_text(uuid) from public, anon, authenticated;
 
 -- Post one sale. Either everything is saved or nothing is (any refusal raises).
--- The mode comes from pos_settings, never from p. Sellers arrive as crm_sales_reps.label and are stored as source_name.
+-- The mode comes from pos_settings, never from p; p.expect_mode (the mode the screen shows), when given, must equal it.
+-- p.draft_id, when given, must be a suspended sale of that mode; it is locked, removed and logged ('draft_posted'). Sellers arrive as crm_sales_reps.label and are stored as source_name.
 create function public.pos_post_sale(p jsonb, p_actor text) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_mode     text;
+  v_dmode    text;
   v_notice   bigint;
   v_lines    jsonb := case when jsonb_typeof(p->'lines') = 'array' then p->'lines' else '[]'::jsonb end;
   v_pays     jsonb := case when jsonb_typeof(p->'payments') = 'array' then p->'payments' else '[]'::jsonb end;
@@ -181,13 +183,24 @@ begin
     v_total := v_total + round(v_price * (1 - v_disc / 100));
   end loop;
 
-  -- mode (held steady against a switch while posting)
+  -- mode (held steady against a switch while posting); the screen says which mode it shows, and a till
+  -- switched since the page last heard is refused, so a post is never real while the page says training
   select mode, cash_notice_uzs into v_mode, v_notice from pos_settings where id = 1 for share;
+  if p ? 'expect_mode' and (p->>'expect_mode') is distinct from v_mode then
+    raise exception 'the till was switched to % — reload', v_mode;
+  end if;
 
   -- pieces: locked in piece_id order, then checked
   perform 1 from ops_pieces
    where piece_id in (select (e->>'piece_id')::uuid from jsonb_array_elements(v_lines) e)
    order by piece_id for update;
+  -- the suspended sale being posted: locked after the pieces (as pos_suspend does), so a cancel or a
+  -- re-suspend from another device waits for this post, and a draft gone or of the other mode is refused
+  if v_draft is not null then
+    select mode into v_dmode from pos_drafts where draft_id = v_draft for update;
+    if not found then raise exception 'suspended sale % no longer exists', v_draft; end if;
+    if v_dmode <> v_mode then raise exception 'suspended sale % belongs to the other mode', v_draft; end if;
+  end if;
   for pc in select o.piece_id, o.serial, o.state
               from jsonb_array_elements(v_lines) e
               left join ops_pieces o on o.piece_id = (e->>'piece_id')::uuid
@@ -292,6 +305,8 @@ begin
   update ops_tickets set receipt_text = pos_receipt_text(v_tid) where ticket_id = v_tid;
   if v_draft is not null then
     delete from pos_drafts where draft_id = v_draft and mode = v_mode;
+    insert into pos_settings_log(actor, field, new_value)
+    values (coalesce(nullif(btrim(p_actor), ''), 'unknown'), 'draft_posted', v_draft || ' → ' || v_tno);
   end if;
 
   return jsonb_build_object('ticket_id', v_tid, 'ticket_no', v_tno, 'mode', v_mode, 'total', v_total,
