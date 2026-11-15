@@ -111,11 +111,13 @@ Today this marks four pieces Sold (tickets 758 and 759, 11 Nov).
 
 ### 4.4 CRM link — `ops_link_crm_tickets(p_actor text) returns jsonb`
 
-Pairs unlinked `crm_transactions` rows with unlinked ticket lines one to one on: same sale date, same article (trimmed, upper-case, with the colour suffix when the CRM article has one), same net amount (refund lines match negative CRM amounts). Several identical candidates are paired in order of `line_no` and CRM id. Sets `crm_transactions.ticket_line_id`.
+Pairs unlinked `crm_transactions` rows with unlinked ticket lines one to one on: same sale date, same article (trimmed, upper-case, with the colour suffix when the CRM article has one), same net amount (refund lines match negative CRM amounts). Several identical candidates are paired in a fixed order: lines by `(store_id, ticket_no, line_no, line_id)` against CRM rows by `id`. Sets `crm_transactions.ticket_line_id`.
 
-A ticket gets `client_id` when every linked line of that ticket points to the same client; otherwise it stays empty and is listed.
+Client recompute (every run): for each Colibri ticket that has linked lines, `client_id` is recomputed from the clients of its linked CRM rows — exactly one distinct client → that client; more than one → empty, and the ticket is listed in `tickets_mixed_clients`. Tickets with no linked lines (and tickets whose linked rows name no client) are left alone. `client_id` on Colibri tickets is owned by this function; screens that set a client come with the till (S5) and will need their own rule.
 
-Returns `{linked, tickets_with_client, tickets_mixed_clients: [...], crm_unlinked_2023plus, lines_unlinked}`. Re-running it only works on what is still unlinked.
+Run log: each run inserts one row into `ops_link_runs(run_id, run_at, actor, result)` — the actor and the result it returns. RLS on, no grants to `anon`/`authenticated`.
+
+Returns `{linked, tickets_client_changed, tickets_with_client, tickets_mixed_clients: [...], crm_unlinked_2023plus, lines_unlinked}`; `tickets_client_changed` counts the tickets whose `client_id` this run changed. Re-running it only links what is still unlinked, and only changes a client when a newly linked line changes the ticket's client set.
 
 ### 4.5 Reconciliation — view `ops_ticket_monthly` and a report
 

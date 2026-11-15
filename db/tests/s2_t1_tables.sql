@@ -11,7 +11,7 @@ do $$ begin
   assert (select bool_and(relrowsecurity) from pg_class
           where relnamespace = 'public'::regnamespace and relname like 'ops\_%' and relkind = 'r'), 'RLS on';
   assert (select count(*) from pg_class
-          where relnamespace = 'public'::regnamespace and relname like 'ops\_%' and relkind = 'r') = 7, 'seven ops tables';
+          where relnamespace = 'public'::regnamespace and relname like 'ops\_%' and relkind = 'r') = 8, 'eight ops tables (S3 polish adds ops_link_runs)';
 end $$;
 -- states are constrained to the six agreed values
 do $$ begin
