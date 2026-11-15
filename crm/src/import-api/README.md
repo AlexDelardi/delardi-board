@@ -2,8 +2,9 @@
 
 Bulk loads into the database, guarded by a one-time key. The key is created by
 the controller only (digest in `crm_import_tokens`, purpose `crm_load`, valid two
-hours, single use). It is claimed before anything runs; a wrong, used or expired
-key gets the same 401. The function returns only each loader's own result summary.
+hours, single use). It is claimed before anything runs; a missing, short, wrong,
+used or expired key gets 401; the message says only that the key is missing or not
+valid. The function returns only each loader's own result summary.
 
 `POST` JSON, at most 20 MB. Always `import_key` and (optionally) `source`; at
 least one load must be non-empty, else 400.
