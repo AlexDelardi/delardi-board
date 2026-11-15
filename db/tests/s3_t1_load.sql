@@ -24,7 +24,7 @@ begin
   insert into crm_rep_aliases(alias, source_name) values ('S3T Продавец', 'S3T Rep');
   insert into crm_rep_aliases(alias, source_name) values (' S3T Alias Spaced ', 'S3T Rep');
 
-  -- the loader runs under its own statement timeout, as cat_load does
+  -- the loader sets statement_timeout 120s for itself; that does not lift a shorter timeout already running for the call
   assert (select 'statement_timeout=120s' = any (proconfig) from pg_proc
            where oid = 'public.ops_load_tickets(jsonb, text)'::regprocedure), 'loader has statement_timeout 120s';
 
