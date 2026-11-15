@@ -3,10 +3,11 @@
 -- seller_raw, card_no and source_file are never returned.
 
 -- List tickets. p: {q?, from?, to?, seller?, source?: colibri|delardi, status?: posted|void, training?: bool, page?: int}.
--- No from and no to → the last 30 days (Tashkent). training true → only training tickets; otherwise they are excluded.
+-- No from and no to → the last 30 days including today (Tashkent). training true → only training tickets; otherwise they are excluded.
 -- q: the ticket number exactly, or (literal, case-insensitive) part of any line's serial, article or brand,
 -- the client's display name or the ticket's client_raw. Newest first, then ticket number descending; 50 a page.
--- net counts refund lines negative; count and net_total cover every filtered row.
+-- net counts refund lines negative. count covers every filtered row; void_count is the void ones among them;
+-- net_total sums posted tickets only.
 create function public.pos_ticket_list(p jsonb) returns jsonb
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
@@ -29,7 +30,7 @@ begin
     raise exception 'status must be posted or void';
   end if;
   if v_from is null and v_to is null then
-    v_from := (now() at time zone 'Asia/Tashkent')::date - 30;
+    v_from := (now() at time zone 'Asia/Tashkent')::date - 29;
   end if;
   -- \ % _ escaped, so the text matches literally
   if v_q is not null then v_like := '%' || regexp_replace(v_q, '([\\%_])', '\\\1', 'g') || '%'; end if;
@@ -61,7 +62,8 @@ begin
   )
   select jsonb_build_object(
            'count', (select count(*) from f),
-           'net_total', (select coalesce(sum(net), 0) from f),
+           'void_count', (select count(*) from f where status = 'void'),
+           'net_total', (select coalesce(sum(net), 0) from f where status = 'posted'),
            'page', v_page,
            'rows', coalesce((select jsonb_agg(jsonb_build_object(
                        'ticket_id', x.ticket_id, 'ticket_no', x.ticket_no, 'source', x.source, 'sold_at', x.sold_at,

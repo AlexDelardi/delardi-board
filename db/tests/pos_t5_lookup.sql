@@ -124,6 +124,20 @@ begin
          and (res->>'count')::int = 51, 'page 2 has 1 row';
   assert jsonb_array_length(pos_ticket_list('{"seller":"S3T Source 2","page":3}')->'rows') = 0, 'page 3 empty';
 
+  -- void in the window: counted, flagged, but not in net_total; window edge is today-29
+  insert into ops_tickets(store_id, source, ticket_no, sold_at, seller, status)
+    values (1, 'colibri', 'ZZ-V1', v_today - 1, 'S3T Source 3', 'void'),
+           (1, 'colibri', 'ZZ-E29', v_today - 29, 'S3T Source 3', 'posted'),
+           (1, 'colibri', 'ZZ-E30', v_today - 30, 'S3T Source 3', 'posted');
+  insert into ops_ticket_lines(ticket_id, line_no, kind, item_name, price_current, net)
+    select ticket_id, 1, 'sale', 'Zz Edge', 100000, 100000 from ops_tickets where seller = 'S3T Source 3';
+  res := pos_ticket_list('{"seller":"S3T Source 3"}');
+  assert (res->>'count')::int = 2 and (res->>'void_count')::int = 1 and (res->>'net_total')::numeric = 100000
+         and exists (select 1 from jsonb_array_elements(res->'rows') e where e->>'ticket_no' = 'ZZ-E29')
+         and not exists (select 1 from jsonb_array_elements(res->'rows') e where e->>'ticket_no' = 'ZZ-E30'),
+         'void counted not summed; today-29 in, today-30 out ' || res::text;
+  assert (pos_ticket_list('{"seller":"S3T Source 3","status":"posted"}')->>'void_count')::int = 0, 'void_count follows filters';
+
   -- detail
   d := pos_ticket_detail(c1);
   assert d->'ticket'->>'ticket_no' = 'ZZ-C1' and d->'ticket'->>'source' = 'colibri' and d->'ticket'->>'seller' = 'S3T Source'
