@@ -1,6 +1,7 @@
 // Delardi UI kit: tool switcher. No dependencies. Inlined ahead of each tool's own modules.
 const KIT_TOOLS = [
   { id: 'sales', href: '../sales/', en: 'Sales', ru: 'Продажи' },
+  { id: 'stock', href: '../stock/', en: 'Stock', ru: 'Склад' },
   { id: 'crm', href: '../crm/', en: 'Clients', ru: 'Клиенты' },
   { id: 'catalogue', href: '../catalogue/', en: 'Catalogue', ru: 'Каталог' },
   { id: 'board', href: '../board/', en: 'Board', ru: 'Доска' },
