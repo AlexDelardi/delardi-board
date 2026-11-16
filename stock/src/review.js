@@ -38,7 +38,7 @@ const ANSWER_WORD = { sold: "Sold", damaged: "Damaged", booked_out: "Booked out"
 const kindWord = (k) => tr(REVIEW_KIND[k] || humanKey(k));          // REVIEW_KIND, humanKey: piece.js
 const answerWord = (a) => tr(ANSWER_WORD[a] || humanKey(a));
 
-let rvSeq = 0;
+let rvSeq = 0, rvDraws = 0;
 function rvState() { return S.rv || (S.rv = { items: null, err: null, ans: null }); }
 function setReviewTab() {
   const t = $("#tab-review");
@@ -81,6 +81,7 @@ function drawReviews() {
   const rv = rvState();
   const focus = focusMark(host);
   host.innerHTML = "";
+  host.setAttribute("data-draws", ++rvDraws);                    // lets the tests wait for a redraw
   if (rv.err && !rv.items) {
     host.append(el("p", { class: "notice", role: "alert", text: tr("Could not load the reviews.") + " " + rv.err }),
       el("button", { type: "button", class: "btn", onclick: loadReviews, text: tr("Try again") }));
@@ -105,7 +106,10 @@ function drawReviews() {
 
 // A redraw (a reload of the queue, a refusal) rebuilds every node: whatever held keyboard focus
 // inside the queue gets it back. Marked by row and answer, or by id (the form's own controls).
+// Not on a touch device, and not while the piece panel is open (focus belongs to the panel then).
+const keepsFocus = () => !touchDevice() && !$("#piece-panel");
 function focusMark(host) {
+  if (!keepsFocus()) return null;
   const a = document.activeElement;
   if (!a || !host.contains(a)) return null;
   const row = a.closest("tr.rrow");
@@ -114,7 +118,7 @@ function focusMark(host) {
   return m;
 }
 function restoreFocus(host, m) {
-  if (!m) return;
+  if (!m || !keepsFocus()) return;
   let n = null;
   if (m.id) n = $("#" + m.id, host);
   else if (m.review) {

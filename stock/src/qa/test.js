@@ -984,15 +984,17 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     // double click on Confirm while the request is held
     mock.delay.resolve = 500;
     await page.click('#rv-rows tr.rrow[data-review="5"] button[data-answer="still_in_transit"]');
+    const rcount = () => mock.calls.filter((x) => x.action === "reviews").length;
+    const rc0 = rcount();
+    const draws = () => page.$eval("#rv-host", (n) => Number(n.getAttribute("data-draws")));
+    const d0 = await draws();
     await page.click("#rv-confirm");
     await page.click("#confirm-ok");
     await page.$eval("#rv-confirm", (n) => { n.click(); n.click(); }).catch(() => {});
     await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 4);
-    const rcount = () => mock.calls.filter((x) => x.action === "reviews").length;
-    const rc0 = rcount();
-    await page.waitForFunction(() => true);
-    for (let i = 0; i < 50 && rcount() === rc0; i++) await page.waitForTimeout(40);   // the reload after the resolve has been asked for
-    await page.waitForTimeout(250);                                                  // ...and answered and drawn
+    // the reload after the resolve has been asked for (calls rise) and its answer drawn (busy, success, reload = 3 draws)
+    await page.waitForFunction((n) => Number(document.querySelector("#rv-host").getAttribute("data-draws")) >= n, d0 + 3);
+    check("review: the reviews are reloaded after a resolve", rcount() > rc0);
     check("review: a double click on Confirm sends one resolve", resolveCalls().length === 1, String(resolveCalls().length));
     const a = await active();
     check("review focus: after a resolve it lands on the next row's first answer", a === "4:still_in_transit", a);
@@ -1007,6 +1009,23 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     }
     check("review focus: with the list empty it lands on the tab", await page.evaluate(() => document.activeElement.id === "tab-review"));
     check("review focus: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("review queue focus with the piece panel open", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 });
+    await settled(page);
+    await openReview(page);
+    await page.click('#rv-rows tr.rrow[data-review="1"] .rv-piece');
+    await page.waitForSelector("#piece-panel #pc-title");
+    // a touch device: the tapped button keeps focus behind the panel
+    await page.$eval('#rv-rows tr.rrow[data-review="1"] .rv-piece', (n) => n.focus());
+    const d0 = Number(await page.$eval("#rv-host", (n) => n.getAttribute("data-draws")));
+    await page.evaluate(() => loadReviews());
+    await page.waitForFunction((n) => Number(document.querySelector("#rv-host").getAttribute("data-draws")) > n, d0);
+    check("review focus: a reload with the piece panel open does not pull focus out of it", await page.evaluate(() => !document.querySelector("#rv-host").contains(document.activeElement)));
+    await page.click("#piece-close");
+    check("review focus (panel): no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
