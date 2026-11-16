@@ -16,7 +16,11 @@ const PASSCODES = {
 const DEFAULT_RIGHTS = JSON.stringify(Object.fromEntries(Object.entries(PASSCODES).map(([k, v]) => [k, v.rights])));
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
-const RESOLUTIONS = ["sold", "damaged", "booked_out", "still_in_stock"];
+// ops_resolve_review's answers per kind
+const RESOLUTIONS = ["sold", "damaged", "booked_out", "still_in_stock", "still_in_transit", "not_delivered"];
+const ANSWERS = { missing_from_export: ["sold", "damaged", "booked_out", "still_in_stock"], serial_reused: ["sold", "damaged", "booked_out", "still_in_stock"],
+  ticket_conflict: ["sold", "damaged", "booked_out", "still_in_stock"], overdue_in_transit: ["still_in_transit", "not_delivered"],
+  dropped_from_incoming: ["still_in_transit", "not_delivered"] };
 const NO_ACCESS = "This account does not have access to Stock.";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLIENTS = { "DLD-9001": "Соколова Мария Андреевна", "DLD-9002": "Invented Client Two" };
@@ -84,8 +88,9 @@ function reset() {
       actor: "Stock Manager", note: p.state_note, ticket_id: p.state === "sold" ? ticketId(p) : null, ticket_no: p.state === "sold" ? "D-0000" + (p.serial.slice(-2)) : null });
     events[p.piece_id] = list;
   }
-  const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "missing_from_export", "missing_from_export"];
-  reviews = [0, 5, 12, 31, 40].map((pi, k) => ({ review_id: k + 1, piece_id: pieces[pi].piece_id, kind: kinds[k],
+  // five open items, one of each kind (the last two on pieces that are in transit)
+  const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "overdue_in_transit", "dropped_from_incoming"];
+  reviews = [0, 5, 12, 40, 41].map((pi, k) => ({ review_id: k + 1, piece_id: pieces[pi].piece_id, kind: kinds[k],
     raised_at: iso(30 + k, 9), status: "open", resolution: null, resolved_by: null, resolved_at: null, note: k === 1 ? "Seen twice in the export" : null }));
   // a sale on pieces[1] was voided and the piece came back to stock (pos_void_ticket writes "void: <reason>")
   events[pieces[1].piece_id].unshift({ at: iso(20, 8), from_state: "sold", to_state: "in_stock", reason: "void: Wrong size entered", ref_kind: "ticket",
@@ -293,7 +298,14 @@ function handle(body) {
       if (!RESOLUTIONS.includes(resolution)) fail(409, `resolution ${resolution} is not allowed`);
       const r = reviews.find((x) => x.review_id === n && x.status === "open");
       if (!r) fail(409, `review ${n} is not open`);
+      if (!ANSWERS[r.kind].includes(resolution)) fail(409, `resolution ${resolution} is not allowed`);
       const p = pieces.find((x) => x.piece_id === r.piece_id);
+      if (resolution === "not_delivered" && p.state === "in_transit") {
+        const at = new Date().toISOString();
+        events[p.piece_id].unshift({ at, from_state: "in_transit", to_state: "not_received", reason: "review_resolved", ref_kind: "review", ref_id: String(n),
+          actor: s.name, note, ticket_id: null, ticket_no: null });
+        Object.assign(p, { state: "not_received", state_since: at, state_note: note });
+      }
       if (resolution === "sold" && p.state !== "sold") fail(409, `state ${p.state} → sold is not allowed`);
       if ((resolution === "damaged" || resolution === "booked_out") && p.state !== resolution) {
         move(p, resolution, s.name, note, null, null, "review_resolved", "review", String(n));

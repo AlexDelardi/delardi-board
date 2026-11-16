@@ -99,6 +99,30 @@ main { padding: 24px 24px 96px; }
   .tbl.pieces thead th { font-size: 11px; letter-spacing: .06em; }
 }
 
+/* the review table */
+.tbl.reviews th, .tbl.reviews td { padding: 8px 10px; vertical-align: top; }
+.tbl.reviews td.rk { min-width: 0; overflow-wrap: break-word; }
+.tbl.reviews td.since { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl.reviews td.st .tag { white-space: normal; line-height: 1.25; padding: 4px 8px; }
+.tbl.reviews .rv-piece { display: block; width: 100%; height: auto; padding: 4px 0; text-align: left; text-decoration: none; font-weight: 400; }
+.tbl.reviews .rv-piece .serial { display: block; font-weight: 700; text-decoration: underline; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl.reviews .rv-piece .ref-m { display: block; color: var(--slate); margin-top: 2px; overflow-wrap: anywhere; }
+.rv-answers { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-answers .btn { padding: 0 10px; font-size: 13px; white-space: normal; line-height: 1.2; flex: 0 1 auto; }
+.rv-answers .btn[aria-pressed="true"] { background: var(--navy); color: var(--white); }
+.tbl.reviews tr.rrow.open td { border-bottom-color: transparent; }
+.tbl.reviews tr.rv-formrow { height: auto; }
+.tbl.reviews tr.rv-formrow:hover { background: transparent; }
+.tbl.reviews tr.rv-formrow td { padding: 0 10px 12px; }
+.rv-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--card); border: 1px solid var(--mist); }
+.rv-field { display: block; }
+.rv-field textarea { width: 100%; }
+.rv-empty { margin: 48px 0; text-align: center; color: var(--slate); font: normal 21px/1.4 var(--serif); }
+@media (max-width: 900px) {
+  .tbl.reviews th, .tbl.reviews td { padding: 8px 6px; font-size: 14px; }
+  .tbl.reviews thead th { font-size: 11px; letter-spacing: .06em; }
+}
+
 /* pager */
 .pager { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--mist); }
 .pager .pg-count { color: var(--slate); font-size: 13px; flex: 1 1 auto; }

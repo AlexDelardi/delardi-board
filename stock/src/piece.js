@@ -55,9 +55,11 @@ Object.assign(RU, {
   "Client: {c}": "Клиент: {c}",
   "Until: {d}": "До: {d}",
   "Could not open this piece.": "Не удалось открыть изделие.",
-  "Missing from export": "Нет в выгрузке",
-  "Serial reused": "Серийный номер повторно",
-  "Ticket conflict": "Конфликт с чеком",
+  "Missing from the stock export": "Нет в выгрузке остатков",
+  "Serial number reused": "Серийный номер повторно",
+  "Sale conflicts with stock": "Продажа противоречит остаткам",
+  "Overdue in transit": "Задерживается в пути",
+  "Dropped from incoming": "Выпало из поступлений",
   "First load": "Первичная загрузка",
   "Arrived": "Поступило",
   "White gold": "Белое золото",
@@ -83,7 +85,9 @@ const REASON_WORDS = {
   repaired: ["Repaired", "Отремонтировано"], review_resolved: ["Review resolved", "Проверка закрыта"],
   serial_reused: ["Serial reused", "Серийный номер повторно"],
 };
-const REVIEW_KIND = { missing_from_export: "Missing from export", serial_reused: "Serial reused", ticket_conflict: "Ticket conflict" };
+// the one table of review-kind words (review.js uses it too)
+const REVIEW_KIND = { missing_from_export: "Missing from the stock export", serial_reused: "Serial number reused", ticket_conflict: "Sale conflicts with stock",
+  overdue_in_transit: "Overdue in transit", dropped_from_incoming: "Dropped from incoming" };
 const SOURCE_WORD = { colibri: "Colibri", delardi: "Till", training: "Training" };
 
 function humanKey(key) {

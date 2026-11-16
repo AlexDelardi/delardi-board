@@ -60,7 +60,7 @@ const RU = {
   "Yes": "Да",
   "Cancel": "Отмена",
   "Close": "Закрыть",
-  // review placeholder (review.js, Task 5, replaces it)
+  // review placeholder (used only if review.js is not built in)
   "Open review items come here.": "Здесь будут открытые вопросы на проверку.",
 };
 // Counted nouns: English one/many; Russian one/few/many.
@@ -130,6 +130,8 @@ const S = {
   priceTimers: {},                   // pending price-input debounces, cleared by lockDown
   pc: null,                          // the open piece panel (piece.js)
   pieceId: null,                     // the piece last opened (openPiece)
+  rv: null,                          // the review queue (review.js): { items, ans, errs, err }
+  reviewCount: null,                 // open reviews, for the tab label
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -332,8 +334,8 @@ function langSwitch() {
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs sit under it.
 function renderHeader() {
   const r = route().name;
-  const tab = (name, label) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name,
-    "aria-current": r === name ? "page" : null, text: tr(label) });
+  const tab = (name, label, n) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name,
+    "aria-current": r === name ? "page" : null, text: tr(label) + (n > 0 ? " (" + n + ")" : "") });
   return el("header", { class: "top" },
     el("div", { class: "kit-head" },
       kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") }))),
@@ -346,7 +348,7 @@ function renderHeader() {
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Stock") },
       tab("pieces", "Pieces"),
-      tab("review", "Review")));
+      tab("review", "Review", S.reviewCount)));
 }
 
 /* -------------------------------------------------------------------- gate */
@@ -370,6 +372,7 @@ function renderGate() {
       S.locked = false; S.gateMessage = null;
       activeNow();
       await loadFacets();
+      loadReviews();                               // review.js: the count on the tab
       renderAll();
       renderGate();
       toast(tr("Welcome, {name}", { name: r.name }));
@@ -408,6 +411,8 @@ function lockDown(message) {
   for (const k of Object.keys(S.priceTimers)) clearTimeout(S.priceTimers[k]);
   S.priceTimers = {};
   // Nothing from the session stays in memory behind the card; the filters do.
+  S.rv = null; S.reviewCount = null;
+  { const h = $("#rv-host"); if (h) h.innerHTML = ""; if (typeof setReviewTab === "function") setReviewTab(); }   // review.js: no queue is left on screen behind the card
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
@@ -480,6 +485,7 @@ function restoreSession() {
       const p = await api("ping");
       S.name = p.name; S.rights = p.rights; S.locked = false; activeNow();
       await loadFacets();
+      loadReviews();
     } catch (e) {
       S.locked = true;
       if (e.status !== 401) { S.token = null; sstore(SESSION_KEY, null); S.gateMessage = e.raw || null; }

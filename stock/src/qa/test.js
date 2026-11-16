@@ -145,12 +145,12 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       [...document.querySelectorAll(".kit-head .kit-lang .kit-hbtn")].map((b) => b.textContent + ":" + b.getAttribute("aria-pressed")).join() === "EN:true,RU:false"));
     // tabs
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim() + (n.getAttribute("aria-current") === "page" ? "*" : "")));
-    check("tabs: Pieces (current) and Review", tabs.join() === "Pieces*,Review", tabs.join());
+    check("tabs: Pieces (current) and Review with its count", tabs.join() === "Pieces*,Review (5)", tabs.join());
     check("routes: the default is #/pieces", await page.evaluate(() => route().name === "pieces"));
     await page.click(".kit-tabs .kit-tab >> text=Review");
     await page.waitForSelector("#screen-review");
     check("routes: #/review shows the review screen, Review current", /#\/review$/.test(page.url()) &&
-      norm(await page.textContent(".kit-tabs .kit-tab[aria-current=page]")) === "Review");
+      /^Review/.test(norm(await page.textContent(".kit-tabs .kit-tab[aria-current=page]"))));
     await page.click(".kit-tabs .kit-tab >> text=Pieces");
     await settled(page);
     check("routes: back to #/pieces shows the list", /#\/pieces$/.test(page.url()) && (await rowCount(page)) === 50);
@@ -372,7 +372,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       norm(await page.textContent(".kit-head [data-kit-menu] > button")) === "Инструменты" &&
       norm(await page.textContent(".kit-head > button.kit-hbtn")) === "Заблокировать");
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
-    check("RU: tabs Изделия / Проверка", tabs.join() === "Изделия,Проверка", tabs.join());
+    check("RU: tabs Изделия / Проверка", tabs.join() === "Изделия,Проверка (5)", tabs.join());
     const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|С даты|Цена", heads.join("|"));
     const opts = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.textContent.trim()));
@@ -522,7 +522,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const rp = mock.pieces[0];
     await openId(page, rp.piece_id);
     const rv = norm(await page.textContent("#pc-reviews"));
-    check("reviews: open review kind word and raised date", /Missing from export/.test(rv) && /\d{1,2} [A-Z][a-z]{2} 2026/.test(rv), rv);
+    check("reviews: open review kind word and raised date", /Missing from the stock export/.test(rv) && /\d{1,2} [A-Z][a-z]{2} 2026/.test(rv), rv);
     // closing
     await page.click("#piece-close");
     check("close: the × closes the panel", !(await page.$("#piece-panel")));
@@ -865,6 +865,149 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       await ctx.close();
     });
   }
+
+  // ------------------------------------------------------- the review queue
+  const KIND_EN = { missing_from_export: "Missing from the stock export", serial_reused: "Serial number reused", ticket_conflict: "Sale conflicts with stock",
+    overdue_in_transit: "Overdue in transit", dropped_from_incoming: "Dropped from incoming" };
+  const KIND_RU = { missing_from_export: "Нет в выгрузке остатков", serial_reused: "Серийный номер повторно", ticket_conflict: "Продажа противоречит остаткам",
+    overdue_in_transit: "Задерживается в пути", dropped_from_incoming: "Выпало из поступлений" };
+  const ANS_EN = { sold: "Sold", damaged: "Damaged", booked_out: "Booked out", still_in_stock: "Still in stock", still_in_transit: "Still in transit", not_delivered: "Not delivered" };
+  const ANS_RU = { sold: "Продано", damaged: "Повреждено", booked_out: "Выдано", still_in_stock: "Есть в наличии", still_in_transit: "Всё ещё в пути", not_delivered: "Не поставлено" };
+  const KIND_ANS = { missing_from_export: ["sold", "damaged", "booked_out", "still_in_stock"], serial_reused: ["sold", "damaged", "booked_out", "still_in_stock"],
+    ticket_conflict: ["sold", "damaged", "booked_out", "still_in_stock"], overdue_in_transit: ["still_in_transit", "not_delivered"], dropped_from_incoming: ["still_in_transit", "not_delivered"] };
+  const resolveCalls = () => mock.calls.filter((c) => c.action === "resolve");
+  const rvRows = (page) => page.$$eval("#rv-rows tr.rrow", (ns) => ns.map((n) => ({ id: n.getAttribute("data-review"), cells: [...n.children].map((c) => c.textContent.replace(/[\s  ]+/g, " ").trim()),
+    answers: [...n.querySelectorAll("button[data-answer]")].map((b) => b.getAttribute("data-answer") + ":" + b.textContent.trim()) })));
+  const rvTab = (page) => page.$eval("#tab-review", (n) => n.textContent.trim());
+  const openReview = async (page) => { await page.click("#tab-review"); await page.waitForSelector("#rv-rows tr.rrow, #rv-empty"); };
+
+  await run("review queue", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1280, height: 800 });
+    await settled(page);
+    check("review: the tab shows the count of open items right after login", (await rvTab(page)) === "Review (5)", await rvTab(page));
+    await openReview(page);
+    const rows = await rvRows(page);
+    check("review: five rows, oldest first, one of each kind", rows.length === 5 && rows.map((r) => r.cells[0]).join("|") === Object.values(KIND_EN).join("|"), rows.map((r) => r.cells[0]).join("|"));
+    const r1 = rows[0];
+    const p0 = mock.pieces[0];
+    check("review: a row lists the serial, Brand · Model, the state tag and the raised date",
+      r1.cells[1].includes(p0.serial) && r1.cells[1].includes(p0.brand + " · " + p0.model_name) && r1.cells[2] === "In stock" && /^\d{1,2} [A-Z][a-z]{2} 2026$/.test(r1.cells[3]), JSON.stringify(r1.cells));
+    check("review: the headings are Kind, Piece, State, Raised, Answer", (await page.$$eval("#rv-table thead th", (ns) => ns.map((n) => n.textContent.trim()))).join() === "Kind,Piece,State,Raised,Answer");
+    const kinds = Object.keys(KIND_EN);
+    check("review: each row offers exactly its kind's answers, in words", rows.every((r, i) => r.answers.join() === KIND_ANS[kinds[i]].map((a) => a + ":" + ANS_EN[a]).join()), JSON.stringify(rows.map((r) => r.answers)));
+    check("review: the answer buttons are 44 px targets", await page.$$eval("#rv-rows button", (ns) => ns.every((n) => n.getBoundingClientRect().height >= 43.5)));
+    // the piece opens the panel
+    await page.click(`#rv-rows tr.rrow[data-review="1"] .rv-piece`);
+    await page.waitForSelector("#piece-panel .panel #pc-title");
+    check("review: clicking the piece opens the piece panel", (await page.textContent("#pc-label")).includes(p0.serial));
+    await page.click("#piece-close");
+    // an answer opens the note field; Cancel closes it
+    await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="still_in_stock"]');
+    await page.waitForSelector("#rv-form");
+    check("review: an answer opens a note field and Confirm under the row", !!(await page.$("#rv-note")) && /Confirm/.test(await page.textContent("#rv-confirm")));
+    await page.click("#rv-cancel");
+    check("review: Cancel closes it without a request", !(await page.$("#rv-form")) && resolveCalls().length === 0);
+    // resolve with a note
+    await page.click('#rv-rows tr.rrow[data-review="2"] button[data-answer="damaged"]');
+    await page.fill("#rv-note", "Clasp found bent");
+    await page.click("#rv-confirm");
+    await page.waitForSelector("#confirm-dialog");
+    check("review: Confirm asks \"Close this review?\"", /Close this review\?/.test(await page.textContent("#confirm-dialog")));
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 4);
+    const c = resolveCalls();
+    check("review: resolve is sent with the review, the answer and the note", c.length === 1 && c[0].review_id === 2 && c[0].resolution === "damaged" && c[0].note === "Clasp found bent", JSON.stringify(c));
+    check("review: the row is gone and the count drops", !(await page.$('tr.rrow[data-review="2"]')) && (await rvTab(page)) === "Review (4)", await rvTab(page));
+    check("review: toast \"Review closed.\"", /Review closed\./.test(await page.textContent("#toast")));
+    check("review: the resolution changed the piece (damaged) in the mock", mock.pieces[5].state === "damaged");
+    // the list shows it too
+    const before = listCalls().length;
+    await page.click("#tab-pieces");
+    await settled(page);
+    check("review: the list is refreshed after a resolve", listCalls().length > before && /Damaged/.test(await page.textContent("#totals")));
+    // 409 keeps the row
+    await openReview(page);
+    await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="sold"]');
+    await page.click("#rv-confirm");
+    await page.click("#confirm-ok");
+    await page.waitForSelector(".rv-err:not([hidden])");
+    check("review: a 409 shows the database sentence verbatim under the row", norm(await page.textContent(".rv-err")) === "state in_stock → sold is not allowed", await page.textContent(".rv-err"));
+    check("review: and keeps the row and the count", (await rvRows(page)).length === 4 && (await rvTab(page)) === "Review (4)");
+    check("review: and reloads the reviews", mock.calls.filter((x) => x.action === "reviews").length >= 4);
+    // in-transit kinds
+    await page.click('#rv-rows tr.rrow[data-review="4"] button[data-answer="not_delivered"]');
+    await page.fill("#rv-note", "Supplier confirms it did not ship");
+    await page.click("#rv-confirm");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 3);
+    check("review: Not delivered closes an overdue-in-transit item", mock.pieces[40].state === "not_received" && (await rvTab(page)) === "Review (3)");
+    // resolving from a piece that is open in the panel reloads it
+    await page.click('#rv-rows tr.rrow[data-review="3"] .rv-piece');
+    await page.waitForSelector("#pc-title");
+    check("review: the open piece panel lists the review", /Sale conflicts with stock/.test(await page.textContent("#pc-reviews")));
+    await page.$eval('#rv-rows tr.rrow[data-review="3"] button[data-answer="still_in_stock"]', (n) => n.click());   // the panel's scrim is over the table
+    await page.$eval("#rv-confirm", (n) => n.click());
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 2);
+    await page.waitForFunction(() => !document.querySelector("#pc-reviews"));
+    check("review: the open piece panel reloads after a resolve (no open review left)", true);
+    check("review: no script errors, no foreign requests", errors.length === 0 && foreign.length === 0, errors.concat(foreign).join(" | "));
+    await ctx.close();
+  });
+
+  await run("review queue empty and without manage", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { pass: "look" });
+    await settled(page);
+    check("review (view only): the count is there", (await rvTab(page)) === "Review (5)");
+    await openReview(page);
+    const rows = await rvRows(page);
+    check("review (view only): the list, no Answer column and no buttons", rows.length === 5 && !(await page.$("#rv-rows button[data-answer]")) &&
+      (await page.$$eval("#rv-table thead th", (ns) => ns.map((n) => n.textContent.trim()))).join() === "Kind,Piece,State,Raised");
+    check("review (view only): the piece still opens the panel", await (async () => { await page.click("#rv-rows tr.rrow .rv-piece"); await page.waitForSelector("#pc-title"); return true; })());
+    await page.click("#piece-close");
+    await ctx.close();
+    // empty
+    const t = await setup(browser, { width: 1280, height: 800 });
+    mock.reviews.forEach((r) => { r.status = "resolved"; });
+    await t.page.reload();
+    await t.page.waitForSelector("#rows");
+    check("review (empty): the tab shows just Review", (await rvTab(t.page)) === "Review");
+    await openReview(t.page);
+    check("review (empty): \"No open reviews.\" in the serif line", await t.page.$eval("#rv-empty", (n) => /No open reviews\./.test(n.textContent) && /Palatino/.test(getComputedStyle(n).fontFamily)));
+    await t.ctx.close();
+    check("review (empty): no script errors", errors.length === 0 && t.errors.length === 0, errors.concat(t.errors).join(" | "));
+  });
+
+  await run("review queue RU, lock, widths", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 });
+    await settled(page);
+    await page.click(".kit-lang .kit-hbtn[lang=ru]");
+    await openReview(page);
+    check("review RU: the tab", (await rvTab(page)) === "Проверка (5)", await rvTab(page));
+    const rows = await rvRows(page);
+    const kinds = Object.keys(KIND_RU);
+    check("review RU: kind words and answer words", rows.every((r, i) => r.cells[0] === KIND_RU[kinds[i]] && r.answers.join() === KIND_ANS[kinds[i]].map((a) => a + ":" + ANS_RU[a]).join()), JSON.stringify(rows.map((r) => [r.cells[0], r.answers])));
+    check("review RU: the date and state in Russian", /^\d{1,2} (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек) 2026$/.test(rows[0].cells[3]) && rows[0].cells[2] === "В наличии", JSON.stringify(rows[0].cells));
+    check("review RU: headings", (await page.$$eval("#rv-table thead th", (ns) => ns.map((n) => n.textContent.trim()))).join() === "Вид,Изделие,Статус,Поднято,Ответ");
+    check("review 768: no sideways scroll", await noHScroll(page) && await page.$eval(".tbl-wrap", (n) => n.scrollWidth <= n.clientWidth + 1));
+    check("review 768: controls are 44 px targets", await page.$$eval("#rv-rows button", (ns) => ns.every((n) => n.getBoundingClientRect().height >= 43.5)));
+    await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="booked_out"]');
+    await page.fill("#rv-note", "x");
+    await page.click("#rv-confirm");
+    await page.waitForSelector("#confirm-dialog");
+    check("review RU: the confirmation asks «Закрыть проверку?»", /Закрыть проверку\?/.test(await page.textContent("#confirm-dialog")));
+    check("review 768 RU: no sideways scroll with the form open", await noHScroll(page));
+    // a late answer after the lock draws nothing
+    mock.delay.resolve = 600;
+    await page.click("#confirm-ok");
+    await page.waitForTimeout(150);
+    await page.click(".kit-head .kit-hbtn >> text=Заблокировать");
+    await page.waitForSelector("#gate");
+    await page.waitForTimeout(900);
+    check("review lock: a late answer draws nothing and keeps nothing", await page.evaluate(() => S.locked && S.rv === null && S.reviewCount === null && !document.querySelector("#rv-rows") && !document.querySelector("#confirm-dialog")));
+    check("review 768: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
 
   await run("kit css", async () => {
     const r = require("child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "..", "..", "qa", "kit.cjs")], { encoding: "utf8" });
