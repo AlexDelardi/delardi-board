@@ -12,7 +12,7 @@
 /* ===========================================================================
    Delardi — landing page
    The front door to the Weekly Board (board/), the Client Instrument
-   (crm/) and the Catalogue (catalogue/). It holds no key, makes no network request and shows no data: it
+   (crm/), the Catalogue (catalogue/) and Sales, the till (sales/). It holds no key, makes no network request and shows no data: it
    only reads, from this browser, whether each tool is already unlocked here.
    Same brand system as the tools: navies #001A4A / #082966, Palatino
    Linotype as the accent face, Evolventa as the text face.
@@ -102,8 +102,7 @@ h1 {
 }
 .lede { margin: 12px 0 0; color: var(--ink-2); max-width: 560px; }
 
-.tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
-@media (max-width: 1000px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
 .tool {
   position: relative; display: flex; flex-direction: column;
   padding: 26px 26px 20px; min-height: 250px;
@@ -227,6 +226,17 @@ footer img { height: 22px; width: auto; opacity: .55; }
         <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </span>
     </a>
+    <a class="tool" href="sales/" data-tool="sales">
+      <span class="tool-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-1.7-1.2-1.6 1.2-1.7-1.2-1.7 1.2-1.6-1.2L5 17.5z"/><path d="M7.5 6.5h5M7.5 9.5h5M7.5 12.5h3"/></svg>
+      </span>
+      <span class="tool-name" data-i18n="sales_name">Sales</span>
+      <span class="tool-desc" data-i18n="sales_desc">The till: scan a piece, choose the client, take payment and print the receipt; look up any ticket.</span>
+      <span class="tool-foot">
+        <span class="status" data-session="sales_session"><span class="dot" aria-hidden="true"></span><span class="status-text" data-i18n="locked">Passcode needed</span></span>
+        <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </span>
+    </a>
   </nav>
 </main>
 
@@ -239,7 +249,7 @@ footer img { height: 22px; width: auto; opacity: .55; }
 <script>
 (function () {
   "use strict";
-  var THEME_KEY = "board_theme";   // shared with all three tools
+  var THEME_KEY = "board_theme";   // shared with all the tools
   var LANG_KEY = "delardi_lang";   // the tools will read the same key
 
   var T = {
@@ -256,6 +266,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       crm_desc: "The client database spring clean: every client, where Colibri and the questionnaire disagree, and who looks after each relationship.",
       cat_name: "Catalogue",
       cat_desc: "Every watch and piece of jewellery: find it by brand, type or collection, see what matters on the floor, and show it to the client.",
+      sales_name: "Sales",
+      sales_desc: "The till: scan a piece, choose the client, take payment and print the receipt; look up any ticket.",
       locked: "Passcode needed",
       open_as: function (name, time) { return "Unlocked on this device" + (name ? " · " + name : "") + " · until " + time; },
       open: "Open",
@@ -274,6 +286,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       crm_desc: "Генеральная уборка базы клиентов: каждый клиент, где Colibri и анкета расходятся, и кто ведёт каждого клиента.",
       cat_name: "Каталог",
       cat_desc: "Все часы и украшения: поиск по бренду, типу или коллекции, главное для работы в зале и режим показа клиенту.",
+      sales_name: "Продажи",
+      sales_desc: "Касса: отсканировать изделие, выбрать клиента, принять оплату и распечатать чек; найти любой чек.",
       locked: "Нужен код доступа",
       open_as: function (name, time) { return "Открыто на этом устройстве" + (name ? " · " + name : "") + " · до " + time; },
       open: "Открыть",
@@ -309,9 +323,12 @@ footer img { height: 22px; width: auto; opacity: .55; }
 
   // A session only says the tool will open without asking again on this
   // browser. It is read, never sent anywhere; the tool itself re-checks it.
+  // Sales keeps its session for the tab only (sessionStorage), so it is read there too.
   function session(key) {
+    var raw = get(key);
+    if (!raw) { try { raw = sessionStorage.getItem(key); } catch (e) { raw = null; } }
     try {
-      var s = JSON.parse(get(key) || "null");
+      var s = JSON.parse(raw || "null");
       if (s && s.token && new Date(s.expires_at).getTime() > Date.now()) return s;
     } catch (e) { /* ignore */ }
     return null;
