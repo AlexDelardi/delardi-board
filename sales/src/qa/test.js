@@ -985,7 +985,7 @@ async function shot(page, name) {
       await page.fill("#q", "Messika");
       await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length >= 3);
       check(`screens ${tag}: search — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await calm(); await shot(page, "02-search");
+      if (vp.land) { await calm(); await shot(page, "02-search"); }
       await page.fill("#q", "");
       await openSokolova(page);
       check(`screens ${tag}: client — no sideways scroll`, await noHScroll(page));
@@ -1003,15 +1003,15 @@ async function shot(page, name) {
       await page.click("#post");
       await page.waitForSelector("#screen-receipt .receipt");
       check(`screens ${tag}: receipt — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await calm(); await shot(page, "04-receipt");
+      if (vp.land) { await calm(); await shot(page, "04-receipt"); }
       await page.click("a.kit-tab[href='#/tickets']");
       await page.waitForSelector("#screen-tickets tr.tk-row");
       check(`screens ${tag}: tickets — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await calm(); await shot(page, "06-tickets");
+      if (vp.land) { await calm(); await shot(page, "06-tickets"); }
       await page.evaluate(() => lockDown());
       await page.waitForSelector("#gate-pass");
       check(`screens ${tag}: lock — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await calm(); await shot(page, "07-lock");
+      if (vp.land) { await calm(); await shot(page, "07-lock"); }
       check(`screens ${tag}: no script errors`, errors.length === 0, errors.join(" | "));
       await ctx.close();
     });

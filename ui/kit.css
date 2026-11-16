@@ -111,8 +111,8 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 .toast.err { background: var(--white); color: var(--alert); border: 1px solid var(--alert); }
 
 /* Lock card */
-.gate { position: fixed; inset: 0; overflow-y: auto; z-index: 115; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--card); }
-.gate-card { width: 100%; max-width: 400px; background: var(--white); border: 1px solid var(--mist); }
+.gate { position: fixed; inset: 0; overflow-y: auto; z-index: 115; min-height: 100vh; display: flex; padding: 24px; background: var(--card); }
+.gate-card { margin: auto; width: 100%; max-width: 400px; background: var(--white); border: 1px solid var(--mist); }
 .gate-mast { padding: 24px; background: var(--navy-deep); color: var(--white); font: 13px/1.4 var(--sans); letter-spacing: .18em; text-transform: uppercase; }
 .gate-card > :not(.gate-mast) { margin-left: 24px; margin-right: 24px; }
 .gate-card > :last-child { margin-bottom: 24px; }
