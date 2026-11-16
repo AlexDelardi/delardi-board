@@ -388,6 +388,26 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  // a held piece's status tag stays in its column, EN and RU, both iPad sizes
+  for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    for (const lang of ["en", "ru"]) {
+      await run(`status tag fit ${lang} ${vp.width}`, async () => {
+        const { ctx, page, errors } = await setup(browser, vp);
+        if (lang === "ru") { await page.click(".kit-lang button[lang=ru]"); await page.waitForSelector("#screen-sale"); }
+        await page.fill("#q", "Glam");
+        await page.waitForFunction(() => /Glam/.test(document.querySelector("#sugg").textContent));
+        const r = await page.evaluate(() => {
+          const row = [...document.querySelectorAll("#sugg .sg")].find((n) => /Glam/.test(n.textContent));
+          const t = row.querySelector(".tag").getBoundingClientRect(), p = row.querySelector(".sg-p").getBoundingClientRect(), w = row.getBoundingClientRect();
+          return { tr: t.right, pl: p.left, tl: t.left, wl: w.left, wr: w.right, tb: t.bottom, wb: w.bottom, tt: t.top, wt: w.top, p: p.width };
+        });
+        check(`search: held tag stays clear of the price (${lang} ${vp.width})`, r.tr <= r.pl + 0.5 && r.tl >= r.wl && r.tr <= r.wr && r.tt >= r.wt && r.tb <= r.wb, JSON.stringify(r));
+        check(`search: no script errors (${lang} ${vp.width})`, errors.length === 0, errors.join(" | "));
+        await ctx.close();
+      });
+    }
+  }
+
   // ----------------------------------------------------------------- ipad
   for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
     const tag = vp.width + "x" + vp.height;
