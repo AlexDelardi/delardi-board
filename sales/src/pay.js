@@ -233,7 +233,7 @@ async function renderReceipt(main, id) {
   const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
   const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
-  const total = p ? p.total : doc && doc.lines && doc.lines.length ? doc.lines.reduce((x, l) => x + (l.net || 0), 0) : null;
+  const total = p ? p.total : doc && doc.lines && doc.lines.length ? docTotal(doc.lines) : null;
   let card;
   if (t) {
     card = el("article", { class: "receipt", "aria-label": t.ticket_no },

@@ -186,7 +186,7 @@ function drawTicket(wrap, doc, ui) {
   const t = doc.ticket, lines = doc.lines || [], pays = doc.payments || [];
   const mine = ours(t), voided = t.status === "void";
   const canVoid = mine && !voided && S.rights.void;
-  const total = lines.reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+  const total = docTotal(lines);
   const redraw = () => { wrap.innerHTML = ""; drawTicket(wrap, doc, ui); };
   const kv = (k, v) => blank(v) ? null : el("div", { class: "kv" }, el("dt", { text: tr(k) }), el("dd", {}, v));
   const client = doc.client_name ? doc.client_name + (t.client_id ? " · " + t.client_id : "") : t.walk_in ? walkInText() : (t.client_id || t.client_raw || null);

@@ -822,6 +822,10 @@ function lineNet(line) {
   if ((a % 1000000n) * 2n >= 1000000n) q += 1n;           // half away from zero
   return Number(neg ? -q : q);
 }
+// Net of a stored ticket's lines: Number() because the API may send numerics as strings; refunds count negative.
+function docTotal(lines) {
+  return (lines || []).reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+}
 function saleTotal(sale) {
   return (sale || S.sale).lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
 }
@@ -1866,7 +1870,7 @@ async function renderReceipt(main, id) {
   const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
   const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
-  const total = p ? p.total : doc && doc.lines && doc.lines.length ? doc.lines.reduce((x, l) => x + (l.net || 0), 0) : null;
+  const total = p ? p.total : doc && doc.lines && doc.lines.length ? docTotal(doc.lines) : null;
   let card;
   if (t) {
     card = el("article", { class: "receipt", "aria-label": t.ticket_no },
@@ -2710,7 +2714,7 @@ function drawTicket(wrap, doc, ui) {
   const t = doc.ticket, lines = doc.lines || [], pays = doc.payments || [];
   const mine = ours(t), voided = t.status === "void";
   const canVoid = mine && !voided && S.rights.void;
-  const total = lines.reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+  const total = docTotal(lines);
   const redraw = () => { wrap.innerHTML = ""; drawTicket(wrap, doc, ui); };
   const kv = (k, v) => blank(v) ? null : el("div", { class: "kv" }, el("dt", { text: tr(k) }), el("dd", {}, v));
   const client = doc.client_name ? doc.client_name + (t.client_id ? " · " + t.client_id : "") : t.walk_in ? walkInText() : (t.client_id || t.client_raw || null);

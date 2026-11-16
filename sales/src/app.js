@@ -229,6 +229,10 @@ function lineNet(line) {
   if ((a % 1000000n) * 2n >= 1000000n) q += 1n;           // half away from zero
   return Number(neg ? -q : q);
 }
+// Net of a stored ticket's lines: Number() because the API may send numerics as strings; refunds count negative.
+function docTotal(lines) {
+  return (lines || []).reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+}
 function saleTotal(sale) {
   return (sale || S.sale).lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
 }

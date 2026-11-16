@@ -1127,6 +1127,25 @@ async function shot(page, name) {
     });
   }
 
+  await run("receipt reload", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await addLine(page, "2000000000048");
+    await toPay(page);
+    const due = norm(await page.textContent("#total")).replace(/\s*so'm$/, "");
+    await addPay(page, "cash", due);
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    const tk = mock.state.tickets[mock.state.tickets.length - 1];
+    tk.lines.forEach((l) => { l.net = String(l.net); });          // numerics arrive as strings from the API
+    await page.reload();
+    await page.waitForSelector("#screen-receipt .saved-panel");
+    const sp = norm(await page.textContent(".saved-panel"));
+    check("receipt reload: the amount is the grouped total even when net arrives as a string", sp.includes("· " + due + " so'm"), sp + " | due " + due);
+    check("receipt reload: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   await browser.close();
   console.log(results.join("\n"));
   console.log(`\n${pass} passed, ${fail} failed`);
