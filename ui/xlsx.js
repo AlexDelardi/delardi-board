@@ -12,7 +12,7 @@
      returns  a Blob (MIME application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
 
    Cells: a number column holds numbers (null, "" or a non-finite value leaves
-   the cell empty); a date column takes "YYYY-MM-DD" (anything after the tenth
+   the cell empty; a plain decimal string such as "31500000" is read as a number); a date column takes "YYYY-MM-DD" (anything after the tenth
    character is ignored; the caller decides which day that is) and writes a real
    date shown dd.mm.yyyy; text is written as is. The first row is the bold
    heading row, frozen, with a filter. The sheet name is cut to 31 characters
@@ -140,7 +140,9 @@ const kitXlsx = (() => {
         if (v === null || v === undefined || v === "") return;
         const ref = colRef(ci + 1) + r;
         if (c.type === "number") {
-          if (typeof v === "number" && isFinite(v)) cells.push(`<c r="${ref}" s="3"><v>${v}</v></c>`);
+          // a plain decimal written as a string ("31500000", "-4", "12.5") counts as a number
+          const n = typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
+          if (typeof n === "number" && isFinite(n)) cells.push(`<c r="${ref}" s="3"><v>${n}</v></c>`);
         } else if (c.type === "date") {
           const d = xlDate(v);
           cells.push(d === null ? textCell(ref, v) : `<c r="${ref}" s="2"><v>${d}</v></c>`);

@@ -53,6 +53,7 @@ const RU = {
   "Write what is wrong.": "Напишите, что не так.",
   "Something went wrong on the server.": "Ошибка на сервере.",
   "No connection. Check the Wi-Fi and try again.": "Нет связи. Проверьте Wi-Fi и попробуйте ещё раз.",
+  "The server did not answer. Try again.": "Сервер не ответил. Попробуйте ещё раз.",
   "Request failed ({n})": "Ошибка запроса ({n})",
   // money
   "so'm": "сум",
@@ -234,16 +235,22 @@ const touchDevice = () => window.matchMedia("(pointer: coarse)").matches;
 async function api(action, body) {
   const payload = Object.assign({ action }, body || {});
   if (S.token && action !== "unlock") payload.token = S.token;
-  let res;
+  // A request that hangs is cut after 20 s (window.__API_TIMEOUT_MS: test-only override),
+  // so a busy panel can always be released.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), window.__API_TIMEOUT_MS || 20000);
+  let res, data = {};
   try {
-    res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: ctl.signal });
+    // the timer stays on while the body is read
+    try { data = await res.json(); } catch (e) { if (ctl.signal.aborted) throw e; /* empty body */ }
   } catch (e) {
-    const err = new Error(tr("No connection. Check the Wi-Fi and try again."));
+    const err = new Error(ctl.signal.aborted ? tr("The server did not answer. Try again.") : tr("No connection. Check the Wi-Fi and try again."));
     err.status = 0;
     throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  let data = {};
-  try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) {
     // A lost session locks the page; the filters on screen are kept.
     if (res.status === 401 && action !== "unlock") lockDown(data.error);

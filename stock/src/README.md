@@ -48,12 +48,29 @@ not there yet is skipped):
 | `list.js` | `#/pieces`: filters, totals by state, the table, the pager (`renderList(main)`) |
 | `piece.js` | the piece panel and state changes (Task 4): defines `showPiece(id)`, called by `openPiece`, and `closePiece()`, called on lock |
 | `review.js` | the review queue (Task 5): defines `renderReview(main)`; until then `#/review` shows a placeholder |
-| `export.js` | the .xlsx download (Task 6) |
+| `../../ui/xlsx.js` | the kit's workbook writer, `kitXlsx` (see `ui/README.md`) |
+| `export.js` | the "Download .xlsx" button: asks `stock-api` for every piece matching the filters and saves `Delardi_stock_<date>.xlsx` |
 
 ## Routes
 
 - `#/pieces` (the default; any unknown hash shows it): the list.
-- `#/review`: the open review items.
+- `#/review`: the open review items (answering one needs the manage right).
+- A piece opens in a right-hand panel over either screen (`openPiece(id)`); it has no route of its own.
+
+## Rights
+
+The passcode gives a Stock session that opens nothing else. Every call re-reads the
+login's rights (contract: `api/README.md`):
+
+| Right | Opens |
+|---|---|
+| `view` (`can_view_stock`) | the list, the piece panel, the review queue (read), the export. Without it: 403 at unlock. |
+| `manage` (`can_manage_stock`) | Reserve, Book out, Damaged, Back in stock, and answering review items |
+| `crm` (`can_view_crm`) | a held piece's client **name**; without it the client reference |
+
+Book out and Damaged need a note; Reserve and Back in stock take an optional one.
+A request that takes longer than 20 seconds is cut and the page says "The server
+did not answer. Try again."; the busy panel is released.
 
 ## The list
 
@@ -70,3 +87,23 @@ not there yet is skipped):
 
 Every string has its Russian in `RU`; dates are `16 Nov 2026` / `16 ноя 2026`
 in Tashkent time; money is `31 500 000 so'm` / `сум`.
+
+## Going live
+
+Not done yet; each step waits for Alex's yes. Nothing here touches production
+until then.
+
+1. Apply migration `stk_1` (the read functions, `can_view_stock`,
+   `editor_sessions.can_use_stock`, `ops_has_right` learning `'view_stock'`).
+2. Deploy `stock-api` with `verify_jwt` off, like `sales-api`; the repository
+   copy `stock/src/api/index.ts` and the deployed one must be identical.
+3. Merge the pull request (the page, `stock/index.html`).
+4. Alex opens Stock, checks the counts against today's figures (677 in stock,
+   19 in transit, 4 sold), and does one Reserve, then Back in stock, on a piece.
+
+## Screenshots
+
+`SHOTS=/tmp/shots node qa/test.js` writes `s01-list`, `s02-piece`, `s03-change`
+(a filled Reserve form), `s04-review`, `s05-lock` at 1024×768 and
+`s06-list-portrait`, `s07-piece-portrait` at 768×1024. The "no sideways scroll"
+check on each screen runs with or without `SHOTS`.

@@ -70,7 +70,7 @@ main { padding: 24px 24px 96px; }
 /* totals strip: one card per state */
 .totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; margin-bottom: 16px; }
 .tot {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--tap); min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; align-self: stretch; gap: 4px; min-height: var(--tap); min-width: 0;
   padding: 12px 14px; background: var(--card); color: var(--navy); border: 1px solid var(--card); text-align: left;
   outline: 2px solid transparent; outline-offset: -2px;
 }
@@ -79,7 +79,8 @@ main { padding: 24px 24px 96px; }
 .tot:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 .tot .lbl { margin: 0; color: var(--slate); }
 .tot .t-n { font-size: 15px; color: var(--navy-deep); }
-.tot .t-v { font-size: 15px; font-weight: 700; color: var(--navy-deep); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tot .t-v { font-size: 15px; font-weight: 700; color: var(--navy-deep); font-variant-numeric: tabular-nums; }
+.tot .t-amt { white-space: nowrap; }          /* the number never breaks; "so'm" may drop to the next line */
 .tot .small { color: var(--slate); }
 
 /* the pieces table */

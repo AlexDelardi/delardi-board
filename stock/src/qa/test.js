@@ -71,7 +71,7 @@ const listCalls = () => mock.calls.filter((c) => c.action === "list");
 async function shot(page, name) {
   if (!SHOTS) return;
   fs.mkdirSync(SHOTS, { recursive: true });
-  await page.screenshot({ path: path.join(SHOTS, name + ".png"), fullPage: true });
+  await page.screenshot({ path: path.join(SHOTS, name + ".png"), fullPage: false });
 }
 const categoryOf = (k) => { const t = String(k).replace(/_/g, " ").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
 const ORDER = ["in_stock", "reserved", "booked_out", "in_transit", "damaged", "not_received", "sold"];
@@ -210,7 +210,6 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.keyboard.press("Enter");
     check("row: Enter on a focused row opens it too", await page.evaluate((id) => S.pieceId === id, exp.rows[2].piece_id));
     check("row: rows are focusable", await page.$eval("#rows tr.prow", (n) => n.tabIndex === 0));
-    await shot(page, "list-1024");
     check("list: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -260,6 +259,27 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("filters: the state select has All and the seven states", opts.join() === ["All states"].concat(ORDER.map((s) => WORDS[s])).join(), opts.join());
     check("totals: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+
+  await run("totals: money never breaks inside the number", async () => {
+    for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+      const { ctx, page, errors } = await setup(browser, vp);
+      await settled(page);
+      const m = await page.$$eval("#totals .tot", (ns) => ns.map((n) => {
+        const a = n.querySelector(".t-amt"), r = n.getBoundingClientRect(), l = n.querySelector(".lbl").getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(a).lineHeight) || 0;
+        return { state: n.dataset.state, oneLine: !!a && a.getBoundingClientRect().height <= lh + 1, top: Math.round(l.top - r.top), h: Math.round(r.height), rowTop: Math.round(r.top),
+          noWrapCss: getComputedStyle(a).whiteSpace, text: n.querySelector(".t-v").textContent };
+      }));
+      check(`totals ${vp.width}: every amount sits on one line`, m.length > 0 && m.every((c) => c.oneLine), JSON.stringify(m.filter((c) => !c.oneLine)));
+      check(`totals ${vp.width}: the number never wraps (white-space: nowrap)`, m.every((c) => c.noWrapCss === "nowrap"));
+      check(`totals ${vp.width}: the amount reads "<number> so'm"`, m.every((c) => /^\d{1,3}( \d{3})* so'm$/.test(c.text.replace(/\s+/g, " ").trim())), m.map((c) => c.text).join("|"));
+      const rows = {};
+      for (const c of m) (rows[c.rowTop] = rows[c.rowTop] || []).push(c);
+      check(`totals ${vp.width}: cards in a row have equal height and contents start at the top`, Object.values(rows).every((r) => r.every((c) => c.h === r[0].h && c.top === r[0].top)), JSON.stringify(rows));
+      check(`totals ${vp.width}: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    }
   });
 
   // ------------------------------------------------------------- filters
@@ -354,7 +374,6 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       const small = await page.evaluate(() => [...document.querySelectorAll("#main button, #main select, #main input")]
         .filter((n) => { const r = n.getBoundingClientRect(); return r.width && (r.height < 43.5); }).map((n) => n.id || n.className));
       check(`widths ${vp.width}×${vp.height}: controls are 44 px targets`, small.length === 0, small.join());
-      await shot(page, "list-ru-" + vp.width);
       check(`widths ${vp.width}: no script errors`, errors.length === 0, errors.join(" | "));
       await ctx.close();
     });
@@ -533,7 +552,6 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await openId(page, rp.piece_id);
     await page.mouse.click(100, 400);
     check("close: the scrim closes the panel", !(await page.$("#piece-panel")));
-    await shot(page, "piece-sold");
     check("panel: no request leaves for anything but stock-api", foreign.length === 0, foreign.join(" "));
     check("panel: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -736,6 +754,40 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  await run("api timeout", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await page.evaluate(() => { window.__API_TIMEOUT_MS = 400; });
+    mock.delay.facets = 1500;
+    let t0 = Date.now();
+    let m = await page.evaluate(async () => { try { await api("facets"); return "no error"; } catch (e) { return e.message + "|" + e.status; } });
+    check("timeout: a hung request throws the sentence after the limit, not after the answer", m.startsWith("The server did not answer. Try again.") && Date.now() - t0 < 1400, m + " " + (Date.now() - t0));
+    await page.click(".kit-lang .kit-hbtn[lang=ru]");
+    m = await page.evaluate(async () => { try { await api("facets"); return "no error"; } catch (e) { return e.message; } });
+    check("timeout RU: «Сервер не ответил. Попробуйте ещё раз.»", m === "Сервер не ответил. Попробуйте ещё раз.", m);
+    await page.click(".kit-lang .kit-hbtn[lang=en]");
+    mock.delay.facets = 0;
+    // a busy panel is released: the error shows, the panel can be closed
+    const piece = mock.pieces.find((q) => q.state === "in_stock" && q.price_uzs !== null);
+    await page.fill("#f-q", piece.serial);
+    await page.waitForFunction((id) => document.querySelector(`#rows tr[data-id="${id}"]`), piece.piece_id);
+    await page.click(`#rows tr[data-id="${piece.piece_id}"]`);
+    await page.waitForSelector("#piece-panel");
+    await page.click('#pc-actions button[data-act="reserved"]');
+    mock.delay.set_state = 1500;
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => /The server did not answer/.test((document.querySelector("#pf-err") || {}).textContent || ""), null, { timeout: 1200 });
+    await page.click("#piece-close");
+    await page.waitForFunction(() => !document.querySelector("#piece-panel"), null, { timeout: 1500 });
+    check("timeout: the panel shows the sentence and closes again", true);
+    mock.delay.set_state = 0;
+    check("timeout: no script errors", errors.length === 0, errors.join(" | "));
+    await page.waitForTimeout(1300);
+    await ctx.close();
+  });
+
   await run("piece panel: voided sale reason", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await settled(page);
@@ -834,7 +886,6 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.evaluate(() => setLang("en"));
     await page.waitForFunction(() => document.documentElement.lang === "en");
     check("lang: switching with the panel open redraws it in English", /Serial/.test(norm(await page.textContent("#pc-facts"))));
-    await shot(page, "piece-ru");
     check("RU: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -1100,11 +1151,11 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   };
   const unxml = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
   // → [ { A: {t, s, v, text}, B: … } ] one object per row, keyed by column letter
-  const sheetRows = (xml) => [...xml.matchAll(/<row r="(\d+)">(.*?)<\/row>/g)].map((m) => {
+  const sheetRows = (xml) => [...xml.matchAll(/<row r="(\d+)">([\s\S]*?)<\/row>/g)].map((m) => {
     const cells = {};
-    for (const c of m[2].matchAll(/<c r="([A-Z]+)\d+"((?: [a-z]+="[^"]*")*)>(.*?)<\/c>/g)) {
+    for (const c of m[2].matchAll(/<c r="([A-Z]+)\d+"((?: [a-z]+="[^"]*")*)>([\s\S]*?)<\/c>/g)) {
       const attr = (n) => (new RegExp(" " + n + '="([^"]*)"').exec(c[2]) || [])[1];
-      const v = /<v>(.*?)<\/v>/.exec(c[3]), t = /<t[^>]*>(.*?)<\/t>/.exec(c[3]);
+      const v = /<v>(.*?)<\/v>/.exec(c[3]), t = /<t[^>]*>([\s\S]*?)<\/t>/.exec(c[3]);
       cells[c[1]] = { t: attr("t"), s: attr("s"), v: v ? v[1] : null, text: t ? unxml(t[1]) : null };
     }
     return cells;
@@ -1113,6 +1164,8 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   const download = async (page) => {
     const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export-btn")]);
     const file = await dl.path();
+    const z = require("child_process").spawnSync("python3", ["-m", "zipfile", "-t", file], { encoding: "utf8" });
+    check("export: python3 -m zipfile -t accepts the downloaded file", z.status === 0, (z.stderr || z.stdout || "").trim());
     return { name: dl.suggestedFilename(), parts: unzip(fs.readFileSync(file)) };
   };
   const EXPORT_EN = ["Serial", "Barcode", "Brand", "Reference", "Model", "Collection", "Category", "Size", "State", "Since", "Price, so'm"];
@@ -1134,6 +1187,15 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const rows = sheetRows(parts["xl/worksheets/sheet1.xml"]);
     check("kitXlsx: heading row, then the data rows", rows.length === 3 && rows[0].A.text === "Name" && rows[1].A.text === "a & <b>");
     check("kitXlsx: number cell numeric, date cell a serial, empties left out", rows[1].B.v === "5" && !rows[1].B.t && rows[1].C.v === "46342" && !rows[2].B && !rows[2].C, JSON.stringify(rows[1]));
+    // numeric strings in a number column, control characters, and tabs / newlines
+    const b2 = kitXlsx("N", [{ title: "T", key: "t" }, { title: "Q", key: "q", type: "number" }],
+      [{ t: "x\u0001y\u0008z\u001f", q: "31500000" }, { t: "a\nb\tc", q: "12.5" }, { t: "n", q: "abc" }, { t: "m", q: " 7 " }, { t: "k", q: "1e3" }, { t: "j", q: "-4" }]);
+    const x2 = unzip(Buffer.from(await b2.arrayBuffer()))["xl/worksheets/sheet1.xml"];
+    const r2 = sheetRows(x2);
+    check("kitXlsx: a numeric string in a number column is a number cell", r2[1].B && !r2[1].B.t && r2[1].B.v === "31500000" && r2[2].B.v === "12.5" && r2[6].B.v === "-4", JSON.stringify(r2[1]));
+    check("kitXlsx: a non-numeric or odd string in a number column leaves the cell empty", !r2[3].B && !r2[4].B && !r2[5].B, JSON.stringify([r2[3], r2[4], r2[5]]));
+    check("kitXlsx: control characters never reach the sheet XML", !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(x2) && r2[1].A.text === "xyz", JSON.stringify(r2[1].A));
+    check("kitXlsx: newline and tab survive", r2[2].A.text === "a\nb\tc", JSON.stringify(r2[2].A));
     check("kitXlsx: no tool words in the writer", !/crm|client|colibri|\btr\(|console\./i.test(src));
   });
 
@@ -1232,6 +1294,55 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("export RU: nothing-to-download toast", (await page.textContent("#toast")).trim() === "Скачивать нечего: под фильтры не подходит ни одно изделие.");
     check("export RU: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+
+  // ------------------------------------------------------ screens (SHOTS)
+  // Seven screenshots when SHOTS is set; the no-sideways-scroll check on every screen always runs.
+  await run("screens", async () => {
+    const quiet = (page) => page.waitForFunction(() => { const t = document.querySelector("#toast"); return !t || !t.classList.contains("show"); }, null, { timeout: 10000 });
+    const snap = async (page, name, label) => {
+      await quiet(page);
+      await page.waitForTimeout(500);   // the toast fades out
+      check(`screens: ${label} has no sideways scroll`, await noHScroll(page));
+      await shot(page, name);
+    };
+    const pc = mock.pieces.find((q) => q.state === "in_stock" && q.price_uzs !== null);
+    {
+      const { ctx, page, errors, foreign } = await setup(browser, { width: 1024, height: 768 });
+      await settled(page);
+      await snap(page, "s01-list", "list 1024");
+      await page.fill("#f-q", pc.serial);
+      await page.waitForFunction((id) => document.querySelector(`#rows tr[data-id="${id}"]`) && !S.listBusy, pc.piece_id);
+      await openId(page, pc.piece_id);
+      await snap(page, "s02-piece", "piece 1024");
+      await page.click('#pc-actions button[data-act="reserved"]');
+      await page.fill("#pf-client", "DLD-9001");
+      await page.fill("#pf-until", "2026-11-23");
+      await page.fill("#pf-note", "Invented client, asked to hold until Monday.");
+      await snap(page, "s03-change", "Reserve form 1024");
+      await page.click("#pf-cancel");
+      await page.click("#piece-close");
+      await page.waitForFunction(() => !document.querySelector("#piece-panel"));
+      await page.evaluate(() => { location.hash = "#/review"; });
+      await page.waitForSelector("#review-list, .review, #rv-list, main", { timeout: 5000 });
+      await page.waitForFunction(() => /#\/review$/.test(location.href) && !document.querySelector("#rows"));
+      await page.waitForTimeout(300);
+      await snap(page, "s04-review", "review 1024");
+      await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+      await page.waitForSelector("#gate-pass");
+      await snap(page, "s05-lock", "lock 1024");
+      check("screens: no foreign request, no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join(" | "));
+      await ctx.close();
+    }
+    {
+      const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 });
+      await settled(page);
+      await snap(page, "s06-list-portrait", "list 768");
+      await openId(page, pc.piece_id);
+      await snap(page, "s07-piece-portrait", "piece 768");
+      check("screens: portrait no script errors", errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    }
   });
 
   await run("kit css", async () => {

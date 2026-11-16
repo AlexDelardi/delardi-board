@@ -200,7 +200,7 @@ function drawTotals(totals) {
       onclick: () => { S.filters.state = on ? "" : s; filtersChanged(); } },
       el("span", { class: "lbl", text: stateWord(s) }),
       el("span", { class: "t-n", text: pl(Number(t.pieces), "piece") }),
-      el("span", { class: "t-v", text: fmtMoney(t.value) }),
+      el("span", { class: "t-v" }, el("span", { class: "t-amt", text: fmtUZS(t.value) }), " " + tr("so'm")),
       Number(t.unpriced) > 0 ? el("span", { class: "small", text: tr("{n} without price", { n: t.unpriced }) }) : null));
   }
 }
