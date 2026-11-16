@@ -118,6 +118,39 @@ main { padding: 24px 24px 96px; }
 .modal-body p { margin: 0; line-height: 1.5; }
 .modal-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--mist); }
 
+/* ---------------------------------------------------------- piece panel
+   kit .panel-wrap / .panel / .panel-scrim: 560 wide from the right, full width under 600. */
+.panel.pcbox { display: flex; flex-direction: column; gap: 16px; padding: 0; overflow-x: hidden; }
+.pc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px 4px 24px; border-bottom: 1px solid var(--mist); }
+.pc-head .lbl { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pc-head .close { width: var(--tap); min-width: var(--tap); padding: 0; font-size: 21px; line-height: 1; }
+.pc-body { padding: 0 24px 32px; display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; min-width: 0; }
+.pc-body > * { min-width: 0; }
+.pc-body .h2 { margin: 0; overflow-wrap: anywhere; }
+.pc-state { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: -8px; }
+.pc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; padding: 12px 0; border-top: 1px solid var(--mist); border-bottom: 1px solid var(--mist); }
+.pc-facts.one { grid-template-columns: minmax(0, 1fr); border: 0; padding: 0; }
+.pc-fact { min-width: 0; }
+.pc-fact dt { margin: 0 0 2px; }
+.pc-fact dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pc-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pc-sec > .lbl { margin: 0; }
+.pc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pc-actions .btn { flex: 1 1 auto; }
+.pc-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--card); border: 1px solid var(--mist); }
+.pc-form > .lbl { margin: 0; color: var(--navy); }
+.pc-form .pf-field { display: block; }
+.pc-form-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.form-err { margin: 0; color: var(--alert); font-size: 13px; font-weight: 700; }
+.form-err[hidden] { display: none; }
+.pc-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--mist); }
+.pc-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--mist); min-width: 0; }
+.pc-ev .ev-when { color: var(--slate); font-size: 13px; flex: 0 0 100%; }
+.pc-ev .ev-move { color: var(--navy-deep); }
+.pc-ev .ev-note { flex: 0 0 100%; overflow-wrap: anywhere; }
+.pc-list a { color: var(--navy); font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 599px) { .pc-head { padding-left: 16px; } .pc-body { padding: 0 16px 32px; } .pc-facts { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------------------------------------------------------- lock card */
 #app.gated { pointer-events: none; user-select: none; }
 #gate.gate { min-height: 0; }

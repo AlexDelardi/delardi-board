@@ -127,6 +127,8 @@ const S = {
   filters: { q: "", state: "", brand: "", category: "", price_min: null, price_max: null },
   page: 1,
   list: null, listBusy: false, listError: null,
+  priceTimers: {},                   // pending price-input debounces, cleared by lockDown
+  pc: null,                          // the open piece panel (piece.js)
   pieceId: null,                     // the piece last opened (openPiece)
 };
 
@@ -403,6 +405,10 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   clearTimeout(S.qTimer);
+  for (const k of Object.keys(S.priceTimers)) clearTimeout(S.priceTimers[k]);
+  S.priceTimers = {};
+  // Nothing from the session stays in memory behind the card; the filters do.
+  S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
   // Panels and dialogs live on <body>, outside the gated #app: close them, so no piece
@@ -454,6 +460,7 @@ function renderAll() {
   const main = el("main", { id: "main" });
   app.append(renderHeader(), main);
   ROUTES[r.name](main, r.arg);
+  if (typeof renderPiece === "function") renderPiece();      // an open piece panel follows the language
 }
 function restoreSession() {
   try {

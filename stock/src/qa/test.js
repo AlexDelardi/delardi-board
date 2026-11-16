@@ -26,6 +26,7 @@ async function setup(browser, viewport, opts = {}) {
   const ctx = await browser.newContext({ viewport, locale: "en-GB",
     ...(opts.touch ? { hasTouch: true, isMobile: true } : {}) });
   const page = await ctx.newPage();
+  page.setDefaultTimeout(8000);
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
@@ -79,6 +80,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
 (async () => {
   const browser = await chromium.launch();
   const run = async (name, fn) => {
+    if (process.env.ONLY && !name.includes(process.env.ONLY)) return;   // ONLY=piece node qa/test.js runs the matching groups
     try { await fn(); } catch (e) { check(name + " (ran to the end)", false, e.message.split("\n")[0]); }
   };
 
@@ -98,7 +100,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("gate: a wrong passcode shows an error", /passcode is not right/.test(norm(await page.textContent(".gate-card .err"))));
     await login(page, "none");
     await page.waitForFunction(() => /does not have access to Stock/.test(document.querySelector(".gate-card .err").textContent));
-    check("gate: a login without view gets the 403 sentence", true);
+    check("gate: a login without view gets the 403 sentence", /This account does not have access to Stock\./.test(norm(await page.textContent(".gate-card .err"))));
     await page.fill("#gate-pass", "");
     await page.click(".gate-card button[type=submit]");
     check("gate: an empty passcode asks for one", /Enter your passcode/.test(await page.textContent(".gate-card .err")));
@@ -192,7 +194,8 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("pager: page 2 was asked of the API", listCalls().some((c) => c.filters && c.filters.page === 2));
     await page.click("#pg-prev");
     await page.waitForFunction(() => S.page === 1 && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 50);
-    check("pager: Previous goes back to page 1", true);
+    check("pager: Previous goes back to page 1", norm(await page.textContent("#pager .pg-n")) === "Page 1 of 2" &&
+      await page.$eval("#pg-prev", (b) => b.disabled) && (await colText(page, 0)).join() === mock.expectList({ page: 1 }).rows.map((r) => r.serial).join());
     // unpriced
     const unpricedSerial = mock.pieces.find((p) => p.price_uzs === null && p.state === "in_stock").serial;
     const idx = (await colText(page, 0)).indexOf(unpricedSerial);
@@ -466,10 +469,327 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  // ------------------------------------------------------ the piece panel
+  const setCalls = () => mock.calls.filter((c) => c.action === "set_state");
+  const pieceOf = (state, pred) => mock.pieces.find((p) => p.state === state && (!pred || pred(p)));
+  const onPage1 = (p) => mock.expectList({}).rows.some((r) => r.piece_id === p.piece_id);
+  const openId = async (page, id) => {
+    await page.evaluate((i) => openPiece(i), id);
+    await page.waitForSelector("#piece-panel .panel #pc-title");
+  };
+  const stateIn = (page) => page.$eval("#piece-panel .pc-state .tag", (n) => n.textContent.trim());
+  const actionLabels = (page) => page.$$eval("#pc-actions button", (ns) => ns.map((n) => n.textContent.trim()));
+
+  await run("piece panel: layout, history, links", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const first = await page.$eval("#rows tr.prow", (n) => n.getAttribute("data-id"));
+    await page.click("#rows tr.prow");
+    await page.waitForSelector("#piece-panel .panel #pc-title");
+    const fp = mock.pieces.find((p) => p.piece_id === first);
+    check("panel: a row click opens the right panel", await page.evaluate(() => !!document.querySelector("#piece-panel.panel-wrap .panel-scrim")));
+    const w = await page.$eval("#piece-panel .panel", (n) => Math.round(n.getBoundingClientRect().width));
+    check("panel: 560 px wide on a wide screen", w === 560, String(w));
+    check("panel: the title is Brand · Model", norm(await page.textContent("#pc-title")) === fp.brand + " · " + fp.model_name, norm(await page.textContent("#pc-title")));
+    check("panel: the title is Palatino at the .h2 size", await page.$eval("#pc-title", (n) => /Palatino/.test(getComputedStyle(n).fontFamily) && n.classList.contains("h2")));
+    check("panel: state tag and since date", await stateIn(page) === WORDS[fp.state] &&
+      /^since \d{1,2} [A-Z][a-z]{2} 2026$/.test(norm(await page.textContent("#piece-panel .pc-state .since"))), norm(await page.textContent("#piece-panel .pc-state")));
+    const facts = norm(await page.textContent("#pc-facts"));
+    check("panel: facts have serial, barcode, reference and price", facts.includes(fp.serial) && facts.includes(fp.barcode) &&
+      facts.includes(fp.article) && facts.includes(money(fp.price_uzs) + " so'm"), facts);
+    check("panel: facts have collection, category word, metal, stones, first seen", /Collection\s*\S/.test(facts) && /Category\s*(Ring|Watch|Necklace|Earrings|Bracelet|Strap|Clasp|Bracelet element|Cufflinks)/.test(facts) &&
+      /Metal\s*White gold/.test(facts) && /Stones/.test(facts) && /First seen\s*\d{1,2} [A-Z][a-z]{2} 2026/.test(facts), facts);
+    // unpriced piece shows a dash
+    const un = pieceOf("in_stock", (p) => p.price_uzs === null);
+    await openId(page, un.piece_id);
+    check("panel: an unpriced piece shows — for the price", /Price\s*—/.test(norm(await page.textContent("#pc-facts"))));
+    // a sold piece: history newest first, ticket links, sales
+    const sp = pieceOf("sold");
+    await openId(page, sp.piece_id);
+    const hist = await page.$$eval("#pc-history li", (ns) => ns.map((n) => n.textContent.replace(/[\s\u00a0\u202f]+/g, " ").trim()));
+    check("history: events newest first (Sold, then First load)", hist.length === 2 && /Sold/.test(hist[0]) && /First load/.test(hist[1]), hist.join(" || "));
+    check("history: from → to, actor, date and time", /In stock → Sold/.test(hist[0]) && /Stock Manager/.test(hist[1]) && /\d{1,2} [A-Z][a-z]{2} 2026,? \d{2}:\d{2}/.test(hist[0]), hist[0]);
+    const link = await page.$eval("#pc-history li a", (a) => ({ href: a.getAttribute("href"), text: a.textContent.trim() }));
+    const tid = "30000000-0000-4000-8000-0000000000" + sp.serial.slice(-2);
+    check("history: a sold piece links to ../sales/#/ticket/<id>", link.href === "../sales/#/ticket/" + tid && link.text === "Ticket D-0000" + sp.serial.slice(-2), JSON.stringify(link));
+    const sales = await page.$$eval("#pc-sales li", (ns) => ns.map((n) => ({ t: n.textContent.replace(/[\s\u00a0\u202f]+/g, " ").trim(), href: n.querySelector("a") && n.querySelector("a").getAttribute("href"), tags: [...n.querySelectorAll(".tag")].map((x) => x.textContent.trim()) })));
+    check("sales: ticket link, date, net so'm, source", sales.length === 2 && sales[0].href === "../sales/#/ticket/" + tid && /Till/.test(sales[0].t) &&
+      sales[0].t.includes(money(sp.price_uzs) + " so'm") && /\d{1,2} [A-Z][a-z]{2} 2026/.test(sales[0].t), JSON.stringify(sales[0]));
+    check("sales: a void ticket carries a Void tag, training source", sales[1].tags.includes("Void") && /Training/.test(sales[1].t) && !sales[0].tags.includes("Void"), JSON.stringify(sales[1]));
+    // open reviews
+    const rp = mock.pieces[0];
+    await openId(page, rp.piece_id);
+    const rv = norm(await page.textContent("#pc-reviews"));
+    check("reviews: open review kind word and raised date", /Missing from export/.test(rv) && /\d{1,2} [A-Z][a-z]{2} 2026/.test(rv), rv);
+    // closing
+    await page.click("#piece-close");
+    check("close: the × closes the panel", !(await page.$("#piece-panel")));
+    await openId(page, rp.piece_id);
+    await page.keyboard.press("Escape");
+    check("close: Escape closes the panel", !(await page.$("#piece-panel")));
+    await openId(page, rp.piece_id);
+    await page.mouse.click(100, 400);
+    check("close: the scrim closes the panel", !(await page.$("#piece-panel")));
+    await shot(page, "piece-sold");
+    check("panel: no request leaves for anything but stock-api", foreign.length === 0, foreign.join(" "));
+    check("panel: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("piece panel: rights and hold block", async () => {
+    // view only: no buttons
+    let t = await setup(browser, { width: 1024, height: 768 }, { pass: "look" });
+    await settled(t.page);
+    await openId(t.page, pieceOf("in_stock").piece_id);
+    check("rights: without manage there are no change buttons", (await actionLabels(t.page)).length === 0);
+    const rsv = pieceOf("reserved", (p) => p.hold_client_id === "DLD-9001");
+    await openId(t.page, rsv.piece_id);
+    const hold = norm(await t.page.textContent("#pc-hold"));
+    check("hold: without crm the client reference is shown", hold.includes("DLD-9001") && !hold.includes("Соколова") && /1 Dec 2026/.test(hold), hold);
+    await t.ctx.close();
+    // manage, no crm: buttons yes, reference
+    t = await setup(browser, { width: 1024, height: 768 }, { pass: "nocrm" });
+    await settled(t.page);
+    await openId(t.page, rsv.piece_id);
+    check("hold: manage without crm still shows the reference", norm(await t.page.textContent("#pc-hold")).includes("DLD-9001") && (await actionLabels(t.page)).length === 1);
+    await t.ctx.close();
+    // manage + crm
+    t = await setup(browser, { width: 1024, height: 768 });
+    await settled(t.page);
+    await openId(t.page, rsv.piece_id);
+    const h2 = norm(await t.page.textContent("#pc-hold"));
+    check("hold: with crm the client name is shown", h2.includes("Соколова Мария Андреевна") && /1 Dec 2026/.test(h2), h2);
+    check("rights: a reserved piece offers Back in stock only", (await actionLabels(t.page)).join() === "Back in stock", (await actionLabels(t.page)).join());
+    await openId(t.page, pieceOf("in_stock").piece_id);
+    check("rights: an in-stock piece offers Reserve / Book out / Damaged", (await actionLabels(t.page)).join() === "Reserve,Book out,Damaged", (await actionLabels(t.page)).join());
+    await openId(t.page, pieceOf("in_transit").piece_id);
+    check("rights: an in-transit piece offers no change", (await actionLabels(t.page)).length === 0);
+    await openId(t.page, pieceOf("damaged").piece_id);
+    check("hold: a damaged piece shows its note", /Clasp bent/.test(norm(await t.page.textContent("#pc-hold"))) && (await actionLabels(t.page)).join() === "Back in stock");
+    const bo = pieceOf("booked_out");
+    await openId(t.page, bo.piece_id);
+    check("hold: a booked-out piece shows client, note", /On approval at the client's home/.test(norm(await t.page.textContent("#pc-hold"))));
+    await t.ctx.close();
+  });
+
+  await run("piece panel: state changes", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const piece = mock.pieces.filter((p) => p.state === "in_stock" && onPage1(p))[0];
+    const cardN = async (s) => { const n = await page.$(`#totals .tot[data-state="${s}"] .t-n`); return n ? Number((await n.textContent()).match(/\d+/)[0]) : 0; };
+    const before = { in_stock: await cardN("in_stock"), reserved: await cardN("reserved"), booked_out: await cardN("booked_out") };
+    await openId(page, piece.piece_id);
+    // Book out with an empty note is refused on the page
+    await page.click('#pc-actions button[data-act="booked_out"]');
+    await page.waitForSelector("#pc-form");
+    const n0 = setCalls().length;
+    await page.click("#pf-submit");
+    check("book out: an empty note is refused on the page", /Write who has it and why\./.test(await page.textContent("#pf-err")) &&
+      !(await page.$("#confirm-dialog")) && setCalls().length === n0);
+    check("book out: the note field is marked invalid", await page.$eval("#pf-note", (n) => n.getAttribute("aria-invalid")) === "true");
+    await page.click("#pf-cancel");
+    check("form: Cancel closes the form, the panel stays", !(await page.$("#pc-form")) && !!(await page.$("#piece-panel")));
+    // Damaged: empty note refused
+    await page.click('#pc-actions button[data-act="damaged"]');
+    await page.click("#pf-submit");
+    check("damaged: an empty note is refused on the page", /Write what is wrong\./.test(await page.textContent("#pf-err")) && setCalls().length === n0);
+    await page.click("#pf-cancel");
+    // Reserve with a client and an until date
+    await page.click('#pc-actions button[data-act="reserved"]');
+    check("reserve: the form has client, until and note, all optional", (await page.$("#pf-client")) && (await page.$("#pf-until")) && (await page.$("#pf-note")) &&
+      await page.$eval("#pf-client", (n) => n.maxLength === 20 && !n.required));
+    await page.fill("#pf-client", "DLD-9001");
+    await page.fill("#pf-until", "2026-12-24");
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-dialog");
+    check("reserve: a confirm names the piece", norm(await page.textContent("#confirm-dialog h3")) === "Reserve " + piece.serial + "?", norm(await page.textContent("#confirm-dialog h3")));
+    await page.click("#confirm-cancel");
+    check("reserve: No in the confirm sends nothing and keeps the form", setCalls().length === n0 && !!(await page.$("#pc-form")));
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => !document.querySelector("#pc-form") && /Reserved/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
+    const sc = setCalls().pop();
+    check("reserve: set_state carries state, client and until", sc.state === "reserved" && sc.client_id === "DLD-9001" && sc.until === "2026-12-24" && sc.piece_id === piece.piece_id, JSON.stringify(sc));
+    check("reserve: the panel redraws from the answer (client name, until)", /Соколова Мария Андреевна/.test(norm(await page.textContent("#pc-hold"))) &&
+      /24 Dec 2026/.test(norm(await page.textContent("#pc-hold"))) && (await actionLabels(page)).join() === "Back in stock");
+    check("reserve: the history gained a Reserved event with the actor", /In stock → Reserved/.test(norm(await page.textContent("#pc-history li"))) &&
+      /Stock Manager/.test(norm(await page.textContent("#pc-history li"))));
+    check("reserve: a toast says so", /Reserved/.test(await page.textContent("#toast")) && await page.$eval("#toast", (t) => t.classList.contains("show")));
+    await page.waitForFunction(() => !S.listBusy);
+    check("reserve: the list row tag follows", await page.$eval(`#rows tr[data-id="${piece.piece_id}"] .tag`, (n) => n.textContent.trim()) === "Reserved");
+    const after = { in_stock: await cardN("in_stock"), reserved: await cardN("reserved") };
+    check("reserve: the totals follow (in stock −1, reserved +1)", after.in_stock === before.in_stock - 1 && after.reserved === before.reserved + 1, JSON.stringify([before, after]));
+    // Back in stock
+    await page.click('#pc-actions button[data-act="in_stock"]');
+    check("back in stock: the form has an optional note only", !(await page.$("#pf-client")) && !!(await page.$("#pf-note")));
+    await page.fill("#pf-note", "Client declined");
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-dialog");
+    check("back in stock: confirm names the piece", /ZZ\.00\.\d+/.test(norm(await page.textContent("#confirm-dialog h3"))) && norm(await page.textContent("#confirm-dialog h3")).includes(piece.serial));
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => /In stock/.test(document.querySelector("#piece-panel .pc-state .tag").textContent) && !document.querySelector("#pc-form"));
+    check("back in stock: the panel is In stock again, the note went along", setCalls().pop().note === "Client declined" && (await actionLabels(page)).join() === "Reserve,Book out,Damaged");
+    // Book out with a note, no client, no date
+    await page.click('#pc-actions button[data-act="booked_out"]');
+    await page.fill("#pf-note", "Showing to Invented Client Two");
+    await page.click("#pf-submit");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => /Booked out/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
+    const bc = setCalls().pop();
+    check("book out: client and until are empty, the note is sent", bc.state === "booked_out" && !bc.client_id && !bc.until && bc.note === "Showing to Invented Client Two", JSON.stringify(bc));
+    // 409: an unknown client from the database
+    await page.click('#pc-actions button[data-act="in_stock"]');
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => /In stock/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
+    await page.click('#pc-actions button[data-act="reserved"]');
+    await page.fill("#pf-client", "DLD-9999");
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelector("#pf-err") && !document.querySelector("#pf-err").hidden && document.querySelector("#pf-err").textContent);
+    check("409: the database sentence is shown in the form, verbatim", norm(await page.textContent("#pf-err")) === "client DLD-9999 not found", norm(await page.textContent("#pf-err")));
+    await page.click("#pf-cancel");
+    // 409: the piece was sold meanwhile
+    const other = mock.pieces.filter((p) => p.state === "in_stock" && onPage1(p) && p.piece_id !== piece.piece_id)[0];
+    await openId(page, other.piece_id);
+    await page.click('#pc-actions button[data-act="damaged"]');
+    await page.fill("#pf-note", "Scratch on the case");
+    mock.sellNow(other.piece_id);
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => /Sold/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
+    check("409: the piece is reloaded and shows Sold, no change buttons", (await actionLabels(page)).length === 0 && !(await page.$("#pc-form")));
+    check("409: the refusal sentence is still on screen", /state sold → damaged is not allowed/.test(await page.textContent("#piece-panel")) || /state sold → damaged is not allowed/.test(await page.textContent("#toast")));
+    await page.waitForFunction(() => !S.listBusy);
+    check("409: the list row follows to Sold", await page.$eval(`#rows tr[data-id="${other.piece_id}"] .tag`, (n) => n.textContent.trim()) === "Sold");
+    check("changes: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("piece panel: 403 on set_state", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const piece = pieceOf("in_stock");
+    await openId(page, piece.piece_id);
+    await page.click('#pc-actions button[data-act="reserved"]');
+    mock.setRight("demo", "manage", false);               // the right is taken away meanwhile
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelector("#pf-err") && document.querySelector("#pf-err").textContent);
+    check("403: the sentence is shown in the form", /Your account cannot change stock\./.test(await page.textContent("#pf-err")));
+    check("403: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("piece panel: lock", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await openId(page, pieceOf("in_stock").piece_id);
+    await page.click('#pc-actions button[data-act="reserved"]');
+    await page.waitForSelector("#pc-form");
+    await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click()).catch(() => page.evaluate(() => lockNow()));
+    await page.waitForSelector("#gate-pass");
+    check("lock: the panel and its form are gone", !(await page.$("#piece-panel")) && !(await page.$("#pc-form")) && !(await page.$(".panel-wrap")));
+    check("lock: #app is inert", await page.evaluate(() => document.querySelector("#app").inert === true && !S.pieceId));
+    // a late answer after lock draws nothing
+    await login(page);
+    await settled(page);
+    await page.evaluate((id) => { openPiece(id); lockNow(); }, pieceOf("in_stock").piece_id);
+    await page.waitForTimeout(400);
+    check("lock: a late piece answer draws nothing", !(await page.$(".panel-wrap")) && await page.evaluate(() => S.locked && document.querySelector("#app").inert));
+    // a late set_state answer after lock draws nothing either
+    await login(page);
+    await settled(page);
+    const pc = pieceOf("in_stock");
+    await openId(page, pc.piece_id);
+    await page.click('#pc-actions button[data-act="reserved"]');
+    await page.evaluate(() => { document.querySelector("#pf-submit").click(); });
+    await page.waitForSelector("#confirm-dialog");
+    await page.evaluate(() => { document.querySelector("#confirm-ok").click(); lockNow(); });
+    await page.waitForTimeout(400);
+    check("lock: a late set_state answer draws nothing", !(await page.$(".panel-wrap")) && !(await page.$("#confirm-dialog")) && !/Reserved/.test(await page.textContent("#toast")));
+    check("lock: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("lock clears the list, facets and price timers", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await page.fill("#f-min", "20000000");
+    await page.fill("#f-q", "ZZ");
+    const n = listCalls().length;
+    await page.evaluate(() => lockNow());
+    await page.waitForSelector("#gate-pass");
+    check("lock: S.list, S.listError and S.facets are cleared", await page.evaluate(() => S.list === null && S.listError === null && S.facets === null));
+    await page.waitForTimeout(600);
+    check("lock: a pending price or search debounce asks nothing", listCalls().length === n, listCalls().length + " vs " + n);
+    check("lock: the list rows are not redrawn after the lock", await page.evaluate(() => S.list === null && S.listError === null));
+    check("lock: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("piece panel: RU and widths", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await page.click(".kit-lang .kit-hbtn[lang=ru]");
+    await settled(page);
+    const sp = pieceOf("sold");
+    await openId(page, sp.piece_id);
+    const facts = norm(await page.textContent("#pc-facts"));
+    check("RU: fact labels and prices in сум", /Серийный №/.test(facts) && /Штрихкод/.test(facts) && /Артикул/.test(facts) && facts.includes(money(sp.price_uzs) + " сум"), facts);
+    const hist = norm(await page.textContent("#pc-history"));
+    check("RU: history in Russian (reason word, state words)", /Первичная загрузка/.test(hist) && /Продано/.test(hist) && /В наличии → Продано/.test(hist), hist);
+    check("RU: ticket link and Void tag", /Чек D-0000/.test(norm(await page.textContent("#pc-history li a"))) && /Аннулирован/.test(norm(await page.textContent("#pc-sales"))) &&
+      /Учебный/.test(norm(await page.textContent("#pc-sales"))));
+    const ins = pieceOf("in_stock");
+    await openId(page, ins.piece_id);
+    check("RU: the action buttons", (await actionLabels(page)).join() === "Резервировать,Выдать,Повреждено", (await actionLabels(page)).join());
+    await page.click('#pc-actions button[data-act="reserved"]');
+    await page.fill("#pf-client", "DLD-9001");
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-dialog");
+    check("RU: the confirm", norm(await page.textContent("#confirm-dialog h3")) === "Резервировать " + ins.serial + "?", norm(await page.textContent("#confirm-dialog h3")));
+    await page.click("#confirm-cancel");
+    await page.click("#pf-cancel");
+    await page.click('#pc-actions button[data-act="booked_out"]');
+    await page.click("#pf-submit");
+    check("RU: the empty-note refusal", /Напишите, у кого изделие и зачем\./.test(await page.textContent("#pf-err")));
+    await page.evaluate(() => setLang("en"));
+    await page.waitForFunction(() => document.documentElement.lang === "en");
+    check("lang: switching with the panel open redraws it in English", /Serial/.test(norm(await page.textContent("#pc-facts"))));
+    await shot(page, "piece-ru");
+    check("RU: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  for (const vp of [{ width: 768, height: 1024 }, { width: 500, height: 800 }]) {
+    await run("piece panel widths " + vp.width, async () => {
+      const { ctx, page, errors } = await setup(browser, vp);
+      await settled(page);
+      await page.click(".kit-lang .kit-hbtn[lang=ru]");
+      await settled(page);
+      const sp = pieceOf("sold");
+      await openId(page, sp.piece_id);
+      const w = await page.$eval("#piece-panel .panel", (n) => Math.round(n.getBoundingClientRect().width));
+      check(`piece panel ${vp.width}: width ${vp.width < 600 ? "is the full width" : "is 560"}`, w === (vp.width < 600 ? vp.width : 560), String(w));
+      // the list behind the panel is built for iPad widths; under 600 only the panel itself is held to it
+      const pageOk = async () => vp.width < 600 || (await noHScroll(page));
+      check(`piece panel ${vp.width}: no sideways scroll`, (await pageOk()) && await page.$eval("#piece-panel .panel", (n) => n.scrollWidth <= n.clientWidth + 1));
+      const long = pieceOf("in_stock", (p) => p.model_name === mock.LONG_NAME);
+      if (long) {
+        await openId(page, long.piece_id);
+        check(`piece panel ${vp.width}: the 60-character model name does not scroll sideways`, await page.$eval("#piece-panel .panel", (n) => n.scrollWidth <= n.clientWidth + 1));
+      }
+      await openId(page, pieceOf("in_stock").piece_id);
+      await page.click('#pc-actions button[data-act="reserved"]');
+      const small = await page.evaluate(() => [...document.querySelectorAll("#piece-panel button, #piece-panel input, #piece-panel textarea")]
+        .filter((n) => { const r = n.getBoundingClientRect(); return r.width && r.height < 43.5; }).map((n) => n.id || n.className));
+      check(`piece panel ${vp.width}: controls are 44 px targets`, small.length === 0, small.join());
+      check(`piece panel ${vp.width}: no sideways scroll with the form open`, (await pageOk()) && await page.$eval("#piece-panel .panel", (n) => n.scrollWidth <= n.clientWidth + 1));
+      check(`piece panel ${vp.width}: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    });
+  }
+
   await run("kit css", async () => {
     const r = require("child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "..", "..", "qa", "kit.cjs")], { encoding: "utf8" });
-    check("kit: node qa/kit.cjs passes (stock/index.html among its pages)", r.status === 0 &&
-      /stock\/index\.html/.test(fs.readFileSync(path.join(__dirname, "..", "..", "..", "qa", "kit.cjs"), "utf8")), (r.stderr || r.stdout).trim().split("\n")[0]);
+    check("kit: node qa/kit.cjs exits 0", r.status === 0, (r.stderr || r.stdout).trim().split("\n")[0]);
   });
 
   await browser.close();

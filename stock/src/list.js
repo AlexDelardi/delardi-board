@@ -64,9 +64,11 @@ async function loadList() {
   try {
     const r = await api("list", { filters: listFilters() });
     if (seq !== listSeq) return;                   // a newer request is on its way
+    if (S.locked) { S.listBusy = false; return; }  // locked meanwhile: nothing is kept or drawn
     S.list = r; S.listError = null;
   } catch (e) {
     if (seq !== listSeq) return;
+    if (S.locked) { S.listBusy = false; return; }
     S.listError = e.message;
   }
   S.listBusy = false;
@@ -100,7 +102,6 @@ function renderList(main) {
   const price = (id, key) => {
     const input = el("input", { type: "text", inputmode: "numeric", id, class: "price", autocomplete: "off",
       value: f[key] === null ? "" : fmtUZS(f[key]) });
-    let t = null;
     const apply = () => {
       const r = readAmount(input.value);
       markInvalid(input, r.invalid);
@@ -108,8 +109,8 @@ function renderList(main) {
       S.filters[key] = r.value;
       filtersChanged();
     };
-    input.addEventListener("input", () => { clearTimeout(t); t = setTimeout(apply, LIST_DEBOUNCE); });
-    input.addEventListener("change", () => { clearTimeout(t); apply(); });
+    input.addEventListener("input", () => { clearTimeout(S.priceTimers[key]); S.priceTimers[key] = setTimeout(apply, LIST_DEBOUNCE); });
+    input.addEventListener("change", () => { clearTimeout(S.priceTimers[key]); apply(); });
     return input;
   };
 

@@ -33,6 +33,7 @@ function iso(day, hour) {   // a fixed day in 2026, UTC
   return new Date(Date.UTC(2026, 9, 1 + day, hour || 6, 0, 0)).toISOString();
 }
 
+const ticketId = (p) => "30000000-0000-4000-8000-0000000000" + p.serial.slice(-2);
 function freshPieces() {
   const out = [];
   let i = 0;
@@ -75,11 +76,11 @@ function reset() {
   pieces = freshPieces();
   events = {};
   for (const p of pieces) {
-    const list = [{ at: p.first_seen_at, from_state: null, to_state: "in_stock", reason: "initial_fill", ref_kind: null, ref_id: null,
+    const list = [{ at: p.first_seen_at, from_state: null, to_state: "in_stock", reason: "initial_load", ref_kind: null, ref_id: null,
       actor: "Stock Manager", note: null, ticket_id: null, ticket_no: null }];
     if (p.state !== "in_stock") list.unshift({ at: p.state_since, from_state: "in_stock", to_state: p.state,
       reason: p.state === "sold" ? "sold" : p.state, ref_kind: p.state === "sold" ? "ticket_line" : "manual", ref_id: null,
-      actor: "Stock Manager", note: p.state_note, ticket_id: null, ticket_no: p.state === "sold" ? "D-0000" + (p.serial.slice(-2)) : null });
+      actor: "Stock Manager", note: p.state_note, ticket_id: p.state === "sold" ? ticketId(p) : null, ticket_no: p.state === "sold" ? "D-0000" + (p.serial.slice(-2)) : null });
     events[p.piece_id] = list;
   }
   const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "missing_from_export", "missing_from_export"];
@@ -184,8 +185,10 @@ function detail(sess, id) {
     events: events[id].map((e) => Object.assign({}, e)),
     reviews: reviews.filter((r) => r.piece_id === id).sort((a, b) => cmp(b.raised_at, a.raised_at))
       .map(({ piece_id, ...r }) => r),
-    sales: p.state === "sold" ? [{ ticket_id: "30000000-0000-4000-8000-0000000000" + p.serial.slice(-2), ticket_no: "D-0000" + p.serial.slice(-2),
-      source: "pos", sold_at: p.state_since.slice(0, 10), kind: "sale", net: p.price_uzs, status: "posted" }] : [],
+    sales: p.state === "sold" ? [
+      { ticket_id: ticketId(p), ticket_no: "D-0000" + p.serial.slice(-2), source: "delardi", sold_at: p.state_since.slice(0, 10), kind: "sale", net: p.price_uzs, status: "posted" },
+      { ticket_id: "30000000-0000-4000-8000-1000000000" + p.serial.slice(-2), ticket_no: "T-0000" + p.serial.slice(-2), source: "training", sold_at: p.state_since.slice(0, 10), kind: "sale", net: p.price_uzs, status: "void" },
+    ] : [],
   };
   if (sess.rights.crm) out.client_name = p.hold_client_id ? (CLIENTS[p.hold_client_id] || null) : null;
   return out;
@@ -305,6 +308,14 @@ module.exports = {
   get pieces() { return pieces; },
   get reviews() { return reviews; },
   get calls() { return calls; },
+  // test helper: the piece is sold behind the page's back (a till sale)
+  sellNow(id) {
+    const p = pieces.find((x) => x.piece_id === id);
+    const at = new Date().toISOString();
+    events[id].unshift({ at, from_state: p.state, to_state: "sold", reason: "sold", ref_kind: "ticket_line", ref_id: null, actor: "Till",
+      note: null, ticket_id: ticketId(p), ticket_no: "D-0000" + p.serial.slice(-2) });
+    Object.assign(p, { state: "sold", state_since: at, hold_client_id: null, hold_until: null, state_note: null });
+  },
   // test helpers: end every session (the next call answers 401); take a right away
   expireAll() { for (const s of Object.values(sessions)) s.expired = true; },
   setRight(pass, right, value) { PASSCODES[pass].rights[right] = value; },
