@@ -73,6 +73,7 @@ async function shot(page, name) {
   fs.mkdirSync(SHOTS, { recursive: true });
   await page.screenshot({ path: path.join(SHOTS, name + ".png"), fullPage: true });
 }
+const categoryOf = (k) => { const t = String(k).replace(/_/g, " ").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
 const ORDER = ["in_stock", "reserved", "booked_out", "in_transit", "damaged", "not_received", "sold"];
 const WORDS = { in_stock: "In stock", reserved: "Reserved", booked_out: "Booked out", in_transit: "In transit",
   damaged: "Damaged", not_received: "Not received", sold: "Sold" };
@@ -1080,6 +1081,156 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.waitForTimeout(900);
     check("review lock: a late answer draws nothing and keeps nothing", await page.evaluate(() => S.locked && S.rv === null && S.reviewCount === null && !document.querySelector("#rv-rows") && !document.querySelector("#confirm-dialog")));
     check("review 768: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------ export to .xlsx
+  // A stored ZIP: walk the local file headers (no inflate needed) and return { name: text }.
+  const unzip = (buf) => {
+    const out = {};
+    for (let o = 0; buf.readUInt32LE(o) === 0x04034b50;) {
+      const method = buf.readUInt16LE(o + 8), size = buf.readUInt32LE(o + 22);
+      const nl = buf.readUInt16LE(o + 26), xl = buf.readUInt16LE(o + 28);
+      const name = buf.toString("utf8", o + 30, o + 30 + nl);
+      if (method !== 0) throw new Error("not stored: " + name);
+      out[name] = buf.toString("utf8", o + 30 + nl + xl, o + 30 + nl + xl + size);
+      o += 30 + nl + xl + size;
+    }
+    return out;
+  };
+  const unxml = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  // → [ { A: {t, s, v, text}, B: … } ] one object per row, keyed by column letter
+  const sheetRows = (xml) => [...xml.matchAll(/<row r="(\d+)">(.*?)<\/row>/g)].map((m) => {
+    const cells = {};
+    for (const c of m[2].matchAll(/<c r="([A-Z]+)\d+"((?: [a-z]+="[^"]*")*)>(.*?)<\/c>/g)) {
+      const attr = (n) => (new RegExp(" " + n + '="([^"]*)"').exec(c[2]) || [])[1];
+      const v = /<v>(.*?)<\/v>/.exec(c[3]), t = /<t[^>]*>(.*?)<\/t>/.exec(c[3]);
+      cells[c[1]] = { t: attr("t"), s: attr("s"), v: v ? v[1] : null, text: t ? unxml(t[1]) : null };
+    }
+    return cells;
+  });
+  const tashkentToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const download = async (page) => {
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export-btn")]);
+    const file = await dl.path();
+    return { name: dl.suggestedFilename(), parts: unzip(fs.readFileSync(file)) };
+  };
+  const EXPORT_EN = ["Serial", "Barcode", "Brand", "Reference", "Model", "Collection", "Category", "Size", "State", "Since", "Price, so'm"];
+  const EXPORT_RU = ["Серийный №", "Штрихкод", "Бренд", "Артикул", "Модель", "Коллекция", "Категория", "Размер", "Статус", "С даты", "Цена, сум"];
+
+  await run("kitXlsx unit", async () => {
+    const vm = require("vm");
+    const src = fs.readFileSync(path.join(__dirname, "..", "..", "..", "ui", "xlsx.js"), "utf8");
+    const ctx = vm.createContext({ Blob, TextEncoder, Uint8Array, Uint32Array, DataView, Date, Math, String, isFinite });
+    const kitXlsx = vm.runInContext(src + "\n;kitXlsx", ctx);
+    const blob = kitXlsx("A/B:" + "x".repeat(40), [{ title: "Name", key: "n" }, { title: "Qty", key: "q", type: "number" }, { title: "Day", key: "d", type: "date" }],
+      [{ n: "a & <b>", q: 5, d: "2026-11-16" }, { n: "c", q: null, d: "" }]);
+    const buf = Buffer.from(await blob.arrayBuffer());
+    check("kitXlsx: a Blob with the xlsx MIME type", blob.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    check("kitXlsx: the bytes start with PK\\x03\\x04", buf.readUInt32LE(0) === 0x04034b50);
+    const parts = unzip(buf);
+    check("kitXlsx: [Content_Types].xml and xl/workbook.xml are in it", !!parts["[Content_Types].xml"] && !!parts["xl/workbook.xml"] && !!parts["xl/worksheets/sheet1.xml"]);
+    check("kitXlsx: the sheet name loses forbidden characters and is cut to 31", /<sheet name="A B x{27}" /.test(parts["xl/workbook.xml"]), parts["xl/workbook.xml"]);
+    const rows = sheetRows(parts["xl/worksheets/sheet1.xml"]);
+    check("kitXlsx: heading row, then the data rows", rows.length === 3 && rows[0].A.text === "Name" && rows[1].A.text === "a & <b>");
+    check("kitXlsx: number cell numeric, date cell a serial, empties left out", rows[1].B.v === "5" && !rows[1].B.t && rows[1].C.v === "46342" && !rows[2].B && !rows[2].C, JSON.stringify(rows[1]));
+    check("kitXlsx: no tool words in the writer", !/crm|client|colibri|\btr\(|console\./i.test(src));
+  });
+
+  await run("export", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1280, height: 800 });
+    await settled(page);
+    check("export: the button sits in the header row, top right, reading Download .xlsx", await page.evaluate(() => {
+      const b = document.querySelector("#export-btn"), f = document.querySelector(".filters");
+      return !!b && b.textContent.trim() === "Download .xlsx" && b.getBoundingClientRect().bottom <= f.getBoundingClientRect().top + 1
+        && b.getBoundingClientRect().right > window.innerWidth / 2;
+    }));
+    // whole list, nothing filtered
+    let r = await download(page);
+    check("export: the file is Delardi_stock_<Tashkent date>.xlsx", r.name === `Delardi_stock_${tashkentToday()}.xlsx`, r.name);
+    check("export: it holds [Content_Types].xml, xl/workbook.xml and sheet1.xml", !!r.parts["[Content_Types].xml"] && !!r.parts["xl/workbook.xml"] && !!r.parts["xl/worksheets/sheet1.xml"]);
+    check("export: the sheet is called Stock", /<sheet name="Stock" /.test(r.parts["xl/workbook.xml"]));
+    let rows = sheetRows(r.parts["xl/worksheets/sheet1.xml"]);
+    const cols = "ABCDEFGHIJK".split("");
+    check("export: the header row (EN)", cols.map((c) => rows[0][c] && rows[0][c].text).join("|") === EXPORT_EN.join("|"), JSON.stringify(rows[0]));
+    check("export: no header says cost, margin or себестоимость", !rows[0].L && !/cost|margin|себестоим|purchase|landed/i.test(Object.values(rows[0]).map((c) => c.text).join(" ")));
+    check("export: no cost key in the sheet at all", !/cost|margin|себестоим/i.test(r.parts["xl/worksheets/sheet1.xml"]));
+    check("export: every page of the list is in it", rows.length - 1 === mock.pieces.length, rows.length - 1 + " vs " + mock.pieces.length);
+    const first = mock.pieces.find((p) => p.price_uzs !== null);
+    const idx = rows.findIndex((x) => x.A && x.A.text === first.serial);
+    check("export: a priced piece has a numeric price cell", rows[idx].K && !rows[idx].K.t && rows[idx].K.v === String(first.price_uzs), JSON.stringify(rows[idx].K));
+    const unpSerial = mock.pieces.find((p) => p.price_uzs === null).serial;
+    const unp = rows.findIndex((x) => x.A && x.A.text === unpSerial);
+    check("export: an unpriced piece has an empty price cell", unp > 0 && !!rows[unp].A && !rows[unp].K, JSON.stringify(rows[unp]));
+    check("export: Since is a date cell, State and Category are words", rows[idx].J && !rows[idx].J.t && /^\d{5}$/.test(rows[idx].J.v) && rows[idx].I.text === WORDS[first.state] && rows[idx].G.text === categoryOf(first.category), JSON.stringify(rows[idx]));
+    check("export: the button is enabled again and a toast says Saved", await page.$eval("#export-btn", (b) => !b.disabled && b.textContent.trim() === "Download .xlsx")
+      && (await page.textContent("#toast")).trim() === `Saved: ${r.name}`);
+
+    // filtered to a state: one row per filtered piece, same filters as the screen
+    await page.selectOption("#f-state", "reserved");
+    await settled(page);
+    await page.waitForFunction(() => S.list.rows.every((x) => x.state === "reserved"));
+    const want = mock.pieces.filter((p) => p.state === "reserved");
+    r = await download(page);
+    rows = sheetRows(r.parts["xl/worksheets/sheet1.xml"]);
+    check("export: filtered to Reserved gives one row per reserved piece", rows.length - 1 === want.length && want.length > 0 && rows.slice(1).every((x) => x.I.text === "Reserved"), rows.length - 1 + " vs " + want.length);
+    const ex = mock.calls.filter((c) => c.action === "export").pop();
+    check("export: it asked stock-api for the same filters", ex && JSON.stringify(ex.filters.states) === '["reserved"]', JSON.stringify(ex && ex.filters));
+
+    // preparing: disabled and worded
+    mock.delay.export = 700;
+    await page.click("#export-btn");
+    check("export: while preparing the button is disabled and says Preparing the file…", await page.$eval("#export-btn", (b) => b.disabled && /Preparing the file…/.test(b.textContent)));
+    await page.waitForEvent("download");
+    mock.delay.export = 0;
+    await page.waitForFunction(() => !document.querySelector("#export-btn").disabled);
+
+    // nothing to export
+    await page.selectOption("#f-state", "");
+    await page.fill("#f-q", "zzzznomatch");
+    await page.waitForFunction(() => S.list && !S.listBusy && S.list.rows.length === 0);
+    await page.click("#export-btn");
+    await page.waitForFunction(() => /Nothing to download/.test(document.querySelector("#toast").textContent));
+    check("export: nothing to export says so", (await page.textContent("#toast")).trim() === "Nothing to download: no piece matches these filters." && await page.$eval("#toast", (t) => !t.classList.contains("err")));
+    check("export: nothing to export leaves the button enabled", await page.$eval("#export-btn", (b) => !b.disabled));
+    await page.fill("#f-q", "");
+    await page.waitForFunction(() => S.list && !S.listBusy && S.list.rows.length > 0);
+
+    // 409
+    const extra = mock.pieces.slice(0, 1)[0];
+    for (let i = 0; i < 5001; i++) mock.pieces.push({ ...extra, piece_id: "00000000-0000-4000-8000-" + String(i).padStart(12, "0") });
+    await page.click("#export-btn");
+    await page.waitForFunction(() => /too many rows/.test(document.querySelector("#toast").textContent));
+    const sentence = await page.textContent("#toast");
+    check("export: 409 shows the server sentence in an error toast", /^too many rows to export \(\d+\); narrow the filters$/.test(sentence.trim()) && await page.$eval("#toast", (t) => t.classList.contains("err")), sentence);
+    check("export: 409 keeps the button enabled", await page.$eval("#export-btn", (b) => !b.disabled && b.textContent.trim() === "Download .xlsx"));
+    mock.pieces.length -= 5001;
+
+    check("export: no foreign request (blob: is local), no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join(" | "));
+    await ctx.close();
+  });
+
+  await run("export RU", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 });
+    await settled(page);
+    await page.click(".kit-lang .kit-hbtn[lang=ru]");
+    check("export RU: the button reads Скачать .xlsx", (await page.textContent("#export-btn")).trim() === "Скачать .xlsx");
+    await page.selectOption("#f-state", "sold");
+    await settled(page);
+    await page.waitForFunction(() => S.list.rows.every((x) => x.state === "sold"));
+    const r = await download(page);
+    const rows = sheetRows(r.parts["xl/worksheets/sheet1.xml"]);
+    check("export RU: headers in Russian", "ABCDEFGHIJK".split("").map((c) => rows[0][c] && rows[0][c].text).join("|") === EXPORT_RU.join("|"), JSON.stringify(rows[0]));
+    check("export RU: sheet «Склад», state in Russian", /<sheet name="Склад" /.test(r.parts["xl/workbook.xml"]) && rows[1].I.text === "Продано");
+    check("export RU: no cost header", !/себестоим|cost|margin/i.test(Object.values(rows[0]).map((c) => c.text).join(" ")));
+    check("export RU: toast Сохранено", (await page.textContent("#toast")).trim() === `Сохранено: ${r.name}`);
+    await page.selectOption("#f-state", "");
+    await page.fill("#f-q", "zzzznomatch");
+    await page.waitForFunction(() => S.list && !S.listBusy && S.list.rows.length === 0);
+    await page.click("#export-btn");
+    await page.waitForFunction(() => /Скачивать нечего/.test(document.querySelector("#toast").textContent));
+    check("export RU: nothing-to-download toast", (await page.textContent("#toast")).trim() === "Скачивать нечего: под фильтры не подходит ни одно изделие.");
+    check("export RU: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 

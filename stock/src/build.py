@@ -12,19 +12,20 @@ uri = lambda f: ('data:image/svg+xml;base64,' if f.endswith('.svg') else 'data:i
 
 t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
-# The shared UI kit (ui/kit.css, ui/tools.js) is inlined, never copied into this folder.
+# The shared UI kit (ui/kit.css, ui/tools.js, ui/xlsx.js) is inlined, never copied into this folder.
 KIT = HERE.parent.parent / 'ui'
-assert (KIT / 'kit.css').exists() and (KIT / 'tools.js').exists(), 'ui/kit.css and ui/tools.js must exist'
+assert (KIT / 'kit.css').exists() and (KIT / 'tools.js').exists() and (KIT / 'xlsx.js').exists(), 'ui/kit.css, ui/tools.js and ui/xlsx.js must exist'
 assert t.count('/*__KIT_CSS__*/') == 1, 'the kit marker must appear exactly once in template.html'
 t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # In this order, before the init marker. piece.js (Task 4), review.js (Task 5)
 # and export.js (Task 6) arrive later; whatever is not there yet is skipped.
-MODULES = ['../../ui/tools.js', 'list.js', 'piece.js', 'review.js', 'export.js']
+# ui/xlsx.js (the kit's workbook writer) goes in just before export.js.
+MODULES = ['../../ui/tools.js', 'list.js', 'piece.js', 'review.js', '../../ui/xlsx.js', 'export.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()
     if not f.exists():
-        assert 'ui/' not in m and m != 'list.js', m + ' is required'
+        assert 'ui/' not in m and m not in ('list.js', 'export.js'), m + ' is required'
         print('note: skipped', m, '(not there yet)')
         continue
     parts.append(f.read_text(encoding='utf-8'))

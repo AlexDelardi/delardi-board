@@ -115,7 +115,9 @@ function renderList(main) {
   };
 
   main.append(el("section", { class: "screen", id: "screen-pieces" },
-    el("h1", { class: "sr-only", text: tr("Pieces") }),
+    el("div", { class: "screen-head" },
+      el("h1", { class: "sr-only", text: tr("Pieces") }),
+      el("div", { class: "aside" }, exportButton())),
     el("div", { class: "filters", role: "search" },
       field("f-q", "Search", q),
       field("f-state", "State", state),
