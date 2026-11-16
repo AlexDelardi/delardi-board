@@ -1269,6 +1269,26 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  /* ============================================== logo and no machine translation (16 Nov) */
+  await run("logo and translation", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    const h = await page.evaluate(() => ({
+      tr: document.documentElement.getAttribute("translate"),
+      meta: !!document.querySelector('meta[name="google"][content="notranslate"]'),
+      src: document.querySelector(".kit-brand img").getAttribute("src").slice(0, 26),
+      hh: document.querySelector(".kit-brand img").getBoundingClientRect().height,
+      lang: document.querySelector('.kit-lang button[lang="en"]').getAttribute("translate"),
+    }));
+    check("page: browsers are told not to machine-translate it (translate=no + google notranslate)", h.tr === "no" && h.meta, JSON.stringify(h));
+    check("logo: the header wordmark is the vector master (SVG), 18px high", h.src.startsWith("data:image/svg+xml") && Math.round(h.hh) === 18, JSON.stringify(h));
+    await page.evaluate(() => lockDown());
+    await page.waitForSelector("#gate .gate-mast img");
+    const g = await page.evaluate(() => document.querySelector("#gate .gate-mast img").getAttribute("src").slice(0, 26));
+    check("logo: the lock card uses the vector wordmark too", g.startsWith("data:image/svg+xml"), g);
+    check("logo: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   /* ============================================== receipt language (16 Nov) */
   await run("receipt language", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });

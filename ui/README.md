@@ -4,7 +4,7 @@ One shared stylesheet (`kit.css`) and tool switcher (`tools.js`) that every in-s
 
 ## Classes
 
-- `.kit-head` header bar (wordmark 26 px high); inside: `.kit-brand`, `.kit-staff` (signed-in name, white 14 px, truncated with an ellipsis past 200 px), `.kit-rule`, `.kit-tool`, `.kit-spacer`, `.kit-hbtn` (header button), `.kit-lang` (EN/RU pair, active half `[aria-pressed="true"]` or `.on`), `.kit-tool-wrap` (wrapper of the switcher), `.kit-menu` (Tools dropdown).
+- `.kit-head` header bar (wordmark 18 px high); inside: `.kit-brand`, `.kit-staff` (signed-in name, white 14 px, truncated with an ellipsis past 200 px), `.kit-rule`, `.kit-tool`, `.kit-spacer`, `.kit-hbtn` (header button), `.kit-lang` (EN/RU pair, active half `[aria-pressed="true"]` or `.on`), `.kit-tool-wrap` (wrapper of the switcher), `.kit-menu` (Tools dropdown).
 - `.kit-tabs` / `.kit-tab` tab row (tabs 48 px high, 28 px apart); active tab `[aria-current="page"]`.
 - `.btn` with `.primary`, `.quiet`, `.danger`, `.big`.
 - `input`, `select`, `textarea` styled by element; `[aria-invalid="true"]` for errors; `.lbl` field label.
@@ -33,7 +33,8 @@ Leaving the page can ask first. `opts.beforeLeave(href)` (optional) returns a Pr
 ## Adopting the kit in a second tool
 
 - **Lock:** on lock the tool calls `kitCloseMenus()` and removes its own `.panel-wrap` and `.modal-wrap` elements (the kit does not know which are open), then shows the `.gate`. Make the page behind the card `inert` while locked so Tab cannot reach the header, and clear it on unlock.
-- **Wordmark:** `.kit-brand` holds the white wordmark PNG from `brand/` (`brand/wordmark_white.png`, inlined as a data URI by the tool's `build.py`), 26 px high, linking to the landing page (`../`).
+- **Wordmark:** `.kit-brand` holds the vector wordmark `brand/wordmark_white.svg` (DELARDI alone, cut from the agency master `Delardi_logo_white.pdf`, not recoloured), inlined as a data URI by the tool's `build.py`, 18 px high, linking to the landing page (`../`). The PNG with "WATCHES & JEWELRY" is unreadable at header size — do not use it there.
+- **No machine translation:** put `translate="no"` on `<html>` and `<meta name="google" content="notranslate">` in the head. The tools have their own EN/RU; a browser translating the page turns "EN" into "IN" and regroups money as "25,290,750".
 - **Global rules:** the kit styles elements, not only classes: `* { border-radius: 0 }`, `input, select, textarea { width: 100%; min-height: 44px }` and the `body` font. An existing form will change: inline fields and narrow selects need a `width` of their own, checkboxes and radios are reset to 20 px.
 - **Order of scripts:** `tools.js` defines functions only; call them from the tool's own boot code, never from top-level code that runs before `tools.js` is in the script.
 
