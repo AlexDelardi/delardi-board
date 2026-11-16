@@ -794,6 +794,8 @@ async function shot(page, name) {
     }));
     const d0 = norm(await page.textContent("#screen-tickets tr.tk-row >> nth=0 >> .tk-date"));
     check("tickets: dates read like 15 Nov 2026 14:05", /^\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d\d:\d\d$/.test(d0) && !/\d\.\d\d\.\d{4}/.test(d0), d0);
+    const dC = norm(await page.textContent("#screen-tickets tr.tk-row:has-text('C-104233') .tk-date"));
+    check("tickets: Colibri tickets show the date only (Colibri keeps no time)", /^\d{1,2} [A-Z][a-z]{2} \d{4}$/.test(dC), dC);
     check("tickets: count line reads 'N tickets · net … so'm'", /^4 tickets · net 69 500 000 so'm$/.test(sum), sum);
     await page.evaluate(() => { LANG = "ru"; renderTkList(); LANG = "en"; });
     const sumRu = norm(await page.textContent("#tk-sum"));

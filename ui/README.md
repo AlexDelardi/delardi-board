@@ -43,4 +43,4 @@ Replace the `/*__KIT_CSS__*/` marker in the template's `<style>` with the conten
 
 ## Not yet
 
-The Evolventa font is not embedded; the stack falls back to Century Gothic / Segoe UI.
+The Evolventa font is not embedded; the stack falls back to Segoe UI on Windows and the system font on iPad/Mac — the same stack the other tools use. Century Gothic is deliberately not in it: it renders wide on Windows PCs.

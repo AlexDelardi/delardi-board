@@ -41,6 +41,9 @@ const kc = clean(kit);
 for (const v of ['navy', 'navy-deep', 'slate', 'sky', 'mist', 'card', 'white', 'alert', 'sans', 'serif', 'tap', 'radius']) {
   ok(new RegExp('--' + v + '\\s*:').test(kc), 'custom property --' + v);
 }
+const sansStack = (kc.match(/--sans\s*:\s*([^;]+);/) || [])[1] || '';
+ok(!/Century Gothic/i.test(sansStack), '--sans has no Century Gothic (renders wide on Windows PCs)');
+ok(/^"Evolventa"/.test(sansStack.trim()) && /Segoe UI/.test(sansStack) && /-apple-system/.test(sansStack), '--sans: Evolventa, then Segoe UI / system fonts');
 const literal = { page: 'FFFFFF', surface: 'FFFFFF', 'surface-2': 'EEF1F7', ink: '001A4A', 'ink-2': '5B6478', muted: '5B6478', line: 'D3DCE9', grid: 'D3DCE9', border: 'D3DCE9', focus: '082966', critical: '8C2F2F' };
 for (const [k, hex] of Object.entries(literal)) {
   const m = kc.match(new RegExp('--' + k + '\\s*:\\s*#([0-9a-fA-F]{6})'));

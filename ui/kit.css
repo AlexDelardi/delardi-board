@@ -3,7 +3,7 @@
   --navy: #082966; --navy-deep: #001A4A; --slate: #5B6478; --sky: #8FA8CC;
   --mist: #D3DCE9; --card: #EEF1F7; --white: #FFFFFF; --alert: #8C2F2F;
   --serif: "Palatino Linotype", "Book Antiqua", Palatino, serif;
-  --sans: "Evolventa", "Century Gothic", "Segoe UI", sans-serif;
+  --sans: "Evolventa", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   --tap: 44px; --radius: 0;
   /* legacy aliases, literal hex on purpose (qa/ui-foundations.cjs reads them) */
   --page: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF1F7;
