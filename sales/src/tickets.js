@@ -178,8 +178,9 @@ async function renderTicket(main, id) {
   if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const wrap = el("section", { class: "sheet", id: "screen-ticket" }, el("p", { class: "loading", text: tr("Loading…") }));
   main.append(wrap);
+  S.rcLang = null;                                // a reprint starts in the screen language
   let doc;
-  try { doc = await api("ticket", { ticket_id: id }); }
+  try { doc = await api("ticket", { ticket_id: id, lang: rcLangFor(id) }); }
   catch (e) {
     if (!wrap.isConnected) return;
     wrap.innerHTML = "";
@@ -230,7 +231,7 @@ function drawTicket(wrap, doc, ui) {
     try {
       await api("void", { ticket_id: t.ticket_id, reason });
       toast(tr("{no} voided.", { no: t.ticket_no }));
-      const fresh = await api("ticket", { ticket_id: t.ticket_id });
+      const fresh = await api("ticket", { ticket_id: t.ticket_id, lang: rcLangFor(t.ticket_id) });
       if (!wrap.isConnected) return;
       Object.assign(doc, fresh);
       ui.voidOpen = false; ui.err = null;
@@ -278,6 +279,14 @@ function drawTicket(wrap, doc, ui) {
       el("article", { class: "receipt", "aria-label": t.ticket_no },
         el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
         el("div", { class: "rc-body" }, receiptLines(t.receipt_text), el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))),
-      el("div", { class: "receipt-actions" }, el("button", { type: "button", class: "btn", onclick: () => window.print() }, tr("Print")))) : null,
+      el("div", { class: "receipt-actions" },
+        rcLangSwitch(t.ticket_id, async (code) => {
+          try {
+            const fresh = await api("ticket", { ticket_id: t.ticket_id, lang: code });
+            if (!wrap.isConnected) return;
+            Object.assign(doc, fresh); redraw();
+          } catch (e) { if (e.status !== 401) toast(e.message); }
+        }),
+        el("button", { type: "button", class: "btn", onclick: () => window.print() }, tr("Print")))) : null,
   ].filter(Boolean));
 }

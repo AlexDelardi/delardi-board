@@ -303,11 +303,19 @@ function saleGuard(body, u) {
   if (body.expect_mode !== st.mode) return err(409, "the till was switched to " + st.mode + " — reload");
   return null;
 }
+// The Russian receipt pos_receipt_text(ticket, 'ru') prints, made from the English one.
+function receiptRu(text) {
+  const words = [[/^TRAINING — NOT A SALE$/, "УЧЕБНЫЙ ЧЕК — НЕ ПРОДАЖА"], [/^Tashkent, 1 Example Street$/, "Ташкент, ул. Примерная, 1"],
+    [/^Ticket /, "Чек "], [/^Seller: /, "Продавец: "], [/^Client: Walk-in$/, "Клиент: Без карты клиента"], [/^Client: /, "Клиент: "],
+    [/^Ref\. /, "Арт. "], [/ · Ring/, " · Кольцо"], [/ · White gold/, " · Белое золото"], [/ · Size /, " · Размер "],
+    [/^S\/N /, "С/Н "], [/^Total /, "Итого "], [/^Cash /, "Наличные "], [/^Transfer /, "Перевод "]];
+  return text.split("\n").map((l) => words.reduce((x, [re, to]) => x.replace(re, to), l)).join("\n");
+}
 // Without the CRM view right: clients by reference only.
 function withoutClientData(x) {
   const t = { ...x.ticket };
   delete t.client_raw;
-  if (t.receipt_text && t.client_id) t.receipt_text = t.receipt_text.replace(/^Client: .*$/m, "Client: " + t.client_id);
+  if (t.receipt_text && t.client_id) t.receipt_text = t.receipt_text.replace(/^(Client|Клиент): .*$/m, (_m, k) => k + ": " + t.client_id);
   return { ticket: t, lines: x.lines, payments: x.payments };
 }
 
@@ -352,8 +360,10 @@ function handle(body) {
       return [200, { ok: true }];
     }
     case "ticket": {
-      const t = st.tickets.find((x) => x.ticket.ticket_id === body.ticket_id);
-      if (!t) return err(404, "No sale with that reference.");
+      const t0 = st.tickets.find((x) => x.ticket.ticket_id === body.ticket_id);
+      if (!t0) return err(404, "No sale with that reference.");
+      // as sales-api: lang "ru" prints the receipt in Russian (pos_receipt_text(ticket, 'ru'))
+      const t = body.lang === "ru" && t0.ticket.receipt_text ? { ...t0, ticket: { ...t0.ticket, receipt_text: receiptRu(t0.ticket.receipt_text) } } : t0;
       return [200, u.rights.crm ? t : withoutClientData(t)];
     }
     case "ticket_by_line": {

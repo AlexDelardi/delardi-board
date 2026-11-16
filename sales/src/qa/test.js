@@ -1269,6 +1269,44 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  /* ============================================== receipt language (16 Nov) */
+  await run("receipt language", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await page.click(".kit-lang button[lang=ru]");                     // the screen in Russian
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    const due = norm(await page.textContent("#total")).replace(/\s*сум$/, "");
+    await addPay(page, "cash", due);
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt .rc-ticket");
+    const last = () => mock.state.calls.filter((c) => c.action === "ticket").pop();
+    check("receipt language: follows the screen — asks for Russian", last() && last().lang === "ru", JSON.stringify(last()));
+    const ru = norm(await page.textContent("#screen-receipt .receipt"));
+    check("receipt language: the Russian receipt reads Чек / Продавец / Итого / Наличные", /Чек /.test(ru) && /Продавец: /.test(ru) && /Итого/.test(ru) && /Наличные/.test(ru), ru);
+    check("receipt language: Russian lines keep their layout (ticket, detail, total rows)", await page.evaluate(() =>
+      !!document.querySelector(".receipt .rc-ticket") && !!document.querySelector(".receipt .rc-detail") && !!document.querySelector(".receipt .rc-total")
+      && !!document.querySelector(".receipt .rc-train")));
+    check("receipt language: the switch shows RU pressed", await page.evaluate(() => {
+      const b = document.querySelector("#rc-lang button[aria-pressed=true]"); return !!b && b.textContent.trim() === "RU"; }));
+    await page.click("#rc-lang button[lang=en]");
+    await page.waitForFunction(() => /Ticket /.test(document.querySelector("#screen-receipt .receipt") ? document.querySelector("#screen-receipt .receipt").textContent : ""));
+    const en = norm(await page.textContent("#screen-receipt .receipt"));
+    check("receipt language: EN on the switch prints English, the screen stays Russian",
+      /Ticket /.test(en) && /Total/.test(en) && last().lang !== "ru" && (await page.textContent(".saved-panel h1")).trim() === "Продажа сохранена", en);
+    // the ticket page offers the same switch for a reprint, starting from the screen language
+    const id = mock.state.tickets[mock.state.tickets.length - 1].ticket.ticket_id;
+    await page.goto(PAGE_URL + "#/ticket/" + id);
+    await page.waitForSelector("#show-receipt");
+    await page.click("#show-receipt");
+    await page.waitForSelector(".tk-receipt .rc-ticket");
+    check("receipt language: a reprint starts in the screen language (RU)", /Чек /.test(await page.textContent(".tk-receipt")) && !!(await page.$(".tk-receipt #rc-lang")));
+    await page.click(".tk-receipt #rc-lang button[lang=en]");
+    await page.waitForFunction(() => /Ticket /.test(document.querySelector(".tk-receipt").textContent));
+    check("receipt language: the reprint switches to English", /Ticket /.test(await page.textContent(".tk-receipt")));
+    check("receipt language: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   /* ============================================== final whole-branch review */
   // F1: the single ticket keeps its layout on the kit
   await run("ticket detail layout", async () => {
