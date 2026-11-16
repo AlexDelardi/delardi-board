@@ -42,7 +42,7 @@ deploy (`verify_jwt false`, like sales-api), and the two are kept identical.
 | `manage` | `can_manage_stock` | `set_state`, `resolve` (the database checks `manage_stock` again) |
 | `crm` | `can_view_crm` | A held piece's client **name** (`client_name` in `piece` / `set_state`). Without it the page has `hold_client_id` only. |
 
-- `rights` is always `{ view, manage, crm }`, all booleans.
+- `rights` is always `{ view, manage, crm, cost }`, all booleans. `cost` is the separate view-cost right.
 - `ping` needs a valid Stock session whose login still has `view`.
 - The actor recorded on state changes and review resolutions is the login's name
   (`board_users.name`). The page never sends it.
@@ -73,7 +73,7 @@ Cost, purchase price, landed price and margin are never selected or returned.
 ### `unlock {passcode}` — no token
 Rate limited as sales-api: every attempt writes `auth_attempts`; 10 failures
 from one IP in an hour → `429`. Wrong passcode → `401`; a login without `view` → `403`.
-→ `{ token, name, expires_at, rights: {view, manage, crm} }`
+→ `{ token, name, expires_at, rights: {view, manage, crm, cost} }`
 
 ### `ping {token}` — any Stock session (login must still have `view`)
 → `{ ok: true, name, rights }`
@@ -114,6 +114,28 @@ Calls `ops_set_state(piece, state, <login name>, note, client_id, until)`. Its
 refusals (a piece that cannot move to that state, …) → `409`
 verbatim.
 → the fresh detail, exactly as `piece` returns it (same `client_name` rule).
+
+### `origin {token, piece_id}` — view
+Where the piece came from and how it is identified. No money. Unknown piece → `404`.
+→
+```
+{ colibri: { data: { "<Colibri heading>": value, … }, source_file, loaded_at } | null,   // the piece as Colibri has it
+  receipt: { supplier, contract, invoice_no, invoice_date, currency, arrival_date, customs_decl, source_file } | null,
+  codes: [ { code, kind, active, added_at, retired_at } ],   // kind: colibri | era | brand | delardi; active first
+  hs_code, ikpu }                                            // per model; null = not known yet
+```
+
+### `cost {token, piece_id}` — cost
+The only action that returns cost or margin. Without the `cost` right → `403`
+"Your account cannot see cost.". Unknown piece → `404`.
+→
+```
+{ match_quality,              // exact | estimated | tbd (no cost recorded: the cost fields are null)
+  source_file, invoice_price, currency, fx_rate, invoice_uzs,
+  customs_vat_uzs, clearance_uzs, assay_uzs, customs_fee_uzs, other_uzs, landed_uzs,
+  shelf_price_uzs, vat_pct, net_price_uzs,      // shelf price, the VAT share inside it, the price without VAT
+  margin_uzs, margin_pct }                      // net price − landed cost; null while either is unknown
+```
 
 ### `reviews {token}` — view
 Open review items, oldest first.

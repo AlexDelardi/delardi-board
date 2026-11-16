@@ -633,6 +633,104 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  await run("piece panel: Colibri format, origin and cost", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const full = mock.pieces[0], part = mock.pieces[1], bare = mock.pieces[2];
+    const tabs = () => page.$$eval("#pc-tabs [role=tab]", (ns) => ns.map((n) => n.textContent.trim() + (n.getAttribute("aria-selected") === "true" ? "*" : "")));
+    const facts = (sel) => page.$$eval(sel + " .pc-fact", (ns) => Object.fromEntries(ns.map((n) => [n.querySelector("dt").textContent.trim(), n.querySelector("dd").textContent.replace(/[\s  ]+/g, " ").trim()])));
+    const calls = (a) => mock.calls.filter((c) => c.action === a).length;
+    await openId(page, full.piece_id);
+    check("tabs: Overview is selected; Colibri format and Origin & cost follow", (await tabs()).join() === "Overview*,Colibri format,Origin & cost", (await tabs()).join());
+    check("tabs: nothing extra is asked for until a tab is opened", calls("origin") === 0 && calls("cost") === 0);
+    await page.click("#pc-tab-colibri");
+    await page.waitForSelector("#pc-colibri .pc-fact");
+    let f = await facts("#pc-colibri");
+    const keys = Object.keys(f);
+    check("colibri: Colibri's own headings, in Colibri's order", keys[0] === "Бренд" && keys[1] === "Линия продукции" && keys[2] === "Артикул" && keys[3] === "Серийный номер"
+      && keys.indexOf("Штрих Код") > keys.indexOf("Цена продажи, долл") && keys.includes("Путь для сайта"), keys.slice(0, 6).join());
+    check("colibri: values as Colibri has them, zero included", f["Штрих Код"] === "6000000000017" && f["НДС"] === "0" && f["Коэф-т 1"] === "2.31" && f["Отправлять в ККМ"] === "Нет", JSON.stringify(f).slice(0, 300));
+    check("colibri: a column Colibri left empty reads TBD", f["СФ номер"] === "TBD" && f["Бух-код"] === "TBD");
+    check("colibri: a column we do not know yet is still shown, at the end", keys[keys.length - 1] === "Склад (старое поле)" && f["Склад (старое поле)"] === "A1", keys.slice(-2).join());
+    check("colibri: says it is Colibri's data and which file", /Colibri/.test(norm(await page.textContent("#pc-colibri-note"))) && /T2 receipt export\.xlsx/.test(await page.textContent("#pc-colibri-note")));
+    check("colibri: the overview blocks are not on this tab", !(await page.$("#pc-history")) && !(await page.$("#pc-actions")));
+    await page.click("#pc-tab-origin");
+    await page.waitForSelector("#pc-origin .pc-fact");
+    f = await facts("#pc-origin");
+    check("origin: supplier, contract, invoice, arrival", f["Supplier"] === "T2 Supplier SpA" && f["Contract"] === "No. T2-01" && f["Supplier invoice"] === "INV-77"
+      && /1 Oct 2026/.test(f["Invoice date"]) && /14 Oct 2026/.test(f["Arrival date"]) && f["Currency"] === "EUR", JSON.stringify(f));
+    check("origin: unknown values read TBD", f["Customs declaration"] === "TBD" && f["ИКПУ"] === "TBD" && f["HS code"] === "7113190000", JSON.stringify(f));
+    const codes = await page.$$eval("#pc-codes li", (ns) => ns.map((n) => n.textContent.replace(/\s+/g, " ").trim()));
+    check("origin: codes with their kind; a retired one is marked", codes.length === 2 && /6000000000017/.test(codes[0]) && /Colibri barcode/.test(codes[0]) && !/Retired/.test(codes[0])
+      && /ERA-OLD-1/.test(codes[1]) && /Era barcode/.test(codes[1]) && /Retired/.test(codes[1]), codes.join(" | "));
+    f = await facts("#pc-cost");
+    const net = Math.round(full.price_uzs / 1.12);
+    check("cost: invoice price with its currency, the landed-cost parts and landed cost", f["Invoice price"] === "743.11 EUR" && f["Invoice value"] === "6 500 000 so'm"
+      && f["VAT paid at customs"] === "130 000 so'm" && f["Landed cost"] === "6 665 000 so'm", JSON.stringify(f));
+    check("cost: shelf price, price without VAT and the estimated margin", f["Shelf price"] === money(full.price_uzs) + " so'm" && f["Price without VAT (12%)"] === money(net) + " so'm"
+      && f["Estimated margin"].startsWith(money(net - 6665000) + " so'm") && /%/.test(f["Estimated margin"]), JSON.stringify(f));
+    check("cost: says the cost is estimated", (await page.$eval("#pc-cost-quality", (n) => n.textContent.trim())) === "Estimated");
+    check("tabs: each block is asked for once", calls("origin") === 1 && calls("cost") === 1, calls("origin") + "/" + calls("cost"));
+    await page.click("#pc-tab-overview");
+    check("tabs: back on Overview the history is there again", !!(await page.$("#pc-history")) && !(await page.$("#pc-origin")));
+    // a piece with a Colibri record only
+    await openId(page, part.piece_id);
+    check("tabs: another piece opens on Overview", (await tabs())[0] === "Overview*");
+    await page.click("#pc-tab-origin");
+    await page.waitForSelector("#pc-origin .pc-fact");
+    f = await facts("#pc-origin");
+    check("origin: nothing recorded reads TBD throughout", Object.values(f).every((v) => v === "TBD") && Object.keys(f).length >= 9, JSON.stringify(f));
+    check("origin: no codes reads TBD", norm(await page.textContent("#pc-codes")) === "TBD");
+    f = await facts("#pc-cost");
+    check("cost: unknown cost is TBD, margin too; the shelf price is still shown", f["Landed cost"] === "TBD" && f["Estimated margin"] === "TBD" && f["Invoice price"] === "TBD"
+      && (await page.$eval("#pc-cost-quality", (n) => n.textContent.trim())) === "TBD", JSON.stringify(f));
+    // a piece with no Colibri record
+    await openId(page, bare.piece_id);
+    await page.click("#pc-tab-colibri");
+    await page.waitForSelector("#pc-colibri-none");
+    check("colibri: no record says so and shows no columns", /No Colibri record/.test(await page.textContent("#pc-colibri-none")) && !(await page.$("#pc-colibri .pc-fact")));
+    // Russian
+    await page.evaluate(() => setLang("ru"));
+    check("ru: tab names", (await tabs()).join() === "Обзор,Формат Colibri*,Происхождение и себестоимость", (await tabs()).join());
+    await page.click("#pc-tab-origin");
+    await page.waitForSelector("#pc-cost .pc-fact");
+    f = await facts("#pc-origin");
+    check("ru: origin labels and TBD", "Поставщик" in f && "Дата прихода" in f && "Код ТН ВЭД" in f && f["Поставщик"] === "TBD", Object.keys(f).join());
+    f = await facts("#pc-cost");
+    check("ru: cost labels", "Себестоимость с расходами" in f && "Оценочная маржа" in f && "Цена на полке" in f, Object.keys(f).join());
+    await page.evaluate(() => setLang("en"));
+    check("enrichment: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    // without the cost right: no cost block, and cost is never asked for
+    for (const pass of ["look", "nocrm"]) {
+      const t = await setup(browser, { width: 1024, height: 768 }, { pass });
+      await settled(t.page);
+      await openId(t.page, full.piece_id);
+      await t.page.click("#pc-tab-origin");
+      await t.page.waitForSelector("#pc-origin .pc-fact");
+      check("cost: hidden without the cost right (" + pass + ")", !(await t.page.$("#pc-cost")) && !/Landed|margin|6 665 000/i.test(await t.page.textContent("#piece-panel"))
+        && (await t.page.$eval("#pc-tab-origin", (n) => n.textContent.trim())) === "Origin");
+      check("cost: never requested without the cost right (" + pass + ")", calls("cost") === 0 && calls("origin") === 1);
+      await t.ctx.close();
+    }
+    // the mock refuses cost to a login without the right, as the API does
+    const tk = mock.handle({ action: "unlock", passcode: "look" })[1].token;
+    const refused = mock.handle({ action: "cost", token: tk, piece_id: full.piece_id });
+    check("cost: the API refuses cost without the right", refused[0] === 403 && /cannot see cost/.test(refused[1].error), JSON.stringify(refused));
+    // a failed load shows a notice with a way to try again
+    const t = await setup(browser, { width: 1024, height: 768 });
+    await settled(t.page);
+    await openId(t.page, full.piece_id);
+    mock.failNext = "origin";
+    await t.page.click("#pc-tab-colibri");
+    await t.page.waitForSelector("#pc-more-err");
+    check("load failure: a notice, no columns", !(await t.page.$("#pc-colibri .pc-fact")) && /Could not load/.test(await t.page.textContent("#pc-more-err")));
+    await t.page.click("#pc-more-retry");
+    await t.page.waitForSelector("#pc-colibri .pc-fact");
+    check("load failure: Try again loads it", !(await t.page.$("#pc-more-err")));
+    await t.ctx.close();
+  });
+
   await run("piece panel: rights and hold block", async () => {
     // view only: no buttons
     let t = await setup(browser, { width: 1024, height: 768 }, { pass: "look" });

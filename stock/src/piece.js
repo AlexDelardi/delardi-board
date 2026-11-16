@@ -108,7 +108,7 @@ const ticketHref = (id) => "../sales/#/ticket/" + encodeURIComponent(id);
 let pcSeq = 0;
 function showPiece(id) {
   if (S.locked) return;
-  S.pc = { id, d: null, err: null, notice: null, form: null };
+  S.pc = { id, d: null, err: null, notice: null, form: null, tab: "overview", more: null };
   S.pieceId = id;
   renderPiece();
   loadPiece(id);
@@ -225,6 +225,9 @@ function renderPiece() {
       el("h2", { class: "h2", id: "pc-title", text: title }),
       el("div", { class: "pc-state" }, stateTag(p.state), el("span", { class: "since small", text: tr("since {d}", { d: fmtDate(p.state_since) }) })));
     if (pc.notice) body.push(el("p", { class: "notice", role: "alert", id: "pc-notice", text: pc.notice }));
+    body.push(pieceTabs(pc));
+    if (pc.tab && pc.tab !== "overview") body.push(...moreBody(pc));
+    else {
     body.push(el("dl", { class: "pc-facts", id: "pc-facts" },
       fact("Serial", p.serial), fact("Barcode", p.barcode), fact("Reference", p.article), fact("Collection", p.collection),
       fact("Colour", p.colour), fact("Size", p.size), fact("Category", categoryWord(p.category)),
@@ -250,6 +253,7 @@ function renderPiece() {
     if ((d.sales || []).length) {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Sales") }),
         el("ul", { class: "pc-list", id: "pc-sales" }, d.sales.map(saleItem))));
+    }
     }
   }
   host.append(el("div", { class: "panel-scrim", onclick: userClose }),

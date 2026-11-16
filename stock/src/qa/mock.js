@@ -8,10 +8,10 @@
 // refused (message verbatim, as ops_set_state / ops_resolve_review raise it).
 
 const PASSCODES = {
-  demo: { name: "Stock Manager", rights: { view: true, manage: true, crm: true } },
-  look: { name: "Stock Viewer", rights: { view: true, manage: false, crm: false } },
-  nocrm: { name: "Floor Manager", rights: { view: true, manage: true, crm: false } },
-  none: { name: "Nobody", rights: { view: false, manage: false, crm: false } },
+  demo: { name: "Stock Manager", rights: { view: true, manage: true, crm: true, cost: true } },
+  look: { name: "Stock Viewer", rights: { view: true, manage: false, crm: false, cost: false } },
+  nocrm: { name: "Floor Manager", rights: { view: true, manage: true, crm: false, cost: false } },
+  none: { name: "Nobody", rights: { view: false, manage: false, crm: false, cost: false } },
 };
 const DEFAULT_RIGHTS = JSON.stringify(Object.fromEntries(Object.entries(PASSCODES).map(([k, v]) => [k, v.rights])));
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
@@ -31,6 +31,7 @@ const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_trans
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
 let pieces, events, reviews, sessions, calls, nextReview;
+let failNext = null;   // an action name: its next call answers 500 once
 let refundSales = {};
 const delay = {};   // test hook: delay.<action> = ms the answer is held back
 
@@ -105,6 +106,7 @@ function reset() {
   nextReview = 6;
   sessions = {};
   calls = [];
+  failNext = null;
 }
 reset();
 
@@ -127,6 +129,7 @@ function session(token, need) {
   const u = Object.values(PASSCODES).find((p) => p.name === s.name);
   if (!u || !u.rights.view) fail(403, NO_ACCESS);
   if (need === "manage" && !u.rights.manage) fail(403, "Your account cannot change stock.");
+  if (need === "cost" && !u.rights.cost) fail(403, "Your account cannot see cost.");
   return { name: u.name, rights: Object.assign({}, u.rights) };
 }
 
@@ -230,6 +233,7 @@ function handle(body) {
   try {
     if (!body || typeof body !== "object" || Array.isArray(body)) fail(400, "Body must be a JSON object.");
     const action = str(body.action, 40);
+    if (failNext && failNext === action) { failNext = null; return [500, { error: "Something went wrong on the server." }]; }
     if (action === "health") return [200, { ok: true }];
     if (action === "unlock") {
       const u = PASSCODES[str(body.passcode, 200) || ""];
@@ -251,6 +255,36 @@ function handle(body) {
       const id = str(body.piece_id, 40) || "";
       if (!UUID_RE.test(id)) fail(400, "That is not a valid piece reference.");
       return [200, detail(s, id.toLowerCase())];
+    }
+    // Enrichment: pieces[0] has everything recorded, pieces[1] a Colibri record only, the rest nothing (TBD).
+    if (action === "origin" || action === "cost") {
+      session(body.token, action === "cost" ? "cost" : "view");
+      const id = (str(body.piece_id, 40) || "").toLowerCase();
+      if (!UUID_RE.test(id)) fail(400, "That is not a valid piece reference.");
+      const i = pieces.findIndex((x) => x.piece_id === id);
+      if (i < 0) fail(404, "No piece with that reference.");
+      const p = pieces[i];
+      if (action === "origin") {
+        const colibri = i > 1 ? null : { source_file: "T2 receipt export.xlsx", loaded_at: iso(3, 9),
+          data: { "Бренд": p.brand, "Линия продукции": "Кольцо", "Артикул": p.article, "Серийный номер": p.serial,
+            "Наименование товара (рус)": "Кольцо из жёлтого золота", "Код цвета": "YG", "Цена оригинального инвойса": 875,
+            "Инв. цена, долл": 983.15, "Коэф-т 1": 2.31, "Рек. цена, долл": 2270, "Цена продажи, долл": 2270,
+            "Штрих Код": "6000000000017", "НДС": 0, "ЦП": 28375000, "Отправлять в ККМ": "Нет", "Склад (старое поле)": "A1" } };
+        return [200, i > 0 ? { colibri, receipt: null, codes: [], hs_code: null, ikpu: null } : { colibri,
+          receipt: { supplier: "T2 Supplier SpA", contract: "No. T2-01", invoice_no: "INV-77", invoice_date: "2026-10-01",
+            currency: "EUR", arrival_date: "2026-10-14", customs_decl: null, source_file: "t2 cost.xlsx" },
+          codes: [{ code: "6000000000017", kind: "colibri", active: true, added_at: iso(3, 9), retired_at: null },
+                  { code: "ERA-OLD-1", kind: "era", active: false, added_at: iso(9, 9), retired_at: iso(2, 9) }],
+          hs_code: "7113190000", ikpu: null }];
+      }
+      const shelf = p.price_uzs === null || p.price_uzs === undefined ? null : Number(p.price_uzs);
+      const net = shelf === null ? null : Math.round(shelf / 1.12);
+      if (i > 0) return [200, { match_quality: "tbd", landed_uzs: null, shelf_price_uzs: shelf, vat_pct: 12, net_price_uzs: net, margin_uzs: null, margin_pct: null }];
+      const landed = 6665000;
+      return [200, { match_quality: "estimated", source_file: "t2 cost.xlsx", invoice_price: 743.11, currency: "EUR", fx_rate: 13000,
+        invoice_uzs: 6500000, customs_vat_uzs: 130000, clearance_uzs: 20000, assay_uzs: 10000, customs_fee_uzs: 5000, other_uzs: 0,
+        landed_uzs: landed, shelf_price_uzs: shelf, vat_pct: 12, net_price_uzs: net,
+        margin_uzs: net === null ? null : net - landed, margin_pct: net ? Math.round((net - landed) / net * 1000) / 10 : null }];
     }
     if (action === "reviews") {
       session(body.token, "view");
@@ -335,6 +369,7 @@ module.exports = {
   get pieces() { return pieces; },
   get reviews() { return reviews; },
   get calls() { return calls; },
+  get failNext() { return failNext; }, set failNext(v) { failNext = v; },
   // test helper: the piece is sold behind the page's back (a till sale)
   sellNow(id) {
     const p = pieces.find((x) => x.piece_id === id);
