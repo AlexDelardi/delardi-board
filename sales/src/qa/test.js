@@ -339,7 +339,7 @@ async function shot(page, name) {
   await run("russian", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await addLine(page, "2000000000031");
-    await page.click(".lang button[lang=ru]");
+    await page.click(".kit-lang button[lang=ru]");
     await page.waitForSelector("#screen-sale");
     const txt = await page.textContent("#screen-sale");
     check("russian: Новая продажа on the sale screen", /Новая продажа/.test(txt));
@@ -395,6 +395,69 @@ async function shot(page, name) {
     check("ipad gate: buttons ≥ 44 px", small.length === 0, small.join(", "));
     await shot(page, "ipad-gate-768x1024");
     await ctx.close();
+  });
+
+  /* ================================================== UI kit (shell) checks */
+  await run("kit shell", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    const toolsBtn = page.locator(".kit-head [data-kit-menu] > button");
+    check("kit: header has the Tools switcher with 4 tools (button)", (await toolsBtn.count()) === 1 && norm(await toolsBtn.textContent()) === "Tools");
+    await toolsBtn.click();
+    const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
+    const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
+    check("kit: header has the Tools switcher with 4 tools", items.join() === "Sales,Clients,Catalogue,Board" && current.join() === "Sales",
+      items.join() + " / " + current.join());
+    check("kit: the Tools menu is open", await page.isVisible(".kit-head .kit-menu"));
+    check("kit: no theme switch", await page.evaluate(() => ![...document.querySelectorAll("[title], [aria-label]")]
+      .some((n) => /theme|тема/i.test((n.getAttribute("title") || "") + " " + (n.getAttribute("aria-label") || "")))));
+    check("kit: no dark mode on the page", await page.evaluate(() => !document.documentElement.hasAttribute("data-theme") &&
+      !document.documentElement.classList.contains("sysdark")));
+    check("kit: header order — wordmark, rule, Sales, spacer, Tools, EN/RU, staff, Lock", await page.evaluate(() => {
+      const h = document.querySelector(".kit-head");
+      const kids = [...h.children].map((n) => n.matches("a.kit-brand") ? "brand" : n.matches(".kit-rule") ? "rule" : n.matches(".kit-tool") ? "tool"
+        : n.matches(".kit-spacer") ? "spacer" : n.matches("[data-kit-menu]") ? "tools" : n.matches(".kit-lang") ? "lang"
+        : n.matches(".kit-staff") ? "staff" : n.matches("button.kit-hbtn") ? "lock:" + n.textContent.trim() : "?");
+      return kids.join() === "brand,rule,tool,spacer,tools,lang,staff,lock:Lock" &&
+        h.querySelector("a.kit-brand").getAttribute("href") === "../" && h.querySelector(".kit-tool").textContent === "Sales" &&
+        h.querySelector(".kit-staff").textContent === S.name && S.name === "Till Manager";
+    }));
+    check("kit: tabs are kit tabs, New sale current", norm(await page.textContent(".kit-tabs .kit-tab[aria-current=page]")) === "New sale");
+    check("kit: the training band is a kit band", await page.evaluate(() => {
+      const b = document.querySelector(".band.training-band");
+      return !!b && b.querySelector(".lbl").textContent === "TRAINING";
+    }));
+    for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+      await page.setViewportSize(vp);
+      await page.waitForTimeout(50);
+      check(`kit: no sideways scroll at ${vp.width}×${vp.height} on the sale screen (Tools open)`, await noHScroll(page));
+    }
+    check("dates: fmtDate gives 16 Nov 2026 and 16 ноя 2026, fmtDateNum gives 16.11.2026", await page.evaluate(() => {
+      const iso = "2026-11-16T09:05:00Z";
+      const en = fmtDate(iso); LANG = "ru"; const ru = fmtDate(iso); LANG = "en";
+      return en === "16 Nov 2026" && ru === "16 ноя 2026" && fmtDateNum(iso) === "16.11.2026" &&
+        fmtDate("2026-11-16T20:30:00Z") === "17 Nov 2026";      // Tashkent is UTC+5
+    }));
+    await page.evaluate(() => lockDown());
+    await page.waitForSelector("#gate-pass");
+    check("kit: lock closes the Tools menu", await page.evaluate(() => kitOpenMenus.length === 0 &&
+      ![...document.querySelectorAll(".kit-menu")].some((m) => !m.hidden)));
+    check("kit: lock card has the mast and Unlock", await page.evaluate(() => !!document.querySelector("#gate .gate-mast img") &&
+      document.querySelector("#gate .gate-card button[type=submit]").textContent === "Unlock" &&
+      /Boutique tools/.test(document.querySelector("#gate .gate-mast").textContent) &&
+      /Opens the till/.test(document.querySelector("#gate").textContent)));
+    check("kit shell: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("kit lock panel", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await page.evaluate(() => document.body.appendChild(Object.assign(document.createElement("div"), { className: "panel-wrap" })));
+    await page.evaluate(() => lockDown());
+    check("kit: lock removes any detail panel", !(await page.$(".panel-wrap")));
+    await ctx.close();
+  });
+  await run("kit css", async () => {
+    const r = require("child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "..", "..", "qa", "kit.cjs")], { encoding: "utf8" });
+    check("kit: node qa/kit.cjs passes on the built page", r.status === 0, (r.stderr || r.stdout).trim().split("\n")[0]);
   });
 
   /* ======================================================== Task 8 checks */
@@ -606,7 +669,7 @@ async function shot(page, name) {
   // ------------------------------------------------------------ tickets list
   await run("tickets list", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
-    await page.click("a.view-tab[href='#/tickets']");
+    await page.click("a.kit-tab[href='#/tickets']");
     await page.waitForSelector("#screen-tickets a.tk-row");
     const nos = () => page.$$eval("#screen-tickets a.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
     let list = await nos();
@@ -687,14 +750,14 @@ async function shot(page, name) {
     const a = await setup(browser, { width: 1024, height: 768 }, { login: false });
     await login(a.page, "rep");
     await a.page.waitForSelector("#screen-sale");
-    check("admin: no tab without manage", !(await a.page.$("a.view-tab[href='#/admin']")));
+    check("admin: no tab without manage", !(await a.page.$("a.kit-tab[href='#/admin']")));
     await a.page.evaluate(() => { location.hash = "#/admin"; });
     await a.page.waitForTimeout(200);
     check("admin: the screen holds no switch without manage", !(await a.page.$("#mode-live")) && !(await a.page.$("#clear-training")));
     await a.ctx.close();
 
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
-    await page.click("a.view-tab[href='#/admin']");
+    await page.click("a.kit-tab[href='#/admin']");
     await page.waitForSelector("#screen-admin #mode-live");
     check("admin: training now", (await page.getAttribute("#mode-training", "aria-pressed")) === "true");
     check("admin: no go-live date yet", /not yet/i.test(await page.textContent("#go-live")));
@@ -724,7 +787,7 @@ async function shot(page, name) {
     check("admin: Live removes the TRAINING banner", mock.state.mode === "live" && !(await page.$(".training-band")));
     check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(mock.tkDate(0).split("-").reverse().join(".")),
       await page.textContent("#go-live"));
-    await page.click("a.view-tab[href='#/tickets']");
+    await page.click("a.kit-tab[href='#/tickets']");
     await page.waitForSelector("#screen-tickets a.tk-row");
     check("admin: Live → no test-sales option in the ticket list", !(await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
     check("admin: no script errors", errors.length === 0, errors.join(" | "));
@@ -757,7 +820,7 @@ async function shot(page, name) {
       check(`ipad ${tag}: client panel — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-client-" + tag);
       await page.click("#client-close");
-      await page.click("a.view-tab[href='#/tickets']");
+      await page.click("a.kit-tab[href='#/tickets']");
       await page.waitForSelector("#screen-tickets a.tk-row");
       check(`ipad ${tag}: tickets — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
@@ -769,7 +832,7 @@ async function shot(page, name) {
       small = await smallButtons(page);
       check(`ipad ${tag}: ticket — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-ticket-" + tag);
-      await page.click("a.view-tab[href='#/admin']");
+      await page.click("a.kit-tab[href='#/admin']");
       await page.waitForSelector("#screen-admin #mode-live");
       check(`ipad ${tag}: admin — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
@@ -846,7 +909,7 @@ async function shot(page, name) {
     await login(page, "nocrm");
     await page.waitForSelector("#screen-sale");
     check("sales only: rights.crm is false", await page.evaluate(() => S.rights.crm === false));
-    await page.click("a.view-tab[href='#/tickets']");
+    await page.click("a.kit-tab[href='#/tickets']");
     await page.waitForSelector("#screen-tickets a.tk-row");
     const list = norm(await page.textContent("#screen-tickets"));
     const row = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
@@ -875,7 +938,7 @@ async function shot(page, name) {
       lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }], payments: [{ method: "cash", amount: 31500000 }] } });
     check("sales only: (contract) a post naming a client is 403", st403 === 403 && b403.error === "Your account cannot attach clients — use Walk-in.", b403.error);
     // the page posts Walk-in, which goes through
-    await page.click("a.view-tab[href='#/sale']");
+    await page.click("a.kit-tab[href='#/sale']");
     await page.waitForSelector("#screen-sale");
     await addLine(page, "2000000000031");
     await toPay(page);
