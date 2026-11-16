@@ -43,7 +43,7 @@ deploy (`verify_jwt false`, like sales-api), and the two are kept identical.
 | `crm` | `can_view_crm` | A held piece's client **name** (`client_name` in `piece` / `set_state`). Without it the page has `hold_client_id` only. |
 
 - `rights` is always `{ view, manage, crm }`, all booleans.
-- `ping` needs only a valid Stock session.
+- `ping` needs a valid Stock session whose login still has `view`.
 - The actor recorded on state changes and review resolutions is the login's name
   (`board_users.name`). The page never sends it.
 
@@ -75,7 +75,7 @@ Rate limited as sales-api: every attempt writes `auth_attempts`; 10 failures
 from one IP in an hour → `429`. Wrong passcode → `401`; a login without `view` → `403`.
 → `{ token, name, expires_at, rights: {view, manage, crm} }`
 
-### `ping {token}` — any Stock session
+### `ping {token}` — any Stock session (login must still have `view`)
 → `{ ok: true, name, rights }`
 
 ### `facets {token}` — view

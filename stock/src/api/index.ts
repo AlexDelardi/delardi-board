@@ -80,7 +80,7 @@ const select = (path: string) => db(path);
 const insert = (table: string, row: unknown, prefer = "return=representation") =>
   db(table, { method: "POST", body: JSON.stringify(row), headers: { Prefer: prefer } });
 
-// The pos_* functions refuse bad requests with a plain `raise exception`
+// The stk_* and ops_* functions refuse bad requests with a plain `raise exception`
 // (SQLSTATE P0001) and a sentence meant for the person at the till; PostgREST
 // returns it as {code, message, …}, and it goes to the page as 409 with that
 // message verbatim. Anything else is a fault and stays a 500.
@@ -129,7 +129,12 @@ function posInt(v: unknown, what: string): number {
 function dateOrNull(v: unknown, field: string): string | null {
   const s = str(v, 10);
   if (s === null) return null;
-  const ok = /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+  let ok = false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T00:00:00Z`);
+    // An impossible date (2026-13-45) is an Invalid Date, and toISOString would throw on it.
+    ok = !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }
   if (!ok) throw new HttpErr(400, `${field} must be a date as YYYY-MM-DD.`);
   return s;
 }
@@ -152,7 +157,7 @@ function clientIp(req: Request) {
 }
 
 interface Rights { view: boolean; manage: boolean; crm: boolean }
-type Need = keyof Rights;
+type Need = "view" | "manage";
 
 interface Session {
   name: string;
@@ -164,7 +169,6 @@ const NO_ACCESS = "This account does not have access to Stock.";
 const NEED_MESSAGES: Record<Need, string> = {
   view: "Your account cannot look up stock.",
   manage: "Your account cannot change stock.",
-  crm: "Your account cannot see clients.",
 };
 
 function rightsOf(u: Record<string, unknown>): Rights {
