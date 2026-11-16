@@ -988,6 +988,11 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.click("#confirm-ok");
     await page.$eval("#rv-confirm", (n) => { n.click(); n.click(); }).catch(() => {});
     await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 4);
+    const rcount = () => mock.calls.filter((x) => x.action === "reviews").length;
+    const rc0 = rcount();
+    await page.waitForFunction(() => true);
+    for (let i = 0; i < 50 && rcount() === rc0; i++) await page.waitForTimeout(40);   // the reload after the resolve has been asked for
+    await page.waitForTimeout(250);                                                  // ...and answered and drawn
     check("review: a double click on Confirm sends one resolve", resolveCalls().length === 1, String(resolveCalls().length));
     const a = await active();
     check("review focus: after a resolve it lands on the next row's first answer", a === "4:still_in_transit", a);

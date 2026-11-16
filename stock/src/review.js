@@ -79,7 +79,7 @@ function drawReviews() {
   const host = $("#rv-host");
   if (!host || S.locked) return;
   const rv = rvState();
-  const focus = document.activeElement && document.activeElement.id === "rv-note" ? document.activeElement.selectionStart : null;
+  const focus = focusMark(host);
   host.innerHTML = "";
   if (rv.err && !rv.items) {
     host.append(el("p", { class: "notice", role: "alert", text: tr("Could not load the reviews.") + " " + rv.err }),
@@ -100,7 +100,30 @@ function drawReviews() {
       el("th", { scope: "col", text: tr("State") }), el("th", { scope: "col", text: tr("Raised") }),
       manage ? el("th", { scope: "col", text: tr("Answer") }) : null)),
     body)));
-  if (focus !== null) { const n = $("#rv-note"); if (n) { n.focus(); try { n.setSelectionRange(focus, focus); } catch (e) { /* ignore */ } } }
+  restoreFocus(host, focus);
+}
+
+// A redraw (a reload of the queue, a refusal) rebuilds every node: whatever held keyboard focus
+// inside the queue gets it back. Marked by row and answer, or by id (the form's own controls).
+function focusMark(host) {
+  const a = document.activeElement;
+  if (!a || !host.contains(a)) return null;
+  const row = a.closest("tr.rrow");
+  const m = { id: a.id || null, review: row ? row.getAttribute("data-review") : null, answer: a.getAttribute("data-answer"), piece: a.classList.contains("rv-piece") };
+  if (a.id === "rv-note") m.pos = a.selectionStart;
+  return m;
+}
+function restoreFocus(host, m) {
+  if (!m) return;
+  let n = null;
+  if (m.id) n = $("#" + m.id, host);
+  else if (m.review) {
+    const row = host.querySelector('tr.rrow[data-review="' + m.review + '"]');
+    n = row && (m.answer ? row.querySelector('button[data-answer="' + m.answer + '"]') : m.piece ? row.querySelector(".rv-piece") : null);
+  }
+  if (!n) return;
+  n.focus();
+  if (m.pos !== undefined) { try { n.setSelectionRange(m.pos, m.pos); } catch (e) { /* ignore */ } }
 }
 
 function reviewRow(r, manage, rv) {
