@@ -175,6 +175,12 @@ main { padding: 24px 24px 120px; }
   padding: 16px 24px; border-bottom: 1px solid var(--mist);
 }
 .sheet-head h1 { margin: 0; font: normal 28px/1.25 var(--serif); color: var(--navy-deep); }
+.sale-head { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px 12px; padding: 20px 24px 0; }
+.sale-head .title { margin: 0; flex: 1 1 auto; color: var(--navy); }
+.sale-head .aside { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.field-stack { display: flex; flex-direction: column; gap: 4px; }
+.field-stack .lbl { margin: 0; }
+.field-stack select { width: 210px; }
 .sheet-head .aside { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .field-inline { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--slate); font-weight: 700; }
 .field-inline select { width: auto; min-width: 180px; }
@@ -184,43 +190,49 @@ select.unset { color: var(--slate); }
 
 /* search */
 .search { position: relative; padding: 16px 24px 8px; }
-.search input { width: 100%; min-height: 54px; font-size: 17px; padding: 0 16px 0 44px; background: var(--card); }
-.search input:focus { background: var(--white); }
+.search input { width: 100%; min-height: 52px; font-size: 16px; padding: 0 16px 0 44px; background: var(--white); border-color: var(--navy); }
 .search .glass { position: absolute; left: 40px; top: 34px; width: 18px; height: 18px; color: var(--slate); pointer-events: none; }
 .search .hint { font-size: 13px; color: var(--slate); margin: 4px 0 0; }
 .sugg {
-  position: absolute; left: 24px; right: 24px; top: calc(100% - 28px); z-index: 30;
+  position: absolute; left: 24px; right: 24px; top: calc(100% - 8px); z-index: 30;
   background: var(--white); border: 1px solid var(--mist); border-top: 2px solid var(--navy);
-  padding: 4px; max-height: min(420px, 60vh); overflow-y: auto;
+  padding: 0; max-height: min(480px, 70vh); overflow-y: auto;
 }
-.sugg .sg-note { padding: 12px; font-size: 13px; color: var(--slate); }
-.sg {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center;
-  width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit;
-  padding: 8px 12px; min-height: 56px;
+.sugg .sg-note { padding: 10px 16px; border-top: 1px solid var(--mist); font-size: 13px; color: var(--slate); }
+.sg-head, .sg {
+  display: grid; grid-template-columns: minmax(0, 1fr) 170px 150px; gap: 16px; align-items: center;
+  width: 100%; padding: 12px 16px;
 }
-button.sg:hover, button.sg:focus-visible { background: var(--card); }
-.sg .sg-t { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sg .sg-s { font-size: 13px; color: var(--slate); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sg .sg-p { grid-row: 1 / 3; grid-column: 2; text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
-.sg.off { opacity: .6; cursor: default; }
-.sg.off .sg-p { font-size: 13px; }
-.sg-state {
-  display: inline-block; font: 700 12px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px;
-  border: 1px solid var(--mist); color: var(--slate); white-space: nowrap;
-}
+.sg-head { padding: 10px 16px; background: var(--card); font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--slate); }
+.r { text-align: right; }
+.sg { text-align: left; border: 0; border-top: 1px solid var(--mist); border-left: 3px solid transparent; background: none; font: inherit; color: inherit; min-height: 56px; }
+button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-color: var(--navy); }
+.sg .sg-n { display: flex; flex-direction: column; min-width: 0; }
+.sg .sg-t { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.sg .sg-s { font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+.sg .sg-p { text-align: right; font-variant-numeric: tabular-nums; color: var(--navy-deep); }
+.sg.off { cursor: default; }
+.sg.off .sg-t, .sg.off .sg-p { color: var(--slate); }
 
 /* lines */
+.lines-head {
+  display: grid; align-items: end; gap: 16px; margin: 8px 24px 0; padding: 0 0 8px; border-bottom: 1px solid var(--mist);
+  grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
+  font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--slate);
+}
+@media (min-width: 901px) {
+  .l-cell > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .lines { list-style: none; margin: 0; padding: 4px 24px 8px; }
 .lines .empty { padding: 32px 12px; text-align: center; color: var(--slate); font-size: 15px; }
 .line {
   display: grid; align-items: center; gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--mist);
-  grid-template-columns: minmax(0, 1fr) 150px 92px 130px var(--tap);
+  grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
   grid-template-areas: "info price disc net x";
 }
 .line:first-child { border-top: 0; }
 .l-info { grid-area: info; min-width: 0; }
-.l-title { font-weight: 700; font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
 .l-spec { font-size: 13px; color: var(--slate); margin-top: 4px; overflow-wrap: anywhere; }
 .l-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; font-size: 13px; color: var(--slate); }
@@ -229,14 +241,14 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); }
 .l-seller-box select { width: auto; min-height: var(--tap); font-size: 13px; }
 .l-price { grid-area: price; }
 .l-disc { grid-area: disc; }
-.l-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.l-cell { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .l-cell > span { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .l-cell input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
 .l-cell .was { font-size: 12px; color: var(--slate); text-align: right; white-space: nowrap; }
 .pct { position: relative; }
 .pct input { padding-right: 28px; }
 .pct::after { content: "%"; position: absolute; right: 12px; bottom: 12px; color: var(--slate); font-size: 15px; pointer-events: none; }
-.l-net { grid-area: net; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 17px; font-weight: 700; }
+.l-net { grid-area: net; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 17px; font-weight: 700; color: var(--navy-deep); }
 .l-net .eq { color: var(--slate); font-weight: 400; margin-right: 4px; }
 .l-x { grid-area: x; }
 .l-x, .p-x { font-size: 19px; line-height: 1; color: var(--slate); padding: 0; }
@@ -253,8 +265,9 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); }
 .client-slot .lbl { margin: 0; }
 .total { margin-left: auto; text-align: right; }
 .total .t-l { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.total .keynum { white-space: nowrap; }
 .total .t-v { font: normal 28px/1.1 var(--serif); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--navy-deep); }
-.total .t-v small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
+.total .keynum small, .total .t-v small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 
 /* payment */
 .pay-body { padding: 16px 24px 8px; display: grid; gap: 16px; }
@@ -502,6 +515,8 @@ a.tk-row:hover { background: var(--card); }
 
 /* ---------------------------------------------------- narrower: portrait iPad */
 @media (max-width: 900px) {
+  .lines-head { display: none; }
+  .sg-head, .sg { grid-template-columns: minmax(0, 1fr) 130px 120px; gap: 12px; }
   .line {
     grid-template-columns: minmax(0, 1fr) 92px minmax(120px, auto) var(--tap);
     grid-template-areas: "info info info x" "price disc net net";
@@ -519,10 +534,17 @@ a.tk-row:hover { background: var(--card); }
   .top .kit-rule { display: none; }
   .top .kit-tabs { padding: 0 12px; gap: 24px; }
   .sheet-head, .search, .lines, .foot, .pay-body, .lines-tools { padding-left: 16px; padding-right: 16px; }
+  .lines-head { margin-left: 16px; margin-right: 16px; }
   .sugg { left: 16px; right: 16px; }
   .search .glass { left: 32px; }
   .pay-row { grid-template-columns: minmax(0, 1fr) 150px var(--tap); }
   .total .t-v { font-size: 24px; }
+  .total .keynum { font-size: 28px; }
+  .sale-head { padding: 16px 16px 0; }
+  .sg-head, .sg { grid-template-columns: minmax(0, 1fr) auto; }
+  .sg-head span:nth-child(2) { display: none; }
+  .sg .sg-st { grid-column: 1; grid-row: 2; }
+  .sg .sg-p { grid-column: 2; grid-row: 1 / 3; }
   .hide-sm { display: none !important; }
 }
 @media (max-width: 480px) {
@@ -1108,6 +1130,11 @@ Object.assign(RU, {
   "Booked out": "Выдано",
   "Damaged": "Повреждено",
   "Sold": "Продано",
+  "Piece": "Изделие",
+  "Status": "Статус",
+  "Price, so'm": "Цена, сум",
+  "To pay": "К оплате",
+  "Tap a piece to add it. Pieces that cannot be sold show why.": "Нажмите на изделие, чтобы добавить его. У изделий, которые нельзя продать, указана причина.",
   "Not received": "Не получено",
   "no price": "нет цены",
   "Seller": "Продавец",
@@ -1216,6 +1243,15 @@ const stateWords = (p) => inSale(p) ? tr("Already in this sale")
   : p.held ? tr("in suspended sale #{n}", { n: p.held.draft_id })
   : tr(STATE_WORDS[p.state] || p.state);
 
+// The state as a kit tag: In stock navy, Suspended sale card, Sold alert, anything else mist.
+function stateTag(p) {
+  if (inSale(p)) return el("span", { class: "tag done", text: stateWords(p) });
+  if (p.held) return el("span", { class: "tag info", text: stateWords(p) });
+  if (p.state === "in_stock") return el("span", { class: "tag act", text: tr("In stock") });
+  if (p.state === "sold") return el("span", { class: "tag alert", text: tr("Sold") });
+  return el("span", { class: "tag done", text: stateWords(p) });
+}
+
 /* ------------------------------------------------------------------ search */
 let searchTimer = null, searchSeq = 0;
 async function runSearch(q) {
@@ -1288,18 +1324,22 @@ function renderSugg() {
   box.hidden = !(s.open && s.pieces);
   if (box.hidden) return;
   if (!s.pieces.length) { box.append(el("div", { class: "sg-note", text: tr("Nothing found for “{q}”.", { q: s.q }) })); return; }
+  box.append(el("div", { class: "sg-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { text: tr("Status") }), el("span", { class: "r", text: tr("Price, so'm") })));
   for (const p of s.pieces) {
     const ok = p.sellable && !inSale(p);
     const kids = [
-      el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
-      el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · ")),
-      ok ? el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? tr("no price") : fmtUZS(p.price_uzs) })
-        : el("span", { class: "sg-p" }, el("span", { class: "sg-state", text: stateWords(p) })),
+      el("span", { class: "sg-n" },
+        el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
+        el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · "))),
+      el("span", { class: "sg-st" }, stateTag(p)),
+      el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? (ok ? tr("no price") : "") : fmtUZS(p.price_uzs) }),
     ];
     box.append(ok
       ? el("button", { type: "button", class: "sg", onclick: () => addPiece(p, false) }, kids)
       : el("div", { class: "sg off", "aria-disabled": "true" }, kids));
   }
+  box.append(el("div", { class: "sg-note", text: tr("Tap a piece to add it. Pieces that cannot be sold show why.") }));
 }
 document.addEventListener("pointerdown", (ev) => {
   if (S.search.open && !ev.target.closest(".search")) closeSugg();
@@ -1319,7 +1359,7 @@ function sellerSelect() {
     onchange: (ev) => { S.sale.seller = ev.target.value; renderAll(); } },
   sellerOptions(S.sale.seller, tr("Choose the seller…")));
   sel.value = S.sale.seller || "";
-  return el("label", { class: "field-inline" }, el("span", { text: tr("Seller") }), sel);
+  return el("label", { class: "field-stack" }, el("span", { class: "lbl", text: tr("Seller") }), sel);
 }
 function refreshNumbers() {
   S.sale.lines.forEach((l, i) => {
@@ -1401,6 +1441,9 @@ function renderSale(main) {
     enterkeyhint: "search", placeholder: tr("Scan or type: barcode, serial, article, name…"), "aria-label": tr("Find a piece"),
     oninput: onSearchInput, onkeydown: onSearchKey });
   const sugg = el("div", { class: "sugg", id: "sugg", hidden: true });
+  const linesHead = s.lines.length ? el("div", { class: "lines-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { class: "r", text: tr("Price, so'm") }), el("span", { class: "r", text: tr("Discount") }),
+    el("span", { class: "r", text: tr("To pay") }), el("span")) : null;
   const lines = el("ol", { class: "lines", id: "lines" },
     s.lines.length ? s.lines.map(renderLine) : el("li", { class: "empty", text: tr("Scan or find the first piece.") }));
   const foot = el("div", { class: "foot" });
@@ -1408,17 +1451,18 @@ function renderSale(main) {
   foot.append(
     el("div", { class: "total" },
       el("div", { class: "t-l", text: tr("Total") }),
-      el("div", { class: "t-v", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
+      el("div", { class: "keynum", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
     el("button", { type: "button", class: "btn primary big", id: "to-pay", disabled: saleReady() ? null : true,
       title: s.lines.some((l) => !(l.price_uzs > 0)) ? tr("Every piece needs a price.") : null,
       onclick: () => go("#/pay") }, tr("Payment →")));
   main.append(el("section", { class: "sheet", id: "screen-sale" },
-    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }),
-      el("div", { class: "aside" }, suspendTools(), sellerSelect())),
+    el("div", { class: "sale-head" }, el("h1", { class: "title", text: tr("New sale") }),
+      el("div", { class: "aside" }, sellerSelect(), suspendTools())),
     s.draft_id ? el("p", { class: "resumed", text: tr("Resumed suspended sale #{n}. Post it, or suspend it again.", { n: s.draft_id }) }) : null,
     el("div", { class: "search" },
       el("span", { class: "glass", "aria-hidden": "true", html: '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11.6 11.6 16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>' }),
       q, sugg),
+    linesHead,
     lines,
     s.lines.length > 1 ? el("div", { class: "lines-tools" },
       el("button", { type: "button", class: "btn", id: "same-pct",

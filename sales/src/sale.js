@@ -19,6 +19,11 @@ Object.assign(RU, {
   "Booked out": "Выдано",
   "Damaged": "Повреждено",
   "Sold": "Продано",
+  "Piece": "Изделие",
+  "Status": "Статус",
+  "Price, so'm": "Цена, сум",
+  "To pay": "К оплате",
+  "Tap a piece to add it. Pieces that cannot be sold show why.": "Нажмите на изделие, чтобы добавить его. У изделий, которые нельзя продать, указана причина.",
   "Not received": "Не получено",
   "no price": "нет цены",
   "Seller": "Продавец",
@@ -127,6 +132,15 @@ const stateWords = (p) => inSale(p) ? tr("Already in this sale")
   : p.held ? tr("in suspended sale #{n}", { n: p.held.draft_id })
   : tr(STATE_WORDS[p.state] || p.state);
 
+// The state as a kit tag: In stock navy, Suspended sale card, Sold alert, anything else mist.
+function stateTag(p) {
+  if (inSale(p)) return el("span", { class: "tag done", text: stateWords(p) });
+  if (p.held) return el("span", { class: "tag info", text: stateWords(p) });
+  if (p.state === "in_stock") return el("span", { class: "tag act", text: tr("In stock") });
+  if (p.state === "sold") return el("span", { class: "tag alert", text: tr("Sold") });
+  return el("span", { class: "tag done", text: stateWords(p) });
+}
+
 /* ------------------------------------------------------------------ search */
 let searchTimer = null, searchSeq = 0;
 async function runSearch(q) {
@@ -199,18 +213,22 @@ function renderSugg() {
   box.hidden = !(s.open && s.pieces);
   if (box.hidden) return;
   if (!s.pieces.length) { box.append(el("div", { class: "sg-note", text: tr("Nothing found for “{q}”.", { q: s.q }) })); return; }
+  box.append(el("div", { class: "sg-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { text: tr("Status") }), el("span", { class: "r", text: tr("Price, so'm") })));
   for (const p of s.pieces) {
     const ok = p.sellable && !inSale(p);
     const kids = [
-      el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
-      el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · ")),
-      ok ? el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? tr("no price") : fmtUZS(p.price_uzs) })
-        : el("span", { class: "sg-p" }, el("span", { class: "sg-state", text: stateWords(p) })),
+      el("span", { class: "sg-n" },
+        el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
+        el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · "))),
+      el("span", { class: "sg-st" }, stateTag(p)),
+      el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? (ok ? tr("no price") : "") : fmtUZS(p.price_uzs) }),
     ];
     box.append(ok
       ? el("button", { type: "button", class: "sg", onclick: () => addPiece(p, false) }, kids)
       : el("div", { class: "sg off", "aria-disabled": "true" }, kids));
   }
+  box.append(el("div", { class: "sg-note", text: tr("Tap a piece to add it. Pieces that cannot be sold show why.") }));
 }
 document.addEventListener("pointerdown", (ev) => {
   if (S.search.open && !ev.target.closest(".search")) closeSugg();
@@ -230,7 +248,7 @@ function sellerSelect() {
     onchange: (ev) => { S.sale.seller = ev.target.value; renderAll(); } },
   sellerOptions(S.sale.seller, tr("Choose the seller…")));
   sel.value = S.sale.seller || "";
-  return el("label", { class: "field-inline" }, el("span", { text: tr("Seller") }), sel);
+  return el("label", { class: "field-stack" }, el("span", { class: "lbl", text: tr("Seller") }), sel);
 }
 function refreshNumbers() {
   S.sale.lines.forEach((l, i) => {
@@ -312,6 +330,9 @@ function renderSale(main) {
     enterkeyhint: "search", placeholder: tr("Scan or type: barcode, serial, article, name…"), "aria-label": tr("Find a piece"),
     oninput: onSearchInput, onkeydown: onSearchKey });
   const sugg = el("div", { class: "sugg", id: "sugg", hidden: true });
+  const linesHead = s.lines.length ? el("div", { class: "lines-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { class: "r", text: tr("Price, so'm") }), el("span", { class: "r", text: tr("Discount") }),
+    el("span", { class: "r", text: tr("To pay") }), el("span")) : null;
   const lines = el("ol", { class: "lines", id: "lines" },
     s.lines.length ? s.lines.map(renderLine) : el("li", { class: "empty", text: tr("Scan or find the first piece.") }));
   const foot = el("div", { class: "foot" });
@@ -319,17 +340,18 @@ function renderSale(main) {
   foot.append(
     el("div", { class: "total" },
       el("div", { class: "t-l", text: tr("Total") }),
-      el("div", { class: "t-v", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
+      el("div", { class: "keynum", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
     el("button", { type: "button", class: "btn primary big", id: "to-pay", disabled: saleReady() ? null : true,
       title: s.lines.some((l) => !(l.price_uzs > 0)) ? tr("Every piece needs a price.") : null,
       onclick: () => go("#/pay") }, tr("Payment →")));
   main.append(el("section", { class: "sheet", id: "screen-sale" },
-    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }),
-      el("div", { class: "aside" }, suspendTools(), sellerSelect())),
+    el("div", { class: "sale-head" }, el("h1", { class: "title", text: tr("New sale") }),
+      el("div", { class: "aside" }, sellerSelect(), suspendTools())),
     s.draft_id ? el("p", { class: "resumed", text: tr("Resumed suspended sale #{n}. Post it, or suspend it again.", { n: s.draft_id }) }) : null,
     el("div", { class: "search" },
       el("span", { class: "glass", "aria-hidden": "true", html: '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11.6 11.6 16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>' }),
       q, sugg),
+    linesHead,
     lines,
     s.lines.length > 1 ? el("div", { class: "lines-tools" },
       el("button", { type: "button", class: "btn", id: "same-pct",

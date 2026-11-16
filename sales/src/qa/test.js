@@ -185,6 +185,30 @@ async function shot(page, name) {
     await page.fill("#q", "");
     await page.waitForSelector("#sugg .sg", { state: "detached" });
 
+    // the restyled New sale screen (Task 3)
+    check("sale: title row has the Palatino title, seller select and Suspend", await page.evaluate(() => {
+      const h = document.querySelector(".sale-head");
+      const t = h && h.querySelector("h1.title");
+      return !!t && t.textContent.trim() === "New sale" && /Palatino/.test(getComputedStyle(t).fontFamily) &&
+        !!h.querySelector("select#seller") && !!h.querySelector("#suspend");
+    }));
+    check("sale: bottom bar holds client, total and Payment", await page.evaluate(() => {
+      const f = document.querySelector(".foot");
+      return !!f && !!f.querySelector(".client-slot") && !!f.querySelector(".total .keynum") && !!f.querySelector("#to-pay") &&
+        getComputedStyle(f.querySelector(".total .keynum")).fontWeight !== "700";
+    }));
+    await page.fill("#q", "Armillas");
+    await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length === 3);
+    const tagInfo = await page.$$eval("#sugg .sg .tag", (ns) => ns.map((n) => n.className + ":" + n.textContent.trim()));
+    check("search: results show status tags", tagInfo.some((x) => /\bact\b.*:In stock/.test(x)) && tagInfo.some((x) => /\balert\b.*:Sold/.test(x)), tagInfo.join(" | "));
+    await page.fill("#q", "Messika");
+    await page.waitForFunction(() => /Glam/.test(document.querySelector("#sugg").textContent));
+    const tagInfo2 = await page.$$eval("#sugg .sg .tag", (ns) => ns.map((n) => n.className + ":" + n.textContent.trim()));
+    check("search: suspended sale is an info tag, other states a done tag",
+      tagInfo2.some((x) => /\binfo\b.*:in suspended sale #7/i.test(x)) && tagInfo2.some((x) => /\bdone\b.*:In transit/.test(x)), tagInfo2.join(" | "));
+    await page.fill("#q", "");
+    await page.waitForSelector("#sugg .sg", { state: "detached" });
+
     // discount
     await page.fill("#lines .line:nth-child(1) input.l-disc", "5");
     const net1 = norm(await lineText(page, 1, ".l-net"));
@@ -269,6 +293,19 @@ async function shot(page, name) {
     check("post: New sale clears the sale", (await page.$$("#lines .line")).length === 0 && (await valOf(page, "#seller")) === "" &&
       (await page.getAttribute("#walk-in", "aria-pressed")) === "false");
     check("sale: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("sale long name", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000086");
+    await page.waitForTimeout(150);
+    const r = await page.evaluate(() => {
+      const b = document.querySelector("#to-pay").getBoundingClientRect();
+      return { sw: document.documentElement.scrollWidth, iw: window.innerWidth, bw: b.width, bh: b.height, right: b.right };
+    });
+    check("sale: a 60-character piece name wraps inside 1024 wide", r.sw <= r.iw + 1 && r.bw > 0 && r.bh > 0 && r.right <= r.iw, JSON.stringify(r));
+    check("sale: long name page has no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
