@@ -28,6 +28,7 @@ const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_trans
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
 let pieces, events, reviews, sessions, calls, nextReview;
+const delay = {};   // test hook: delay.<action> = ms the answer is held back
 
 function iso(day, hour) {   // a fixed day in 2026, UTC
   return new Date(Date.UTC(2026, 9, 1 + day, hour || 6, 0, 0)).toISOString();
@@ -86,6 +87,10 @@ function reset() {
   const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "missing_from_export", "missing_from_export"];
   reviews = [0, 5, 12, 31, 40].map((pi, k) => ({ review_id: k + 1, piece_id: pieces[pi].piece_id, kind: kinds[k],
     raised_at: iso(30 + k, 9), status: "open", resolution: null, resolved_by: null, resolved_at: null, note: k === 1 ? "Seen twice in the export" : null }));
+  // a sale on pieces[1] was voided and the piece came back to stock (pos_void_ticket writes "void: <reason>")
+  events[pieces[1].piece_id].unshift({ at: iso(20, 8), from_state: "sold", to_state: "in_stock", reason: "void: Wrong size entered", ref_kind: "ticket",
+    ref_id: null, actor: "Stock Manager", note: null, ticket_id: null, ticket_no: null });
+  for (const k of Object.keys(delay)) delete delay[k];
   nextReview = 6;
   sessions = {};
   calls = [];
@@ -304,7 +309,7 @@ function handle(body) {
 }
 
 module.exports = {
-  handle, reset, PASSCODES, LONG_NAME,
+  handle, reset, PASSCODES, LONG_NAME, delay,
   get pieces() { return pieces; },
   get reviews() { return reviews; },
   get calls() { return calls; },

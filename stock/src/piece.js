@@ -43,6 +43,7 @@ Object.assign(RU, {
   "Colibri": "Colibri",
   "Till": "Касса",
   "Training": "Учебный",
+  "Sale voided": "Продажа аннулирована",
   "Reserve {s}?": "Резервировать {s}?",
   "Book out {s}?": "Выдать {s}?",
   "Mark {s} as damaged?": "Отметить {s} как повреждённое?",
@@ -90,6 +91,8 @@ function humanKey(key) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function reasonWord(r) {
+  const v = /^void: ?(.*)$/s.exec(String(r || ""));       // pos_void_ticket writes "void: <reason>"
+  if (v) return tr("Sale voided") + (blank(v[1]) ? "" : " — " + v[1]);
   const w = REASON_WORDS[r];
   return w ? w[LANG === "ru" ? 1 : 0] : (blank(r) ? "" : humanKey(r));
 }
@@ -113,6 +116,13 @@ function closePiece() {
   S.pieceId = null;
   const h = $("#piece-panel");
   if (h) h.remove();
+}
+// ×, Escape and the scrim: ignored while a change is being confirmed or sent
+// (the lock uses closePiece directly).
+function userClose() {
+  const f = S.pc && S.pc.form;
+  if (f && (f.busy || f.confirming)) return;
+  closePiece();
 }
 function stillHere(pc) { return !S.locked && S.pc === pc; }
 
@@ -234,11 +244,11 @@ function renderPiece() {
         el("ul", { class: "pc-list", id: "pc-sales" }, d.sales.map(saleItem))));
     }
   }
-  host.append(el("div", { class: "panel-scrim", onclick: closePiece }),
+  host.append(el("div", { class: "panel-scrim", onclick: userClose }),
     el("section", { class: "panel pcbox", role: "dialog", "aria-modal": "true", "aria-labelledby": d ? "pc-title" : "pc-label" },
       el("div", { class: "pc-head" },
         el("span", { id: "pc-label", class: "lbl", text: tr("Piece") + (p && p.serial ? " " + p.serial : "") }),
-        el("button", { type: "button", class: "btn subtle close", id: "piece-close", "aria-label": tr("Close"), onclick: closePiece, text: "×" })),
+        el("button", { type: "button", class: "btn subtle close", id: "piece-close", "aria-label": tr("Close"), onclick: userClose, text: "×" })),
       el("div", { class: "pc-body" }, body)));
   const nb = host.querySelector(".panel");
   if (nb && top) nb.scrollTop = top;
@@ -282,7 +292,7 @@ const DONE_TOAST = { reserved: "Reserved {s}.", booked_out: "Booked out {s}.", d
 
 async function submitForm() {
   const pc = S.pc;
-  if (!pc || !pc.form || pc.form.busy || S.locked) return;
+  if (!pc || !pc.form || pc.form.busy || pc.form.confirming || S.locked) return;
   const f = pc.form, st = f.state, p = pc.d.piece;
   const note = f.v.note.trim();
   const hold = st === "reserved" || st === "booked_out";
@@ -299,7 +309,9 @@ async function submitForm() {
   if (client) body.push(tr("Client: {c}", { c: client }));
   if (hold && f.v.until) body.push(tr("Until: {d}", { d: fmtDate(f.v.until) }));
   if (note) body.push(note);
+  f.confirming = true;
   const ok = await confirmBox({ title: tr(CONFIRM_TITLE[st], { s: p.serial }), body, ok: tr(ACTION_LABEL[st]), cancel: tr("Cancel") });
+  f.confirming = false;
   if (!ok || !stillHere(pc) || pc.form !== f) return;
   f.busy = true;
   renderPiece();
@@ -309,13 +321,16 @@ async function submitForm() {
   if (hold && f.v.until) req.until = f.v.until;
   try {
     const d = await api("set_state", req);
-    if (!stillHere(pc)) return;
-    pc.d = d; pc.form = null; pc.notice = null; pc.err = null;
-    renderPiece();
+    if (S.locked) return;                            // locked meanwhile: nothing is drawn
+    refreshList();                                   // the change happened, whether or not the panel is still open
     toast(tr(DONE_TOAST[st], { s: p.serial }));
-    refreshList();
+    if (stillHere(pc)) {
+      pc.d = d; pc.form = null; pc.notice = null; pc.err = null;
+      renderPiece();
+    }
   } catch (e) {
-    if (!stillHere(pc)) return;
+    if (S.locked) return;
+    if (!stillHere(pc)) { toast(e.message, true); refreshList(); return; }
     f.busy = false; f.err = e.message;
     if (e.status === 409) { pc.notice = e.message; loadPiece(pc.id); refreshList(); }   // it may have moved meanwhile (sold, …)
     renderPiece();
@@ -325,5 +340,5 @@ async function submitForm() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && S.pc && !$("#confirm-dialog")) { e.preventDefault(); closePiece(); }
+  if (e.key === "Escape" && S.pc && !$("#confirm-dialog")) { e.preventDefault(); userClose(); }
 });

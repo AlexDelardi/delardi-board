@@ -33,13 +33,15 @@ async function setup(browser, viewport, opts = {}) {
   const html = fs.readFileSync(HTML_FILE, "utf8");
   // Nothing but the page and the API: anything else the page asks for fails the run.
   const foreign = [];
-  await page.route("**/*", (r) => {
+  await page.route("**/*", async (r) => {
     const u = r.request().url();
     if (u.startsWith("data:")) return r.continue();
     if (u.startsWith(PAGE_URL)) return r.fulfill({ status: 200, contentType: "text/html", body: html });
     if (u === API) {
       if (r.request().method() === "OPTIONS") return r.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "*" }, body: "ok" });
       const [status, data] = mock.handle(JSON.parse(r.request().postData() || "{}"));
+      const hold = mock.delay[JSON.parse(r.request().postData() || "{}").action];
+      if (hold) await new Promise((res) => setTimeout(res, hold));
       return r.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
     }
     foreign.push(u);
@@ -657,7 +659,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.click("#pf-submit"); await page.click("#confirm-ok");
     await page.waitForFunction(() => /Sold/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
     check("409: the piece is reloaded and shows Sold, no change buttons", (await actionLabels(page)).length === 0 && !(await page.$("#pc-form")));
-    check("409: the refusal sentence is still on screen", /state sold → damaged is not allowed/.test(await page.textContent("#piece-panel")) || /state sold → damaged is not allowed/.test(await page.textContent("#toast")));
+    check("409: the refusal sentence is on screen in the notice", norm(await page.textContent("#pc-notice")) === "state sold → damaged is not allowed", norm(await page.textContent("#pc-notice")));
     await page.waitForFunction(() => !S.listBusy);
     check("409: the list row follows to Sold", await page.$eval(`#rows tr[data-id="${other.piece_id}"] .tag`, (n) => n.textContent.trim()) === "Sold");
     check("changes: no script errors", errors.length === 0, errors.join(" | "));
@@ -678,6 +680,74 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  await run("piece panel: in flight", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const cardN = async (s) => { const n = await page.$(`#totals .tot[data-state="${s}"] .t-n`); return n ? Number((await n.textContent()).match(/\d+/)[0]) : 0; };
+    const waitSent = async (n) => { for (let k = 0; k < 40 && setCalls().length === n; k++) await page.waitForTimeout(50); };
+    const pcs = mock.pieces.filter((p) => p.state === "in_stock" && onPage1(p));
+    const startReserve = async (piece) => {
+      await openId(page, piece.piece_id);
+      await page.click('#pc-actions button[data-act="reserved"]');
+      mock.delay.set_state = 600;
+      const n = setCalls().length;
+      await page.click("#pf-submit");
+      await page.waitForSelector("#confirm-dialog");
+      return n;
+    };
+    // two quick submits: one confirm, one request
+    await openId(page, pcs[0].piece_id);
+    await page.click('#pc-actions button[data-act="reserved"]');
+    mock.delay.set_state = 600;
+    const n0 = setCalls().length;
+    await page.evaluate(() => { const b = document.querySelector("#pf-submit"); b.click(); b.click(); });
+    await page.waitForSelector("#confirm-dialog");
+    check("submit: a second submit while the confirm is open opens no second confirm", (await page.$$("#confirm-dialog")).length === 1);
+    const before = { in_stock: await cardN("in_stock"), reserved: await cardN("reserved") };
+    await page.click("#confirm-ok");
+    await waitSent(n0);
+    check("submit: two quick submits send one set_state", setCalls().length === n0 + 1);
+    // closing in flight is ignored
+    await page.click("#piece-close");
+    await page.keyboard.press("Escape");
+    await page.mouse.click(100, 400);
+    check("close: ×, Escape and the scrim are ignored while the request is in flight", !!(await page.$("#piece-panel")));
+    await page.waitForFunction(() => /Reserved/.test(document.querySelector("#piece-panel .pc-state .tag").textContent));
+    await page.waitForFunction(() => !S.listBusy);
+    check("in flight: the answer redraws the panel and the toast shows", /Reserved/.test(await page.textContent("#toast")));
+    check("in flight: row and totals follow", await page.$eval(`#rows tr[data-id="${pcs[0].piece_id}"] .tag`, (n) => n.textContent.trim()) === "Reserved" &&
+      (await cardN("reserved")) === before.reserved + 1 && (await cardN("in_stock")) === before.in_stock - 1);
+    // panel closed some other way (programmatically) while in flight: still toast and refresh
+    await page.click("#piece-close");
+    const b2 = { in_stock: await cardN("in_stock"), reserved: await cardN("reserved") };
+    const n1 = await startReserve(pcs[1]);
+    await page.click("#confirm-ok");
+    await waitSent(n1);
+    await page.evaluate(() => closePiece());
+    await page.evaluate(() => { document.querySelector("#toast").textContent = ""; });
+    await page.waitForFunction(() => /Reserved/.test(document.querySelector("#toast").textContent));
+    await page.waitForFunction(() => !S.listBusy);
+    check("closed in flight: the toast shows and the list refreshes", !(await page.$("#piece-panel")) &&
+      await page.$eval(`#rows tr[data-id="${pcs[1].piece_id}"] .tag`, (n) => n.textContent.trim()) === "Reserved" &&
+      (await cardN("reserved")) === b2.reserved + 1 && (await cardN("in_stock")) === b2.in_stock - 1);
+    delete mock.delay.set_state;
+    check("in flight: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("piece panel: voided sale reason", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await openId(page, mock.pieces[1].piece_id);
+    const en = norm(await page.textContent("#pc-history li"));
+    check("history: a void reason reads Sale voided — <text> in English", /Sold → In stock/.test(en) && /Sale voided — Wrong size entered/.test(en) && !/void:/i.test(en), en);
+    await page.evaluate(() => setLang("ru"));
+    const ru = norm(await page.textContent("#pc-history li"));
+    check("history: and in Russian", /Продажа аннулирована — Wrong size entered/.test(ru) && !/void/i.test(ru), ru);
+    check("void reason: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   await run("piece panel: lock", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await settled(page);
@@ -694,17 +764,23 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.evaluate((id) => { openPiece(id); lockNow(); }, pieceOf("in_stock").piece_id);
     await page.waitForTimeout(400);
     check("lock: a late piece answer draws nothing", !(await page.$(".panel-wrap")) && await page.evaluate(() => S.locked && document.querySelector("#app").inert));
-    // a late set_state answer after lock draws nothing either
+    // a late set_state answer after lock draws nothing: lock while the request is really in flight
     await login(page);
     await settled(page);
     const pc = pieceOf("in_stock");
     await openId(page, pc.piece_id);
     await page.click('#pc-actions button[data-act="reserved"]');
-    await page.evaluate(() => { document.querySelector("#pf-submit").click(); });
-    await page.waitForSelector("#confirm-dialog");
-    await page.evaluate(() => { document.querySelector("#confirm-ok").click(); lockNow(); });
-    await page.waitForTimeout(400);
-    check("lock: a late set_state answer draws nothing", !(await page.$(".panel-wrap")) && !(await page.$("#confirm-dialog")) && !/Reserved/.test(await page.textContent("#toast")));
+    mock.delay.set_state = 600;
+    const sent = setCalls().length;
+    await page.click("#pf-submit");
+    await page.click("#confirm-ok");
+    for (let k = 0; k < 40 && setCalls().length === sent; k++) await page.waitForTimeout(50);
+    check("lock: the set_state request was sent", setCalls().length === sent + 1);
+    await page.evaluate(() => lockNow());
+    await page.waitForTimeout(900);
+    check("lock: a late set_state answer draws nothing (no panel, no toast, no list)", !(await page.$(".panel-wrap")) && !(await page.$("#confirm-dialog")) &&
+      !/Reserved/.test(await page.textContent("#toast")) && await page.evaluate(() => S.locked && S.list === null && S.pc === null && document.querySelector("#app").inert));
+    delete mock.delay.set_state;
     check("lock: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -712,15 +788,18 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   await run("lock clears the list, facets and price timers", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await settled(page);
-    await page.fill("#f-min", "20000000");
-    await page.fill("#f-q", "ZZ");
     const n = listCalls().length;
-    await page.evaluate(() => lockNow());
+    // typed and locked in the same task, so the debounces are certainly still pending
+    await page.evaluate(() => {
+      for (const [id, v] of [["f-min", "20000000"], ["f-q", "ZZ"]]) {
+        const i = document.getElementById(id); i.value = v; i.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      lockNow();
+    });
     await page.waitForSelector("#gate-pass");
     check("lock: S.list, S.listError and S.facets are cleared", await page.evaluate(() => S.list === null && S.listError === null && S.facets === null));
     await page.waitForTimeout(600);
     check("lock: a pending price or search debounce asks nothing", listCalls().length === n, listCalls().length + " vs " + n);
-    check("lock: the list rows are not redrawn after the lock", await page.evaluate(() => S.list === null && S.listError === null));
     check("lock: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
