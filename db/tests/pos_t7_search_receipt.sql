@@ -71,5 +71,32 @@ begin
   assert v_rt like E'%T7 Jeweller · Zz Hoops\nRef. ZZ-ART-B · Bracelet element\nS/N ZZ.00.70002\n%', 'receipt item B: ' || v_rt;
 end $$;
 
+-- Codex (PR #5): a prospect added at the till becomes a client with its first live purchase
+do $$
+declare pa uuid; r jsonb;
+begin
+  insert into crm_clients(client_id, record_type, name_confirmed) values ('PRS-9701', 'prospect', 'Zz Prospectova');
+  update pos_settings set mode = 'live';
+  select piece_id into pa from ops_pieces where serial = 'ZZ.00.70001';
+  r := pos_post_sale(jsonb_build_object('client_id', 'PRS-9701', 'seller', 'T7 Rep', 'expect_mode', 'live',
+         'lines', jsonb_build_array(jsonb_build_object('piece_id', pa, 'price_uzs', 50000000)),
+         'payments', jsonb_build_array(jsonb_build_object('method', 'cash', 'amount', 50000000))), 'pos t7');
+  assert (select record_type from crm_clients where client_id = 'PRS-9701') = 'client', 'prospect promoted';
+  assert exists (select 1 from crm_events where client_id = 'PRS-9701' and action = 'became_client'
+                  and note like '%' || (r->>'ticket_no') || '%'), 'became_client event names the ticket';
+end $$;
+
+-- Codex (PR #5): one suspended sale per mode, enforced by the database (not only by a check two devices can both pass)
+do $$
+begin
+  insert into pos_drafts(mode, walk_in, created_by) values ('training', true, 'pos t7');
+  begin
+    insert into pos_drafts(mode, walk_in, created_by) values ('training', true, 'pos t7');
+    raise exception 'a second training draft was accepted';
+  exception when unique_violation then null;
+  end;
+  insert into pos_drafts(mode, walk_in, created_by) values ('live', true, 'pos t7');  -- the other mode is separate
+end $$;
+
 select 'pos_t7 ok' as result;
 rollback;

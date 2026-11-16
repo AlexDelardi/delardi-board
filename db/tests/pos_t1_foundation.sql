@@ -49,7 +49,7 @@ begin
   insert into ops_pieces(store_id, brand, serial, state, barcode) values (1, 'S3T', 'ZZ.00.00001', 'in_stock', '2000000000011') returning piece_id into p1;
   insert into ops_pieces(store_id, brand, serial, state) values (1, 'S3T', 'ZZ.00.00002', 'in_stock') returning piece_id into p2;
   insert into pos_drafts(mode, created_by) values ('live', 'S3T tester') returning draft_id into d1;
-  insert into pos_drafts(mode, created_by) values ('live', 'S3T tester') returning draft_id into d2;
+  insert into pos_drafts(mode, created_by) values ('training', 'S3T tester') returning draft_id into d2;  -- one draft per mode (pos_6)
   insert into pos_draft_lines(draft_id, line_no, piece_id, price_uzs, mode) values (d1, 1, p1, 1000000, 'live');
   begin
     insert into pos_draft_lines(draft_id, line_no, piece_id, price_uzs, mode) values (d2, 1, p1, 1000000, 'live');

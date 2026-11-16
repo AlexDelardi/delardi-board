@@ -477,6 +477,23 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  // ------------------------------------------------------------ lock hides client data (Codex finding, PR #5)
+  await run("lock hides client data", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { touch: true, clock: true });
+    await addLine(page, "2000000000031");
+    await openClientPanel(page);
+    await page.click("#new-client");
+    await page.waitForSelector("#addwrap #add-name");
+    await page.fill("#add-name", "Zz Locktest");
+    await page.clock.fastForward("15:30");
+    await page.waitForSelector("#gate-pass", { timeout: 5000 });
+    check("lock: the add-client form is gone", !(await page.$("#addwrap")));
+    check("lock: the client panel is gone", !(await page.$("#client-panel .modal")));
+    check("lock: no typed client name left on the page", !/Zz Locktest/.test(await page.content()));
+    check("lock: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   // ------------------------------------------------------------ add client
   await run("add client", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });

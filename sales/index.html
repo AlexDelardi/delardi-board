@@ -1012,6 +1012,10 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   S.search.open = false;
+  // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
+  // seller typed or looked up stays on screen above the passcode card.
+  if (typeof closeAddClient === "function") closeAddClient(true);
+  document.querySelectorAll("#addwrap, .modal-wrap").forEach((n) => n.remove());
   renderGate();
 }
 function lockNow() { lockDown(); toast(tr("Locked.")); }
