@@ -254,6 +254,9 @@ async function shot(page, name) {
     check("post: the receipt shows T-000001", /T-000001/.test(rc), rc);
     check("post: the receipt says TRAINING", /TRAINING/.test(rc), rc);
     check("post: the URL is #/receipt/<id>", /#\/receipt\/10000000-/.test(page.url()), page.url());
+    check("post: each item shows its reference line and serial, in the detail style",
+      await page.$$eval("#screen-receipt .rc-detail", (ds) => ds.some((d) => /^Ref\. /.test(d.textContent))
+        && ds.some((d) => /^S\/N /.test(d.textContent))));
     check("post: what was sent — walk-in, seller label, lines, payments, Era number",
       !!sent && sent.sale.walk_in === true && !sent.sale.client_id && sent.sale.seller === "Dilnoza A." &&
       sent.sale.lines.length === 1 && sent.sale.lines[0].price_uzs === 31500000 && sent.sale.lines[0].discount_pct === 5 &&
@@ -471,6 +474,23 @@ async function shot(page, name) {
       /D-000002/.test(await page.textContent("#screen-ticket")), page.url());
     check("purchase: looked up with ticket_by_line", mock.state.calls.some((c) => c.action === "ticket_by_line" && c.line_id === "20000000-0000-4000-8000-000000000202"));
     check("purchase: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // ------------------------------------------------------------ lock hides client data (Codex finding, PR #5)
+  await run("lock hides client data", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { touch: true, clock: true });
+    await addLine(page, "2000000000031");
+    await openClientPanel(page);
+    await page.click("#new-client");
+    await page.waitForSelector("#addwrap #add-name");
+    await page.fill("#add-name", "Zz Locktest");
+    await page.clock.fastForward("15:30");
+    await page.waitForSelector("#gate-pass", { timeout: 5000 });
+    check("lock: the add-client form is gone", !(await page.$("#addwrap")));
+    check("lock: the client panel is gone", !(await page.$("#client-panel .modal")));
+    check("lock: no typed client name left on the page", !/Zz Locktest/.test(await page.content()));
+    check("lock: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
