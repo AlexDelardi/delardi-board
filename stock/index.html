@@ -1572,9 +1572,25 @@ function answerForm(r, a) {
       el("div", { class: "pc-form-foot" },
         el("button", { type: "submit", class: "btn primary", id: "rv-confirm", disabled: a.busy ? true : null, text: tr("Confirm") }),
         el("button", { type: "button", class: "btn", id: "rv-cancel", disabled: a.busy ? true : null,
-          onclick: () => { rvState().ans = null; drawReviews(); }, text: tr("Cancel") })))));
+          onclick: () => { const x = rvState().ans; rvState().ans = null; drawReviews(); focusAfter(x.id, x.resolution); }, text: tr("Cancel") })))));
 }
 
+// Keyboard focus after a form closes or a row goes: that row's answer button, else the next
+// row's first one, else the tab (never body).
+function focusAfter(id, resolution, removed) {
+  if (touchDevice()) return;
+  const rows = [...document.querySelectorAll("#rv-rows tr.rrow")];
+  let target = null;
+  if (!removed) {
+    const r = rows.find((n) => n.getAttribute("data-review") === String(id));
+    target = r && (r.querySelector('button[data-answer="' + resolution + '"]') || r.querySelector("button[data-answer]"));
+  } else if (rows.length) {
+    const next = removed.next !== null && rows.find((n) => n.getAttribute("data-review") === String(removed.next));
+    const r = next || rows[rows.length - 1];
+    target = r.querySelector("button[data-answer]") || r.querySelector(".rv-piece");
+  }
+  (target || $("#tab-review")).focus();
+}
 function pickAnswer(id, resolution) {
   const rv = rvState();
   if (rv.ans && (rv.ans.busy || rv.ans.confirming)) return;
@@ -1592,11 +1608,13 @@ async function confirmAnswer() {
   const item = rv.items.find((r) => r.review_id === a.id);
   if (!item) return;
   const note = a.note.trim();
-  const body = [kindWord(item.kind) + " · " + (item.piece.serial || ""), tr("Answer: {a}", { a: answerWord(a.resolution) })];
+  const piece = item.piece || {};
+  const body = [kindWord(item.kind) + " · " + (piece.serial || ""), tr("Answer: {a}", { a: answerWord(a.resolution) })];
   if (note) body.push(note);
   a.confirming = true;
   const ok = await confirmBox({ title: tr("Close this review?"), body, ok: tr("Confirm"), cancel: tr("Cancel") });
   a.confirming = false;
+  if (!ok && !S.locked && S.rv === rv && rv.ans === a) { const n = $("#rv-note"); if (n && !touchDevice()) n.focus(); }   // back to the form
   if (!ok || S.locked || S.rv !== rv || rv.ans !== a) return;
   a.busy = true; a.err = null;
   drawReviews();
@@ -1605,14 +1623,17 @@ async function confirmAnswer() {
   try {
     await api("resolve", req);
     if (S.locked || S.rv !== rv) return;             // locked meanwhile: nothing is drawn
+    const idx = rv.items.findIndex((r) => r.review_id === a.id);
+    const nextItem = rv.items[idx + 1] || rv.items[idx - 1];
     rv.items = rv.items.filter((r) => r.review_id !== a.id);
     S.reviewCount = rv.items.length;
     rv.ans = null;
     setReviewTab(); drawReviews();
+    if (!$("#piece-panel")) focusAfter(a.id, a.resolution, { next: nextItem ? nextItem.review_id : null });
     toast(tr("Review closed."));
     loadReviews();
     if (typeof loadList === "function") loadList();                      // an answer such as Damaged moves a piece
-    if (S.pc && S.pc.id === item.piece.piece_id && typeof loadPiece === "function") loadPiece(S.pc.id);
+    if (S.pc && S.pc.id === piece.piece_id && typeof loadPiece === "function") loadPiece(S.pc.id);
   } catch (e) {
     if (S.locked || S.rv !== rv) return;
     a.busy = false; a.err = e.message;

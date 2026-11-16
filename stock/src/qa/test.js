@@ -955,6 +955,56 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  await run("review queue mock mirrors the database", async () => {
+    mock.reset();
+    const tok = mock.handle({ action: "unlock", passcode: "demo" })[1].token;
+    const call = (b) => mock.handle(Object.assign({ action: "resolve", token: tok }, b));
+    mock.reviews[0].status = "resolved";
+    const closed = call({ review_id: 1, resolution: "nonsense" });
+    check("mock: a closed review with a bad answer says \"is not open\" first", closed[0] === 409 && closed[1].error === "review 1 is not open", JSON.stringify(closed));
+    const bad = call({ review_id: 4, resolution: "sold" });
+    check("mock: an answer not allowed for the kind names the kind", bad[0] === 409 && bad[1].error === "resolution sold is not allowed for overdue_in_transit", JSON.stringify(bad));
+    const unk = call({ review_id: 4, resolution: "nonsense" });
+    check("mock: an unknown word falls out of the per-kind check", unk[1].error === "resolution nonsense is not allowed for overdue_in_transit", JSON.stringify(unk));
+  });
+
+  await run("review queue focus and double submit", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 });
+    await settled(page);
+    await openReview(page);
+    const active = () => page.evaluate(() => { const a = document.activeElement; return a === document.body ? "body" : (a.closest("tr.rrow") ? a.closest("tr.rrow").getAttribute("data-review") : "") + ":" + (a.getAttribute("data-answer") || a.id); });
+    await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="sold"]');
+    await page.click("#rv-cancel");
+    check("review focus: Cancel returns to that row's answer button", (await active()) === "1:sold", await active());
+    await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="sold"]');
+    await page.click("#rv-confirm");
+    await page.click("#confirm-cancel");
+    check("review focus: a declined confirmation returns to the note field", (await active()) === ":rv-note", await active());
+    await page.click("#rv-cancel");
+    // double click on Confirm while the request is held
+    mock.delay.resolve = 500;
+    await page.click('#rv-rows tr.rrow[data-review="5"] button[data-answer="still_in_transit"]');
+    await page.click("#rv-confirm");
+    await page.click("#confirm-ok");
+    await page.$eval("#rv-confirm", (n) => { n.click(); n.click(); }).catch(() => {});
+    await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 4);
+    check("review: a double click on Confirm sends one resolve", resolveCalls().length === 1, String(resolveCalls().length));
+    const a = await active();
+    check("review focus: after a resolve it lands on the next row's first answer", a === "4:still_in_transit", a);
+    delete mock.delay.resolve;
+    for (const id of [4, 3, 2, 1]) {
+      const first = await page.$eval(`#rv-rows tr.rrow[data-review="${id}"]`, (r) => { const b = r.querySelectorAll("button[data-answer]"); return b[b.length - (b.length > 2 ? 1 : 2)].getAttribute("data-answer"); });
+      await page.click(`#rv-rows tr.rrow[data-review="${id}"] button[data-answer="${first}"]`);
+      await page.click("#rv-confirm");
+      await page.click("#confirm-ok");
+      await page.waitForFunction((n) => document.querySelectorAll("#rv-rows tr.rrow").length === n, id - 1).catch(() => {});
+      if (id === 1) await page.waitForSelector("#rv-empty");
+    }
+    check("review focus: with the list empty it lands on the tab", await page.evaluate(() => document.activeElement.id === "tab-review"));
+    check("review focus: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   await run("review queue empty and without manage", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { pass: "look" });
     await settled(page);

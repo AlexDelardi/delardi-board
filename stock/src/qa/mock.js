@@ -17,7 +17,6 @@ const DEFAULT_RIGHTS = JSON.stringify(Object.fromEntries(Object.entries(PASSCODE
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
 // ops_resolve_review's answers per kind
-const RESOLUTIONS = ["sold", "damaged", "booked_out", "still_in_stock", "still_in_transit", "not_delivered"];
 const ANSWERS = { missing_from_export: ["sold", "damaged", "booked_out", "still_in_stock"], serial_reused: ["sold", "damaged", "booked_out", "still_in_stock"],
   ticket_conflict: ["sold", "damaged", "booked_out", "still_in_stock"], overdue_in_transit: ["still_in_transit", "not_delivered"],
   dropped_from_incoming: ["still_in_transit", "not_delivered"] };
@@ -295,10 +294,10 @@ function handle(body) {
       const rawNote = body.note === null || body.note === undefined ? "" : String(body.note);
       if (rawNote.trim().length > 500) fail(400, "The note can be at most 500 characters.");
       const note = str(rawNote, 500);
-      if (!RESOLUTIONS.includes(resolution)) fail(409, `resolution ${resolution} is not allowed`);
+      // as ops_resolve_review: open first, then allowed for the kind
       const r = reviews.find((x) => x.review_id === n && x.status === "open");
       if (!r) fail(409, `review ${n} is not open`);
-      if (!ANSWERS[r.kind].includes(resolution)) fail(409, `resolution ${resolution} is not allowed`);
+      if (!ANSWERS[r.kind].includes(resolution)) fail(409, `resolution ${resolution} is not allowed for ${r.kind}`);
       const p = pieces.find((x) => x.piece_id === r.piece_id);
       if (resolution === "not_delivered" && p.state === "in_transit") {
         const at = new Date().toISOString();
