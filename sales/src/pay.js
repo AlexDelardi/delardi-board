@@ -40,6 +40,16 @@ Object.assign(RU, {
   "Ticket {n} · total {t}": "Чек {n} · итого {t}",
   "Print": "Печать",
   "{n} on this sale": "{n} в продаже",
+  "Add a payment": "Добавить оплату",
+  "Card ▾": "Карта ▾",
+  "Summary": "Итог",
+  "Left to pay": "Осталось оплатить",
+  "Back to the sale": "Вернуться к продаже",
+  "Sale saved": "Продажа сохранена",
+  "Print receipt": "Печать чека",
+  "Ticket {n} · {t}": "Чек {n} · {t}",
+  "The pieces are now marked as sold.": "Изделия отмечены как проданные.",
+  "Training ticket — it will not appear in reports and is cleared before go-live.": "Тренировочный чек — в отчёты не попадёт и будет удалён перед запуском.",
 });
 const METHOD_LABEL = { cash: "Cash", card: "Card", transfer: "Transfer" };
 const CARD_LABEL = { uzcard: "Uzcard", humo: "Humo", visa: "Visa" };
@@ -77,10 +87,10 @@ function refreshPay() {
   if (sum) {
     sum.innerHTML = "";
     sum.append(...[
-      el("span", {}, tr("Paid") + " ", el("b", { text: fmtUZS(paid) })),
-      el("span", {}, tr("Remaining") + " ", el("b", { text: fmtUZS(Math.max(rem, 0)) })),
-      rem === 0 && paid > 0 ? el("span", { class: "ok", text: "✓ " + tr("Balanced") })
-        : rem < 0 ? el("span", { class: "short", text: tr("Overpaid by {x}", { x: fmtUZS(-rem) }) }) : null,
+      el("div", { class: "ps-row" }, el("span", { text: tr("Paid") + " " }), el("b", { text: fmtUZS(paid) })),
+      el("div", { class: "ps-row" }, el("span", { text: tr("Left to pay") + " " }), el("b", { text: fmtUZS(Math.max(rem, 0)) })),
+      rem === 0 && paid > 0 ? el("div", { class: "ps-ok ok", text: "✓ " + tr("Balanced") })
+        : rem < 0 ? el("div", { class: "ps-ok short", text: tr("Overpaid by {x}", { x: fmtUZS(-rem) }) }) : null,
     ].filter(Boolean));
   }
   const notice = $(".cash-notice");
@@ -145,39 +155,48 @@ async function postSale() {
 }
 function renderPay(main) {
   const s = S.sale;
-  if (!S.rights.post) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot make sales.") })); return; }
+  if (!S.rights.post) { main.append(el("div", { class: "notice", text: tr("Your account cannot make sales.") })); return; }
   if (!s.lines.length) { go("#/sale"); return; }
   const who = el("div", { class: "pay-who" }, sellerSelect());
   renderClientSlot(who);
   const fiscal = el("input", { type: "text", id: "fiscal", maxlength: "60", autocomplete: "off", value: s.fiscal_ref || "",
     oninput: (ev) => { s.fiscal_ref = ev.target.value; } });
   const add = el("div", { class: "pay-add" },
-    el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("+ Cash")),
+    el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("Cash")),
     el("button", { type: "button", class: "btn", id: "add-card", "aria-expanded": payMenuOpen ? "true" : "false",
-      onclick: () => { payMenuOpen = !payMenuOpen; renderAll(); } }, tr("+ Card ▾")),
+      onclick: () => { payMenuOpen = !payMenuOpen; renderAll(); } }, tr("Card ▾")),
+    el("button", { type: "button", class: "btn", id: "add-transfer", onclick: () => addPayment("transfer") }, tr("Transfer")),
     payMenuOpen ? el("div", { class: "card-menu", role: "group", "aria-label": tr("Card type") },
       ["uzcard", "humo", "visa"].map((c) => el("button", { type: "button", class: "btn", "data-card": c,
-        onclick: () => addPayment("card", c) }, CARD_LABEL[c]))) : null,
-    el("button", { type: "button", class: "btn", id: "add-transfer", onclick: () => addPayment("transfer") }, tr("+ Transfer")));
+        onclick: () => addPayment("card", c) }, CARD_LABEL[c]))) : null);
+  const clientText = s.walk_in ? walkInText() : s.client_id ? (s.client_name || s.client_id) : "—";
   main.append(el("section", { class: "sheet", id: "screen-pay" },
-    el("div", { class: "sheet-head" },
-      el("h1", { text: tr("Payment") }),
-      el("div", { class: "aside" }, el("span", { class: "muted", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) }))),
-    el("div", { class: "pay-body" },
-      who,
-      el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
-      add,
-      el("div", { class: "pay-sum", id: "pay-sum", "aria-live": "polite" }),
-      el("div", { class: "cash-notice", role: "note", hidden: true },
-        el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), tr("this payment should go by card.")),
-      el("label", { class: "fiscal", for: "fiscal" }, el("span", { text: tr("Era receipt no. (optional)") }), fiscal)),
-    el("div", { class: "foot" },
-      el("button", { type: "button", class: "btn", id: "back", onclick: () => go("#/sale") }, tr("← Back")),
-      el("span", { class: "why", id: "why" }),
-      el("div", { class: "total" },
-        el("div", { class: "t-l", text: tr("Total") }),
-        el("div", { class: "t-v", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
-      el("button", { type: "button", class: "btn primary big", id: "post", disabled: true, onclick: postSale }, tr("Post sale")))));
+    el("div", { class: "pay-layout" },
+      el("div", { class: "pay-main" },
+        el("div", { class: "pay-title" },
+          el("h1", { class: "title", text: tr("Payment") }),
+          el("span", { class: "muted", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
+        who,
+        el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
+        el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
+        el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal),
+        el("div", { class: "notice cash-notice", role: "note", hidden: true },
+          el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), " ", tr("this payment should go by card."))),
+      el("aside", { class: "pay-side", "aria-label": tr("Summary") },
+        el("span", { class: "lbl", text: tr("Summary") }),
+        el("ul", { class: "ps-lines" }, s.lines.map((l) => el("li", { class: "ps-line" },
+          el("span", { text: [l.brand, pieceName(l)].filter(Boolean).join(" · ") }),
+          el("span", { class: "money", text: fmtUZS(lineNet(l)) })))),
+        el("div", { class: "ps-block" },
+          el("div", { class: "ps-row" }, el("span", { text: tr("Client") }), el("b", { text: clientText })),
+          el("div", { class: "ps-row" }, el("span", { text: tr("Seller") }), el("b", { text: s.seller || "—" }))),
+        el("div", { class: "ps-block" },
+          el("span", { class: "lbl", text: tr("To pay") }),
+          el("div", { class: "keynum", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") })),
+          el("div", { class: "ps-sum", id: "pay-sum", "aria-live": "polite" })),
+        el("span", { class: "why", id: "why" }),
+        el("button", { type: "button", class: "btn primary big", id: "post", disabled: true, onclick: postSale }, tr("Post sale")),
+        el("button", { type: "button", class: "btn", id: "back", onclick: () => go("#/sale") }, tr("Back to the sale"))))));
   refreshPay();
 }
 
@@ -206,33 +225,40 @@ function receiptLines(text) {
 async function renderReceipt(main, id) {
   const wrap = el("div", { class: "receipt-wrap", id: "screen-receipt" }, el("p", { class: "loading", text: tr("Loading the receipt…") }));
   main.append(wrap);
-  const actions = () => el("div", { class: "receipt-actions" },
-    el("button", { type: "button", class: "btn", onclick: () => window.print() }, tr("Print")),
-    el("button", { type: "button", class: "btn primary big", id: "new-sale",
-      onclick: () => { S.sale = newSale(); S.lastPct = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")));
   let doc = null, failed = null;
   try { doc = await api("ticket", { ticket_id: id }); } catch (e) { failed = e; }
   if (!wrap.isConnected) return;                 // the screen changed meanwhile
   wrap.innerHTML = "";
   const t = doc && doc.ticket;
+  const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
-  wrap.append(el("div", { class: "receipt-head" },
-    el("h1", { text: tr(training ? "Test sale posted" : "Sale posted") }),
-    el("span", { class: "ok", text: "✓ " + (t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "")) })));
+  const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
+  const total = p ? p.total : doc && doc.lines && doc.lines.length ? doc.lines.reduce((x, l) => x + (l.net || 0), 0) : null;
+  let card;
   if (t) {
-    wrap.append(el("article", { class: "receipt", "aria-label": t.ticket_no },
+    card = el("article", { class: "receipt", "aria-label": t.ticket_no },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" }, receiptLines(t.receipt_text),
-        el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))));
+        el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" })));
   } else {
     // Posted, but the receipt cannot be read (no right to look up sales, or no connection).
-    const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
-    wrap.append(el("article", { class: "receipt" },
+    card = el("article", { class: "receipt" },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" },
         training ? el("div", { class: "rc-line rc-train", text: "TRAINING — NOT A SALE" }) : null,
         p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: p.ticket_no, t: fmtUZS(p.total) }) }) : null,
-        el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) }))));
+        el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) })));
   }
-  wrap.append(actions());
+  wrap.append(
+    el("div", { class: "receipt-stage" }, card),
+    el("aside", { class: "saved-panel" },
+      el("span", { class: "lbl", text: tr("Posted") }),
+      el("h1", { class: "title", text: tr("Sale saved") }),
+      el("p", { class: "saved-line", text: tr("Ticket {n} · {t}", { n: ticketNo, t: total === null ? "" : fmtUZS(total) + " " + tr("so'm") }).replace(/ · $/, "") +
+        ". " + tr("The pieces are now marked as sold.") }),
+      training ? el("div", { class: "notice", role: "note", text: tr("Training ticket — it will not appear in reports and is cleared before go-live.") }) : null,
+      el("div", { class: "saved-actions" },
+        el("button", { type: "button", class: "btn", id: "print-receipt", onclick: () => window.print() }, tr("Print receipt")),
+        el("button", { type: "button", class: "btn primary big", id: "new-sale",
+          onclick: () => { S.sale = newSale(); S.lastPct = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")))));
 }

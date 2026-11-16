@@ -24,6 +24,7 @@ const norm = (s) => String(s || "").replace(/[\s  ]+/g, " ").trim();
 
 async function setup(browser, viewport, opts = {}) {
   mock.reset();
+  if (opts.mode === "live") mock.switchModeBehind("live");
   const ctx = await browser.newContext({ viewport, locale: "en-GB",
     ...(opts.touch ? { hasTouch: true, isMobile: true } : {}) });
   const page = await ctx.newPage();
@@ -249,7 +250,7 @@ async function shot(page, name) {
     await page.click("#walk-in");
     await addPay(page, "cash", "29 924 999");
     check("post guard: Walk-in and payments short by 1 → disabled", !(await postEnabled(page)));
-    check("post guard: Remaining 1", /Remaining 1$/.test(norm(await page.textContent("#pay-sum"))), norm(await page.textContent("#pay-sum")));
+    check("post guard: Left to pay 1", /Left to pay 1$/.test(norm(await page.textContent("#pay-sum"))), norm(await page.textContent("#pay-sum")));
     await page.fill(".pay-row:nth-child(1) input.amt", "29925000");
     await page.dispatchEvent(".pay-row:nth-child(1) input.amt", "change");
     check("post guard: exact → enabled", await postEnabled(page));
@@ -263,7 +264,7 @@ async function shot(page, name) {
     await addPay(page, "cash", "20 000 000");
     await addPay(page, "uzcard", "9 925 000");
     const sum = norm(await page.textContent("#pay-sum"));
-    check("split payment: Cash 20 000 000 + Uzcard 9 925 000 → Remaining 0", /Paid 29 925 000/.test(sum) && /Remaining 0\b/.test(sum), sum);
+    check("split payment: Cash 20 000 000 + Uzcard 9 925 000 → Left to pay 0", /Paid 29 925 000/.test(sum) && /Left to pay 0\b/.test(sum), sum);
     check("split payment: the card row says Uzcard", /Uzcard/.test(await page.textContent(".pay-row:nth-child(2)")));
     check("split payment: Post enabled", await postEnabled(page));
     await page.fill("#fiscal", "ERA-0042");
@@ -1049,6 +1050,82 @@ async function shot(page, name) {
     check("amount input: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
+
+  // ----------------------------------------------------- payment and receipt on the kit
+  const geo = (page, sel) => page.$eval(sel, (n) => { const r = n.getBoundingClientRect(); return { l: r.left, t: r.top, b: r.bottom, w: r.width }; });
+  await run("pay on the kit", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await addLine(page, "2000000000048");
+    await toPay(page);
+    await addPay(page, "cash", "100 000 000");
+    const m = await geo(page, ".pay-main"), sd = await geo(page, ".pay-side");
+    check("pay: two columns at 1024 — methods left, summary right", sd.l > m.l + 100 && Math.abs(sd.t - m.t) <= 4, JSON.stringify([m, sd]));
+    check("pay: the summary column is on the card ground", await page.$eval(".pay-side", (n) => getComputedStyle(n).backgroundColor) === "rgb(238, 241, 247)");
+    const side = norm(await page.textContent(".pay-side"));
+    check("pay: summary shows To pay, Paid, Left to pay and Post sale", /To pay/.test(side) && /Paid/.test(side) && /Left to pay/.test(side) && /Post sale/.test(side) &&
+      await page.$eval("#post", (b) => b.matches(".btn.primary") && !!b.closest(".pay-side")), side);
+    check("pay: the summary lists the lines and the To pay amount is a key number",
+      (await page.$$(".pay-side .ps-line")).length === 2 && await page.$eval(".pay-side .keynum", (k) => { const n = (t) => Number(t.replace(/\D/g, "")); return n(k.textContent) === [...document.querySelectorAll(".ps-line .money")].reduce((x, m) => x + n(m.textContent), 0) && n(k.textContent) > 0; }));
+    check("pay: Back to the sale sits in the summary", /Back to the sale/.test(norm(await page.textContent("#back"))) && await page.$eval("#back", (b) => !!b.closest(".pay-side")));
+    await page.click("#add-card");
+    check("pay: the Card menu still opens with Uzcard, Humo, Visa", (await page.$$eval("[data-card]", (bs) => bs.map((b) => b.dataset.card))).join() === "uzcard,humo,visa");
+    await page.click("#add-card");
+    check("pay: cash notice hidden below the limit", !(await page.isVisible(".cash-notice")));
+    await page.fill(".pay-row:nth-child(1) input.amt", "170 000 001");
+    await page.dispatchEvent(".pay-row:nth-child(1) input.amt", "change");
+    check("pay: cash notice is a .notice box and appears above 170 000 000 cash",
+      await page.isVisible(".notice.cash-notice") && /card/i.test(await page.textContent(".notice.cash-notice")));
+    await page.setViewportSize({ width: 768, height: 1024 });
+    const m2 = await geo(page, ".pay-main"), s2 = await geo(page, ".pay-side");
+    check("pay: stacks at 768 wide", s2.t >= m2.b - 1 && s2.w > 600, JSON.stringify([m2, s2]));
+    check("pay: no sideways scroll at 768", await noHScroll(page));
+    check("pay: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("pay in Russian", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await toPay(page, { seller: "Dilnoza A." });
+    const t = norm(await page.textContent(".pay-side"));
+    check("pay (RU): Left to pay, Back to the sale and To pay are translated", /Осталось оплатить/.test(t) && /Вернуться к продаже/.test(t) && !/Left to pay|Back to the sale/.test(t), t);
+    await ctx.close();
+  });
+  for (const mode of ["training", "live"]) {
+    await run("receipt on the kit " + mode, async () => {
+      const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { mode });
+      await addLine(page, "2000000000031");
+      await toPay(page);
+      await addPay(page, "cash", "31 500 000");
+      await page.click("#post");
+      await page.waitForSelector("#screen-receipt .receipt");
+      const r = await geo(page, "#screen-receipt .receipt"), sv = await geo(page, ".saved-panel");
+      check(`receipt ${mode}: preview on the left, Sale saved panel on the right`, sv.l > r.l + r.w - 1 && /Sale saved/.test(await page.textContent(".saved-panel")), JSON.stringify([r, sv]));
+      check(`receipt ${mode}: preview sits on a card ground`, await page.$eval(".receipt-stage", (n) => getComputedStyle(n).backgroundColor) === "rgb(238, 241, 247)");
+      const sp = norm(await page.textContent(".saved-panel"));
+      check(`receipt ${mode}: panel has the ticket, the amount, Print receipt and New sale`, /(T|D)-\d{6}/.test(sp) && /31 500 000/.test(sp) && /Print receipt/.test(sp) && !!(await page.$(".saved-panel #new-sale")), sp);
+      if (mode === "training") {
+        check("receipt training: the note and the TRAINING strip show", /not appear in reports|cleared/i.test(sp) && !!(await page.$(".receipt .rc-train")), sp);
+        await page.setViewportSize({ width: 768, height: 1024 });
+        const r2 = await geo(page, "#screen-receipt .receipt"), s2 = await geo(page, ".saved-panel");
+        check("receipt: stacks under 900 px", s2.t >= r2.b - 1, JSON.stringify([r2, s2]));
+        check("receipt: no sideways scroll at 768", await noHScroll(page));
+        await page.setViewportSize({ width: 1024, height: 768 });
+        await page.emulateMedia({ media: "print" });
+        check("receipt print: the side panel and the page chrome do not print, the receipt does",
+          !(await page.isVisible(".saved-panel")) && !(await page.isVisible(".top")) && await page.isVisible("#screen-receipt .receipt"));
+        await page.emulateMedia({ media: "screen" });
+      } else {
+        check("receipt: Live shows no TRAINING strip and no empty gap", !(await page.$(".receipt .rc-train")) && !/training/i.test(sp) &&
+          await page.$eval(".receipt .rc-body", (b) => { const f = [...b.children].find((c) => c.offsetHeight > 0); return !!f && f.getBoundingClientRect().top - b.getBoundingClientRect().top <= 24; }));
+      }
+      check(`receipt ${mode}: the date on the receipt is dd.mm.yyyy hh:mm`, /\d\d\.\d\d\.\d{4} \d\d:\d\d/.test(await page.textContent(".receipt .rc-ticket")));
+      check(`receipt ${mode}: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    });
+  }
 
   await browser.close();
   console.log(results.join("\n"));
