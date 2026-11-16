@@ -63,6 +63,7 @@ ok(/min-height:\s*48px/.test(rule('.kit-tab')) && /gap:\s*28px/.test(rule('.kit-
 ok(/color:\s*var\(--white\)/.test(rule('.kit-staff')) && /font:\s*14px/.test(rule('.kit-staff')), '.kit-staff white 14px');
 ok(/font:\s*13px\/1\.45/.test(rule('.band')), '.band text is 13px');
 const z = sel => Number((rule(sel).match(/z-index:\s*(\d+)/) || [])[1]);
+ok(/position:\s*fixed/.test(rule('.gate')), '.gate is position: fixed, so its z-index applies');
 ok(z('.gate') > z('.panel-wrap') && z('.gate') > z('.modal-wrap') && z('.gate') < z('.toast'), '.gate stacks above panels and modals, below the toast');
 ok(/\[aria-current=["']?page["']?\]/.test(kc), 'aria-current page style');
 ok(/\[aria-invalid=["']?true["']?\]/.test(kc), 'aria-invalid style');

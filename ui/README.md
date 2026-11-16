@@ -16,13 +16,13 @@ One shared stylesheet (`kit.css`) and tool switcher (`tools.js`) that every in-s
 - `.modal-wrap` / `.modal-scrim` / `.modal` centred dialog (`.confirm` is 480 px).
 - `.toast` (`.err` for errors).
 - `.gate` / `.gate-card` / `.gate-mast` lock card.
-
-## Stacking order
-
-Lowest to highest: header `.kit-head` (50), its menu (60), `.panel-wrap` (100), `.modal-wrap` (110), `.gate` lock card (115), `.toast` (120). The kit sets these, so a new tool needs no z-index overrides: the lock card covers any open panel or dialog, and a toast shows above the lock card. A tool that adds its own layers keeps to this order.
 - `.sr-only` visually hidden text.
 
 Legacy variables `--muted`, `--page`, `--surface-2` (and the other aliases) are kept with literal hex values; `qa/ui-foundations.cjs` reads them.
+
+## Stacking order
+
+Lowest to highest: header `.kit-head` (50), its menu (60), `.panel-wrap` (100), `.modal-wrap` (110), `.gate` lock card (115, fixed full-screen), `.toast` (120). The kit sets these, so a new tool needs no z-index overrides: the lock card covers any open panel or dialog, and a toast shows above the lock card. A tool that adds its own layers keeps to this order.
 
 ## JS
 

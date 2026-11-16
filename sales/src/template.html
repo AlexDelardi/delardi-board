@@ -378,7 +378,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------------------------------------------------------- lock card */
 #app.gated { pointer-events: none; user-select: none; }
-#gate.gate { position: fixed; inset: 0; min-height: 0; overflow-y: auto; }
+#gate.gate { min-height: 0; }
 .gate-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 16px 24px; margin-bottom: 24px; }
 .gate-card > .gate-mast + * { margin-top: 0; }
 .gate-brand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -396,7 +396,6 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 .toast { opacity: 0; pointer-events: none; transition: opacity .18s; }
 .toast.show { opacity: 1; }
 .loading { padding: 48px 24px; text-align: center; color: var(--slate); }
-.watermark { position: fixed; right: 24px; bottom: 16px; width: 34px; opacity: .1; pointer-events: none; z-index: 1; }
 
 /* ---------------------------------------------------- narrower: portrait iPad */
 @media (max-width: 900px) {
@@ -444,7 +443,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 }
 
 @media print {
-  .top, .training-band, .saved-panel, .receipt-actions, .toast, .watermark { display: none !important; }
+  .top, .training-band, .saved-panel, .receipt-actions, .toast { display: none !important; }
   .receipt-wrap { display: block; border: 0; }
   .receipt-stage { background: none; padding: 0; }
   #screen-ticket > :not(.tk-receipt) { display: none !important; }
@@ -457,7 +456,6 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 </head>
 <body>
 <div id="app"><div class="loading">Loading the till…</div></div>
-<img class="watermark" alt="" src="__MONO_NAVY__">
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>__SCRIPT__</script>
 </body>

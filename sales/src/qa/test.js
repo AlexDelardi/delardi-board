@@ -969,33 +969,33 @@ async function shot(page, name) {
     });
   }
 
-  /* ================================================== final-review fixes */
-  // ---------------------------------------------- I2: the till switched elsewhere
   // ------------------------------------- every screen at both iPad sizes
   // No sideways scroll always; named screenshots (SHOTS) for a visual pass.
   for (const vp of [{ width: 1024, height: 768, land: true }, { width: 768, height: 1024, land: false }]) {
     const tag = vp.width + "x" + vp.height;
     await run("screens pass " + tag, async () => {
       const { ctx, page, errors } = await setup(browser, vp, { touch: true });
+      const calm = () => page.waitForFunction(() => !document.querySelector('#toast.show')).catch(() => {});
       const out = (n1, n2) => (vp.land ? n1 : n2);
       await addLine(page, "2000000000031");
       await addLine(page, "2000000000048");
+      check(`screens ${tag}: no watermark monogram`, !(await page.$(".watermark")));
       check(`screens ${tag}: sale — no sideways scroll`, await noHScroll(page));
-      await shot(page, out("01-sale", "08-sale-portrait"));
+      await calm(); await shot(page, out("01-sale", "08-sale-portrait"));
       await page.fill("#q", "Messika");
       await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length >= 3);
       check(`screens ${tag}: search — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await shot(page, "02-search");
+      if (vp.land) await calm(); await shot(page, "02-search");
       await page.fill("#q", "");
       await openSokolova(page);
       check(`screens ${tag}: client — no sideways scroll`, await noHScroll(page));
-      await shot(page, out("05-client", "10-client-portrait"));
+      await calm(); await shot(page, out("05-client", "10-client-portrait"));
       await page.evaluate(() => document.querySelector("#client-panel .panel-scrim").click());
       await page.waitForSelector("#client-panel .panel", { state: "detached" });
       await toPay(page);
       await addPay(page, "cash", "100 000 000");
       check(`screens ${tag}: payment — no sideways scroll`, await noHScroll(page));
-      await shot(page, out("03-payment", "09-payment-portrait"));
+      await calm(); await shot(page, out("03-payment", "09-payment-portrait"));
       await page.click("#add-card");
       await page.click("[data-card=visa]");
       await page.fill(".pay-row:nth-child(2) input.amt", "176 500 000");
@@ -1003,20 +1003,22 @@ async function shot(page, name) {
       await page.click("#post");
       await page.waitForSelector("#screen-receipt .receipt");
       check(`screens ${tag}: receipt — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await shot(page, "04-receipt");
+      if (vp.land) await calm(); await shot(page, "04-receipt");
       await page.click("a.kit-tab[href='#/tickets']");
       await page.waitForSelector("#screen-tickets tr.tk-row");
       check(`screens ${tag}: tickets — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await shot(page, "06-tickets");
+      if (vp.land) await calm(); await shot(page, "06-tickets");
       await page.evaluate(() => lockDown());
       await page.waitForSelector("#gate-pass");
       check(`screens ${tag}: lock — no sideways scroll`, await noHScroll(page));
-      if (vp.land) await shot(page, "07-lock");
+      if (vp.land) await calm(); await shot(page, "07-lock");
       check(`screens ${tag}: no script errors`, errors.length === 0, errors.join(" | "));
       await ctx.close();
     });
   }
 
+  /* ================================================== final-review fixes */
+  // ---------------------------------------------- I2: the till switched elsewhere
   await run("stale mode", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await addLine(page, "2000000000031");
