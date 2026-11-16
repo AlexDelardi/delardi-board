@@ -132,7 +132,8 @@ function tkStatus(status, source) {
   if (source === "training") return el("span", { class: "tag info", text: tr("Training") });
   return el("span", { class: "tag act", text: tr("Posted") });
 }
-const tkWhen = (iso) => fmtDate(iso) + " " + fmtTime(iso);
+// Colibri tickets carry a date only (stored as midnight UTC), so their "time" would be a fake 05:00.
+const tkWhen = (iso, source) => source === "colibri" ? fmtDate(iso) : fmtDate(iso) + " " + fmtTime(iso);
 function renderTkList() {
   const box = $("#tk-body");
   if (!box || !S.tk) return;
@@ -155,7 +156,7 @@ function renderTkList() {
       const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
       return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
         el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
-        el("td", { class: "tk-date", text: tkWhen(r.sold_at) }),
+        el("td", { class: "tk-date", text: tkWhen(r.sold_at, r.source) }),
         el("td", { class: "tk-items", text: r.items || "—" }),
         el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
         el("td", { class: "tk-seller", text: r.seller || "—" }),
@@ -247,7 +248,7 @@ function drawTicket(wrap, doc, ui) {
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
     el("dl", { class: "tk-meta" },
-      kv("Date", tkWhen(t.sold_at)),
+      kv("Date", tkWhen(t.sold_at, t.source)),
       kv("Source", tr(SOURCE_LABEL[t.source] || t.source)),
       kv("Seller", t.seller),
       kv("Client", client),
