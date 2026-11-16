@@ -31,6 +31,7 @@ const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_trans
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
 let pieces, events, reviews, sessions, calls, nextReview;
+let refundSales = {};
 const delay = {};   // test hook: delay.<action> = ms the answer is held back
 
 function iso(day, hour) {   // a fixed day in 2026, UTC
@@ -90,8 +91,14 @@ function reset() {
   // five open items, one of each kind (the last two on pieces that are in transit)
   const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "overdue_in_transit", "dropped_from_incoming"];
   reviews = [0, 5, 12, 40, 41].map((pi, k) => ({ review_id: k + 1, piece_id: pieces[pi].piece_id, kind: kinds[k],
-    raised_at: iso(30 + k, 9), status: "open", resolution: null, resolved_by: null, resolved_at: null, note: k === 1 ? "Seen twice in the export" : null }));
+    raised_at: iso(30 + k, 9), status: "open", resolution: null, resolved_by: null, resolved_at: null, note: k === 1 ? "Seen twice in the export" : k === 2 ? "Ticket D-000777 line 1: sold 03.11.2026, but the piece is still in the stock export" : null }));
   // a sale on pieces[1] was voided and the piece came back to stock (pos_void_ticket writes "void: <reason>")
+  // pieces[3] was sold and then refunded: the refund line carries kind "refund" and a positive net, as in ops_ticket_lines
+  refundSales = {};
+  refundSales[pieces[3].piece_id] = [
+    { ticket_id: "30000000-0000-4000-8000-200000000001", ticket_no: "C-104400", source: "colibri", sold_at: "2026-10-02", kind: "sale", net: 12000000, status: "posted" },
+    { ticket_id: "30000000-0000-4000-8000-200000000002", ticket_no: "C-104420", source: "colibri", sold_at: "2026-10-09", kind: "refund", net: 12000000, status: "posted" },
+  ];
   events[pieces[1].piece_id].unshift({ at: iso(20, 8), from_state: "sold", to_state: "in_stock", reason: "void: Wrong size entered", ref_kind: "ticket",
     ref_id: null, actor: "Stock Manager", note: null, ticket_id: null, ticket_no: null });
   for (const k of Object.keys(delay)) delete delay[k];
@@ -194,7 +201,7 @@ function detail(sess, id) {
     events: (events[id] || []).map((e) => Object.assign({}, e)),
     reviews: reviews.filter((r) => r.piece_id === id).sort((a, b) => cmp(b.raised_at, a.raised_at))
       .map(({ piece_id, ...r }) => r),
-    sales: p.state === "sold" ? [
+    sales: refundSales[id] ? refundSales[id].map((x) => Object.assign({}, x)) : p.state === "sold" ? [
       { ticket_id: ticketId(p), ticket_no: "D-0000" + p.serial.slice(-2), source: "delardi", sold_at: p.state_since.slice(0, 10), kind: "sale", net: p.price_uzs, status: "posted" },
       { ticket_id: "30000000-0000-4000-8000-1000000000" + p.serial.slice(-2), ticket_no: "T-0000" + p.serial.slice(-2), source: "training", sold_at: p.state_since.slice(0, 10), kind: "sale", net: p.price_uzs, status: "void" },
     ] : [],

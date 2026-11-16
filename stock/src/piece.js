@@ -40,6 +40,7 @@ Object.assign(RU, {
   "Raised {d}": "Поднято {d}",
   "Ticket {n}": "Чек {n}",
   "Void": "Аннулирован",
+  "Refund": "Возврат",
   "Colibri": "Colibri",
   "Till": "Касса",
   "Training": "Учебный",
@@ -196,8 +197,10 @@ function saleItem(s) {
     !blank(s.ticket_id) ? el("a", { class: "ev-ticket", href: ticketHref(s.ticket_id), text: blank(s.ticket_no) ? "—" : s.ticket_no })
       : el("span", { text: blank(s.ticket_no) ? "—" : s.ticket_no }),
     el("span", { class: "num", text: fmtDate(s.sold_at) }),
-    el("span", { class: "num", text: fmtMoney(s.net) }),
+    // refund lines are stored with a positive net (ops_ticket_lines.kind = 'refund'): show them as money going back
+    el("span", { class: "num", text: (s.kind === "refund" && Number(s.net) > 0 ? "−" : "") + fmtMoney(s.net) }),
     el("span", { class: "small", text: tr(SOURCE_WORD[s.source] || humanKey(s.source)) }),
+    s.kind === "refund" ? el("span", { class: "tag info", text: tr("Refund") }) : null,
     s.status === "void" ? el("span", { class: "tag done", text: tr("Void") }) : null);
 }
 
@@ -241,7 +244,8 @@ function renderPiece() {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Open reviews") }),
         el("ul", { class: "pc-list", id: "pc-reviews" }, open.map((r) => el("li", { class: "pc-ev" },
           el("span", { text: tr(REVIEW_KIND[r.kind] || humanKey(r.kind)) }),
-          el("span", { class: "small", text: tr("Raised {d}", { d: fmtDate(r.raised_at) }) }))))));
+          el("span", { class: "small", text: tr("Raised {d}", { d: fmtDate(r.raised_at) }) }),
+          !blank(r.note) ? el("span", { class: "small rv-note", text: r.note }) : null)))));
     }
     if ((d.sales || []).length) {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Sales") }),
