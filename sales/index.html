@@ -327,6 +327,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
 .receipt .rc-who { color: #5B6478; text-align: center; }
 .receipt .rc-who:last-of-type { margin-bottom: 12px; }
 .receipt .rc-item { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #C6D0E2; font-weight: 600; }
+.receipt .rc-detail { font-size: 0.86em; color: #5B6478; }
 .receipt .rc-amt { text-align: right; color: #5B6478; }
 .receipt .rc-total {
   margin-top: 12px; padding-top: 10px; border-top: 1px solid #001A4A;
@@ -1735,7 +1736,7 @@ function receiptLines(text) {
     else if (/^(Seller|Client): /.test(t)) { cls += " rc-who"; stage = "items"; }
     else if (/^Total /.test(t) && amount) { stage = "pays"; node = el("div", { class: "rc-total" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] })); }
     else if (stage === "pays" && amount) node = el("div", { class: "rc-pay" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] }));
-    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : " rc-item";
+    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : /^(Ref\. |S\/N )/.test(t) ? " rc-detail" : " rc-item";
     out.push(node || el("div", { class: cls, text: t }));
   });
   return out;

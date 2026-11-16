@@ -137,7 +137,7 @@ begin
   assert split_part(v_rt, E'\n', 1) = 'TRAINING — NOT A SALE' and split_part(v_rt, E'\n', 2) = 'DELARDI'
          and split_part(v_rt, E'\n', 3) = 'Zz street 1, Tashkent', 'training receipt head ' || v_rt;
   assert v_rt like '%T-000001%' and v_rt like '%29 925 000%' and v_rt like '%Seller: S3T Rep%'
-         and v_rt like '%Client: Zztest Clientov%' and v_rt like '%S3T Brand Zz Ring · ZZ.00.30001%'
+         and v_rt like '%Client: Zztest Clientov%' and v_rt like E'%S3T Brand · Zz Ring\nRef. ZZ-ART-3 · Jewellery%' and v_rt like E'%\nS/N ZZ.00.30001\n%'
          and v_rt like '%31 500 000 −5% = 29 925 000%' and v_rt like '%Total 29 925 000%'
          and v_rt like '%Uzcard 29 925 000%' and v_rt not like '%S3T Source%', 'training receipt body ' || v_rt;
 

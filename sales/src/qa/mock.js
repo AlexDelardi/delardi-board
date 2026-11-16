@@ -205,7 +205,10 @@ function post(sale, actor) {
   text.push("DELARDI", "Tashkent, 1 Example Street", "Ticket " + ticket_no + " · 15.11.2026 15:42",
     "Seller: " + sale.seller, "Client: " + (walk ? "Walk-in" : client));
   for (const l of lines) {
-    text.push([l.p.brand, l.p.model_name].filter(Boolean).join(" ") + " · " + l.p.serial);
+    // same layout as pos_receipt_text (pos_6): name, reference line, serial, price
+    text.push([l.p.brand, l.p.model_name].filter(Boolean).join(" · "));
+    text.push(["Ref. " + (l.p.article || "—"), "Ring", "White gold", l.p.size ? "Size " + l.p.size : null].filter(Boolean).join(" · "));
+    text.push("S/N " + l.p.serial);
     text.push(fmt(l.price) + " −" + l.d + "% = " + fmt(l.net));
   }
   text.push("Total " + fmt(total));

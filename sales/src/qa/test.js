@@ -254,6 +254,9 @@ async function shot(page, name) {
     check("post: the receipt shows T-000001", /T-000001/.test(rc), rc);
     check("post: the receipt says TRAINING", /TRAINING/.test(rc), rc);
     check("post: the URL is #/receipt/<id>", /#\/receipt\/10000000-/.test(page.url()), page.url());
+    check("post: each item shows its reference line and serial, in the detail style",
+      await page.$$eval("#screen-receipt .rc-detail", (ds) => ds.some((d) => /^Ref\. /.test(d.textContent))
+        && ds.some((d) => /^S\/N /.test(d.textContent))));
     check("post: what was sent — walk-in, seller label, lines, payments, Era number",
       !!sent && sent.sale.walk_in === true && !sent.sale.client_id && sent.sale.seller === "Dilnoza A." &&
       sent.sale.lines.length === 1 && sent.sale.lines[0].price_uzs === 31500000 && sent.sale.lines[0].discount_pct === 5 &&

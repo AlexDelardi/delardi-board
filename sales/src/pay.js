@@ -198,7 +198,7 @@ function receiptLines(text) {
     else if (/^(Seller|Client): /.test(t)) { cls += " rc-who"; stage = "items"; }
     else if (/^Total /.test(t) && amount) { stage = "pays"; node = el("div", { class: "rc-total" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] })); }
     else if (stage === "pays" && amount) node = el("div", { class: "rc-pay" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] }));
-    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : " rc-item";
+    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : /^(Ref\. |S\/N )/.test(t) ? " rc-detail" : " rc-item";
     out.push(node || el("div", { class: cls, text: t }));
   });
   return out;
