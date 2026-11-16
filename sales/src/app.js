@@ -444,6 +444,7 @@ function lockDown(message) {
   // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
   // seller typed or looked up stays on screen above the passcode card.
   if (typeof closeAddClient === "function") closeAddClient(true);
+  if (typeof closeClientPanel === "function") closeClientPanel();      // clears the search timer and S.cp
   document.querySelectorAll("#addwrap, .modal-wrap, .panel-wrap").forEach((n) => n.remove());
   renderGate();
 }

@@ -85,7 +85,7 @@ function closeClientPanel() {
 }
 async function cpSearch(q) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   const seq = ++cp.seq;
   cp.busy = true;
   try {
@@ -101,7 +101,7 @@ async function cpSearch(q) {
 }
 async function cpOpen(id) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   cp.id = id; cp.card = null; cp.loading = true; cp.err = null;
   renderClientPanel();
   try {
@@ -169,7 +169,7 @@ function clientCard(card) {
 }
 function renderClientPanel() {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   let host = $("#client-panel");
   const focused = $("#client-q") === document.activeElement;
   const pos = focused ? $("#client-q").selectionStart : null;

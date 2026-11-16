@@ -629,6 +629,37 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  // ------------------------------------------- lock vs. pending client lookups (fix round 1)
+  await run("lock vs pending lookups", async () => {
+    const gateOver = (page) => page.evaluate(() => { const g = document.querySelector("#gate"); return !!g && getComputedStyle(g).display !== "none"; });
+    // (a) lock inside the 300 ms debounce window
+    let t = await setup(browser, { width: 1024, height: 768 });
+    await addLine(t.page, "2000000000031");
+    await openClientPanel(t.page);
+    await t.page.fill("#client-q", "Соколова");
+    await t.page.evaluate(() => lockDown());
+    await t.page.waitForTimeout(1000);
+    check("lock: a typed search does not bring the client panel back", !(await t.page.$("#client-panel")) && await gateOver(t.page));
+    await t.ctx.close();
+    // (b) lock while a client lookup is in flight
+    t = await setup(browser, { width: 1024, height: 768 });
+    await addLine(t.page, "2000000000031");
+    await openClientPanel(t.page);
+    await t.page.evaluate(() => { const orig = call; call = async (...a) => { await new Promise((r) => setTimeout(r, 500)); return orig(...a); }; });
+    await t.page.fill("#client-q", "Соколова");
+    await t.page.waitForTimeout(350);
+    await t.page.evaluate(() => lockDown());
+    await t.page.waitForTimeout(1200);
+    check("lock: an answer arriving after the lock draws no client panel", !(await t.page.$("#client-panel")) && await gateOver(t.page));
+    // (c) the passcode card is above every overlay
+    const z = await t.page.evaluate(() => {
+      const probe = (cls) => { const n = document.createElement("div"); n.className = cls; n.style.display = "none"; document.body.appendChild(n); const v = parseInt(getComputedStyle(n).zIndex, 10); n.remove(); return v; };
+      return { gate: parseInt(getComputedStyle(document.querySelector("#gate")).zIndex, 10), panel: probe("panel-wrap"), add: probe("addwrap") };
+    });
+    check("lock: the passcode card is above the panel and the add-client form", z.gate > z.panel && z.gate > z.add, JSON.stringify(z));
+    await t.ctx.close();
+  });
+
   // ------------------------------------------------------------ add client
   await run("add client", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
