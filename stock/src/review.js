@@ -135,7 +135,8 @@ function reviewRow(r, manage, rv) {
   const a = rv.ans && rv.ans.id === r.review_id ? rv.ans : null;
   const model = [p.brand, p.model_name].filter((x) => !blank(x)).join(" · ");
   return el("tr", { class: "rrow" + (a ? " open" : ""), "data-review": r.review_id },
-    el("td", { class: "rk", text: kindWord(r.kind) }),
+    el("td", { class: "rk" }, el("span", { class: "rk-word", text: kindWord(r.kind) }),
+      !blank(r.note) ? el("span", { class: "rv-note small", text: r.note }) : null),
     el("td", { class: "rp" }, el("button", { type: "button", class: "btn quiet rv-piece", onclick: () => openPiece(p.piece_id) },
       el("span", { class: "serial", text: p.serial || "—" }), model ? el("span", { class: "ref-m small", text: model }) : null)),
     el("td", { class: "st" }, stateTag(p.state)),

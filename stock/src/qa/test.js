@@ -606,6 +606,14 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("sales: ticket link, date, net so'm, source", sales.length === 2 && sales[0].href === "../sales/#/ticket/" + tid && /Till/.test(sales[0].t) &&
       sales[0].t.includes(money(sp.price_uzs) + " so'm") && /\d{1,2} [A-Z][a-z]{2} 2026/.test(sales[0].t), JSON.stringify(sales[0]));
     check("sales: a void ticket carries a Void tag, training source", sales[1].tags.includes("Void") && /Training/.test(sales[1].t) && !sales[0].tags.includes("Void"), JSON.stringify(sales[1]));
+    // Codex (PR #11): a refund line is labelled and shown negative, never as another sale
+    const rfp = mock.pieces[3];
+    await openId(page, rfp.piece_id);
+    const fs2 = await page.$$eval("#pc-sales li", (ns) => ns.map((n) => ({ t: n.textContent.replace(/[\s\u00a0\u202f]+/g, " ").trim(), tags: [...n.querySelectorAll(".tag")].map((x) => x.textContent.trim()) })));
+    check("sales: a refund line carries a Refund tag and a negative amount", fs2.length === 2 && fs2[1].tags.includes("Refund") && /[−-]12 000 000 so'm/.test(fs2[1].t)
+      && !fs2[0].tags.includes("Refund") && /(^|[^−-])12 000 000 so'm/.test(fs2[0].t), JSON.stringify(fs2));
+    await openId(page, mock.pieces[12].piece_id);
+    check("reviews: an open review shows the import's note", norm(await page.textContent("#pc-reviews")).includes("Ticket D-000777 line 1"), norm(await page.textContent("#pc-reviews")));
     // open reviews
     const rp = mock.pieces[0];
     await openId(page, rp.piece_id);
@@ -1010,7 +1018,8 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   const KIND_ANS = { missing_from_export: ["sold", "damaged", "booked_out", "still_in_stock"], serial_reused: ["sold", "damaged", "booked_out", "still_in_stock"],
     ticket_conflict: ["sold", "damaged", "booked_out", "still_in_stock"], overdue_in_transit: ["still_in_transit", "not_delivered"], dropped_from_incoming: ["still_in_transit", "not_delivered"] };
   const resolveCalls = () => mock.calls.filter((c) => c.action === "resolve");
-  const rvRows = (page) => page.$$eval("#rv-rows tr.rrow", (ns) => ns.map((n) => ({ id: n.getAttribute("data-review"), cells: [...n.children].map((c) => c.textContent.replace(/[\s  ]+/g, " ").trim()),
+  const rvRows = (page) => page.$$eval("#rv-rows tr.rrow", (ns) => ns.map((n) => ({ id: n.getAttribute("data-review"), cells: [...n.children].map((c) => (c.querySelector(".rk-word") || c).textContent.replace(/[\s  ]+/g, " ").trim()),
+    note: n.querySelector(".rv-note") ? n.querySelector(".rv-note").textContent.trim() : null,
     answers: [...n.querySelectorAll("button[data-answer]")].map((b) => b.getAttribute("data-answer") + ":" + b.textContent.trim()) })));
   const rvTab = (page) => page.$eval("#tab-review", (n) => n.textContent.trim());
   const openReview = async (page) => { await page.click("#tab-review"); await page.waitForSelector("#rv-rows tr.rrow, #rv-empty"); };
@@ -1026,6 +1035,9 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const p0 = mock.pieces[0];
     check("review: a row lists the serial, Brand · Model, the state tag and the raised date",
       r1.cells[1].includes(p0.serial) && r1.cells[1].includes(p0.brand + " · " + p0.model_name) && r1.cells[2] === "In stock" && /^\d{1,2} [A-Z][a-z]{2} 2026$/.test(r1.cells[3]), JSON.stringify(r1.cells));
+    // Codex (PR #11): the diagnostic note the import wrote is shown with the review, before anyone closes it
+    check("review: the import's note is shown under the kind; none where there is none",
+      rows[2].note === mock.reviews[2].note && rows[1].note === "Seen twice in the export" && rows[0].note === null, JSON.stringify(rows.map((r) => r.note)));
     check("review: the headings are Kind, Piece, State, Raised, Answer", (await page.$$eval("#rv-table thead th", (ns) => ns.map((n) => n.textContent.trim()))).join() === "Kind,Piece,State,Raised,Answer");
     const kinds = Object.keys(KIND_EN);
     check("review: each row offers exactly its kind's answers, in words", rows.every((r, i) => r.answers.join() === KIND_ANS[kinds[i]].map((a) => a + ":" + ANS_EN[a]).join()), JSON.stringify(rows.map((r) => r.answers)));

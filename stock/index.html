@@ -225,6 +225,7 @@ main { padding: 24px 24px 96px; }
 /* the review table */
 .tbl.reviews th, .tbl.reviews td { padding: 8px 10px; vertical-align: top; }
 .tbl.reviews td.rk { min-width: 0; overflow-wrap: break-word; }
+.tbl.reviews td.rk .rv-note { display: block; margin-top: 4px; color: var(--slate); font-weight: 400; }
 .tbl.reviews td.since { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tbl.reviews td.st { white-space: nowrap; }
 .tbl.reviews td.st .tag { white-space: nowrap; }
@@ -1161,6 +1162,7 @@ Object.assign(RU, {
   "Raised {d}": "Поднято {d}",
   "Ticket {n}": "Чек {n}",
   "Void": "Аннулирован",
+  "Refund": "Возврат",
   "Colibri": "Colibri",
   "Till": "Касса",
   "Training": "Учебный",
@@ -1317,8 +1319,10 @@ function saleItem(s) {
     !blank(s.ticket_id) ? el("a", { class: "ev-ticket", href: ticketHref(s.ticket_id), text: blank(s.ticket_no) ? "—" : s.ticket_no })
       : el("span", { text: blank(s.ticket_no) ? "—" : s.ticket_no }),
     el("span", { class: "num", text: fmtDate(s.sold_at) }),
-    el("span", { class: "num", text: fmtMoney(s.net) }),
+    // refund lines are stored with a positive net (ops_ticket_lines.kind = 'refund'): show them as money going back
+    el("span", { class: "num", text: (s.kind === "refund" && Number(s.net) > 0 ? "−" : "") + fmtMoney(s.net) }),
     el("span", { class: "small", text: tr(SOURCE_WORD[s.source] || humanKey(s.source)) }),
+    s.kind === "refund" ? el("span", { class: "tag info", text: tr("Refund") }) : null,
     s.status === "void" ? el("span", { class: "tag done", text: tr("Void") }) : null);
 }
 
@@ -1362,7 +1366,8 @@ function renderPiece() {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Open reviews") }),
         el("ul", { class: "pc-list", id: "pc-reviews" }, open.map((r) => el("li", { class: "pc-ev" },
           el("span", { text: tr(REVIEW_KIND[r.kind] || humanKey(r.kind)) }),
-          el("span", { class: "small", text: tr("Raised {d}", { d: fmtDate(r.raised_at) }) }))))));
+          el("span", { class: "small", text: tr("Raised {d}", { d: fmtDate(r.raised_at) }) }),
+          !blank(r.note) ? el("span", { class: "small rv-note", text: r.note }) : null)))));
     }
     if ((d.sales || []).length) {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Sales") }),
@@ -1605,7 +1610,8 @@ function reviewRow(r, manage, rv) {
   const a = rv.ans && rv.ans.id === r.review_id ? rv.ans : null;
   const model = [p.brand, p.model_name].filter((x) => !blank(x)).join(" · ");
   return el("tr", { class: "rrow" + (a ? " open" : ""), "data-review": r.review_id },
-    el("td", { class: "rk", text: kindWord(r.kind) }),
+    el("td", { class: "rk" }, el("span", { class: "rk-word", text: kindWord(r.kind) }),
+      !blank(r.note) ? el("span", { class: "rv-note small", text: r.note }) : null),
     el("td", { class: "rp" }, el("button", { type: "button", class: "btn quiet rv-piece", onclick: () => openPiece(p.piece_id) },
       el("span", { class: "serial", text: p.serial || "—" }), model ? el("span", { class: "ref-m small", text: model }) : null)),
     el("td", { class: "st" }, stateTag(p.state)),
