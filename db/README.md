@@ -12,7 +12,7 @@
   adding `--schema-only -f schema.sql`, and commit it with the change.
 - Full backups (`*.dump`) hold client data and never go into this repository.
 
-The five edge functions all have their source here:
+The six edge functions all have their source here:
 
 | Function | Source |
 |---|---|
@@ -21,3 +21,4 @@ The five edge functions all have their source here:
 | `crm-import` | `crm/src/import-api/index.ts` |
 | `catalogue-api` | `catalogue/src/api/index.ts` + `filter-v2.ts` |
 | `sales-api` | `sales/src/api/index.ts` |
+| `stock-api` | `stock/src/api/index.ts` |

@@ -19,14 +19,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 
 -- Production hardening for the objects already in the snapshot (the defaults above do not touch them): nothing on
--- any public table or sequence, and no execute on ops_* or pos_* functions, for the API roles.
+-- any public table or sequence, and no execute on ops_*, pos_* or stk_* functions, for the API roles.
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
 do $$
 declare f regprocedure;
 begin
   for f in select p.oid::regprocedure from pg_proc p
-           where p.pronamespace = 'public'::regnamespace and (p.proname like 'ops\_%' or p.proname like 'pos\_%') and p.prokind = 'f'
+           where p.pronamespace = 'public'::regnamespace and (p.proname like 'ops\_%' or p.proname like 'pos\_%' or p.proname like 'stk\_%') and p.prokind = 'f'
   loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
   end loop;

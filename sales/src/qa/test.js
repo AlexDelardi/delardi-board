@@ -459,11 +459,11 @@ async function shot(page, name) {
   await run("kit shell", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     const toolsBtn = page.locator(".kit-head [data-kit-menu] > button");
-    check("kit: header has the Tools switcher with 4 tools (button)", (await toolsBtn.count()) === 1 && norm(await toolsBtn.textContent()) === "Tools");
+    check("kit: header has the Tools switcher (button)", (await toolsBtn.count()) === 1 && norm(await toolsBtn.textContent()) === "Tools");
     await toolsBtn.click();
     const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
     const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
-    check("kit: header has the Tools switcher with 4 tools", items.join() === "Sales,Clients,Catalogue,Board" && current.join() === "Sales",
+    check("kit: header has the Tools switcher with 5 tools, Stock among them", items.join() === "Sales,Stock,Clients,Catalogue,Board" && current.join() === "Sales",
       items.join() + " / " + current.join());
     check("kit: the Tools menu is open", await page.isVisible(".kit-head .kit-menu"));
     check("kit: no theme switch", await page.evaluate(() => ![...document.querySelectorAll("[title], [aria-label]")]

@@ -1,6 +1,6 @@
 # Delardi UI kit
 
-One shared stylesheet (`kit.css`) and tool switcher (`tools.js`) that every in-store tool inlines. Palette only (navy, navy-deep, slate, sky, mist, card, white, alert), radius 0, no shadows, no dark mode. Sales (`sales/`) is the first tool on the kit; the others follow. Check: `node qa/kit.cjs` (`KIT_ONLY=1` skips the tool pages).
+One shared stylesheet (`kit.css`) and tool switcher (`tools.js`) that every in-store tool inlines. Palette only (navy, navy-deep, slate, sky, mist, card, white, alert), radius 0, no shadows, no dark mode. Sales (`sales/`) and Stock (`stock/`) are on the kit; the others follow. Check: `node qa/kit.cjs` (`KIT_ONLY=1` skips the tool pages).
 
 ## Classes
 
@@ -26,7 +26,7 @@ Lowest to highest: header `.kit-head` (50), its menu (60), `.panel-wrap` (100), 
 
 ## JS
 
-`KIT_TOOLS` lists the four tools. `kitToolsMenu(currentId, lang, opts)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool calls `kitCloseMenus()` on lock (closes every open kit menu and removes its document listeners) and then removes the element. The menu is a plain disclosure (`aria-expanded`, a list of links) and also closes when focus leaves it.
+`KIT_TOOLS` lists the five tools (Sales, Stock, Clients, Catalogue, Board). `kitToolsMenu(currentId, lang, opts)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool calls `kitCloseMenus()` on lock (closes every open kit menu and removes its document listeners) and then removes the element. The menu is a plain disclosure (`aria-expanded`, a list of links) and also closes when focus leaves it.
 
 Leaving the page can ask first. `opts.beforeLeave(href)` (optional) returns a Promise: `true` follows the link, `false` stays. The menu calls it before any tool link is followed; `kitGuardLink(a, beforeLeave)` does the same for any other link (the `.kit-brand` wordmark). A modified click (Ctrl/Cmd, a new tab) is left alone. The kit does not know what a tool keeps on screen: the tool decides. Sales asks with its confirm dialog when the sale on screen has lines ("Leave the till?" / «Уйти из кассы?»).
 
@@ -38,9 +38,13 @@ Leaving the page can ask first. `opts.beforeLeave(href)` (optional) returns a Pr
 - **Global rules:** the kit styles elements, not only classes: `* { border-radius: 0 }`, `input, select, textarea { width: 100%; min-height: 44px }` and the `body` font. An existing form will change: inline fields and narrow selects need a `width` of their own, checkboxes and radios are reset to 20 px.
 - **Order of scripts:** `tools.js` defines functions only; call them from the tool's own boot code, never from top-level code that runs before `tools.js` is in the script.
 
+## `xlsx.js`: `kitXlsx(sheetName, columns, rows) → Blob`
+
+A real .xlsx (a stored ZIP of six small XML parts, no library), for a tool that hands a list to Excel. `columns = [{ title, key, type }]` with `type` `"text"` (default), `"number"` or `"date"`; `rows` are plain objects read by `key`. A number column writes numeric cells (null, empty or a non-numeric value leaves the cell empty; a plain decimal string such as `"31500000"` is read as a number); control characters are dropped from text while newline and tab are kept; a date column takes `"YYYY-MM-DD"` and writes a real date shown `dd.mm.yyyy`; the first row is the bold, frozen heading row with a filter. The sheet name is cut to 31 characters and loses `\ / ? * [ ] :`. It knows nothing of any tool: no words, no translation, no logging, and it only builds the Blob. Saving is the caller's job: `URL.createObjectURL(blob)`, a temporary `<a download>`, revoke afterwards (a `blob:` URL is local, so a page that allows no foreign requests is unaffected). It adds one global, `kitXlsx`. Stock is the second tool on the kit and uses it (`stock/src/export.js`); `crm/src/xlsx.js` still has its own writer and moves to this one later.
+
 ## Inlining from a `build.py`
 
-Replace the `/*__KIT_CSS__*/` marker in the template's `<style>` with the contents of `ui/kit.css`, and prepend `ui/tools.js` to the tool's JS modules.
+Replace the `/*__KIT_CSS__*/` marker in the template's `<style>` with the contents of `ui/kit.css`, and prepend `ui/tools.js` to the tool's JS modules; a tool that exports to Excel also inlines `ui/xlsx.js` (required: fail the build if it is missing).
 
 ## Not yet
 
