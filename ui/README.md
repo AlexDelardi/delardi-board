@@ -4,7 +4,7 @@ One shared stylesheet (`kit.css`) and tool switcher (`tools.js`) that every in-s
 
 ## Classes
 
-- `.kit-head` header bar; inside: `.kit-brand`, `.kit-rule`, `.kit-tool`, `.kit-spacer`, `.kit-hbtn` (header button), `.kit-lang` (EN/RU pair, active half `[aria-pressed="true"]` or `.on`), `.kit-menu` (Tools dropdown).
+- `.kit-head` header bar; inside: `.kit-brand`, `.kit-rule`, `.kit-tool`, `.kit-spacer`, `.kit-hbtn` (header button), `.kit-lang` (EN/RU pair, active half `[aria-pressed="true"]` or `.on`), `.kit-tool-wrap` (wrapper of the switcher), `.kit-menu` (Tools dropdown).
 - `.kit-tabs` / `.kit-tab` tab row; active tab `[aria-current="page"]`.
 - `.btn` with `.primary`, `.quiet`, `.danger`, `.big`.
 - `input`, `select`, `textarea` styled by element; `[aria-invalid="true"]` for errors; `.lbl` field label.
@@ -22,7 +22,7 @@ Legacy variables `--muted`, `--page`, `--surface-2` (and the other aliases) are 
 
 ## JS
 
-`KIT_TOOLS` lists the four tools. `kitToolsMenu(currentId, lang)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool removes the element on lock.
+`KIT_TOOLS` lists the four tools. `kitToolsMenu(currentId, lang)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool calls `kitCloseMenus()` on lock (closes every open kit menu and removes its document listeners) and then removes the element. The menu is a plain disclosure (`aria-expanded`, a list of links) and also closes when focus leaves it.
 
 ## Inlining from a `build.py`
 

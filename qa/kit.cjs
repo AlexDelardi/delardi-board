@@ -62,11 +62,12 @@ ok(exists('ui/tools.js'), 'ui/tools.js exists');
 // tools.js in a minimal sandbox
 const sandbox = { document: { createElement: () => ({}), addEventListener() {}, removeEventListener() {} } };
 vm.createContext(sandbox);
-vm.runInContext(read('ui/tools.js') + '\n;this.__T = typeof KIT_TOOLS !== "undefined" ? KIT_TOOLS : null; this.__F = typeof kitToolsMenu;', sandbox);
+vm.runInContext(read('ui/tools.js') + '\n;this.__T = typeof KIT_TOOLS !== "undefined" ? KIT_TOOLS : null; this.__F = typeof kitToolsMenu; this.__C = typeof kitCloseMenus;', sandbox);
 ok(Array.isArray(sandbox.__T) && sandbox.__T.length === 4, 'KIT_TOOLS has 4 entries');
 ok(sandbox.__T.map(t => t.id).join() === 'sales,crm,catalogue,board', 'KIT_TOOLS ids');
 ok(sandbox.__T.every(t => t.href && t.en && t.ru), 'KIT_TOOLS fields');
 ok(sandbox.__F === 'function', 'kitToolsMenu is a function');
+ok(sandbox.__C === 'function', 'kitCloseMenus is a function');
 if (!process.env.KIT_ONLY) {
   for (const page of KIT_PAGES) {
     ok(exists(page), page + ' exists');
