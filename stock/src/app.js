@@ -123,7 +123,7 @@ function stateTag(state) {
 /* -------------------------------------------------------------------- state
    Filters live here and nowhere else (not in the URL, not in storage). */
 const S = {
-  token: null, name: null, expires_at: null, rights: { view: false, manage: false, crm: false },
+  token: null, name: null, expires_at: null, rights: { view: false, manage: false, crm: false, cost: false },
   locked: true, gateMessage: null,
   facets: null,                      // { brands, categories }
   filters: { q: "", state: "", brand: "", category: "", price_min: null, price_max: null },

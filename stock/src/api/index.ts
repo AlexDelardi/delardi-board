@@ -7,7 +7,7 @@
 //   1. Unlock checks board_users.can_view_stock, and the session it issues
 //      carries can_use_stock and nothing else, so a Stock token opens no other
 //      area and no other area's token opens Stock.
-//   2. Rights (view, manage, and the CRM view right) are re-read from
+//   2. Rights (view, manage, cost, and the CRM view right) are re-read from
 //      board_users on every call. Without the CRM view right a login sees a
 //      held piece's client by reference only (no name).
 //   3. Reads are the stk_* database functions. The only writes are
@@ -15,8 +15,9 @@
 //      themselves; their refusals (raise exception, SQLSTATE P0001) come back
 //      as 409 with the sentence verbatim, because they are written for the screen.
 //
-// Cost, purchase price, landed price and margin are never read here: no
-// stk_* function returns them and this function selects none.
+// Cost, purchase price, landed cost and margin leave through one action only,
+// `cost`, which needs the separate view-cost right (board_users.can_view_cost).
+// No other action reads them: the other stk_* functions return none.
 //
 // The source of this function lives in the repository at stock/src/api/index.ts
 // and the contract the page relies on in stock/src/api/README.md. Deploying is
@@ -156,23 +157,24 @@ function clientIp(req: Request) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
-interface Rights { view: boolean; manage: boolean; crm: boolean }
-type Need = "view" | "manage";
+interface Rights { view: boolean; manage: boolean; crm: boolean; cost: boolean }
+type Need = "view" | "manage" | "cost";
 
 interface Session {
   name: string;
   rights: Rights;
 }
 
-const RIGHT_COLUMNS = "can_view_stock,can_manage_stock,can_view_crm";
+const RIGHT_COLUMNS = "can_view_stock,can_manage_stock,can_view_crm,can_view_cost";
 const NO_ACCESS = "This account does not have access to Stock.";
 const NEED_MESSAGES: Record<Need, string> = {
   view: "Your account cannot look up stock.",
   manage: "Your account cannot change stock.",
+  cost: "Your account cannot see cost.",
 };
 
 function rightsOf(u: Record<string, unknown>): Rights {
-  return { view: !!u.can_view_stock, manage: !!u.can_manage_stock, crm: !!u.can_view_crm };
+  return { view: !!u.can_view_stock, manage: !!u.can_manage_stock, crm: !!u.can_view_crm, cost: !!u.can_view_cost };
 }
 
 async function requireStock(token: unknown, need?: Need): Promise<Session> {
@@ -313,6 +315,23 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "piece") {
     const sess = await requireStock(body.token, "view");
     return await pieceDetail(sess, uuid(body.piece_id, "piece"));
+  }
+
+  // Where the piece came from, its codes and its Colibri record. No money.
+  if (action === "origin") {
+    await requireStock(body.token, "view");
+    const doc = await rpc("stk_piece_origin", { p_piece: uuid(body.piece_id, "piece") });
+    if (!doc) throw new HttpErr(404, "No piece with that reference.");
+    return doc;
+  }
+
+  // ------------------------------------------------------------- cost right
+  // The only action that returns cost or margin.
+  if (action === "cost") {
+    await requireStock(body.token, "cost");
+    const doc = await rpc("stk_piece_cost", { p_piece: uuid(body.piece_id, "piece") });
+    if (!doc) throw new HttpErr(404, "No piece with that reference.");
+    return doc;
   }
 
   if (action === "reviews") {
