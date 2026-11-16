@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict au3GuyPxz9UODDoOKmuCQkjvFaKznd06vXNeeZA1pHBKB5gbNtfY4KKkFCvlEjK
+\restrict QnIURMgTCKWwtqTXOVByboGIII3Zb5Vw2rO6y1ZcRAZaSB0GFrVBb91Apr33hAh
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.6
@@ -374,9 +374,9 @@ begin
     conflicts = excluded.conflicts, notes = excluded.notes, sort_order = excluded.sort_order,
     import_run = excluded.import_run, updated_at = excluded.updated_at, qty_transit = excluded.qty_transit;
 
-  insert into cat_pieces(serial, variant_id, size, price_uzs, import_run)
-    select x.serial, x.variant_id, x.size, x.price_uzs, run_id
-    from jsonb_to_recordset(p->'pieces') as x(serial text, variant_id text, size text, price_uzs bigint);
+  insert into cat_pieces(serial, variant_id, size, price_uzs, import_run, barcode)
+    select x.serial, x.variant_id, x.size, x.price_uzs, run_id, nullif(btrim(x.barcode), '')
+    from jsonb_to_recordset(p->'pieces') as x(serial text, variant_id text, size text, price_uzs bigint, barcode text);
 
   -- variants Colibri no longer sends: removed if nothing points at them, else kept and out of stock
   delete from cat_variants v
@@ -1817,6 +1817,7 @@ CREATE FUNCTION public.crm_import_apply(p_batch bigint, p_actor text) RETURNS js
 declare
   b crm_import_batches%rowtype; v_sum jsonb; r record; k record; v_id text; v_label int;
   v_note text; v_touched text[] := '{}'; v_new text[] := '{}'; v_owner text; v_active boolean;
+  v_golive date; v_refused int := 0;
 begin
   select * into b from crm_import_batches where id = p_batch for update;
   if not found then perform crm_fail('No such refresh.'); end if;
@@ -1824,6 +1825,13 @@ begin
   v_sum := crm_import_prepare(p_batch);        -- against the file as it stands now
   if (v_sum->'to_decide'->>'lines')::int > 0 then
     perform crm_fail('Some lines could belong to more than one client. Decide them first.');
+  end if;
+  -- from the go-live date the Delardi sales tool owns purchases: lines dated on or after it are not applied
+  v_golive := (select go_live_date from pos_settings where id = 1);
+  if v_golive is not null then
+    v_refused := (select count(*) from crm_import_lines
+                   where batch_id = p_batch and dup_tx_id is null and coalesce(decision, '') <> 'skip'
+                     and sold_at >= v_golive and (client_id is not null or match = 'new'));
   end if;
   -- Every existing record this refresh may touch, as it stands now, so an
   -- undo can put it back exactly.
@@ -1850,6 +1858,7 @@ begin
                   (array_agg(advisor order by net desc nulls last))[1] top_advisor
            from crm_import_lines
            where batch_id = p_batch and match = 'new' and dup_tx_id is null and coalesce(decision, '') <> 'skip'
+             and (v_golive is null or sold_at < v_golive)
            group by new_key order by min(sold_at), new_key loop
     select 'DLD-' || lpad((coalesce(max(substring(client_id from 5)::int), 0) + 1)::text, 4, '0') into v_id
     from crm_clients where client_id ~ '^DLD-\d+$';
@@ -1882,6 +1891,7 @@ begin
     select client_id, sold_at, brand, category, item, qty, gross, discount_pct, net, advisor, btrim(article), p_batch
     from crm_import_lines
     where batch_id = p_batch and dup_tx_id is null and client_id is not null and coalesce(decision, '') <> 'skip'
+      and (v_golive is null or sold_at < v_golive)
     returning id, client_id
   )
   insert into crm_import_changes (batch_id, client_id, kind, tx_id) select p_batch, client_id, 'tx_added', id from ins;
@@ -1906,6 +1916,7 @@ begin
   for r in select distinct l.client_id, min(btrim(l.name_raw)) name_raw, min(l.phone_norm) phone
            from crm_import_lines l join crm_clients c on c.client_id = l.client_id
            where l.batch_id = p_batch and l.dup_tx_id is null and c.record_type = 'prospect'
+             and (v_golive is null or l.sold_at < v_golive)
            group by l.client_id loop
     insert into crm_import_changes (batch_id, client_id, kind, field, old_value, new_value)
     select p_batch, r.client_id, 'field_changed', f, o, n
@@ -1961,7 +1972,7 @@ begin
   from crm_clients c where x.batch_id = p_batch and x.kind = 'client_row' and c.client_id = x.client_id;
 
   update crm_import_batches set status = 'applied', decided_at = now(), decided_by = p_actor,
-    summary = v_sum || jsonb_build_object('applied', jsonb_build_object(
+    summary = v_sum || jsonb_build_object('refused_after_go_live', v_refused, 'applied', jsonb_build_object(
       'new_clients', cardinality(v_new), 'clients_touched', cardinality(v_touched),
       'lines_added', (select count(*) from crm_import_changes where batch_id = p_batch and kind = 'tx_added')))
   where id = p_batch;
@@ -3955,14 +3966,20 @@ declare
   n_crm int := 0; n_remap int := 0;
   v_unmapped text[] := '{}'; v_mixed text[] := '{}'; v_changed text[] := '{}'; v_unmatched text[] := '{}';
   v_ambiguous text[] := '{}';
-  v_match jsonb := '{}'; v_last_run date;
+  v_match jsonb := '{}'; v_last_run date; v_golive date; v_refused text[] := '{}';
 begin
   if p_actor is null or btrim(p_actor) = '' then raise exception 'actor required'; end if;
   v_last_run := (select (max(run_at) at time zone 'Asia/Tashkent')::date from cat_import_runs);
+  v_golive := (select go_live_date from pos_settings where id = 1);
 
   for v_t in select value from jsonb_array_elements(coalesce(p->'tickets', '[]'::jsonb)) loop
     v_no := v_t->>'ticket_no';
     v_sold_at := (v_t->>'sold_at')::date;
+    -- from the go-live date the Delardi sales tool owns the tickets: the Colibri export may not write them
+    if v_golive is not null and v_sold_at >= v_golive then
+      v_refused := v_refused || v_no;
+      continue;
+    end if;
 
     -- seller: the lowest line_no's seller when lines carry one, else the ticket's; mapped alias first, then a rep's name
     v_seller_raw := coalesce(
@@ -4210,7 +4227,8 @@ begin
     'lines', n_lines, 'payments', n_pay, 'pieces_sold', n_sold,
     'sellers_unmapped', to_jsonb(v_unmapped), 'mixed_sellers', to_jsonb(v_mixed), 'changed', to_jsonb(v_changed),
     'sales_unmatched', to_jsonb(v_unmatched),
-    'crm_links_cleared', n_crm, 'remapped', n_remap, 'pieces_ambiguous', to_jsonb(v_ambiguous));
+    'crm_links_cleared', n_crm, 'remapped', n_remap, 'pieces_ambiguous', to_jsonb(v_ambiguous),
+    'refused_after_go_live', to_jsonb(v_refused));
 end $$;
 
 
@@ -4328,19 +4346,20 @@ CREATE FUNCTION public.ops_sync_pieces(p_run bigint) RETURNS jsonb
     SET search_path TO 'public', 'pg_temp'
     AS $$
 declare v_arrived int := 0; v_transit int := 0; v_refreshed int := 0; v_raised int := 0; v_closed int := 0; n int;
+  v_ours int := 0;
 begin
   -- this load: stock first, then incoming serials that are not in stock
   create temp table ops_sync_load on commit drop as
   select distinct on (l.brand, l.k) l.*
     from (
       select m.brand, upper(btrim(p.serial)) k, btrim(p.serial) serial, m.article, m.model_id,
-             p.variant_id, p.size, null::date shipped_on, 'in_stock' src, 1 pri
+             p.variant_id, p.size, null::date shipped_on, 'in_stock' src, 1 pri, p.barcode
         from cat_pieces p
         join cat_variants v on v.variant_id = p.variant_id
         join cat_models   m on m.model_id   = v.model_id
       union all
       select m.brand, upper(btrim(i.serial)), btrim(i.serial), coalesce(i.article, m.article), m.model_id,
-             i.variant_id, i.size, i.shipped_on, 'in_transit', 2
+             i.variant_id, i.size, i.shipped_on, 'in_transit', 2, null::text
         from cat_incoming i
         left join cat_variants v on v.variant_id = i.variant_id
         join cat_models m on m.model_id = coalesce(i.model_id, v.model_id)
@@ -4362,7 +4381,7 @@ begin
   -- 2. refresh every live piece in this load (never its state)
   update ops_pieces o
      set article = l.article, model_id = l.model_id, variant_id = l.variant_id, size = l.size,
-         shipped_on = coalesce(l.shipped_on, o.shipped_on),
+         shipped_on = coalesce(l.shipped_on, o.shipped_on), barcode = coalesce(l.barcode, o.barcode),
          last_seen_run = p_run, last_seen_at = now()
     from ops_sync_load l
    where o.state not in ('sold', 'not_received') and o.brand = l.brand and upper(btrim(o.serial)) = l.k;
@@ -4380,17 +4399,36 @@ begin
   get diagnostics v_closed = row_count;
 
   -- 4. new pieces (no live piece with this brand + serial)
+  -- a loaded serial whose piece the Delardi sales tool sold (and no live piece holds it): not created, not re-opened
+  create temp table ops_sync_ours on commit drop as
+  select distinct on (l.brand, l.k) l.brand, l.k, l.serial, o.piece_id, t.ticket_no
+    from ops_sync_load l
+    join ops_pieces o on o.state = 'sold' and o.brand = l.brand and upper(btrim(o.serial)) = l.k
+    join ops_ticket_lines tl on tl.line_id = o.sold_line_id
+    join ops_tickets t on t.ticket_id = tl.ticket_id and t.source = 'delardi'
+   where not exists (select 1 from ops_pieces x
+                      where x.state not in ('sold', 'not_received') and x.brand = l.brand and upper(btrim(x.serial)) = l.k)
+   order by l.brand, l.k, o.state_since desc nulls last;
+  v_ours := (select count(*) from ops_sync_ours);
+  insert into ops_review(piece_id, kind, raised_run, note)
+  select u.piece_id, 'ticket_conflict', p_run, format('serial %s is in the stock load but was sold on %s', u.serial, u.ticket_no)
+    from ops_sync_ours u
+   where not exists (select 1 from ops_review r where r.piece_id = u.piece_id and r.kind = 'ticket_conflict' and r.status = 'open');
+  get diagnostics n = row_count;
+  v_raised := v_raised + n;
+
   create temp table ops_sync_new on commit drop as
   select l.* from ops_sync_load l
    where not exists (select 1 from ops_pieces o
-                      where o.state not in ('sold', 'not_received') and o.brand = l.brand and upper(btrim(o.serial)) = l.k);
+                      where o.state not in ('sold', 'not_received') and o.brand = l.brand and upper(btrim(o.serial)) = l.k)
+     and not exists (select 1 from ops_sync_ours u where u.brand = l.brand and u.k = l.k);
   v_raised := v_raised + (select count(*) from ops_sync_new l
                            where exists (select 1 from ops_pieces o where o.state in ('sold', 'not_received')
                                             and o.brand = l.brand and upper(btrim(o.serial)) = l.k));
   with ins as (
     insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, size, state, shipped_on,
-                           last_seen_run, last_seen_at)
-    select 1, brand, serial, article, model_id, variant_id, size, src, shipped_on, p_run, now() from ops_sync_new
+                           last_seen_run, last_seen_at, barcode)
+    select 1, brand, serial, article, model_id, variant_id, size, src, shipped_on, p_run, now(), barcode from ops_sync_new
     returning piece_id, state, brand, serial)
   , ev as (
     insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
@@ -4442,8 +4480,726 @@ begin
 
   drop table ops_sync_load;
   drop table ops_sync_new;
+  drop table ops_sync_ours;
   return jsonb_build_object('arrived', v_arrived, 'in_transit', v_transit, 'refreshed', v_refreshed,
-                            'review_raised', v_raised, 'review_closed', v_closed);
+                            'review_raised', v_raised, 'review_closed', v_closed,
+                            'sold_by_us_in_load', v_ours);
+end $$;
+
+
+--
+-- Name: pos_cancel_draft(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_cancel_draft(p_draft bigint, p_actor text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  delete from pos_drafts where draft_id = p_draft;
+  if not found then raise exception 'suspended sale % not found', p_draft; end if;
+  insert into pos_settings_log(actor, field, new_value)
+  values (coalesce(nullif(btrim(p_actor), ''), 'unknown'), 'draft_cancelled', p_draft::text);
+end $$;
+
+
+--
+-- Name: pos_clear_training(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_clear_training(p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_t int; v_d int;
+begin
+  delete from ops_tickets where source = 'training';
+  get diagnostics v_t = row_count;
+  delete from pos_drafts where mode = 'training';
+  get diagnostics v_d = row_count;
+  insert into pos_settings_log(actor, field, new_value)
+  values (coalesce(nullif(btrim(p_actor), ''), 'unknown'), 'training_cleared',
+          format('tickets %s, drafts %s', v_t, v_d));
+  return jsonb_build_object('tickets', v_t, 'drafts', v_d);
+end $$;
+
+
+--
+-- Name: pos_drafts_list(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_drafts_list(p_mode text) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  if p_mode is null or p_mode not in ('training', 'live') then raise exception 'mode must be training or live'; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'draft_id', d.draft_id, 'created_by', d.created_by, 'created_at', d.created_at,
+             'client_id', d.client_id, 'walk_in', d.walk_in,
+             'seller', (select r.label from crm_sales_reps r where r.source_name = d.seller),
+             'lines', coalesce((
+               select jsonb_agg(jsonb_build_object(
+                        'piece_id', l.piece_id, 'serial', o.serial, 'brand', o.brand, 'model_name', m.model_name,
+                        'price_uzs', l.price_uzs, 'discount_pct', trim_scale(l.discount_pct),
+                        'seller', (select r.label from crm_sales_reps r where r.source_name = l.seller))
+                      order by l.line_no)
+                 from pos_draft_lines l
+                 join ops_pieces o on o.piece_id = l.piece_id
+                 left join cat_models m on m.model_id = o.model_id
+                where l.draft_id = d.draft_id), '[]'::jsonb))
+           order by d.created_at desc, d.draft_id desc)
+      from pos_drafts d where d.mode = p_mode), '[]'::jsonb);
+end $$;
+
+
+--
+-- Name: pos_fmt_uzs(numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_fmt_uzs(p numeric) RETURNS text
+    LANGUAGE sql IMMUTABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $_$
+  select case when p is null then '' when p < 0 then '-' else '' end
+      || regexp_replace(abs(round(p))::text, '(\d)(?=(\d{3})+$)', '\1 ', 'g')
+$_$;
+
+
+--
+-- Name: pos_post_sale(jsonb, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_post_sale(p jsonb, p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_mode     text;
+  v_dmode    text;
+  v_notice   bigint;
+  v_lines    jsonb := case when jsonb_typeof(p->'lines') = 'array' then p->'lines' else '[]'::jsonb end;
+  v_pays     jsonb := case when jsonb_typeof(p->'payments') = 'array' then p->'payments' else '[]'::jsonb end;
+  v_client   text := nullif(btrim(p->>'client_id'), '');
+  v_walk     boolean := coalesce((p->>'walk_in')::boolean, false);
+  v_draft    bigint := nullif(btrim(p->>'draft_id'), '')::bigint;
+  v_seller   text;
+  v_label    text;
+  l          jsonb;
+  pay        jsonb;
+  v_src      text;
+  v_line_src text[] := '{}';
+  v_price    numeric;
+  v_disc     numeric;
+  v_net      numeric;
+  v_total    numeric := 0;
+  v_paid     numeric := 0;
+  v_cash     numeric := 0;
+  v_amount   numeric;
+  v_ct       text;
+  pc         record;
+  v_held     bigint;
+  v_tid      uuid;
+  v_tno      text;
+  v_line     uuid;
+  v_txn      bigint;
+  i          int;
+  d          record;
+begin
+  -- shape
+  if jsonb_array_length(v_lines) = 0 then raise exception 'no lines'; end if;
+  if exists (select 1 from jsonb_array_elements(v_lines) e where nullif(e->>'piece_id', '') is null) then
+    raise exception 'no lines: a line has no piece';
+  end if;
+  if (select count(distinct (e->>'piece_id')::uuid) from jsonb_array_elements(v_lines) e) <> jsonb_array_length(v_lines) then
+    raise exception 'piece listed twice';
+  end if;
+  if (v_client is null and not v_walk) or (v_client is not null and v_walk) then
+    raise exception 'choose a client or walk-in';
+  end if;
+  if v_client is not null and not exists (select 1 from crm_clients where client_id = v_client
+                                                                       and record_state not in ('merged', 'deleted')) then
+    raise exception 'choose a client or walk-in: client % not found', v_client;
+  end if;
+
+  -- sellers: label → source_name, current reps only
+  v_label := nullif(btrim(p->>'seller'), '');
+  if v_label is null then raise exception 'choose a seller'; end if;
+  select min(source_name), count(*) into v_seller, i from crm_sales_reps where label = v_label and active;
+  if i <> 1 then raise exception 'choose a seller: % is not a current sales rep', v_label; end if;
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    v_label := nullif(btrim(l->>'seller'), '');
+    if v_label is null then
+      v_line_src := v_line_src || v_seller;
+    else
+      select min(source_name), count(*) into v_src, i from crm_sales_reps where label = v_label and active;
+      if i <> 1 then raise exception 'choose a seller: % is not a current sales rep', v_label; end if;
+      v_line_src := v_line_src || v_src;
+    end if;
+  end loop;
+
+  -- prices and discounts
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    v_disc := coalesce((l->>'discount_pct')::numeric, 0);
+    if v_disc < 0 or v_disc > 100 then raise exception 'discount must be 0 to 100'; end if;
+    -- the line and CRM columns are numeric(6,4): at most 99.9999, four decimals
+    if v_disc >= 100 then raise exception 'discount must be 0 to 100, and below 100 (it cannot be stored)'; end if;
+    if v_disc <> round(v_disc, 4) then raise exception 'discount must be 0 to 100 with at most 4 decimals'; end if;
+    v_price := (l->>'price_uzs')::numeric;
+    if v_price is null or v_price <= 0 then raise exception 'price must be positive'; end if;
+    if v_price <> trunc(v_price) then raise exception 'price must be positive whole so''m'; end if;
+    v_total := v_total + round(v_price * (1 - v_disc / 100));
+  end loop;
+
+  -- mode (held steady against a switch while posting); the screen says which mode it shows, and a till
+  -- switched since the page last heard is refused, so a post is never real while the page says training
+  select mode, cash_notice_uzs into v_mode, v_notice from pos_settings where id = 1 for share;
+  if p ? 'expect_mode' and (p->>'expect_mode') is distinct from v_mode then
+    raise exception 'the till was switched to % — reload', v_mode;
+  end if;
+
+  -- pieces: locked in piece_id order, then checked
+  perform 1 from ops_pieces
+   where piece_id in (select (e->>'piece_id')::uuid from jsonb_array_elements(v_lines) e)
+   order by piece_id for update;
+  -- the suspended sale being posted: locked after the pieces (as pos_suspend does), so a cancel or a
+  -- re-suspend from another device waits for this post, and a draft gone or of the other mode is refused
+  if v_draft is not null then
+    select mode into v_dmode from pos_drafts where draft_id = v_draft for update;
+    if not found then raise exception 'suspended sale % no longer exists', v_draft; end if;
+    if v_dmode <> v_mode then raise exception 'suspended sale % belongs to the other mode', v_draft; end if;
+  end if;
+  for pc in select o.piece_id, o.serial, o.state
+              from jsonb_array_elements(v_lines) e
+              left join ops_pieces o on o.piece_id = (e->>'piece_id')::uuid
+             order by (e->>'piece_id')::uuid loop
+    if pc.piece_id is null then raise exception 'piece not found'; end if;
+    if pc.state <> 'in_stock' then raise exception 'piece % is not in stock', pc.serial; end if;
+    select min(draft_id) into v_held from pos_draft_lines
+     where mode = v_mode and piece_id = pc.piece_id and draft_id is distinct from v_draft;
+    if v_held is not null then raise exception 'piece % is in suspended sale %', pc.serial, v_held; end if;
+  end loop;
+  if exists (select 1 from pos_drafts where mode = v_mode and draft_id is distinct from v_draft) then
+    raise exception 'another sale is suspended';
+  end if;
+
+  -- payments
+  for pay in select e from jsonb_array_elements(v_pays) e loop
+    v_amount := (pay->>'amount')::numeric;
+    if coalesce(pay->>'method', '') not in ('cash', 'card', 'transfer') then
+      raise exception 'payment method must be cash, card or transfer';
+    end if;
+    if pay->>'method' = 'card' and coalesce(pay->>'card_type', '') not in ('uzcard', 'humo', 'visa') then
+      raise exception 'card payment needs a card type';
+    end if;
+    if v_amount is null or v_amount <= 0 or v_amount <> trunc(v_amount) then
+      raise exception 'payment amount must be a positive whole sum';
+    end if;
+    v_paid := v_paid + v_amount;
+    if pay->>'method' = 'cash' then v_cash := v_cash + v_amount; end if;
+  end loop;
+  if v_paid <> v_total then raise exception 'payments % do not match total %', v_paid, v_total; end if;
+
+  -- ticket
+  v_tno := case when v_mode = 'live' then 'D-' || lpad(nextval('pos_ticket_no_seq')::text, 6, '0')
+                else 'T-' || lpad(nextval('pos_training_no_seq')::text, 6, '0') end;
+  insert into ops_tickets(store_id, source, ticket_no, sold_at, seller, client_id, walk_in, entered_by, fiscal_ref, status)
+  values (1, case when v_mode = 'live' then 'delardi' else 'training' end, v_tno,
+          (now() at time zone 'Asia/Tashkent')::date, v_seller, v_client, v_walk, p_actor,
+          nullif(btrim(p->>'fiscal_ref'), ''), 'posted')
+  returning ticket_id into v_tid;
+
+  -- lines, in the order given
+  i := 0;
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    i := i + 1;
+    v_price := (l->>'price_uzs')::numeric;
+    v_disc  := coalesce((l->>'discount_pct')::numeric, 0);
+    v_net   := round(v_price * (1 - v_disc / 100));
+    select o.piece_id, o.serial, o.brand, coalesce(o.article, m.article) article, o.size, o.model_id, o.variant_id,
+           v.colour_code, m.model_name, m.category,
+           (select cp.price_uzs from cat_pieces cp
+             where cp.variant_id = o.variant_id and upper(btrim(cp.serial)) = upper(btrim(o.serial))
+             order by cp.id desc limit 1) price_list
+      into pc
+      from ops_pieces o
+      left join cat_models m on m.model_id = o.model_id
+      left join cat_variants v on v.variant_id = o.variant_id
+     where o.piece_id = (l->>'piece_id')::uuid;
+    insert into ops_ticket_lines(ticket_id, line_no, kind, qty, article, colour, item_name, size, model_id, variant_id,
+                                 serial_raw, brand_raw, price_list, price_current, discount_pct, discount_amt, net,
+                                 extra, piece_id)
+    values (v_tid, i, 'sale', 1, pc.article, pc.colour_code, pc.model_name, pc.size, pc.model_id, pc.variant_id,
+            pc.serial, pc.brand, pc.price_list, v_price, v_disc, v_price - v_net, v_net,
+            case when v_line_src[i] is distinct from v_seller then jsonb_build_object('seller', v_line_src[i]) end,
+            case when v_mode = 'live' then pc.piece_id end)
+    returning line_id into v_line;
+
+    if v_mode = 'live' then
+      perform ops_apply_ticket_line(v_line, p_actor);
+      if not exists (select 1 from ops_pieces where piece_id = pc.piece_id and state = 'sold' and sold_line_id = v_line) then
+        raise exception 'piece % could not be marked sold', pc.serial;
+      end if;
+      if v_client is not null then
+        insert into crm_transactions(client_id, sold_at, brand, category, item, qty, gross_uzs, discount_pct, net_uzs,
+                                     advisor, article, cat_model_id, cat_variant_id, ticket_line_id)
+        values (v_client, (now() at time zone 'Asia/Tashkent')::date, pc.brand, pc.category, pc.model_name, 1,
+                v_price, v_disc, v_net, v_line_src[i], pc.article, pc.model_id, pc.variant_id, v_line)
+        returning id into v_txn;
+        -- the insert trigger links by article; the till knows the exact model and variant, so they win
+        if pc.model_id is not null then
+          select * into d from cat_txn_display(pc.model_id, pc.variant_id, pc.model_name);
+          update crm_transactions
+             set cat_model_id = pc.model_id, cat_variant_id = coalesce(pc.variant_id, d.variant_id),
+                 cat_name_ru = d.name_ru, cat_name_en = d.name_en, cat_thumb_url = d.thumb_url
+           where id = v_txn;
+        end if;
+      end if;
+    end if;
+  end loop;
+
+  -- payments: a Visa card is stored as method 'visa' (as Colibri does); the card type is kept either way
+  for pay in select e from jsonb_array_elements(v_pays) e loop
+    v_ct := case when pay->>'method' = 'card' then pay->>'card_type' end;
+    insert into ops_ticket_payments(ticket_id, method, amount, raw, card_type)
+    values (v_tid, case when v_ct = 'visa' then 'visa' else pay->>'method' end, (pay->>'amount')::numeric,
+            case when v_ct = 'visa' then 'visa' else pay->>'method' end, v_ct);
+  end loop;
+
+  if v_mode = 'live' and v_client is not null then
+    perform crm_recompute_purchases(array[v_client]);
+  end if;
+
+  update ops_tickets set receipt_text = pos_receipt_text(v_tid) where ticket_id = v_tid;
+  if v_draft is not null then
+    delete from pos_drafts where draft_id = v_draft and mode = v_mode;
+    insert into pos_settings_log(actor, field, new_value)
+    values (coalesce(nullif(btrim(p_actor), ''), 'unknown'), 'draft_posted', v_draft || ' → ' || v_tno);
+  end if;
+
+  return jsonb_build_object('ticket_id', v_tid, 'ticket_no', v_tno, 'mode', v_mode, 'total', v_total,
+                            'cash_notice', v_cash > v_notice);
+end $$;
+
+
+--
+-- Name: pos_receipt_text(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_receipt_text(p_ticket uuid) RETURNS text
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare t ops_tickets%rowtype; v text[] := '{}'; r record; v_total numeric;
+begin
+  select * into t from ops_tickets where ticket_id = p_ticket;
+  if not found then raise exception 'ticket % not found', p_ticket; end if;
+  if t.source = 'training' then v := array_append(v, 'TRAINING — NOT A SALE'::text); end if;
+  v := array_append(v, 'DELARDI'::text);
+  v := array_append(v, coalesce((select shop_address from pos_settings where id = 1), ''));
+  v := array_append(v, format('Ticket %s · %s', t.ticket_no, to_char(t.loaded_at at time zone 'Asia/Tashkent', 'DD.MM.YYYY HH24:MI')));
+  v := array_append(v, ('Seller: ' || coalesce((select label from crm_sales_reps where source_name = t.seller), '')));
+  v := array_append(v, ('Client: ' || case when t.client_id is null then 'Walk-in'
+                                else coalesce((select display_name from crm_queue where client_id = t.client_id), t.client_id) end));
+  for r in select * from ops_ticket_lines where ticket_id = p_ticket order by line_no loop
+    v := array_append(v, concat_ws(' ', r.brand_raw, r.item_name) || ' · ' || coalesce(r.serial_raw, ''));
+    v := array_append(v, format('%s −%s%% = %s', pos_fmt_uzs(r.price_current), trim_scale(coalesce(r.discount_pct, 0)),
+                     pos_fmt_uzs(r.net)));
+  end loop;
+  select coalesce(sum(net), 0) into v_total from ops_ticket_lines where ticket_id = p_ticket;
+  v := array_append(v, ('Total ' || pos_fmt_uzs(v_total)));
+  for r in select * from ops_ticket_payments where ticket_id = p_ticket order by payment_id loop
+    v := array_append(v, (case when r.method = 'cash' then 'Cash' when r.method = 'transfer' then 'Transfer'
+                    when r.card_type = 'uzcard' then 'Uzcard' when r.card_type = 'humo' then 'Humo'
+                    when r.card_type = 'visa' or r.method = 'visa' then 'Visa' else initcap(r.method) end
+               || ' ' || pos_fmt_uzs(r.amount)));
+  end loop;
+  return array_to_string(v, E'\n');
+end $$;
+
+
+--
+-- Name: pos_rep_source(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_rep_source(p_label text) RETURNS text
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_src text; n int;
+begin
+  select min(source_name), count(*) into v_src, n from crm_sales_reps where label = btrim(p_label) and active;
+  if n <> 1 then raise exception 'choose a seller: % is not a current sales rep', btrim(p_label); end if;
+  return v_src;
+end $$;
+
+
+--
+-- Name: pos_search_pieces(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_search_pieces(p_q text, p_mode text) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_q    text := btrim(coalesce(p_q, ''));
+  v_mode text := coalesce(p_mode, (select mode from pos_settings where id = 1));
+  v_ids  uuid[];
+  v_words text[];
+begin
+  if v_q = '' then return '[]'::jsonb; end if;
+  if v_mode not in ('training', 'live') then raise exception 'mode must be training or live'; end if;
+
+  select array_agg(piece_id) into v_ids from ops_pieces where barcode = v_q;
+  if v_ids is null then
+    select array_agg(piece_id) into v_ids from ops_pieces
+     where upper(regexp_replace(serial, '\s', '', 'g')) = upper(regexp_replace(v_q, '\s', '', 'g'));
+  end if;
+  if v_ids is null then
+    -- each word with \ % _ escaped, so it matches literally
+    select array_agg('%' || regexp_replace(w, '([\\%_])', '\\\1', 'g') || '%') into v_words
+      from regexp_split_to_table(v_q, '\s+') w where w <> '';
+    select array_agg(o.piece_id) into v_ids
+      from ops_pieces o
+      left join cat_models m on m.model_id = o.model_id
+     where not exists (select 1 from unnest(v_words) w
+                        where not (o.serial ilike w escape '\' or coalesce(o.article, m.article) ilike w escape '\'
+                                   or o.brand ilike w escape '\' or m.collection ilike w escape '\'
+                                   or m.model_name ilike w escape '\'));
+  end if;
+  if v_ids is null then return '[]'::jsonb; end if;
+
+  return coalesce((
+    select jsonb_agg(x.j order by x.sellable desc, x.brand, x.article nulls last, x.serial)
+      from (select r.*, jsonb_build_object(
+                     'piece_id', r.piece_id, 'serial', r.serial, 'barcode', r.barcode, 'brand', r.brand,
+                     'article', r.article, 'collection', r.collection, 'model_name', r.model_name,
+                     'colour', r.colour, 'size', r.size, 'metal_keys', to_jsonb(r.metal_keys),
+                     'stone_keys', to_jsonb(r.stone_keys), 'price_uzs', r.price_uzs, 'state', r.state,
+                     'held', case when r.held_by is not null then jsonb_build_object('draft_id', r.held_by) end,
+                     'sellable', r.sellable) j
+              from (select o.piece_id, o.serial, o.barcode, o.brand, coalesce(o.article, m.article) article,
+                           m.collection, m.model_name, v.colour_code colour, o.size,
+                           coalesce(m.metal_keys, '{}') metal_keys, coalesce(m.stone_keys, '{}') stone_keys,
+                           (select cp.price_uzs from cat_pieces cp
+                             where cp.variant_id = o.variant_id and upper(btrim(cp.serial)) = upper(btrim(o.serial))
+                             order by cp.id desc limit 1) price_uzs,
+                           o.state, h.draft_id held_by,
+                           (o.state = 'in_stock' and h.draft_id is null) sellable
+                      from ops_pieces o
+                      left join cat_models m on m.model_id = o.model_id
+                      left join cat_variants v on v.variant_id = o.variant_id
+                      left join pos_draft_lines h on h.piece_id = o.piece_id and h.mode = v_mode
+                     where o.piece_id = any(v_ids)
+                     order by (o.state = 'in_stock' and h.draft_id is null) desc, o.brand,
+                              coalesce(o.article, m.article) nulls last, o.serial
+                     limit 20) r) x), '[]'::jsonb);
+end $$;
+
+
+--
+-- Name: pos_set_mode(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_set_mode(p_mode text, p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare s public.pos_settings%rowtype;
+begin
+  if p_mode is null or p_mode not in ('training', 'live') then
+    raise exception 'mode must be training or live';
+  end if;
+  select * into s from public.pos_settings where id = 1 for update;
+  insert into public.pos_settings_log(actor, field, old_value, new_value)
+    values (coalesce(nullif(btrim(p_actor), ''), 'unknown'), 'mode', s.mode, p_mode);
+  update public.pos_settings
+     set mode = p_mode,
+         go_live_date = coalesce(go_live_date,
+                                 case when p_mode = 'live' then (now() at time zone 'Asia/Tashkent')::date end),
+         updated_at = now(), updated_by = p_actor
+   where id = 1
+   returning * into s;
+  return jsonb_build_object('mode', s.mode, 'go_live_date', s.go_live_date);
+end $$;
+
+
+--
+-- Name: pos_suspend(jsonb, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_suspend(p jsonb, p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_mode   text;
+  v_lines  jsonb := case when jsonb_typeof(p->'lines') = 'array' then p->'lines' else '[]'::jsonb end;
+  v_client text := nullif(btrim(p->>'client_id'), '');
+  v_walk   boolean := coalesce((p->>'walk_in')::boolean, false);
+  v_draft  bigint := nullif(btrim(p->>'draft_id'), '')::bigint;
+  v_seller text;
+  v_srcs   text[] := '{}';
+  l        jsonb;
+  v_price  numeric;
+  v_disc   numeric;
+  pc       record;
+  v_held   bigint;
+  i        int;
+begin
+  -- shape
+  if jsonb_array_length(v_lines) = 0 then raise exception 'no lines'; end if;
+  if exists (select 1 from jsonb_array_elements(v_lines) e where nullif(e->>'piece_id', '') is null) then
+    raise exception 'no lines: a line has no piece';
+  end if;
+  if (select count(distinct (e->>'piece_id')::uuid) from jsonb_array_elements(v_lines) e) <> jsonb_array_length(v_lines) then
+    raise exception 'piece listed twice';
+  end if;
+  if v_client is not null and v_walk then raise exception 'choose a client or walk-in'; end if;
+  if v_client is not null and not exists (select 1 from crm_clients where client_id = v_client
+                                                                       and record_state not in ('merged', 'deleted')) then
+    raise exception 'choose a client or walk-in: client % not found', v_client;
+  end if;
+
+  -- sellers (optional while suspended)
+  if nullif(btrim(p->>'seller'), '') is not null then v_seller := pos_rep_source(p->>'seller'); end if;
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    v_srcs := v_srcs || case when nullif(btrim(l->>'seller'), '') is not null then pos_rep_source(l->>'seller') end;
+  end loop;
+
+  -- prices (optional) and discounts, as pos_post_sale checks them
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    v_disc := coalesce((l->>'discount_pct')::numeric, 0);
+    if v_disc < 0 or v_disc >= 100 then raise exception 'discount must be 0 to 100, and below 100'; end if;
+    if v_disc <> round(v_disc, 4) then raise exception 'discount must be 0 to 100 with at most 4 decimals'; end if;
+    v_price := (l->>'price_uzs')::numeric;
+    if v_price is not null and (v_price <= 0 or v_price <> trunc(v_price)) then
+      raise exception 'price must be positive whole so''m';
+    end if;
+  end loop;
+
+  -- mode (held steady against a switch); as pos_post_sale, a page showing another mode is refused
+  select mode into v_mode from pos_settings where id = 1 for share;
+  if p ? 'expect_mode' and (p->>'expect_mode') is distinct from v_mode then
+    raise exception 'the till was switched to % — reload', v_mode;
+  end if;
+
+  -- pieces: locked in piece_id order, then checked under the lock; the draft row after them,
+  -- the same order as pos_post_sale (pieces, then deleting its draft), so the two cannot deadlock
+  perform 1 from ops_pieces
+   where piece_id in (select (e->>'piece_id')::uuid from jsonb_array_elements(v_lines) e)
+   order by piece_id for update;
+  if v_draft is not null then
+    perform 1 from pos_drafts where draft_id = v_draft and mode = v_mode for update;
+    if not found then raise exception 'suspended sale % not found', v_draft; end if;
+  end if;
+  for pc in select o.piece_id, o.serial, o.state
+              from jsonb_array_elements(v_lines) e
+              left join ops_pieces o on o.piece_id = (e->>'piece_id')::uuid
+             order by (e->>'piece_id')::uuid loop
+    if pc.piece_id is null then raise exception 'piece not found'; end if;
+    if pc.state <> 'in_stock' then raise exception 'piece % is not in stock', pc.serial; end if;
+    select min(draft_id) into v_held from pos_draft_lines
+     where mode = v_mode and piece_id = pc.piece_id and draft_id is distinct from v_draft;
+    if v_held is not null then raise exception 'piece % is in suspended sale %', pc.serial, v_held; end if;
+  end loop;
+  -- one till: a new suspended sale only while none of this mode exists (pos_post_sale refuses every post
+  -- while another draft exists, so two would block each other); checked after the holds
+  if v_draft is null and exists (select 1 from pos_drafts where mode = v_mode) then
+    raise exception 'another sale is suspended';
+  end if;
+
+  if v_draft is null then
+    insert into pos_drafts(mode, client_id, walk_in, seller, fiscal_ref, created_by)
+    values (v_mode, v_client, v_walk, v_seller, nullif(btrim(p->>'fiscal_ref'), ''),
+            coalesce(nullif(btrim(p_actor), ''), 'unknown'))
+    returning draft_id into v_draft;
+  else
+    update pos_drafts
+       set client_id = v_client, walk_in = v_walk, seller = v_seller, fiscal_ref = nullif(btrim(p->>'fiscal_ref'), ''),
+           updated_at = now()
+     where draft_id = v_draft;
+    delete from pos_draft_lines where draft_id = v_draft;
+  end if;
+
+  i := 0;
+  for l in select e from jsonb_array_elements(v_lines) e loop
+    i := i + 1;
+    insert into pos_draft_lines(draft_id, line_no, piece_id, price_uzs, discount_pct, seller, mode)
+    values (v_draft, i, (l->>'piece_id')::uuid, (l->>'price_uzs')::bigint, coalesce((l->>'discount_pct')::numeric, 0),
+            v_srcs[i], v_mode);
+  end loop;
+
+  return jsonb_build_object('draft_id', v_draft);
+end $$;
+
+
+--
+-- Name: pos_ticket_by_line(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_ticket_by_line(p_line uuid) RETURNS uuid
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+  select ticket_id from ops_ticket_lines where line_id = p_line
+$$;
+
+
+--
+-- Name: pos_ticket_detail(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_ticket_detail(p_ticket uuid) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare t ops_tickets%rowtype;
+begin
+  select * into t from ops_tickets where ticket_id = p_ticket;
+  if not found then return null; end if;
+  return jsonb_build_object(
+    'ticket', to_jsonb(t) - 'seller_raw' - 'card_no' - 'source_file',
+    'lines', coalesce((select jsonb_agg((to_jsonb(l) - 'extra' - 'ticket_id')
+                                        || jsonb_build_object('seller', l.extra->>'seller') order by l.line_no)
+                         from ops_ticket_lines l where l.ticket_id = t.ticket_id), '[]'::jsonb),
+    'payments', coalesce((select jsonb_agg(to_jsonb(y) - 'ticket_id' order by y.payment_id)
+                            from ops_ticket_payments y where y.ticket_id = t.ticket_id), '[]'::jsonb),
+    'client_name', coalesce((select display_name from crm_queue where client_id = t.client_id), t.client_raw));
+end $$;
+
+
+--
+-- Name: pos_ticket_list(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_ticket_list(p jsonb) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_p      jsonb := case when jsonb_typeof(p) = 'object' then p else '{}'::jsonb end;
+  v_q      text := nullif(btrim(coalesce(v_p->>'q', '')), '');
+  v_like   text;
+  v_from   date := nullif(btrim(v_p->>'from'), '')::date;
+  v_to     date := nullif(btrim(v_p->>'to'), '')::date;
+  v_seller text := nullif(btrim(v_p->>'seller'), '');
+  v_source text := nullif(btrim(v_p->>'source'), '');
+  v_status text := nullif(btrim(v_p->>'status'), '');
+  v_train  boolean := coalesce((v_p->>'training')::boolean, false);
+  v_page   int := greatest(coalesce(nullif(btrim(v_p->>'page'), '')::int, 1), 1);
+  v_res    jsonb;
+begin
+  if v_source is not null and v_source not in ('colibri', 'delardi') then
+    raise exception 'source must be colibri or delardi';
+  end if;
+  if v_status is not null and v_status not in ('posted', 'void') then
+    raise exception 'status must be posted or void';
+  end if;
+  if v_from is null and v_to is null then
+    v_from := (now() at time zone 'Asia/Tashkent')::date - 29;
+  end if;
+  -- \ % _ escaped, so the text matches literally
+  if v_q is not null then v_like := '%' || regexp_replace(v_q, '([\\%_])', '\\\1', 'g') || '%'; end if;
+
+  with f as (
+    select t.ticket_id, t.ticket_no, t.source, t.sold_at, t.status, t.seller, t.client_id, t.walk_in, t.loaded_at,
+           coalesce(cq.display_name, t.client_raw) client_name,
+           (select coalesce(sum(case l.kind when 'refund' then -l.net else l.net end), 0)
+              from ops_ticket_lines l where l.ticket_id = t.ticket_id) net,
+           (select count(*) from ops_ticket_lines l where l.ticket_id = t.ticket_id) n_lines,
+           (select nullif(concat_ws(' ', l.brand_raw, l.item_name), '')
+              from ops_ticket_lines l where l.ticket_id = t.ticket_id order by l.line_no limit 1) first_item
+      from ops_tickets t
+      left join crm_queue cq on cq.client_id = t.client_id
+     where (case when v_train then t.source = 'training' else t.source <> 'training' end)
+       and (v_from is null or t.sold_at >= v_from)
+       and (v_to is null or t.sold_at <= v_to)
+       and (v_seller is null or t.seller = v_seller)
+       and (v_source is null or t.source = v_source)
+       and (v_status is null or t.status = v_status)
+       and (v_q is null
+            or upper(t.ticket_no) = upper(v_q)
+            or t.client_raw ilike v_like escape '\'
+            or cq.display_name ilike v_like escape '\'
+            or exists (select 1 from ops_ticket_lines l
+                        where l.ticket_id = t.ticket_id
+                          and (l.serial_raw ilike v_like escape '\' or l.article ilike v_like escape '\'
+                               or l.brand_raw ilike v_like escape '\')))
+  )
+  select jsonb_build_object(
+           'count', (select count(*) from f),
+           'void_count', (select count(*) from f where status = 'void'),
+           'net_total', (select coalesce(sum(net), 0) from f where status = 'posted'),
+           'page', v_page,
+           'rows', coalesce((select jsonb_agg(jsonb_build_object(
+                       'ticket_id', x.ticket_id, 'ticket_no', x.ticket_no, 'source', x.source, 'sold_at', x.sold_at,
+                       'status', x.status, 'seller', x.seller, 'client_id', x.client_id, 'client_name', x.client_name,
+                       'walk_in', x.walk_in,
+                       'items', x.first_item || case when x.n_lines > 1 then ' ×' || x.n_lines else '' end,
+                       'lines', x.n_lines, 'net', x.net) order by x.sold_at desc, x.ticket_no desc)
+                      from (select * from f order by sold_at desc, ticket_no desc
+                             limit 50 offset (v_page - 1) * 50) x), '[]'::jsonb))
+    into v_res;
+  return v_res;
+end $$;
+
+
+--
+-- Name: pos_void_ticket(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pos_void_ticket(p_ticket uuid, p_reason text, p_actor text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  t        ops_tickets%rowtype;
+  v_reason text := nullif(btrim(p_reason), '');
+  v_actor  text := coalesce(nullif(btrim(p_actor), ''), 'unknown');
+  pc       record;
+  n        int := 0;
+  v_ids    text[];
+begin
+  select * into t from ops_tickets where ticket_id = p_ticket for update;
+  if not found then raise exception 'ticket % not found', p_ticket; end if;
+  if t.source not in ('delardi', 'training') then raise exception 'only sales from this tool can be voided'; end if;
+  if t.status = 'void' then raise exception 'already void'; end if;
+  if v_reason is null then raise exception 'give a reason'; end if;
+
+  update ops_tickets
+     set status = 'void', void_reason = v_reason, voided_by = v_actor, voided_at = now(), updated_at = now()
+   where ticket_id = p_ticket;
+
+  if t.source = 'delardi' then
+    -- pieces locked in piece_id order (as posting does)
+    perform 1 from ops_pieces
+     where piece_id in (select piece_id from ops_ticket_lines where ticket_id = p_ticket and piece_id is not null)
+     order by piece_id for update;
+    for pc in select o.piece_id
+                from ops_ticket_lines l
+                join ops_pieces o on o.piece_id = l.piece_id and o.state = 'sold' and o.sold_line_id = l.line_id
+               where l.ticket_id = p_ticket
+               order by o.piece_id loop
+      update ops_pieces
+         set state = 'in_stock', state_since = now(), sold_line_id = null, updated_at = now()
+       where piece_id = pc.piece_id;
+      insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
+      values (pc.piece_id, 'sold', 'in_stock', 'void: ' || v_reason, 'ticket', t.ticket_no, v_actor);
+      n := n + 1;
+    end loop;
+
+    with del as (
+      delete from crm_transactions
+       where ticket_line_id in (select line_id from ops_ticket_lines where ticket_id = p_ticket)
+      returning client_id)
+    select array_agg(distinct client_id) into v_ids from del;
+    if v_ids is not null then perform crm_recompute_purchases(v_ids); end if;
+  end if;
+
+  return jsonb_build_object('ticket_no', t.ticket_no, 'pieces_returned', n);
 end $$;
 
 
@@ -4558,7 +5314,11 @@ CREATE TABLE public.board_users (
     can_export_crm boolean DEFAULT false NOT NULL,
     can_view_catalogue boolean DEFAULT false NOT NULL,
     can_manage_catalogue boolean DEFAULT false NOT NULL,
-    can_manage_stock boolean DEFAULT false NOT NULL
+    can_manage_stock boolean DEFAULT false NOT NULL,
+    can_view_sales boolean DEFAULT false NOT NULL,
+    can_post_sales boolean DEFAULT false NOT NULL,
+    can_void_sales boolean DEFAULT false NOT NULL,
+    can_manage_till boolean DEFAULT false NOT NULL
 );
 
 
@@ -4884,7 +5644,8 @@ CREATE TABLE public.cat_pieces (
     variant_id text NOT NULL,
     size text,
     price_uzs bigint,
-    import_run bigint
+    import_run bigint,
+    barcode text
 );
 
 
@@ -5942,7 +6703,8 @@ CREATE TABLE public.editor_sessions (
     can_view_crm boolean DEFAULT false NOT NULL,
     can_edit_crm boolean DEFAULT false NOT NULL,
     can_view_board boolean DEFAULT false NOT NULL,
-    can_view_catalogue boolean DEFAULT false NOT NULL
+    can_view_catalogue boolean DEFAULT false NOT NULL,
+    can_use_sales boolean DEFAULT false NOT NULL
 );
 
 
@@ -6007,8 +6769,8 @@ CREATE TABLE public.ops_piece_events (
     ref_id text,
     actor text NOT NULL,
     note text,
-    CONSTRAINT ops_piece_events_reason_check CHECK ((reason = ANY (ARRAY['initial_load'::text, 'arrived'::text, 'sold'::text, 'refunded'::text, 'reserved'::text, 'released'::text, 'booked_out'::text, 'returned_from_loan'::text, 'damaged'::text, 'repaired'::text, 'review_resolved'::text, 'serial_reused'::text]))),
-    CONSTRAINT ops_piece_events_ref_kind_check CHECK ((ref_kind = ANY (ARRAY['cat_run'::text, 'ticket_line'::text, 'review'::text, 'manual'::text])))
+    CONSTRAINT ops_piece_events_reason_check CHECK (((reason = ANY (ARRAY['initial_load'::text, 'arrived'::text, 'sold'::text, 'refunded'::text, 'reserved'::text, 'released'::text, 'booked_out'::text, 'returned_from_loan'::text, 'damaged'::text, 'repaired'::text, 'review_resolved'::text, 'serial_reused'::text])) OR (reason ~~ 'void: %'::text))),
+    CONSTRAINT ops_piece_events_ref_kind_check CHECK ((ref_kind = ANY (ARRAY['cat_run'::text, 'ticket_line'::text, 'review'::text, 'manual'::text, 'ticket'::text])))
 );
 
 
@@ -6051,6 +6813,7 @@ CREATE TABLE public.ops_pieces (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     shipped_on date,
+    barcode text,
     CONSTRAINT ops_pieces_state_check CHECK ((state = ANY (ARRAY['in_transit'::text, 'in_stock'::text, 'reserved'::text, 'booked_out'::text, 'damaged'::text, 'sold'::text, 'not_received'::text])))
 );
 
@@ -6143,6 +6906,8 @@ CREATE TABLE public.ops_ticket_payments (
     method text NOT NULL,
     amount numeric(14,0) NOT NULL,
     raw text,
+    card_type text,
+    CONSTRAINT ops_ticket_payments_card_type_check CHECK (((card_type IS NULL) OR (card_type = ANY (ARRAY['uzcard'::text, 'humo'::text, 'visa'::text])))),
     CONSTRAINT ops_ticket_payments_method_check CHECK ((method = ANY (ARRAY['cash'::text, 'card'::text, 'visa'::text, 'qr'::text, 'transfer'::text, 'other'::text])))
 );
 
@@ -6169,7 +6934,12 @@ CREATE TABLE public.ops_tickets (
     loaded_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     client_raw text,
-    CONSTRAINT ops_tickets_source_check CHECK ((source = ANY (ARRAY['colibri'::text, 'delardi'::text]))),
+    receipt_text text,
+    walk_in boolean DEFAULT false NOT NULL,
+    void_reason text,
+    voided_by text,
+    voided_at timestamp with time zone,
+    CONSTRAINT ops_tickets_source_check CHECK ((source = ANY (ARRAY['colibri'::text, 'delardi'::text, 'training'::text]))),
     CONSTRAINT ops_tickets_status_check CHECK ((status = ANY (ARRAY['posted'::text, 'void'::text])))
 );
 
@@ -6203,6 +6973,7 @@ CREATE VIEW public.ops_ticket_monthly WITH (security_invoker='true') AS
             sum(ops_ticket_payments.amount) FILTER (WHERE (ops_ticket_payments.method = 'visa'::text)) AS visa
            FROM public.ops_ticket_payments
           GROUP BY ops_ticket_payments.ticket_id) p USING (ticket_id))
+  WHERE ((t.source <> 'training'::text) AND (t.status = 'posted'::text))
   GROUP BY ((date_trunc('month'::text, (t.sold_at)::timestamp with time zone))::date);
 
 
@@ -6231,6 +7002,123 @@ CREATE TABLE public.pillars (
     sort_order smallint NOT NULL,
     accent text NOT NULL
 );
+
+
+--
+-- Name: pos_draft_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pos_draft_lines (
+    draft_id bigint NOT NULL,
+    line_no integer NOT NULL,
+    piece_id uuid NOT NULL,
+    price_uzs bigint,
+    discount_pct numeric(6,4) DEFAULT 0 NOT NULL,
+    seller text,
+    mode text NOT NULL
+);
+
+
+--
+-- Name: pos_drafts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pos_drafts (
+    draft_id bigint NOT NULL,
+    mode text NOT NULL,
+    client_id text,
+    walk_in boolean DEFAULT false NOT NULL,
+    seller text,
+    fiscal_ref text,
+    created_by text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone,
+    CONSTRAINT pos_drafts_mode_check CHECK ((mode = ANY (ARRAY['training'::text, 'live'::text])))
+);
+
+
+--
+-- Name: pos_drafts_draft_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_drafts ALTER COLUMN draft_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.pos_drafts_draft_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: pos_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pos_settings (
+    id smallint DEFAULT 1 NOT NULL,
+    mode text DEFAULT 'training'::text NOT NULL,
+    go_live_date date,
+    vat_pct numeric(5,2) DEFAULT 0 NOT NULL,
+    cash_notice_uzs bigint DEFAULT 170000000 NOT NULL,
+    shop_address text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by text,
+    CONSTRAINT pos_settings_id_check CHECK ((id = 1)),
+    CONSTRAINT pos_settings_mode_check CHECK ((mode = ANY (ARRAY['training'::text, 'live'::text])))
+);
+
+
+--
+-- Name: pos_settings_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pos_settings_log (
+    id bigint NOT NULL,
+    at timestamp with time zone DEFAULT now() NOT NULL,
+    actor text NOT NULL,
+    field text NOT NULL,
+    old_value text,
+    new_value text
+);
+
+
+--
+-- Name: pos_settings_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_settings_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.pos_settings_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: pos_ticket_no_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.pos_ticket_no_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: pos_training_no_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.pos_training_no_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
 
 
 --
@@ -7083,6 +7971,46 @@ ALTER TABLE ONLY public.pillars
 
 
 --
+-- Name: pos_draft_lines pos_draft_lines_mode_piece_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_draft_lines
+    ADD CONSTRAINT pos_draft_lines_mode_piece_id_key UNIQUE (mode, piece_id);
+
+
+--
+-- Name: pos_draft_lines pos_draft_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_draft_lines
+    ADD CONSTRAINT pos_draft_lines_pkey PRIMARY KEY (draft_id, line_no);
+
+
+--
+-- Name: pos_drafts pos_drafts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_drafts
+    ADD CONSTRAINT pos_drafts_pkey PRIMARY KEY (draft_id);
+
+
+--
+-- Name: pos_settings_log pos_settings_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_settings_log
+    ADD CONSTRAINT pos_settings_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pos_settings pos_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_settings
+    ADD CONSTRAINT pos_settings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: scoreboard scoreboard_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7829,6 +8757,30 @@ ALTER TABLE ONLY public.ops_tickets
 
 
 --
+-- Name: pos_draft_lines pos_draft_lines_draft_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_draft_lines
+    ADD CONSTRAINT pos_draft_lines_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.pos_drafts(draft_id) ON DELETE CASCADE;
+
+
+--
+-- Name: pos_draft_lines pos_draft_lines_piece_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_draft_lines
+    ADD CONSTRAINT pos_draft_lines_piece_id_fkey FOREIGN KEY (piece_id) REFERENCES public.ops_pieces(piece_id);
+
+
+--
+-- Name: pos_drafts pos_drafts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pos_drafts
+    ADD CONSTRAINT pos_drafts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.crm_clients(client_id);
+
+
+--
 -- Name: suggestions suggestions_pillar_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8211,6 +9163,30 @@ ALTER TABLE public.ops_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pillars ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: pos_draft_lines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_draft_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: pos_drafts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_drafts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: pos_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: pos_settings_log; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pos_settings_log ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: scoreboard; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -8250,5 +9226,5 @@ ALTER TABLE public.write_log ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict au3GuyPxz9UODDoOKmuCQkjvFaKznd06vXNeeZA1pHBKB5gbNtfY4KKkFCvlEjK
+\unrestrict QnIURMgTCKWwtqTXOVByboGIII3Zb5Vw2rO6y1ZcRAZaSB0GFrVBb91Apr33hAh
 
