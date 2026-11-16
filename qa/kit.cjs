@@ -56,6 +56,14 @@ const classes = ['kit-head', 'kit-brand', 'kit-rule', 'kit-tool', 'kit-spacer', 
   'tag', 'act', 'info', 'done', 'line', 'alert', 'band', 'panel-wrap', 'panel-scrim', 'panel',
   'modal-wrap', 'modal-scrim', 'modal', 'confirm', 'toast', 'err', 'gate', 'gate-card', 'gate-mast', 'notice', 'sr-only'];
 for (const cl of classes) ok(new RegExp('\\.' + cl.replace('-', '\\-') + '(?![\\w-])').test(kc), 'class .' + cl);
+const rule = sel => { const m = kc.match(new RegExp('(?:^|})\\s*' + sel.replace(/[.\\[\\]]/g, '\\$&') + '\\s*{([^}]*)}')); return m ? m[1] : ''; };
+ok(/font:\s*normal 17px\/1\.35 var\(--serif\)/.test(rule('.item')), '.item is serif 17/1.35 normal weight');
+ok(/height:\s*26px/.test(kc.match(/\.kit-brand img[^{]*{([^}]*)}/)[1]), 'header wordmark is 26px high');
+ok(/min-height:\s*48px/.test(rule('.kit-tab')) && /gap:\s*28px/.test(rule('.kit-tabs')), 'tabs 48px high, 28px gap');
+ok(/color:\s*var\(--white\)/.test(rule('.kit-staff')) && /font:\s*14px/.test(rule('.kit-staff')), '.kit-staff white 14px');
+ok(/font:\s*13px\/1\.45/.test(rule('.band')), '.band text is 13px');
+const z = sel => Number((rule(sel).match(/z-index:\s*(\d+)/) || [])[1]);
+ok(z('.gate') > z('.panel-wrap') && z('.gate') > z('.modal-wrap') && z('.gate') < z('.toast'), '.gate stacks above panels and modals, below the toast');
 ok(/\[aria-current=["']?page["']?\]/.test(kc), 'aria-current page style');
 ok(/\[aria-invalid=["']?true["']?\]/.test(kc), 'aria-invalid style');
 ok(exists('ui/tools.js'), 'ui/tools.js exists');

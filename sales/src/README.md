@@ -26,6 +26,13 @@ python3 build.py        # writes ../index.html
 | `tickets.js` | the ticket list, one ticket, its receipt, and void |
 | `admin.js` | `#/admin`: Training / Live, the go-live date, clearing test sales |
 
+The shared UI kit is inlined too: `build.py` puts `ui/kit.css` where
+`template.html` has the `/*__KIT_CSS__*/` marker (the template keeps only the
+till's own layout rules) and puts `ui/tools.js` first in the script. There is
+no theme: one light look, no dark mode, no `data-theme`. Dates on screen come
+from `fmtDate` (`16 Nov 2026`, RU `16 ноя 2026`) and `fmtTime` (`14:05`),
+both in Tashkent time; receipts and exports use `fmtDateNum` (`16.11.2026`).
+
 The brand marks (`brand/`) are substituted as data URIs.
 
 ## How it behaves
@@ -96,8 +103,14 @@ barcode, discounts and rounding, the Post guard, split payments, the cash
 notice, posting and the receipt, a 409, the idle lock (with Playwright's
 clock), Russian, the client panel, adding a client, no CRM access, suspended
 sales, the ticket list, void, admin, the landing tile, and the iPad sizes
-(1024×768 and 768×1024: no sideways scroll, buttons at least 44 px). The run
+(1024×768 and 768×1024: no sideways scroll on every screen — sale, search,
+client, payment, receipt, tickets, lock — and buttons at least 44 px). The run
 also fails if the page asks for anything but the two APIs.
+
+With `SHOTS` set the run saves `01-sale.png`, `02-search.png`,
+`03-payment.png`, `04-receipt.png`, `05-client.png`, `06-tickets.png`,
+`07-lock.png` (1024×768) and `08-sale-portrait.png`, `09-payment-portrait.png`,
+`10-client-portrait.png` (768×1024), plus a few per-screen extras.
 
 ## The API
 

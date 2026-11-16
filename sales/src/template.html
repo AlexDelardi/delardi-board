@@ -28,13 +28,11 @@ a { color: inherit; }
 /* ------------------------------------------------------------------ header */
 .top { position: sticky; top: 0; z-index: 40; background: var(--white); }
 .top .kit-head { flex-wrap: wrap; }
-.top .kit-brand img { height: 26px; }
-.kit-staff { color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
-.top .kit-tabs { gap: 28px; overflow-x: auto; }
-.top .kit-tab { min-height: 48px; white-space: nowrap; }
+.top .kit-tabs { overflow-x: auto; }
+.top .kit-tab { white-space: nowrap; }
 .top .kit-tab:focus-visible { outline-offset: -2px; }
 /* training: on every screen, impossible to miss, never alarming */
-.band.training-band { font-size: 13px; line-height: 1.45; color: var(--navy); border-bottom: 1px solid var(--mist); }
+.band.training-band { border-bottom: 1px solid var(--mist); }
 
 /* ----------------------------------------------------------------- buttons */
 .btn { min-width: var(--tap); white-space: nowrap; }
@@ -299,7 +297,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .editor input[type=text], .editor input[type=tel], .editor select, .editor textarea { width: 100%; }
 .editor fieldset.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .editor .opt { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 12px; border: 1px solid var(--mist); cursor: pointer; }
-.editor .opt input { width: 20px; height: 20px; min-height: 20px; margin: 0; accent-color: #082966; }
+.editor .opt input { width: 20px; height: 20px; min-height: 20px; margin: 0; accent-color: var(--navy); }
 .editor .hint { font-size: 13px; color: var(--slate); margin: 0; line-height: 1.45; }
 .form-err { margin: 0; color: var(--alert); font-size: 13px; font-weight: 700; }
 .form-actions, .editor .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -380,7 +378,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------------------------------------------------------- lock card */
 #app.gated { pointer-events: none; user-select: none; }
-#gate.gate { position: fixed; inset: 0; z-index: 115; min-height: 0; overflow-y: auto; }
+#gate.gate { position: fixed; inset: 0; min-height: 0; overflow-y: auto; }
 .gate-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 16px 24px; margin-bottom: 24px; }
 .gate-card > .gate-mast + * { margin-top: 0; }
 .gate-brand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
