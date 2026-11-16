@@ -61,7 +61,7 @@ const classes = ['kit-head', 'kit-brand', 'kit-rule', 'kit-tool', 'kit-spacer', 
 for (const cl of classes) ok(new RegExp('\\.' + cl.replace('-', '\\-') + '(?![\\w-])').test(kc), 'class .' + cl);
 const rule = sel => { const m = kc.match(new RegExp('(?:^|})\\s*' + sel.replace(/[.\\[\\]]/g, '\\$&') + '\\s*{([^}]*)}')); return m ? m[1] : ''; };
 ok(/font:\s*normal 17px\/1\.35 var\(--serif\)/.test(rule('.item')), '.item is serif 17/1.35 normal weight');
-ok(/height:\s*26px/.test(kc.match(/\.kit-brand img[^{]*{([^}]*)}/)[1]), 'header wordmark is 26px high');
+ok(/height:\s*18px/.test(kc.match(/\.kit-brand img[^{]*{([^}]*)}/)[1]), 'header wordmark is 18px high (vector wordmark, no tagline)');
 ok(/min-height:\s*48px/.test(rule('.kit-tab')) && /gap:\s*28px/.test(rule('.kit-tabs')), 'tabs 48px high, 28px gap');
 ok(/color:\s*var\(--white\)/.test(rule('.kit-staff')) && /font:\s*14px/.test(rule('.kit-staff')), '.kit-staff white 14px');
 ok(/font:\s*13px\/1\.45/.test(rule('.band')), '.band text is 13px');

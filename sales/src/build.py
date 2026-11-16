@@ -8,7 +8,7 @@ CANDIDATES = [HERE.parent.parent / 'brand', pathlib.Path('/mnt/user-data/uploads
 B = next((p for p in CANDIDATES if (p / 'wordmark_white.png').exists()), None)
 if B is None:
     sys.exit('brand marks not found — looked in: ' + ', '.join(str(p) for p in CANDIDATES))
-uri = lambda f: 'data:image/png;base64,' + base64.b64encode((B / f).read_bytes()).decode()
+uri = lambda f: ('data:image/svg+xml;base64,' if f.endswith('.svg') else 'data:image/png;base64,') + base64.b64encode((B / f).read_bytes()).decode()
 
 t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
@@ -33,7 +33,7 @@ assert js.count(MARK) == 1, 'init marker must appear exactly once in app.js'
 js = js.replace(MARK, '\n'.join(parts) + '\n' + MARK)
 
 TOKENS = {
-    '__WORDMARK__': uri('wordmark_white.png'),
+    '__WORDMARK__': uri('wordmark_white.svg'),   # vector master, DELARDI alone (crisp at header size)
     '__FAVICON__': uri('favicon.png'),
     '__MONO_NAVY__': uri('monogram_navy.png'),
 }

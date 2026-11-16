@@ -22,7 +22,7 @@ body { margin: 0; background: #FFFFFF; color: var(--navy-deep); font: 15px/1.5 v
 /* Header bar */
 .kit-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 24px; background: var(--navy-deep); color: var(--white); position: relative; z-index: 50; }
 .kit-brand { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--white); text-decoration: none; font: 13px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
-.kit-brand img, .kit-brand svg { display: block; height: 26px; width: auto; }
+.kit-brand img, .kit-brand svg { display: block; height: 18px; width: auto; }
 .kit-rule { width: 1px; align-self: stretch; margin: 12px 0; background: var(--sky); }
 .kit-staff { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
 .kit-tool { font: normal 19px/1.2 var(--serif); color: var(--white); }
