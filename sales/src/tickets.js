@@ -98,7 +98,7 @@ async function loadTickets() {
 function tkSet(patch) { Object.assign(S.tk.f, patch); S.tk.page = 1; loadTickets(); }
 let tkTimer = null;
 function renderTickets(main) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const tk = tkState(), f = tk.f;
   const opt = (v, t, cur) => el("option", { value: v, text: t, selected: v === cur ? true : null });
   const sel = (id, label, cur, opts, key) => {
@@ -126,9 +126,13 @@ function renderTickets(main) {
   renderTkList();
   loadTickets();
 }
-function tkStatus(status) {
-  return el("span", { class: "tk-st" + (status === "void" ? " void" : "") }, status === "void" ? tr("VOIDED") : tr("Posted"));
+// Status tag: void alert, a test sale card-filled, otherwise navy (the till's "Posted" is the mockup's "Sold").
+function tkStatus(status, source) {
+  if (status === "void") return el("span", { class: "tag alert", text: tr("VOIDED") });
+  if (source === "training") return el("span", { class: "tag info", text: tr("Training") });
+  return el("span", { class: "tag act", text: tr("Posted") });
 }
+const tkWhen = (iso) => fmtDate(iso) + " " + fmtTime(iso);
 function renderTkList() {
   const box = $("#tk-body");
   if (!box || !S.tk) return;
@@ -137,24 +141,28 @@ function renderTkList() {
   if (tk.err) { box.append(el("p", { class: "form-err tk-pad", role: "alert", text: tk.err })); return; }
   if (!d) { box.append(el("p", { class: "loading", text: tr("Loading tickets…") })); return; }
   const pages = Math.max(1, Math.ceil(d.count / (d.page_size || 50)));
-  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" },
-    el("b", { text: pl(d.count, "ticket") }),
-    d.void_count ? el("span", { text: tr("{n} void", { n: d.void_count }) }) : null,
-    el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }),
-    tk.busy ? el("span", { class: "muted", text: tr("Searching…") }) : null));
+  const sumParts = [el("b", { text: pl(d.count, "ticket") })];
+  if (d.void_count) sumParts.push(" · ", el("span", { text: tr("{n} void", { n: d.void_count }) }));
+  sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
+  if (tk.busy) sumParts.push(" · ", el("span", { class: "muted", text: tr("Searching…") }));
+  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
   if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
-  box.append(el("div", { class: "tk-list", id: "tk-list", role: "table", "aria-label": tr("Tickets") },
-    el("div", { class: "tk-row tk-headrow", role: "row" }, ["Date", "Ticket", "Source", "Seller", "Client", "Items", "Net", "Status"]
-      .map((h) => el("span", { role: "columnheader", class: "tk-h-" + h.toLowerCase(), text: tr(h) }))),
-    d.rows.map((r) => el("a", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), role: "row", href: "#/ticket/" + encodeURIComponent(r.ticket_id) },
-      el("span", { class: "tk-date", text: fmtDay(r.sold_at) }),
-      el("span", { class: "tk-no", text: r.ticket_no }),
-      el("span", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
-      el("span", { class: "tk-seller", text: r.seller || "—" }),
-      el("span", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
-      el("span", { class: "tk-items", text: r.items || "—" }),
-      el("span", { class: "tk-net money", text: fmtUZS(r.net) }),
-      tkStatus(r.status)))));
+  const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
+    ["Source", "tk-src"], ["Status", "tk-st"], ["Net", "tk-net r"]];
+  box.append(el("div", { class: "tk-scroll" }, el("table", { class: "tbl tk-list", id: "tk-list", "aria-label": tr("Tickets") },
+    el("thead", {}, el("tr", {}, cols.map(([h, c]) => el("th", { scope: "col", class: "tk-h " + c, text: tr(h) })))),
+    el("tbody", {}, d.rows.map((r) => {
+      const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
+      return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
+        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
+        el("td", { class: "tk-date", text: tkWhen(r.sold_at) }),
+        el("td", { class: "tk-items", text: r.items || "—" }),
+        el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
+        el("td", { class: "tk-seller", text: r.seller || "—" }),
+        el("td", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
+        el("td", { class: "tk-st" }, tkStatus(r.status, r.source)),
+        el("td", { class: "tk-net r money", text: fmtUZS(r.net) }));
+    })))));
   if (pages > 1) {
     const pg = (p) => { tk.page = p; loadTickets(); };
     box.append(el("div", { class: "tk-pager" },
@@ -166,7 +174,7 @@ function renderTkList() {
 
 /* ------------------------------------------------------------- one ticket */
 async function renderTicket(main, id) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const wrap = el("section", { class: "sheet", id: "screen-ticket" }, el("p", { class: "loading", text: tr("Loading…") }));
   main.append(wrap);
   let doc;
@@ -196,7 +204,7 @@ function drawTicket(wrap, doc, ui) {
     return el("li", { class: "tl-row" + (refund ? " refund" : "") },
       el("div", { class: "tl-info" },
         el("div", { class: "tl-title" }, [l.brand_raw, l.item_name].filter(Boolean).join(" · ") || l.article || "—",
-          refund ? el("span", { class: "tag", text: tr("Refund") }) : null),
+          refund ? el("span", { class: "tag line", text: tr("Refund") }) : null),
         el("div", { class: "tl-meta" }, [l.serial_raw, l.article, l.size ? tr("size {s}", { s: l.size }) : null, l.seller ? tr("Seller: {s}", { s: l.seller }) : null]
           .filter(Boolean).join(" · "))),
       el("div", { class: "tl-price money" }, fmtUZS(sign(l.price_current)),
@@ -234,18 +242,18 @@ function drawTicket(wrap, doc, ui) {
   wrap.append(...[
     el("div", { class: "sheet-head" },
       el("h1", { text: t.ticket_no }),
-      el("span", { class: "tk-status" }, tkStatus(t.status)),
+      el("span", { class: "tk-status" }, tkStatus(t.status, t.source)),
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
     el("dl", { class: "tk-meta" },
-      kv("Date", fmtDay(t.sold_at)),
+      kv("Date", tkWhen(t.sold_at)),
       kv("Source", tr(SOURCE_LABEL[t.source] || t.source)),
       kv("Seller", t.seller),
       kv("Client", client),
       kv("Entered by", t.entered_by ? who(t.entered_by) : null),
       kv("Era receipt no.", t.fiscal_ref),
       voided ? kv("Void reason", t.void_reason) : null,
-      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? fmtStampDay(t.voided_at) : null].filter(Boolean).join(", ")) : null),
+      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
     voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
     el("ol", { class: "tl-lines" }, lines.map(lineRow)),

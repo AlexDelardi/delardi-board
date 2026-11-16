@@ -362,43 +362,50 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .client-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 0 4px; font-size: 15px; max-width: 100%; overflow-wrap: anywhere; }
 .client-chip .cid, .cc-name .cid { color: var(--slate); font: 13px/1.45 var(--sans); }
 .no-crm { font-size: 13px; color: var(--slate); padding: 4px 12px; border: 1px dashed var(--mist); }
-.modal.cpbox { width: 700px; }
-.cp-search input { width: 100%; min-height: 48px; font-size: 17px; background: var(--card); }
-.cl-list { display: flex; flex-direction: column; gap: 4px; }
+/* the client detail panel (kit .panel-wrap / .panel / .panel-scrim, 560 wide from the right) */
+.panel.cpbox { display: flex; flex-direction: column; gap: 16px; padding: 0; }
+.cp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px 4px 24px; border-bottom: 1px solid var(--mist); }
+.cp-head .close { width: var(--tap); min-width: var(--tap); padding: 0; font-size: 21px; line-height: 1; }
+.cp-body { padding: 0 24px; display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; }
+.cp-body p { margin: 0; }
+.cp-foot { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
+.cp-foot .cp-use { margin-left: auto; }
+.cp-search input { width: 100%; min-height: var(--tap); }
+.cl-list { display: flex; flex-direction: column; }
+.cl-list:not(:empty) { border: 1px solid var(--mist); }
 .cl-row {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 0; text-align: left; width: 100%;
-  border: 0; background: none; padding: 8px 12px; min-height: 52px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; width: 100%;
+  border: 0; border-top: 1px solid var(--mist); background: var(--white); padding: 8px 12px; min-height: 52px; font: 15px/1.5 var(--sans); color: var(--navy-deep); cursor: pointer;
 }
+.cl-row:first-child { border-top: 0; }
 .cl-row:hover, .cl-row.on { background: var(--card); }
 .cl-name { font-weight: 700; font-size: 15px; }
-.cl-meta { font-size: 13px; color: var(--slate); }
-.client-card { border: 1px solid var(--mist); padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; background: var(--card); }
-.cc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
-.cc-name { margin: 0; font: normal 21px/1.3 var(--serif); flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
-.cc-crm { text-decoration: none; }
-.cc-owner { font-size: 15px; }
-.cc-owner .k { color: var(--slate); }
-.cc-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
-.cc-facts span:first-child { font-weight: 700; }
-.cc-sec h5 { margin: 0 0 4px; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.cl-meta { font-size: 13px; color: var(--slate); text-align: right; overflow-wrap: anywhere; }
+.client-card { display: flex; flex-direction: column; gap: 12px; }
+.cc-head { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cc-name { margin: 0; font: normal 24px/1.3 var(--serif); color: var(--navy); min-width: 0; overflow-wrap: anywhere; }
+.cc-crm { display: inline-flex; align-items: center; min-height: var(--tap); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; color: var(--navy); }
+.cc-owner { font-size: 13px; color: var(--slate); }
+.cc-owner b { font-weight: 400; color: var(--slate); }
+.cc-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--slate); }
+.cc-sec h5 { display: block; margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--mist); }
 .purchases { display: flex; flex-direction: column; }
 .purchase {
-  display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%;
-  min-height: 44px; padding: 4px 8px; border: 0; border-top: 1px solid var(--mist); background: none; text-align: left; font-size: 15px;
+  display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%;
+  min-height: 48px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--mist); background: none; text-align: left; font: 13px/1.45 var(--sans); color: var(--slate);
 }
-.purchase:first-child { border-top: 0; }
 .purchase.link { cursor: pointer; }
 .purchase.link .pu-item { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--sky); }
-.purchase.link:hover { background: var(--white); }
+.purchase.link:hover { background: var(--card); }
 .pu-date { color: var(--slate); font-variant-numeric: tabular-nums; }
-.pu-item { overflow-wrap: anywhere; }
-.pu-net { text-align: right; }
-.cc-note { margin: 0 0 4px; font-size: 15px; line-height: 1.5; }
+.pu-item { overflow-wrap: anywhere; color: var(--navy-deep); }
+.pu-net { text-align: right; color: var(--navy-deep); font-variant-numeric: tabular-nums; }
+.cc-note { margin: 8px 0 0; font-size: 15px; line-height: 1.5; }
 .cc-note .when { color: var(--slate); font-size: 13px; }
 .cc-dates { list-style: none; margin: 0; padding: 0; font-size: 15px; }
-.cc-dates li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.cc-dates li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--mist); }
 /* the CRM's add-client form (crm/src/addclient.js, inlined unchanged), in the kit look */
-.addwrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.addwrap { position: fixed; inset: 0; z-index: 105; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .add-scrim { position: fixed; inset: 0; background: rgba(0, 26, 74, .4); }
 .addbox { position: relative; width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
   background: var(--white); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
@@ -436,55 +443,37 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .tk-date-f span { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .tk-date-f input { width: 100%; }
 .tk-train-note { margin: 8px 24px 0; padding: 8px 12px; font-size: 13px; background: var(--card); color: var(--navy); }
-.tk-sum { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 12px 24px; font-size: 15px; border-bottom: 1px solid var(--mist); }
-.tk-list { display: flex; flex-direction: column; padding: 0 12px 12px; }
-.tk-row {
-  display: grid; align-items: center; gap: 4px 12px; padding: 12px 8px; min-height: 52px;
-  grid-template-columns: 88px 92px 80px 100px minmax(0, 1.2fr) minmax(0, 1.4fr) 112px 92px;
-  border-top: 1px solid var(--mist); text-decoration: none; color: inherit; font-size: 15px;
-}
-a.tk-row:hover { background: var(--card); }
-.tk-headrow { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); background: var(--card); border-top: 0; min-height: 36px; padding-top: 8px; padding-bottom: 8px; }
-.tk-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tk-no { font-weight: 700; font-variant-numeric: tabular-nums; }
-.tk-net, .tk-h-net { text-align: right; }
+.tk-sum { display: block; padding: 12px 24px; font-size: 15px; border-bottom: 1px solid var(--mist); }
+.tk-scroll { overflow-x: auto; }
+.tk-list { table-layout: auto; }
+.tk-list th, .tk-list td { padding-left: 8px; padding-right: 8px; }
+.tk-list th:first-child, .tk-list td:first-child { padding-left: 24px; }
+.tk-list th { white-space: nowrap; }
+.tk-list th:last-child, .tk-list td:last-child { padding-right: 24px; }
+.tk-list tbody tr { height: 48px; cursor: pointer; }
+.tk-list td { color: var(--navy-deep); font-size: 14px; }
+a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
+a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-date, .tk-seller, .tk-src { color: var(--slate); white-space: nowrap; }
+.tk-list td.tk-items, .tk-list td.tk-client { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-net { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tk-row.is-void .tk-net { text-decoration: line-through; color: var(--slate); }
-.tk-st { font: 700 12px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border: 1px solid var(--navy); color: var(--navy); justify-self: start; }
-.tk-st.void { border-color: var(--alert); color: var(--alert); }
 .tk-status { display: inline-flex; }
 .tk-pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 24px 16px; }
 @media (max-width: 900px) {
   .tk-filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .tk-filters > .tk-date-f { grid-column: span 3; }
   .tk-filters > select { grid-column: span 2; }
-  .tk-headrow { display: none; }
-  .tk-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "no net" "client st" "meta meta"; }
-  .tk-no { grid-area: no; } .tk-net { grid-area: net; } .tk-client { grid-area: client; } .tk-row > .tk-st { grid-area: st; justify-self: end; }
-  .tk-date, .tk-src, .tk-seller { grid-row: 3; font-size: 13px; color: var(--slate); }
-  .tk-row { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "no no no net" "client client client st" "date src seller seller" "items items items items"; }
-  .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; font-size: 13px; color: var(--slate); }
+  .tk-list thead { display: none; }
+  .tk-list, .tk-list tbody { display: block; }
+  .tk-list tbody tr { display: grid; height: auto; padding: 8px 16px; gap: 0 12px; border-bottom: 1px solid var(--mist);
+    grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "no no no net" "client client client st" "date src seller seller" "items items items items"; }
+  .tk-list td, .tk-list td:first-child, .tk-list td:last-child { padding: 0; border: 0; min-height: 0; }
+  .tk-list td.tk-items, .tk-list td.tk-client { max-width: none; }
+  .tk-numcell { grid-area: no; } .tk-net { grid-area: net; } .tk-client { grid-area: client; } .tk-list td.tk-st { grid-area: st; justify-self: end; }
+  .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; }
+  .tk-date, .tk-src, .tk-seller, .tk-items { font-size: 13px; }
 }
-.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 24px; margin: 0; padding: 16px 24px; }
-.tk-meta .kv { min-width: 0; }
-.tk-meta dt { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
-.tk-meta dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
-.ro-note { margin: 0 24px; font-size: 13px; color: var(--slate); }
-.era-reminder { margin: 8px 24px 0; padding: 12px 16px; font-weight: 700; font-size: 15px; background: var(--card); color: var(--navy); border: 1px solid var(--mist); }
-.tl-lines { list-style: none; margin: 0; padding: 4px 24px; }
-.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 130px; gap: 4px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--mist); }
-.tl-row:first-child { border-top: 0; }
-.tl-title { font-weight: 700; overflow-wrap: anywhere; }
-.tl-title .tag { margin-left: 8px; }
-.tl-meta { font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
-.tl-price, .tl-net { text-align: right; }
-.tl-price small { color: var(--slate); }
-.tl-net { font-weight: 700; }
-.tl-row.refund .tl-net { color: var(--navy); }
-.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 12px 24px; border-top: 1px solid var(--mist); }
-.tl-pays { flex: 1 1 260px; min-width: 0; }
-.tl-pays h5 { margin: 0 0 4px; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
-.tl-pay { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; max-width: 360px; }
-.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 24px 16px; }
 .void-form { margin: 0 24px 16px; padding: 12px 16px; border: 1px solid var(--alert); background: var(--white); display: flex; flex-direction: column; gap: 8px; }
 .void-form .lbl { margin: 0; }
 .void-form textarea { width: 100%; resize: vertical; }
@@ -500,12 +489,11 @@ a.tk-row:hover { background: var(--card); }
 .admin-body { padding: 8px 24px 24px; display: flex; flex-direction: column; }
 .admin-sec { padding: 16px 0; border-top: 1px solid var(--mist); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .admin-sec:first-child { border-top: 0; }
-.admin-sec h2 { margin: 0; font: normal 21px/1.3 var(--serif); }
+.admin-sec .h2 { margin: 0; }
 .admin-sec p { margin: 0; max-width: 640px; }
 .seg { display: inline-flex; border: 1px solid var(--navy); }
 .seg .btn { border: 0; min-width: 120px; }
 .seg .btn + .btn { border-left: 1px solid var(--navy); }
-.big-date { font: normal 21px/1.3 var(--serif); }
 .ok-line { color: var(--navy); font-weight: 700; }
 
 /* ---------------------------------------------------------- lock card */
@@ -546,7 +534,7 @@ a.tk-row:hover { background: var(--card); }
 }
 @media (max-width: 720px) {
   .modal-wrap { padding: 0; align-items: flex-end; }
-  .modal, .modal.cpbox, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
+  .modal, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
   .addwrap { padding: 0; align-items: flex-end; }
   .addbox { width: 100%; max-height: 100vh; height: 100%; border: 0; }
   main { padding: 12px 12px 120px; }
@@ -786,8 +774,11 @@ function fmtDateNum(iso) {
   if (!t) return "—";
   return String(t.d).padStart(2, "0") + "." + String(t.m).padStart(2, "0") + "." + t.y;
 }
+// "14:05" in Tashkent time, so it agrees with fmtDate around midnight
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString(LANG === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 function toast(msg) {
   const t = $("#toast");
@@ -1554,7 +1545,7 @@ async function suspendSale() {
 function draftSummary(d) {
   const total = d.lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
   const when = new Date(d.created_at);
-  const stamp = isNaN(when) ? "" : fmtStampDay(d.created_at) + " " + fmtTime(d.created_at);
+  const stamp = isNaN(when) ? "" : fmtDate(d.created_at) + " " + fmtTime(d.created_at);
   return [
     el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
       el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
@@ -2310,6 +2301,7 @@ Object.assign(RU, {
   "Find client": "Найти клиента",
   "Change": "Изменить",
   "Find a client": "Найти клиента",
+  "Client for this sale": "Клиент для продажи",
   "Name, phone or DLD-…": "Имя, телефон или DLD-…",
   "Type at least two characters.": "Введите хотя бы два символа.",
   "No client found for “{q}”.": "По запросу «{q}» клиентов нет.",
@@ -2329,7 +2321,7 @@ Object.assign(RU, {
   "Partner's birthday": "День рождения партнёра",
   "Child's birthday": "День рождения ребёнка",
   "Use this client": "Выбрать этого клиента",
-  "+ New": "+ Новый",
+  "+ New client": "+ Новый клиент",
   "Client on this sale: {n}": "Клиент продажи: {n}",
   "The ticket for this purchase is not in the till.": "Чека этой покупки в кассе нет.",
 });
@@ -2337,17 +2329,6 @@ PL.purchase = { en: ["purchase", "purchases"], ru: ["покупка", "поку�
 // addclient.js gives RU "Walk-in" its own CRM meaning ("how we met"), so the
 // till's Walk-in button keeps its own wording here.
 const walkInText = () => (LANG === "ru" ? "Без карты клиента" : "Walk-in");
-// "2026-11-14" → "14.11.2026"
-function fmtDay(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : "—";
-}
-// A timestamp → its local day (the till's own clock: Tashkent), "15.11.2026".
-function fmtStampDay(iso) {
-  const d = new Date(iso);
-  if (isNaN(d)) return fmtDay(iso);
-  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
-}
 const CLIENT_DATE_KINDS = { anniversary: "Wedding anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Other" };
 
 /* -------------------------------------------------------- the slot on a sale */
@@ -2442,7 +2423,7 @@ function clientCard(card) {
   const canOpen = !!S.rights.view;
   const purchase = (t) => {
     const kids = [
-      el("span", { class: "pu-date", text: fmtDay(t.sold_at) }),
+      el("span", { class: "pu-date", text: fmtDate(t.sold_at) }),
       el("span", { class: "pu-item" }, [t.brand, (LANG === "ru" ? t.cat_name_ru : t.cat_name_en) || t.item].filter(Boolean).join(" · ")),
       el("span", { class: "pu-net money", text: fmtUZS(t.net_uzs) }),
     ];
@@ -2455,24 +2436,24 @@ function clientCard(card) {
   const dates = card.important_dates || [];
   return el("div", { class: "client-card", id: "client-card" },
     el("div", { class: "cc-head" },
-      el("h4", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
-      el("a", { class: "btn subtle cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
+      el("h3", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
+      el("a", { class: "cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
         title: tr("Opens the client's card in the Client Instrument"), text: tr("View in CRM ↗") })),
     el("div", { class: "cc-owner" }, el("span", { class: "k", text: tr("Owner") + ": " }), el("b", { text: blank(c.client_owner) ? "—" : who(c.client_owner) })),
     el("div", { class: "cc-facts" },
       el("span", {}, pl(roll.lines || 0, "purchase")),
       el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
-      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDay(last) }) }) : null),
-    el("div", { class: "cc-sec" }, el("h5", { text: tr("Purchases") }),
+      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDate(last) }) }) : null),
+    el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Purchases") }),
       tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
-    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Notes") }),
+    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Notes") }),
       about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
-      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtStampDay(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
-    dates.length ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Important dates") }),
+      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtDate(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
+    dates.length ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Important dates") }),
       el("ul", { class: "cc-dates" }, dates.map((d) => {
         const k = tr(CLIENT_DATE_KINDS[d.kind] || d.kind);
         const what = d.kind === "other" ? (d.label || k) : k + (blank(d.label) ? "" : " (" + d.label + ")");
-        const when = String(d.day).padStart(2, "0") + "." + String(d.month).padStart(2, "0") + (d.year ? "." + d.year : "");
+        const when = d.day + " " + MONTHS[LANG === "ru" ? "ru" : "en"][d.month - 1] + (d.year ? " " + d.year : "");
         return el("li", {}, el("span", { text: what }), el("span", { class: "money", text: when }));
       }))) : null);
 }
@@ -2482,7 +2463,7 @@ function renderClientPanel() {
   let host = $("#client-panel");
   const focused = $("#client-q") === document.activeElement;
   const pos = focused ? $("#client-q").selectionStart : null;
-  if (!host) { host = el("div", { id: "client-panel", class: "modal-wrap" }); document.body.appendChild(host); }
+  if (!host) { host = el("div", { id: "client-panel", class: "panel-wrap" }); document.body.appendChild(host); }
   host.innerHTML = "";
   const q = el("input", { type: "search", id: "client-q", autocomplete: "off", spellcheck: "false", value: cp.q,
     placeholder: tr("Name, phone or DLD-…"), "aria-label": tr("Find a client"),
@@ -2499,27 +2480,27 @@ function renderClientPanel() {
       ? cp.rows.map((r) => el("button", { type: "button", class: "cl-row" + (r.client_id === cp.id ? " on" : ""), onclick: () => cpOpen(r.client_id) },
           el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
           el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
-            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDay(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
+            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDate(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
       : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
   } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
   const body = [];
   if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
   if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
   if (cp.card) body.push(clientCard(cp.card));
-  const box = el("section", { class: "modal cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
-    el("div", { class: "modal-head" },
-      el("h3", { id: "cp-title", text: tr("Find a client") }),
+  const box = el("section", { class: "panel cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
+    el("div", { class: "cp-head" },
+      el("span", { id: "cp-title", class: "lbl", text: tr("Client for this sale") }),
       el("button", { class: "btn subtle close", type: "button", id: "client-close", "aria-label": tr("Close"), onclick: closeClientPanel, text: "×" })),
-    el("div", { class: "modal-body" },
+    el("div", { class: "cp-body" },
       el("div", { class: "cp-search" }, q),
-      el("div", { id: "client-results", class: "cl-list" }, results),
+      results ? el("div", { id: "client-results", class: "cl-list" }, results) : el("div", { id: "client-results", class: "cl-list" }),
       body),
-    el("div", { class: "modal-foot" },
-      cp.card ? el("button", { type: "button", class: "btn primary", id: "use-client",
-        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null,
-      el("button", { type: "button", class: "btn", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
-      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New")) : null));
-  host.append(el("div", { class: "modal-scrim", onclick: closeClientPanel }), box);
+    el("div", { class: "cp-foot" },
+      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New client")) : null,
+      el("button", { type: "button", class: "btn subtle", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
+      cp.card ? el("button", { type: "button", class: "btn primary cp-use", id: "use-client",
+        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null));
+  host.append(el("div", { class: "panel-scrim", onclick: closeClientPanel }), box);
   if (focused) { const n = $("#client-q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
 }
 document.addEventListener("keydown", (e) => {
@@ -2626,7 +2607,7 @@ async function loadTickets() {
 function tkSet(patch) { Object.assign(S.tk.f, patch); S.tk.page = 1; loadTickets(); }
 let tkTimer = null;
 function renderTickets(main) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const tk = tkState(), f = tk.f;
   const opt = (v, t, cur) => el("option", { value: v, text: t, selected: v === cur ? true : null });
   const sel = (id, label, cur, opts, key) => {
@@ -2654,9 +2635,13 @@ function renderTickets(main) {
   renderTkList();
   loadTickets();
 }
-function tkStatus(status) {
-  return el("span", { class: "tk-st" + (status === "void" ? " void" : "") }, status === "void" ? tr("VOIDED") : tr("Posted"));
+// Status tag: void alert, a test sale card-filled, otherwise navy (the till's "Posted" is the mockup's "Sold").
+function tkStatus(status, source) {
+  if (status === "void") return el("span", { class: "tag alert", text: tr("VOIDED") });
+  if (source === "training") return el("span", { class: "tag info", text: tr("Training") });
+  return el("span", { class: "tag act", text: tr("Posted") });
 }
+const tkWhen = (iso) => fmtDate(iso) + " " + fmtTime(iso);
 function renderTkList() {
   const box = $("#tk-body");
   if (!box || !S.tk) return;
@@ -2665,24 +2650,28 @@ function renderTkList() {
   if (tk.err) { box.append(el("p", { class: "form-err tk-pad", role: "alert", text: tk.err })); return; }
   if (!d) { box.append(el("p", { class: "loading", text: tr("Loading tickets…") })); return; }
   const pages = Math.max(1, Math.ceil(d.count / (d.page_size || 50)));
-  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" },
-    el("b", { text: pl(d.count, "ticket") }),
-    d.void_count ? el("span", { text: tr("{n} void", { n: d.void_count }) }) : null,
-    el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }),
-    tk.busy ? el("span", { class: "muted", text: tr("Searching…") }) : null));
+  const sumParts = [el("b", { text: pl(d.count, "ticket") })];
+  if (d.void_count) sumParts.push(" · ", el("span", { text: tr("{n} void", { n: d.void_count }) }));
+  sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
+  if (tk.busy) sumParts.push(" · ", el("span", { class: "muted", text: tr("Searching…") }));
+  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
   if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
-  box.append(el("div", { class: "tk-list", id: "tk-list", role: "table", "aria-label": tr("Tickets") },
-    el("div", { class: "tk-row tk-headrow", role: "row" }, ["Date", "Ticket", "Source", "Seller", "Client", "Items", "Net", "Status"]
-      .map((h) => el("span", { role: "columnheader", class: "tk-h-" + h.toLowerCase(), text: tr(h) }))),
-    d.rows.map((r) => el("a", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), role: "row", href: "#/ticket/" + encodeURIComponent(r.ticket_id) },
-      el("span", { class: "tk-date", text: fmtDay(r.sold_at) }),
-      el("span", { class: "tk-no", text: r.ticket_no }),
-      el("span", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
-      el("span", { class: "tk-seller", text: r.seller || "—" }),
-      el("span", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
-      el("span", { class: "tk-items", text: r.items || "—" }),
-      el("span", { class: "tk-net money", text: fmtUZS(r.net) }),
-      tkStatus(r.status)))));
+  const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
+    ["Source", "tk-src"], ["Status", "tk-st"], ["Net", "tk-net r"]];
+  box.append(el("div", { class: "tk-scroll" }, el("table", { class: "tbl tk-list", id: "tk-list", "aria-label": tr("Tickets") },
+    el("thead", {}, el("tr", {}, cols.map(([h, c]) => el("th", { scope: "col", class: "tk-h " + c, text: tr(h) })))),
+    el("tbody", {}, d.rows.map((r) => {
+      const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
+      return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
+        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
+        el("td", { class: "tk-date", text: tkWhen(r.sold_at) }),
+        el("td", { class: "tk-items", text: r.items || "—" }),
+        el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
+        el("td", { class: "tk-seller", text: r.seller || "—" }),
+        el("td", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
+        el("td", { class: "tk-st" }, tkStatus(r.status, r.source)),
+        el("td", { class: "tk-net r money", text: fmtUZS(r.net) }));
+    })))));
   if (pages > 1) {
     const pg = (p) => { tk.page = p; loadTickets(); };
     box.append(el("div", { class: "tk-pager" },
@@ -2694,7 +2683,7 @@ function renderTkList() {
 
 /* ------------------------------------------------------------- one ticket */
 async function renderTicket(main, id) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const wrap = el("section", { class: "sheet", id: "screen-ticket" }, el("p", { class: "loading", text: tr("Loading…") }));
   main.append(wrap);
   let doc;
@@ -2724,7 +2713,7 @@ function drawTicket(wrap, doc, ui) {
     return el("li", { class: "tl-row" + (refund ? " refund" : "") },
       el("div", { class: "tl-info" },
         el("div", { class: "tl-title" }, [l.brand_raw, l.item_name].filter(Boolean).join(" · ") || l.article || "—",
-          refund ? el("span", { class: "tag", text: tr("Refund") }) : null),
+          refund ? el("span", { class: "tag line", text: tr("Refund") }) : null),
         el("div", { class: "tl-meta" }, [l.serial_raw, l.article, l.size ? tr("size {s}", { s: l.size }) : null, l.seller ? tr("Seller: {s}", { s: l.seller }) : null]
           .filter(Boolean).join(" · "))),
       el("div", { class: "tl-price money" }, fmtUZS(sign(l.price_current)),
@@ -2762,18 +2751,18 @@ function drawTicket(wrap, doc, ui) {
   wrap.append(...[
     el("div", { class: "sheet-head" },
       el("h1", { text: t.ticket_no }),
-      el("span", { class: "tk-status" }, tkStatus(t.status)),
+      el("span", { class: "tk-status" }, tkStatus(t.status, t.source)),
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
     el("dl", { class: "tk-meta" },
-      kv("Date", fmtDay(t.sold_at)),
+      kv("Date", tkWhen(t.sold_at)),
       kv("Source", tr(SOURCE_LABEL[t.source] || t.source)),
       kv("Seller", t.seller),
       kv("Client", client),
       kv("Entered by", t.entered_by ? who(t.entered_by) : null),
       kv("Era receipt no.", t.fiscal_ref),
       voided ? kv("Void reason", t.void_reason) : null,
-      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? fmtStampDay(t.voided_at) : null].filter(Boolean).join(", ")) : null),
+      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
     voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
     el("ol", { class: "tl-lines" }, lines.map(lineRow)),
@@ -2841,25 +2830,25 @@ PL.testDraft = { en: ["suspended test sale", "suspended test sales"], ru: ["от
 S.adminCleared = null;
 
 function renderAdmin(main) {
-  if (!S.rights.manage) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot manage the till.") })); return; }
+  if (!S.rights.manage) { main.append(el("div", { class: "notice", text: tr("Your account cannot manage the till.") })); return; }
   const live = S.mode === "live";
   const goLive = S.ref && S.ref.go_live_date;
   main.append(el("section", { class: "sheet", id: "screen-admin" },
     el("div", { class: "sheet-head" }, el("h1", { text: tr("Admin") })),
     el("div", { class: "admin-body" },
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Till mode") }),
+        el("h2", { class: "h2", text: tr("Till mode") }),
         el("div", { class: "seg", role: "group", "aria-label": tr("Till mode") },
           el("button", { type: "button", class: "btn", id: "mode-training", "aria-pressed": live ? "false" : "true", onclick: () => switchMode("training") }, tr("Training")),
           el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
-        el("p", { class: "muted", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
+        el("p", { class: "small", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
           : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Go-live date") }),
-        el("p", { id: "go-live", class: goLive ? "big-date" : "muted", text: goLive ? fmtDay(goLive) : tr("Not yet — the till has not been Live.") })),
+        el("h2", { class: "h2", text: tr("Go-live date") }),
+        el("p", { id: "go-live", class: goLive ? "h2" : "small", text: goLive ? fmtDate(goLive) : tr("Not yet — the till has not been Live.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Test sales") }),
-        el("p", { class: "muted", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
+        el("h2", { class: "h2", text: tr("Test sales") }),
+        el("p", { class: "small", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
         el("button", { type: "button", class: "btn", id: "clear-training", onclick: clearTraining }, tr("Clear test sales")),
         S.adminCleared ? el("p", { class: "ok-line", id: "clear-result", role: "status", text: tr("Cleared: {t} and {d}.",
           { t: pl(S.adminCleared.tickets, "testTicket"), d: pl(S.adminCleared.drafts, "testDraft") }) }) : null))));

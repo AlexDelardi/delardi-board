@@ -415,7 +415,7 @@ async function suspendSale() {
 function draftSummary(d) {
   const total = d.lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
   const when = new Date(d.created_at);
-  const stamp = isNaN(when) ? "" : fmtStampDay(d.created_at) + " " + fmtTime(d.created_at);
+  const stamp = isNaN(when) ? "" : fmtDate(d.created_at) + " " + fmtTime(d.created_at);
   return [
     el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
       el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),

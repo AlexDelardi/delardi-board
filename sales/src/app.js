@@ -193,8 +193,11 @@ function fmtDateNum(iso) {
   if (!t) return "—";
   return String(t.d).padStart(2, "0") + "." + String(t.m).padStart(2, "0") + "." + t.y;
 }
+// "14:05" in Tashkent time, so it agrees with fmtDate around midnight
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString(LANG === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 function toast(msg) {
   const t = $("#toast");

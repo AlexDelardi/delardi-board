@@ -495,6 +495,8 @@ async function shot(page, name) {
       return en === "16 Nov 2026" && ru === "16 ноя 2026" && fmtDateNum(iso) === "16.11.2026" &&
         fmtDate("2026-11-16T20:30:00Z") === "17 Nov 2026";      // Tashkent is UTC+5
     }));
+    check("dates: fmtTime is pinned to Tashkent (20:30Z → 17 Nov 01:30)", await page.evaluate(() =>
+      fmtDate("2026-11-16T20:30:00Z") === "17 Nov 2026" && fmtTime("2026-11-16T20:30:00Z") === "01:30"));
     await page.evaluate(() => lockDown());
     await page.waitForSelector("#gate-pass");
     check("kit: lock closes the Tools menu", await page.evaluate(() => kitOpenMenus.length === 0 &&
@@ -527,6 +529,7 @@ async function shot(page, name) {
       await page.waitForSelector("#client-results .cl-row");
     }
   };
+  const niceDay = (d) => { const [y, m, dd] = d.split("-"); return Number(dd) + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] + " " + y; };
   const openSokolova = async (page) => {
     await openClientPanel(page, "Соколова");
     await page.click("#client-results .cl-row >> nth=0");
@@ -552,13 +555,24 @@ async function shot(page, name) {
     check("client panel: 'View in CRM ↗' links to the CRM card (../crm/#DLD-9001, the CRM's deep link)", /^\.\.\/crm\/#DLD-9001$/.test(href || "") &&
       /View in CRM ↗/.test(await page.textContent("#client-card a.cc-crm")), href);
     check("client panel: purchase count and total from the rollup", /2 purchases/.test(card) && /54 700 000/.test(card), card);
-    check("client panel: the last purchase date", card.includes(mock.tkDate(2).split("-").reverse().join(".")), card);
+    check("client panel: the last purchase date reads like 14 Nov 2026", card.includes(niceDay(mock.tkDate(2))), card);
     check("client panel: notes as the card shows them", /Looking for a gift for her sister/.test(card) && /Prefers an appointment after 18:00/.test(card), card);
     check("client panel: important dates", /Wedding anniversary/.test(card) && /Child's birthday/.test(card), card);
     const all = await page.evaluate(() => document.body.innerText);
     check("client panel: no ABC class anywhere", !/\bABC\b/.test(all) && !/Class A\b/.test(all), "");
     check("client panel: no lifecycle / segment tag anywhere", !/Champion/.test(all) && !/\bActive\b/.test(all), "");
     check("client panel: + New offered (CRM editor)", await page.isVisible("#new-client"));
+    check("client: Use this client is primary, + New client secondary", await page.evaluate(() =>
+      document.querySelector("#use-client").classList.contains("primary") && document.querySelector("#new-client").classList.contains("btn") &&
+      !document.querySelector("#new-client").classList.contains("primary")));
+    const pb = await page.evaluate(() => { const r = document.querySelector("#client-panel .panel").getBoundingClientRect(); return { right: r.right, w: r.width, vw: innerWidth }; });
+    check("client: opens as a right panel 560 wide at 1024", Math.abs(pb.right - pb.vw) <= 1 && Math.abs(pb.w - 560) <= 1, JSON.stringify(pb));
+    await page.setViewportSize({ width: 560, height: 900 });
+    await page.waitForTimeout(50);
+    const pn = await page.evaluate(() => { const r = document.querySelector("#client-panel .panel").getBoundingClientRect(); return { w: r.width, vw: innerWidth }; });
+    check("client: full width under 600 px", Math.abs(pn.w - pn.vw) <= 1, JSON.stringify(pn));
+    await page.setViewportSize({ width: 1024, height: 768 });
+    check("client: the scrim sits behind the panel and closes it", await page.evaluate(() => !!document.querySelector("#client-panel .panel-scrim") && !document.querySelector("#client-panel .modal")));
     await shot(page, "client-panel-1024x768");
     await page.click("#use-client");
     await page.waitForSelector("#client-panel", { state: "detached" });
@@ -609,7 +623,7 @@ async function shot(page, name) {
     await page.clock.fastForward("15:30");
     await page.waitForSelector("#gate-pass", { timeout: 5000 });
     check("lock: the add-client form is gone", !(await page.$("#addwrap")));
-    check("lock: the client panel is gone", !(await page.$("#client-panel .modal")));
+    check("lock: the client panel is gone", !(await page.$("#client-panel .panel")) && !(await page.$("#client-panel")));
     check("lock: no typed client name left on the page", !/Zz Locktest/.test(await page.content()));
     check("lock: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -728,39 +742,52 @@ async function shot(page, name) {
   await run("tickets list", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await page.click("a.kit-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
-    const nos = () => page.$$eval("#screen-tickets a.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    const nos = () => page.$$eval("#screen-tickets tr.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
     let list = await nos();
     check("tickets: the last 30 days by default (no T-, not the 45-day-old one)", list.length === 4 && !list.includes("C-103900") && !list.some((x) => /^T-/.test(x)), list.join(","));
     check("tickets: the From box says 30 days back", (await valOf(page, "#tk-from")) === mock.tkDate(29) && (await valOf(page, "#tk-to")) === mock.tkDate(0),
       await valOf(page, "#tk-from"));
     const sum = norm(await page.textContent("#tk-sum"));
     check("tickets: the count and total line", /4 tickets/.test(sum) && /69 500 000/.test(sum), sum);
-    const refund = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230')) .tk-net"));
+    const refund = norm(await page.textContent("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230')) .tk-net"));
     check("tickets: a refund shows negative", refund === "-9 800 000", refund);
+    check("tickets: table with card header and tags", await page.evaluate(() => {
+      const t = document.querySelector("#screen-tickets table.tbl");
+      const th = t && t.querySelector("thead th");
+      const sold = t && t.querySelector("tr.tk-row .tag.act");
+      return !!th && getComputedStyle(th).backgroundColor === "rgb(238, 241, 247)" && !!sold && /posted/i.test(sold.textContent);
+    }));
+    const d0 = norm(await page.textContent("#screen-tickets tr.tk-row >> nth=0 >> .tk-date"));
+    check("tickets: dates read like 15 Nov 2026 14:05", /^\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d\d:\d\d$/.test(d0) && !/\d\.\d\d\.\d{4}/.test(d0), d0);
+    check("tickets: count line reads 'N tickets · net … so'm'", /^4 tickets · net 69 500 000 so'm$/.test(sum), sum);
+    await page.evaluate(() => { LANG = "ru"; renderTkList(); LANG = "en"; });
+    const sumRu = norm(await page.textContent("#tk-sum"));
+    await page.evaluate(() => renderTkList());
+    check("tickets: count line in Russian is pluralised", /^4 чека · нетто 69 500 000 сум$/.test(sumRu), sumRu);
     check("tickets: test sales offered only while training", (await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
     await shot(page, "tickets-1024x768");
     await page.selectOption("#tk-source", "delardi");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 2);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 2);
     list = await nos();
     check("tickets: source 'ours' shows only D-/T-", list.length === 2 && list.every((x) => /^[DT]-/.test(x)), list.join(","));
     await page.selectOption("#tk-source", "");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 4);
     await page.fill("#tk-q", "ZZ.00.11001");
     await page.press("#tk-q", "Enter");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 1);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 1);
     list = await nos();
     check("tickets: search by serial finds the Colibri ticket", list.length === 1 && list[0] === "C-104233", list.join(","));
     await page.fill("#tk-q", "");
     await page.press("#tk-q", "Enter");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 4);
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     const det = norm(await page.textContent("#screen-ticket"));
     check("ticket detail: the refund line shows negative", /-9 800 000/.test(norm(await page.textContent("#screen-ticket .tl-row .tl-net"))), det);
     check("ticket detail: Colibri is read-only (no Void, no Receipt)", !(await page.$("#void")) && !(await page.$("#show-receipt")) && /read-only/i.test(det), det);
     await page.goBack();
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     check("tickets: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -792,6 +819,15 @@ async function shot(page, name) {
     check("void: the reason is shown", /changed her mind/.test(det), det);
     check("void: no stray 'null' on the ticket", !/\bnull\b/.test(await page.evaluate(() => document.querySelector("#screen-ticket").innerText)));
     check("void: no Void button on a void ticket", !(await page.$("#void")));
+    check("void: the ticket's status is a Void tag in alert", await page.evaluate(() => !!document.querySelector("#screen-ticket .tk-status .tag.alert")));
+    await page.click("#screen-ticket a[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    const vr = await page.evaluate(() => {
+      const r = [...document.querySelectorAll("#screen-tickets tr.tk-row")].find((x) => /D-000001/.test(x.textContent));
+      const amt = r.querySelector(".tk-net"), cs = getComputedStyle(amt);
+      return { tag: !!r.querySelector(".tag.alert"), line: cs.textDecorationLine, colour: cs.color };
+    });
+    check("tickets: a voided ticket has a Void tag and its amount struck through", vr.tag && vr.line === "line-through" && vr.colour === "rgb(91, 100, 120)", JSON.stringify(vr));
     await shot(page, "ticket-1024x768");
     check("void: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -843,10 +879,10 @@ async function shot(page, name) {
     await page.click("#confirm-ok");
     await page.waitForSelector(".training-band", { state: "detached" });
     check("admin: Live removes the TRAINING banner", mock.state.mode === "live" && !(await page.$(".training-band")));
-    check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(mock.tkDate(0).split("-").reverse().join(".")),
+    check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(niceDay(mock.tkDate(0))),
       await page.textContent("#go-live"));
     await page.click("a.kit-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     check("admin: Live → no test-sales option in the ticket list", !(await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
     check("admin: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -879,12 +915,12 @@ async function shot(page, name) {
       await shot(page, "ipad-client-" + tag);
       await page.click("#client-close");
       await page.click("a.kit-tab[href='#/tickets']");
-      await page.waitForSelector("#screen-tickets a.tk-row");
+      await page.waitForSelector("#screen-tickets tr.tk-row");
       check(`ipad ${tag}: tickets — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
       check(`ipad ${tag}: tickets — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-tickets-" + tag);
-      await page.click("#screen-tickets a.tk-row >> nth=0");
+      await page.click("#screen-tickets tr.tk-row >> nth=0");
       await page.waitForSelector("#screen-ticket .tl-row");
       check(`ipad ${tag}: ticket — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
@@ -968,22 +1004,22 @@ async function shot(page, name) {
     await page.waitForSelector("#screen-sale");
     check("sales only: rights.crm is false", await page.evaluate(() => S.rights.crm === false));
     await page.click("a.kit-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     const list = norm(await page.textContent("#screen-tickets"));
-    const row = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
+    const row = norm(await page.textContent("#screen-tickets tr.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
     check("sales only: the list shows the client reference, not the name", row === "DLD-9001" && !/Соколова/.test(list), row);
     const listCall = mock.state.calls.filter((c) => c.action === "tickets").pop();
     const [, listRes] = mock.handle(Object.assign({}, listCall));
     check("sales only: no client_name in the list answer", listRes.rows.every((r) => !("client_name" in r)), JSON.stringify(listRes.rows[0]));
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002'))");
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('D-000002'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     await page.click("#show-receipt");
     await page.waitForSelector("#screen-ticket .receipt");
     const det = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
     check("sales only: the receipt says Client: DLD-9001, without the name", /Client: DLD-9001/.test(det) && !/Соколова/.test(det), det);
     await page.goBack();
-    await page.waitForSelector("#screen-tickets a.tk-row");
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     const det2 = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
     check("sales only: Colibri's raw client text is not shown", !/Invented Buyer/.test(det2), det2);

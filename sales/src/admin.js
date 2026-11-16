@@ -39,25 +39,25 @@ PL.testDraft = { en: ["suspended test sale", "suspended test sales"], ru: ["от
 S.adminCleared = null;
 
 function renderAdmin(main) {
-  if (!S.rights.manage) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot manage the till.") })); return; }
+  if (!S.rights.manage) { main.append(el("div", { class: "notice", text: tr("Your account cannot manage the till.") })); return; }
   const live = S.mode === "live";
   const goLive = S.ref && S.ref.go_live_date;
   main.append(el("section", { class: "sheet", id: "screen-admin" },
     el("div", { class: "sheet-head" }, el("h1", { text: tr("Admin") })),
     el("div", { class: "admin-body" },
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Till mode") }),
+        el("h2", { class: "h2", text: tr("Till mode") }),
         el("div", { class: "seg", role: "group", "aria-label": tr("Till mode") },
           el("button", { type: "button", class: "btn", id: "mode-training", "aria-pressed": live ? "false" : "true", onclick: () => switchMode("training") }, tr("Training")),
           el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
-        el("p", { class: "muted", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
+        el("p", { class: "small", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
           : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Go-live date") }),
-        el("p", { id: "go-live", class: goLive ? "big-date" : "muted", text: goLive ? fmtDay(goLive) : tr("Not yet — the till has not been Live.") })),
+        el("h2", { class: "h2", text: tr("Go-live date") }),
+        el("p", { id: "go-live", class: goLive ? "h2" : "small", text: goLive ? fmtDate(goLive) : tr("Not yet — the till has not been Live.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Test sales") }),
-        el("p", { class: "muted", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
+        el("h2", { class: "h2", text: tr("Test sales") }),
+        el("p", { class: "small", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
         el("button", { type: "button", class: "btn", id: "clear-training", onclick: clearTraining }, tr("Clear test sales")),
         S.adminCleared ? el("p", { class: "ok-line", id: "clear-result", role: "status", text: tr("Cleared: {t} and {d}.",
           { t: pl(S.adminCleared.tickets, "testTicket"), d: pl(S.adminCleared.drafts, "testDraft") }) }) : null))));
