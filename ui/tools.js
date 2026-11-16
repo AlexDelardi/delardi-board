@@ -14,7 +14,22 @@ function kitCloseMenus() {
   for (const close of kitOpenMenus.slice()) close();
 }
 
-function kitToolsMenu(currentId, lang) {
+// A link that leaves the page can ask first. beforeLeave(href) returns a Promise:
+// true follows the link, false stays. A modified click (new tab) is left alone.
+function kitGuardLink(a, beforeLeave) {
+  if (typeof beforeLeave !== 'function') return a;
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const href = a.href;
+    Promise.resolve(beforeLeave(href)).then(go => { if (go) window.location.assign(href); });
+  });
+  return a;
+}
+
+// opts.beforeLeave: see kitGuardLink; asked before any tool link is followed.
+function kitToolsMenu(currentId, lang, opts) {
+  const beforeLeave = opts && opts.beforeLeave;
   const ru = lang === 'ru';
   const wrap = document.createElement('span');
   wrap.className = 'kit-tool-wrap';
@@ -36,6 +51,7 @@ function kitToolsMenu(currentId, lang) {
     } else {
       item = document.createElement('a');
       item.setAttribute('href', t.href);
+      kitGuardLink(item, beforeLeave);
     }
     item.textContent = ru ? t.ru : t.en;
     li.appendChild(item);
@@ -60,6 +76,7 @@ function kitToolsMenu(currentId, lang) {
   function onKey(e) { if (e.key === 'Escape') close(true); }
   function onDoc(e) { if (!wrap.contains(e.target)) close(); }
   btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => { if (e.target.closest && e.target.closest('a')) close(); });
   wrap.addEventListener('focusout', e => {
     if (!list.hidden && e.relatedTarget && !wrap.contains(e.relatedTarget)) close();
   });

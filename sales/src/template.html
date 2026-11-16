@@ -31,6 +31,11 @@ a { color: inherit; }
 .top .kit-tabs { overflow-x: auto; }
 .top .kit-tab { white-space: nowrap; }
 .top .kit-tab:focus-visible { outline-offset: -2px; }
+@media (max-width: 900px) {                       /* portrait iPad, RU labels: still one 56 px row */
+  .top .kit-head { gap: 8px; padding: 0 16px; }
+  .top .kit-head .kit-hbtn { padding: 0 12px; }
+  .top .kit-staff { max-width: 120px; }
+}
 /* training: on every screen, impossible to miss, never alarming */
 .band.training-band { border-bottom: 1px solid var(--mist); }
 
@@ -105,12 +110,12 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 }
 .lines { list-style: none; margin: 0; padding: 4px 24px 8px; }
 .lines .empty { padding: 32px 12px; text-align: center; color: var(--slate); font-size: 15px; }
-.line {
+.lines > .line {
   display: grid; align-items: center; gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--mist);
   grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
   grid-template-areas: "info price disc net x";
 }
-.line:first-child { border-top: 0; }
+.lines > .line:first-child { border-top: 0; }
 .l-info { grid-area: info; min-width: 0; }
 .l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
@@ -146,8 +151,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .total { margin-left: auto; text-align: right; }
 .total .t-l { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .total .keynum { white-space: nowrap; }
-.total .t-v { font: normal 28px/1.1 var(--serif); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--navy-deep); }
-.total .keynum small, .total .t-v small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
+.total .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 
 /* payment */
 .pay-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
@@ -183,6 +187,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .pay-side .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 .ps-sum { display: flex; flex-direction: column; gap: 4px; }
 .ps-ok { color: var(--navy); font-weight: 700; }
+.ps-ok.short { color: var(--slate); font-weight: 400; }   /* Overpaid by …: a plain fact, not an alarm */
 .pay-side .why { font-size: 13px; color: var(--slate); margin-top: auto; min-height: 0; }
 .pay-side .btn.big { width: 100%; }
 .pay-side #back { width: 100%; }
@@ -222,12 +227,10 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .saved-actions .btn { width: 100%; }
 
 .receipt-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; justify-content: flex-end; }
-.muted { color: var(--slate); font-size: 13px; }
-.notice-box { max-width: 640px; margin: 24px auto; padding: 12px 16px; background: var(--card); color: var(--navy); border: 1px solid var(--mist); }
+main > .notice { max-width: 640px; margin: 24px auto; }
 
 /* ----------------------------------------------------------------- dialogs */
-.modal-wrap { z-index: 70; padding: 24px; }
-.modal-wrap.confirm { z-index: 80; }
+.modal-wrap { padding: 24px; }                  /* stacking is the kit's: panel 100, modal 110, gate 115, toast 120 */
 .modal-scrim { position: fixed; }
 .modal { padding: 0; width: 640px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
 .modal.confirm, .confirm .modal { width: 480px; }
@@ -248,7 +251,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .cp-head .close { width: var(--tap); min-width: var(--tap); padding: 0; font-size: 21px; line-height: 1; }
 .cp-body { padding: 0 24px; display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; }
 .cp-body p { margin: 0; }
-.cp-foot { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
+.cp-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
 .cp-foot .cp-use { margin-left: auto; }
 .cp-search input { width: 100%; min-height: var(--tap); }
 .cl-list { display: flex; flex-direction: column; }
@@ -330,7 +333,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .tk-list th:first-child, .tk-list td:first-child { padding-left: 24px; }
 .tk-list th { white-space: nowrap; }
 .tk-list th:last-child, .tk-list td:last-child { padding-right: 24px; }
-.tk-list tbody tr { height: 48px; cursor: pointer; }
+.tk-list tbody tr { cursor: pointer; }
 .tk-list td { color: var(--navy-deep); font-size: 14px; }
 a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
 a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -354,6 +357,30 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; }
   .tk-date, .tk-src, .tk-seller, .tk-items { font-size: 13px; }
 }
+/* one ticket (#/ticket/<id>) */
+.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; padding: 16px 24px; }
+.tk-meta .kv { min-width: 0; }
+.tk-meta dt { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tk-meta dd { margin: 0; font-size: 15px; color: var(--navy-deep); overflow-wrap: anywhere; }
+.ro-note { margin: 0 24px 8px; font-size: 13px; color: var(--slate); }
+.notice.era-reminder { margin: 8px 24px 0; font-weight: 700; }
+.tl-lines { list-style: none; margin: 0; padding: 4px 24px; border-top: 1px solid var(--mist); }
+.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 150px; gap: 4px 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--mist); }
+.tl-row:first-child { border-top: 0; }
+.tl-info { min-width: 0; }
+.tl-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.tl-title .tag { margin-left: 8px; vertical-align: middle; }
+.tl-meta { margin-top: 4px; font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+.tl-price, .tl-net { text-align: right; font-variant-numeric: tabular-nums; }
+.tl-price { color: var(--slate); }
+.tl-price small { font-size: 13px; color: var(--slate); }
+.tl-net { font-size: 17px; font-weight: 700; color: var(--navy-deep); }
+.tl-row.refund .tl-net { color: var(--navy); }
+.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 16px 24px; border-top: 1px solid var(--mist); }
+.tl-pays { flex: 1 1 260px; min-width: 0; }
+.tl-pays h5 { margin: 0 0 8px; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tl-pay { display: flex; justify-content: space-between; gap: 12px; max-width: 360px; padding: 4px 0; font-size: 15px; color: var(--navy-deep); }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 24px 24px; }
 .void-form { margin: 0 24px 16px; padding: 12px 16px; border: 1px solid var(--alert); background: var(--white); display: flex; flex-direction: column; gap: 8px; }
 .void-form .lbl { margin: 0; }
 .void-form textarea { width: 100%; resize: vertical; }
@@ -404,7 +431,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .saved-actions { margin-top: 0; }
   .lines-head { display: none; }
   .sg-head, .sg { grid-template-columns: minmax(0, 1fr) 130px 120px; gap: 12px; }
-  .line {
+  .lines > .line {
     grid-template-columns: minmax(0, 1fr) 92px minmax(120px, auto) var(--tap);
     grid-template-areas: "info info info x" "price disc net net";
     gap: 8px 12px;
@@ -426,7 +453,6 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .sugg { left: 16px; right: 16px; }
   .search .glass { left: 32px; }
   .pay-row { grid-template-columns: 96px minmax(0, 1fr) var(--tap); }
-  .total .t-v { font-size: 24px; }
   .total .keynum { font-size: 28px; }
   .sale-head { padding: 16px 16px 0; }
   .sg-head, .sg { grid-template-columns: minmax(0, 1fr) auto; }
@@ -436,7 +462,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .hide-sm { display: none !important; }
 }
 @media (max-width: 480px) {
-  .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
+  .lines > .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
   .pay-row { grid-template-columns: minmax(0, 1fr) var(--tap); }
   .pay-row input { grid-column: 1 / 2; }
   .pay-add, .card-menu { grid-template-columns: minmax(0, 1fr); }

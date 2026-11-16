@@ -175,7 +175,7 @@ function renderPay(main) {
       el("div", { class: "pay-main" },
         el("div", { class: "pay-title" },
           el("h1", { class: "title", text: tr("Payment") }),
-          el("span", { class: "muted", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
+          el("span", { class: "small", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
         who,
         el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
         el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
@@ -255,7 +255,7 @@ async function renderReceipt(main, id) {
       el("span", { class: "lbl", text: tr("Posted") }),
       el("h1", { class: "title", text: tr("Sale saved") }),
       el("p", { class: "saved-line", text: tr("Ticket {n} · {t}", { n: ticketNo, t: total === null ? "" : fmtUZS(total) + " " + tr("so'm") }).replace(/ · $/, "") +
-        ". " + tr("The pieces are now marked as sold.") }),
+        "." + (training ? "" : " " + tr("The pieces are now marked as sold.")) }),
       training ? el("div", { class: "notice", role: "note", text: tr("Training ticket — it will not appear in reports and is cleared before go-live.") }) : null,
       el("div", { class: "saved-actions" },
         el("button", { type: "button", class: "btn", id: "print-receipt", onclick: () => window.print() }, tr("Print receipt")),

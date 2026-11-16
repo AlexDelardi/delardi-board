@@ -144,7 +144,7 @@ function renderTkList() {
   const sumParts = [el("b", { text: pl(d.count, "ticket") })];
   if (d.void_count) sumParts.push(" · ", el("span", { text: tr("{n} void", { n: d.void_count }) }));
   sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
-  if (tk.busy) sumParts.push(" · ", el("span", { class: "muted", text: tr("Searching…") }));
+  if (tk.busy) sumParts.push(" · ", el("span", { class: "small", text: tr("Searching…") }));
   box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
   if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
   const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
@@ -167,7 +167,7 @@ function renderTkList() {
     const pg = (p) => { tk.page = p; loadTickets(); };
     box.append(el("div", { class: "tk-pager" },
       el("button", { type: "button", class: "btn", disabled: tk.page <= 1 ? true : null, onclick: () => pg(tk.page - 1) }, tr("← Newer")),
-      el("span", { class: "muted", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
+      el("span", { class: "small", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
       el("button", { type: "button", class: "btn", disabled: tk.page >= pages ? true : null, onclick: () => pg(tk.page + 1) }, tr("Older →"))));
   }
 }
@@ -188,6 +188,7 @@ async function renderTicket(main, id) {
     return;
   }
   if (!wrap.isConnected) return;
+  wrap.innerHTML = "";                            // the "Loading…" line goes
   drawTicket(wrap, doc, { receipt: false, voidOpen: false, reason: "", err: null });
 }
 function drawTicket(wrap, doc, ui) {
@@ -255,19 +256,19 @@ function drawTicket(wrap, doc, ui) {
       voided ? kv("Void reason", t.void_reason) : null,
       voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
-    voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
+    voided && mine ? el("p", { class: "notice era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
     el("ol", { class: "tl-lines" }, lines.map(lineRow)),
     el("div", { class: "tl-foot" },
       el("div", { class: "tl-pays" }, el("h5", { text: tr("Payments") }),
         pays.length ? pays.map((p) => el("div", { class: "tl-pay" }, el("span", { text: payText(p) }), el("span", { class: "money", text: fmtUZS(p.amount) })))
-          : el("p", { class: "muted", text: "—" })),
+          : el("p", { class: "small", text: "—" })),
       el("div", { class: "total" }, el("div", { class: "t-l", text: tr("Total") }),
-        el("div", { class: "t-v" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
+        el("div", { class: "keynum" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
     ui.voidOpen ? el("form", { class: "void-form", id: "void-form", onsubmit: (ev) => { ev.preventDefault(); submitVoid(); } },
       el("label", { for: "void-reason", class: "lbl", text: tr("Why is this sale being voided?") }),
       el("textarea", { id: "void-reason", rows: "3", maxlength: "500", value: ui.reason, oninput: (ev) => { ui.reason = ev.target.value; if (ui.err && ui.reason.trim()) { ui.err = null; const x = $("#void-form .form-err"); if (x) x.remove(); } } }),
       ui.err ? el("p", { class: "form-err", role: "alert", text: ui.err }) : null,
-      el("p", { class: "muted", text: tr("Cancel the fiscal receipt in Era as well.") }),
+      el("p", { class: "small", text: tr("Cancel the fiscal receipt in Era as well.") }),
       el("div", { class: "form-actions" },
         el("button", { type: "submit", class: "btn danger", id: "void-go" }, tr("Void this sale")),
         el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,

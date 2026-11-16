@@ -654,9 +654,12 @@ async function shot(page, name) {
     // (c) the passcode card is above every overlay
     const z = await t.page.evaluate(() => {
       const probe = (cls) => { const n = document.createElement("div"); n.className = cls; n.style.display = "none"; document.body.appendChild(n); const v = parseInt(getComputedStyle(n).zIndex, 10); n.remove(); return v; };
-      return { gate: parseInt(getComputedStyle(document.querySelector("#gate")).zIndex, 10), panel: probe("panel-wrap"), add: probe("addwrap") };
+      return { gate: parseInt(getComputedStyle(document.querySelector("#gate")).zIndex, 10), panel: probe("panel-wrap"), add: probe("addwrap"),
+        modal: probe("modal-wrap"), confirm: probe("modal-wrap confirm") };
     });
     check("lock: the passcode card is above the panel and the add-client form", z.gate > z.panel && z.gate > z.add, JSON.stringify(z));
+    check("lock: the passcode card is above .modal-wrap, which keeps the kit order (panel 100 < modal 110 < gate 115)",
+      z.gate > z.modal && z.gate > z.confirm && z.modal === 110 && z.confirm === 110 && z.panel === 100 && z.gate === 115, JSON.stringify(z));
     await t.ctx.close();
   });
 
@@ -1222,6 +1225,8 @@ async function shot(page, name) {
       check(`receipt ${mode}: preview sits on a card ground`, await page.$eval(".receipt-stage", (n) => getComputedStyle(n).backgroundColor) === "rgb(238, 241, 247)");
       const sp = norm(await page.textContent(".saved-panel"));
       check(`receipt ${mode}: panel has the ticket, the amount, Print receipt and New sale`, /(T|D)-\d{6}/.test(sp) && /31 500 000/.test(sp) && /Print receipt/.test(sp) && !!(await page.$(".saved-panel #new-sale")), sp);
+      check(`receipt ${mode}: "The pieces are now marked as sold." only in Live`,
+        mode === "live" ? /marked as sold/.test(sp) : !/marked as sold/.test(sp), sp);
       if (mode === "training") {
         check("receipt training: the note and the TRAINING strip show", /not appear in reports|cleared/i.test(sp) && !!(await page.$(".receipt .rc-train")), sp);
         await page.setViewportSize({ width: 768, height: 1024 });
@@ -1260,6 +1265,181 @@ async function shot(page, name) {
     check("receipt reload: the amount is the grouped total even when net arrives as a string", sp.includes("· " + due + " so'm"), sp + " | due " + due);
     check("receipt reload: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+
+  /* ============================================== final whole-branch review */
+  // F1: the single ticket keeps its layout on the kit
+  await run("ticket detail layout", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/ticket/30000000-0000-4000-8000-000000000002" });
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const g = await page.evaluate(() => {
+      const cs = (n) => getComputedStyle(n);
+      const row = document.querySelector(".tl-row"), tag = document.querySelector(".tl-title .tag");
+      const pay = document.querySelector(".tl-pay"), [m, a] = pay ? pay.children : [];
+      const dl = document.querySelector(".tk-meta"), ol = document.querySelector(".tl-lines");
+      return { row: cs(row).display, tag: cs(tag).display, tagW: tag.getBoundingClientRect().width,
+        payGap: m && a ? a.getBoundingClientRect().left - m.getBoundingClientRect().right : -1, payText: pay ? pay.textContent : "",
+        dl: cs(dl).display, dd: cs(dl.querySelector("dd")).marginLeft, ol: cs(ol).listStyleType,
+        loading: !!document.querySelector("#screen-ticket .loading") };
+    });
+    check("ticket detail: .tl-row is a grid", g.row === "grid", JSON.stringify(g));
+    check("ticket detail: the Refund tag is a kit tag (inline, narrower than 200 px)", /^inline/.test(g.tag) && g.tagW < 200, JSON.stringify(g));
+    check("ticket detail: payments show the method and the amount apart", g.payGap >= 12 && /Cash/.test(g.payText), JSON.stringify(g));
+    check("ticket detail: the facts are a grid, no default <dl> indent, no numbered list", g.dl === "grid" && g.dd === "0px" && g.ol === "none", JSON.stringify(g));
+    check("ticket detail: the Loading… line is gone once the ticket shows", !g.loading, JSON.stringify(g));
+    await page.goto(PAGE_URL + "#/ticket/30000000-0000-4000-8000-000000000003");
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const acts = await page.evaluate(() => { const a = document.querySelector(".tk-actions"); const [b1, b2] = a.children;
+      return { d: getComputedStyle(a).display, gap: b2.getBoundingClientRect().left - b1.getBoundingClientRect().right }; });
+    check("ticket detail: Receipt and Void sit in a row with a gap", acts.d === "flex" && acts.gap >= 8, JSON.stringify(acts));
+    await page.click("#void");
+    await page.fill("#void-reason", "Checking the layout.");
+    await page.click("#void-go");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForSelector("#era-reminder");
+    const era = await page.$eval("#era-reminder", (n) => { const c = getComputedStyle(n); return { cls: n.className, bg: c.backgroundColor, bd: c.borderTopStyle, fw: c.fontWeight }; });
+    check("ticket detail: the Era reminder after a void is a .notice box in bold", /\bnotice\b/.test(era.cls) && era.bg === "rgb(238, 241, 247)" && era.bd === "solid" && Number(era.fw) >= 700, JSON.stringify(era));
+    check("ticket detail: no sideways scroll", await noHScroll(page));
+    await page.waitForFunction(() => !document.querySelector("#toast.show")).catch(() => {});
+    await page.waitForTimeout(300);                 // the toast's fade-out
+    await shot(page, "11-ticket");
+    check("ticket detail: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // F3: leaving the till asks first while a sale is on screen
+  const stubOut = async (page) => {
+    await page.route(ROOT + "crm/", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p id=away>crm</p>" }));
+    await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p id=away>landing</p>" }));
+  };
+  await run("leave the till", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await addLine(page, "2000000000031");
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    const d = norm(await page.textContent("#confirm-dialog"));
+    check("leave: with sale lines the Tools switcher asks first", /Leave the till\?/.test(d) && /The sale on screen will be lost\./.test(d) &&
+      norm(await page.textContent("#confirm-ok")) === "Leave" && norm(await page.textContent("#confirm-cancel")) === "Stay" &&
+      await page.$eval("#confirm-ok", (b) => b.matches(".btn.primary")), d);
+    await page.click("#confirm-cancel");
+    await page.waitForSelector("#confirm-dialog", { state: "detached" });
+    await page.waitForTimeout(150);
+    check("leave: Stay keeps the sale and the URL", page.url().startsWith(PAGE_URL) && (await page.$$("#lines .line")).length === 1, page.url());
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForURL(ROOT + "crm/");
+    check("leave: Leave goes to the tool", page.url() === ROOT + "crm/", page.url());
+    await page.goto(PAGE_URL);
+    await page.waitForSelector("#q");
+    await addLine(page, "2000000000031");
+    await page.click(".kit-head a.kit-brand");
+    await page.waitForSelector("#confirm-dialog");
+    check("leave: the wordmark asks too", /Leave the till\?/.test(norm(await page.textContent("#confirm-dialog"))));
+    await page.click("#confirm-ok");
+    await page.waitForURL(ROOT);
+    check("leave: Leave from the wordmark goes to the landing page", page.url() === ROOT, page.url());
+    check("leave: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("leave the till, empty sale", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForURL(ROOT + "crm/", { timeout: 3000 }).catch(() => {});
+    check("leave: with no sale lines the switcher goes straight there", page.url() === ROOT + "crm/", page.url());
+    await ctx.close();
+  });
+  await run("leave the till RU", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await addLine(page, "2000000000031");
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    const d = norm(await page.textContent("#confirm-dialog"));
+    check("leave (RU): the question is in Russian", /Уйти из кассы\?/.test(d) && /Продажа на экране будет потеряна\./.test(d) &&
+      norm(await page.textContent("#confirm-ok")) === "Уйти" && norm(await page.textContent("#confirm-cancel")) === "Остаться", d);
+    await ctx.close();
+  });
+
+  // F4 + F9: lock closes the card menu and makes the page behind it inert
+  await run("lock resets the card menu and makes #app inert", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await page.click("#add-card");
+    await page.waitForSelector(".card-menu");
+    await page.evaluate(() => lockDown());
+    await page.waitForSelector("#gate-pass");
+    check("lock: the card menu is closed by the lock", await page.evaluate(() => payMenuOpen === false));
+    const foc = await page.evaluate(() => { const b = document.querySelector(".kit-head [data-kit-menu] > button"); b.focus();
+      return { inert: document.querySelector("#app").inert === true, focused: document.activeElement === b }; });
+    check("lock: #app is inert, Tab cannot reach the Tools button", foc.inert && !foc.focused, JSON.stringify(foc));
+    await login(page);
+    await page.waitForSelector("#screen-pay");
+    check("lock: after unlock #app is not inert and the card menu is shut", await page.evaluate(() => document.querySelector("#app").inert === false) &&
+      !(await page.$(".card-menu")));
+    await ctx.close();
+  });
+
+  // F5: a dialog opened over the client panel is on top of it
+  await run("modal above panel", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await page.evaluate(() => { document.body.appendChild(Object.assign(document.createElement("div"), { className: "panel-wrap", id: "probe-panel" })); confirmBox({ title: "Probe", body: "x" }); });
+    await page.waitForSelector("#confirm-dialog");
+    check("dialogs: a confirm opened over a panel is on top", await page.evaluate(() => {
+      const r = document.querySelector("#confirm-ok").getBoundingClientRect();
+      return !!document.elementFromPoint(r.left + 4, r.top + 4).closest("#confirm-dialog");
+    }));
+    await ctx.close();
+  });
+
+  // F7: Russian at 768 — one header row, the client panel footer fits
+  await run("russian header at 768", async () => {
+    const { ctx, page } = await setup(browser, { width: 768, height: 1024 });
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await page.evaluate(() => { S.name = "Александра Константиновна Иванова-Петрова"; renderAll(); });   // a long signed-in name
+    await page.waitForSelector("#screen-sale");
+    const h = await page.$eval(".kit-head", (n) => n.getBoundingClientRect().height);
+    check("RU 768: the header stays one row (≤ 60 px)", h <= 60, String(h));
+    check("RU 768: no sideways scroll", await noHScroll(page));
+    const st = await page.$eval(".kit-staff", (n) => { const c = getComputedStyle(n); return { o: c.overflow, t: c.textOverflow, mw: c.maxWidth }; });
+    check("RU 768: the staff name truncates with an ellipsis", st.t === "ellipsis" && st.o === "hidden" && st.mw !== "none", JSON.stringify(st));
+    await page.click("#find-client");
+    await page.waitForSelector("#client-q");
+    await page.fill("#client-q", "Соколова");
+    await page.waitForSelector("#client-results .cl-row");
+    await page.click("#client-results .cl-row >> nth=0");
+    await page.waitForSelector("#client-card .cc-name");
+    const o = await page.evaluate(() => { const f = document.querySelector(".cp-foot"), p = f.closest(".panel").getBoundingClientRect();
+      return { wrap: getComputedStyle(f).flexWrap, out: [...f.querySelectorAll("button, a")].filter((b) => { const r = b.getBoundingClientRect(); return r.width && (r.right > p.right + 0.5 || r.left < p.left - 0.5); }).map((b) => b.textContent) }; });
+    check("RU 768: the client panel footer wraps and its buttons stay inside the panel", o.wrap === "wrap" && o.out.length === 0, JSON.stringify(o));
+    await ctx.close();
+  });
+
+  // F8: the Overpaid line is plain slate text; no rights → kit .notice
+  await run("overpaid and notice", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await addPay(page, "cash", "99 000 000");
+    const o = await page.$eval(".ps-ok.short", (n) => { const c = getComputedStyle(n); return { c: c.color, w: c.fontWeight }; });
+    check("pay: Overpaid by … is plain slate text", o.c === "rgb(91, 100, 120)" && Number(o.w) === 400, JSON.stringify(o));
+    await ctx.close();
+    const b = await setup(browser, { width: 1024, height: 768 }, { login: false, hash: "#/sale" });
+    await login(b.page, "look");
+    await b.page.waitForSelector("#main .notice");
+    check("sale: no right to sell → a kit .notice, not .notice-box", !(await b.page.$(".notice-box")) && /cannot make sales/.test(await b.page.textContent("#main .notice")));
+    await b.ctx.close();
   });
 
   await browser.close();

@@ -155,7 +155,7 @@ function clientCard(card) {
       el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
       last ? el("span", { text: tr("Last purchase {d}", { d: fmtDate(last) }) }) : null),
     el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Purchases") }),
-      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
+      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "small", text: tr("No purchases on file.") })),
     notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Notes") }),
       about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
       notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtDate(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
@@ -191,11 +191,11 @@ function renderClientPanel() {
           el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
           el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
             r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDate(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
-      : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
-  } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
+      : el("p", { class: "small", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
+  } else if (cp.busy) results = el("p", { class: "small", text: tr("Searching…") });
   const body = [];
   if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
-  if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
+  if (cp.loading) body.push(el("p", { class: "small", text: tr("Loading the client…") }));
   if (cp.card) body.push(clientCard(cp.card));
   const box = el("section", { class: "panel cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
     el("div", { class: "cp-head" },

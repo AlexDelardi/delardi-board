@@ -322,7 +322,7 @@ function renderLine(l, i) {
 /* ------------------------------------------------------------------ screen */
 function renderSale(main) {
   if (!S.rights.post) {
-    main.append(el("div", { class: "notice-box", text: tr("Your account cannot make sales.") }));
+    main.append(el("div", { class: "notice", text: tr("Your account cannot make sales.") }));
     return;
   }
   const s = S.sale;
@@ -418,7 +418,7 @@ function draftSummary(d) {
   const stamp = isNaN(when) ? "" : fmtDate(d.created_at) + " " + fmtTime(d.created_at);
   return [
     el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
-      el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
+      el("span", { class: "small", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
     el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
       el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
       el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
@@ -474,7 +474,7 @@ async function openDrafts() {
         el("div", { class: "draft-act" },
           el("button", { type: "button", class: "btn primary draft-resume", onclick: () => resumeDraft(d, true) }, tr("Resume")),
           el("button", { type: "button", class: "btn draft-cancel", onclick: async () => { if (await cancelDraft(d)) render(); } }, tr("Cancel it")))))
-        : el("p", { class: "muted", text: tr("No sale is suspended.") })));
+        : el("p", { class: "small", text: tr("No sale is suspended.") })));
   };
   render();
   await loadDrafts();
@@ -489,7 +489,7 @@ async function openSuspendConflict() {
   const m = modal("conflict", tr("Another sale is suspended"), [
     el("p", { text: tr("The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.") }),
     el("div", { class: "draft" }, draftSummary(d)),
-    el("p", { class: "muted", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
+    el("p", { class: "small", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
   ], [
     el("button", { type: "button", class: "btn primary", id: "conflict-resume", onclick: () => resumeDraft(d, false) }, tr("Resume it")),
     el("button", { type: "button", class: "btn", id: "conflict-cancel", onclick: async () => { if (await cancelDraft(d)) m.close(); } }, tr("Cancel it")),

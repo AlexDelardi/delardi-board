@@ -26,6 +26,10 @@ const RU = {
   // shell, gate
   "Sales": "Продажи",
   "All tools": "Все инструменты",
+  "Leave the till?": "Уйти из кассы?",
+  "The sale on screen will be lost.": "Продажа на экране будет потеряна.",
+  "Leave": "Уйти",
+  "Stay": "Остаться",
   "Language": "Язык",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
@@ -303,13 +307,13 @@ function modal(id, title, body, foot, cls) {
   document.body.appendChild(host);
   return { host, close };
 }
-function confirmBox({ title, body, ok, danger }) {
+function confirmBox({ title, body, ok, cancel, danger }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
       el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
-      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, cancel || tr("Cancel")),
     ], "confirm");
     // closing it any other way (×, the scrim) is a no
     new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
@@ -352,6 +356,12 @@ function langSwitch() {
     el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+// Leaving the till (the Tools switcher, the wordmark) drops the sale on screen: with lines
+// on it, ask first. The kit calls this before it follows the link (ui/tools.js kitGuardLink).
+function beforeLeave() {
+  if (S.locked || !S.sale.lines.length) return Promise.resolve(true);
+  return confirmBox({ title: tr("Leave the till?"), body: tr("The sale on screen will be lost."), ok: tr("Leave"), cancel: tr("Stay") });
+}
 // The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
 // TRAINING band sit under it, in the same sticky block.
@@ -362,13 +372,13 @@ function renderHeader() {
     text: tr(label) }) : null;
   return el("header", { class: "top" },
     el("div", { class: "kit-head" },
-      el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
+      kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Sales") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("sales", LANG),
+      kitToolsMenu("sales", LANG, { beforeLeave }),
       langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", text: S.name }) : null,
+      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
@@ -428,6 +438,7 @@ function renderGate() {
   const app = $("#app");
   app.classList.add("gated");
   app.setAttribute("aria-hidden", "true");
+  app.inert = true;                                // Tab cannot reach the header behind the card
   setTimeout(() => pass.focus(), 60);
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
@@ -439,6 +450,7 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   S.search.open = false;
+  payMenuOpen = false;                             // pay.js: the Card menu is shut after the unlock
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
   // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
@@ -487,7 +499,7 @@ function renderAll() {
   const r = route();
   kitCloseMenus();                                 // the header is redrawn: no open menu is left listening
   app.innerHTML = "";
-  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); }
+  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false; }
   const main = el("main", { id: "main" });
   app.append(renderHeader(), main);
   ROUTES[r.name](main, r.arg);

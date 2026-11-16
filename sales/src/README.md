@@ -28,7 +28,10 @@ python3 build.py        # writes ../index.html
 
 The shared UI kit is inlined too: `build.py` puts `ui/kit.css` where
 `template.html` has the `/*__KIT_CSS__*/` marker (the template keeps only the
-till's own layout rules) and puts `ui/tools.js` first in the script. There is
+till's own layout rules) and puts `ui/tools.js` first among the modules, that
+is at the init marker, after `app.js`'s own top-level code. `app.js` may call kit
+functions (`kitToolsMenu`, `kitCloseMenus`, `kitGuardLink`) only from functions
+that run at or after boot, never at its top level. There is
 no theme: one light look, no dark mode, no `data-theme`. Dates on screen come
 from `fmtDate` (`16 Nov 2026`, RU `16 ноя 2026`) and `fmtTime` (`14:05`),
 both in Tashkent time; receipts and exports use `fmtDateNum` (`16.11.2026`).
@@ -42,6 +45,9 @@ The brand marks (`brand/`) are substituted as data URIs.
 - **Idle lock:** on a touch device, 15 minutes without a touch shows the
   passcode card over the page. The sale on screen is kept; the token is dropped.
 - **TRAINING** shows on every screen while the till is in training.
+- **Leaving the till:** the Tools switcher and the wordmark ask "Leave the till?"
+  («Уйти из кассы?») when the sale on screen has lines — Leave / Stay. With no
+  lines they just go. While locked, `#app` is `inert`.
 - **Routes:** `#/sale`, `#/pay`, `#/receipt/<ticket_id>`, `#/tickets`,
   `#/ticket/<ticket_id>`, `#/admin` (shown only with the manage right).
 - **The client:** at login the page sends the same passcode to crm-api

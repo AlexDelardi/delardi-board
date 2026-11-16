@@ -36,7 +36,7 @@ body { margin: 0; background: #FFFFFF; color: var(--navy-deep); font: 15px/1.5 v
 .kit-brand { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--white); text-decoration: none; font: 13px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
 .kit-brand img, .kit-brand svg { display: block; height: 26px; width: auto; }
 .kit-rule { width: 1px; align-self: stretch; margin: 12px 0; background: var(--sky); }
-.kit-staff { color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
+.kit-staff { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
 .kit-tool { font: normal 19px/1.2 var(--serif); color: var(--white); }
 .kit-spacer { flex: 1 1 auto; }
 .kit-head a { color: var(--white); }
@@ -89,7 +89,8 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 /* Table */
 .tbl { width: 100%; border-collapse: collapse; font: 15px/1.5 var(--sans); }
 .tbl thead th { padding: 12px; background: var(--card); color: var(--slate); text-align: left; font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; border-bottom: 1px solid var(--mist); }
-.tbl td { min-height: 48px; padding: 12px; border-bottom: 1px solid var(--mist); vertical-align: middle; }
+.tbl tbody tr { height: 48px; }   /* a row height is a minimum in a table; td min-height does nothing */
+.tbl td { padding: 12px; border-bottom: 1px solid var(--mist); vertical-align: middle; }
 .tbl th.r, .tbl td.r, .tbl .r { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl tbody tr:hover { background: var(--card); }
 
@@ -150,6 +151,11 @@ a { color: inherit; }
 .top .kit-tabs { overflow-x: auto; }
 .top .kit-tab { white-space: nowrap; }
 .top .kit-tab:focus-visible { outline-offset: -2px; }
+@media (max-width: 900px) {                       /* portrait iPad, RU labels: still one 56 px row */
+  .top .kit-head { gap: 8px; padding: 0 16px; }
+  .top .kit-head .kit-hbtn { padding: 0 12px; }
+  .top .kit-staff { max-width: 120px; }
+}
 /* training: on every screen, impossible to miss, never alarming */
 .band.training-band { border-bottom: 1px solid var(--mist); }
 
@@ -224,12 +230,12 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 }
 .lines { list-style: none; margin: 0; padding: 4px 24px 8px; }
 .lines .empty { padding: 32px 12px; text-align: center; color: var(--slate); font-size: 15px; }
-.line {
+.lines > .line {
   display: grid; align-items: center; gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--mist);
   grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
   grid-template-areas: "info price disc net x";
 }
-.line:first-child { border-top: 0; }
+.lines > .line:first-child { border-top: 0; }
 .l-info { grid-area: info; min-width: 0; }
 .l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
@@ -265,8 +271,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .total { margin-left: auto; text-align: right; }
 .total .t-l { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .total .keynum { white-space: nowrap; }
-.total .t-v { font: normal 28px/1.1 var(--serif); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--navy-deep); }
-.total .keynum small, .total .t-v small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
+.total .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 
 /* payment */
 .pay-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
@@ -302,6 +307,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .pay-side .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 .ps-sum { display: flex; flex-direction: column; gap: 4px; }
 .ps-ok { color: var(--navy); font-weight: 700; }
+.ps-ok.short { color: var(--slate); font-weight: 400; }   /* Overpaid by …: a plain fact, not an alarm */
 .pay-side .why { font-size: 13px; color: var(--slate); margin-top: auto; min-height: 0; }
 .pay-side .btn.big { width: 100%; }
 .pay-side #back { width: 100%; }
@@ -341,12 +347,10 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .saved-actions .btn { width: 100%; }
 
 .receipt-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; justify-content: flex-end; }
-.muted { color: var(--slate); font-size: 13px; }
-.notice-box { max-width: 640px; margin: 24px auto; padding: 12px 16px; background: var(--card); color: var(--navy); border: 1px solid var(--mist); }
+main > .notice { max-width: 640px; margin: 24px auto; }
 
 /* ----------------------------------------------------------------- dialogs */
-.modal-wrap { z-index: 70; padding: 24px; }
-.modal-wrap.confirm { z-index: 80; }
+.modal-wrap { padding: 24px; }                  /* stacking is the kit's: panel 100, modal 110, gate 115, toast 120 */
 .modal-scrim { position: fixed; }
 .modal { padding: 0; width: 640px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
 .modal.confirm, .confirm .modal { width: 480px; }
@@ -367,7 +371,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .cp-head .close { width: var(--tap); min-width: var(--tap); padding: 0; font-size: 21px; line-height: 1; }
 .cp-body { padding: 0 24px; display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; }
 .cp-body p { margin: 0; }
-.cp-foot { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
+.cp-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
 .cp-foot .cp-use { margin-left: auto; }
 .cp-search input { width: 100%; min-height: var(--tap); }
 .cl-list { display: flex; flex-direction: column; }
@@ -449,7 +453,7 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .tk-list th:first-child, .tk-list td:first-child { padding-left: 24px; }
 .tk-list th { white-space: nowrap; }
 .tk-list th:last-child, .tk-list td:last-child { padding-right: 24px; }
-.tk-list tbody tr { height: 48px; cursor: pointer; }
+.tk-list tbody tr { cursor: pointer; }
 .tk-list td { color: var(--navy-deep); font-size: 14px; }
 a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
 a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -473,6 +477,30 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; }
   .tk-date, .tk-src, .tk-seller, .tk-items { font-size: 13px; }
 }
+/* one ticket (#/ticket/<id>) */
+.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; padding: 16px 24px; }
+.tk-meta .kv { min-width: 0; }
+.tk-meta dt { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tk-meta dd { margin: 0; font-size: 15px; color: var(--navy-deep); overflow-wrap: anywhere; }
+.ro-note { margin: 0 24px 8px; font-size: 13px; color: var(--slate); }
+.notice.era-reminder { margin: 8px 24px 0; font-weight: 700; }
+.tl-lines { list-style: none; margin: 0; padding: 4px 24px; border-top: 1px solid var(--mist); }
+.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 150px; gap: 4px 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--mist); }
+.tl-row:first-child { border-top: 0; }
+.tl-info { min-width: 0; }
+.tl-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.tl-title .tag { margin-left: 8px; vertical-align: middle; }
+.tl-meta { margin-top: 4px; font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+.tl-price, .tl-net { text-align: right; font-variant-numeric: tabular-nums; }
+.tl-price { color: var(--slate); }
+.tl-price small { font-size: 13px; color: var(--slate); }
+.tl-net { font-size: 17px; font-weight: 700; color: var(--navy-deep); }
+.tl-row.refund .tl-net { color: var(--navy); }
+.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 16px 24px; border-top: 1px solid var(--mist); }
+.tl-pays { flex: 1 1 260px; min-width: 0; }
+.tl-pays h5 { margin: 0 0 8px; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tl-pay { display: flex; justify-content: space-between; gap: 12px; max-width: 360px; padding: 4px 0; font-size: 15px; color: var(--navy-deep); }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 24px 24px; }
 .void-form { margin: 0 24px 16px; padding: 12px 16px; border: 1px solid var(--alert); background: var(--white); display: flex; flex-direction: column; gap: 8px; }
 .void-form .lbl { margin: 0; }
 .void-form textarea { width: 100%; resize: vertical; }
@@ -523,7 +551,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .saved-actions { margin-top: 0; }
   .lines-head { display: none; }
   .sg-head, .sg { grid-template-columns: minmax(0, 1fr) 130px 120px; gap: 12px; }
-  .line {
+  .lines > .line {
     grid-template-columns: minmax(0, 1fr) 92px minmax(120px, auto) var(--tap);
     grid-template-areas: "info info info x" "price disc net net";
     gap: 8px 12px;
@@ -545,7 +573,6 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .sugg { left: 16px; right: 16px; }
   .search .glass { left: 32px; }
   .pay-row { grid-template-columns: 96px minmax(0, 1fr) var(--tap); }
-  .total .t-v { font-size: 24px; }
   .total .keynum { font-size: 28px; }
   .sale-head { padding: 16px 16px 0; }
   .sg-head, .sg { grid-template-columns: minmax(0, 1fr) auto; }
@@ -555,7 +582,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .hide-sm { display: none !important; }
 }
 @media (max-width: 480px) {
-  .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
+  .lines > .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
   .pay-row { grid-template-columns: minmax(0, 1fr) var(--tap); }
   .pay-row input { grid-column: 1 / 2; }
   .pay-add, .card-menu { grid-template-columns: minmax(0, 1fr); }
@@ -604,6 +631,10 @@ const RU = {
   // shell, gate
   "Sales": "Продажи",
   "All tools": "Все инструменты",
+  "Leave the till?": "Уйти из кассы?",
+  "The sale on screen will be lost.": "Продажа на экране будет потеряна.",
+  "Leave": "Уйти",
+  "Stay": "Остаться",
   "Language": "Язык",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
@@ -881,13 +912,13 @@ function modal(id, title, body, foot, cls) {
   document.body.appendChild(host);
   return { host, close };
 }
-function confirmBox({ title, body, ok, danger }) {
+function confirmBox({ title, body, ok, cancel, danger }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
       el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
-      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, cancel || tr("Cancel")),
     ], "confirm");
     // closing it any other way (×, the scrim) is a no
     new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
@@ -930,6 +961,12 @@ function langSwitch() {
     el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+// Leaving the till (the Tools switcher, the wordmark) drops the sale on screen: with lines
+// on it, ask first. The kit calls this before it follows the link (ui/tools.js kitGuardLink).
+function beforeLeave() {
+  if (S.locked || !S.sale.lines.length) return Promise.resolve(true);
+  return confirmBox({ title: tr("Leave the till?"), body: tr("The sale on screen will be lost."), ok: tr("Leave"), cancel: tr("Stay") });
+}
 // The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
 // TRAINING band sit under it, in the same sticky block.
@@ -940,13 +977,13 @@ function renderHeader() {
     text: tr(label) }) : null;
   return el("header", { class: "top" },
     el("div", { class: "kit-head" },
-      el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
+      kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Sales") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("sales", LANG),
+      kitToolsMenu("sales", LANG, { beforeLeave }),
       langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", text: S.name }) : null,
+      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
@@ -1006,6 +1043,7 @@ function renderGate() {
   const app = $("#app");
   app.classList.add("gated");
   app.setAttribute("aria-hidden", "true");
+  app.inert = true;                                // Tab cannot reach the header behind the card
   setTimeout(() => pass.focus(), 60);
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
@@ -1017,6 +1055,7 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   S.search.open = false;
+  payMenuOpen = false;                             // pay.js: the Card menu is shut after the unlock
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
   // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
@@ -1072,7 +1111,22 @@ function kitCloseMenus() {
   for (const close of kitOpenMenus.slice()) close();
 }
 
-function kitToolsMenu(currentId, lang) {
+// A link that leaves the page can ask first. beforeLeave(href) returns a Promise:
+// true follows the link, false stays. A modified click (new tab) is left alone.
+function kitGuardLink(a, beforeLeave) {
+  if (typeof beforeLeave !== 'function') return a;
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const href = a.href;
+    Promise.resolve(beforeLeave(href)).then(go => { if (go) window.location.assign(href); });
+  });
+  return a;
+}
+
+// opts.beforeLeave: see kitGuardLink; asked before any tool link is followed.
+function kitToolsMenu(currentId, lang, opts) {
+  const beforeLeave = opts && opts.beforeLeave;
   const ru = lang === 'ru';
   const wrap = document.createElement('span');
   wrap.className = 'kit-tool-wrap';
@@ -1094,6 +1148,7 @@ function kitToolsMenu(currentId, lang) {
     } else {
       item = document.createElement('a');
       item.setAttribute('href', t.href);
+      kitGuardLink(item, beforeLeave);
     }
     item.textContent = ru ? t.ru : t.en;
     li.appendChild(item);
@@ -1118,6 +1173,7 @@ function kitToolsMenu(currentId, lang) {
   function onKey(e) { if (e.key === 'Escape') close(true); }
   function onDoc(e) { if (!wrap.contains(e.target)) close(); }
   btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => { if (e.target.closest && e.target.closest('a')) close(); });
   wrap.addEventListener('focusout', e => {
     if (!list.hidden && e.relatedTarget && !wrap.contains(e.relatedTarget)) close();
   });
@@ -1450,7 +1506,7 @@ function renderLine(l, i) {
 /* ------------------------------------------------------------------ screen */
 function renderSale(main) {
   if (!S.rights.post) {
-    main.append(el("div", { class: "notice-box", text: tr("Your account cannot make sales.") }));
+    main.append(el("div", { class: "notice", text: tr("Your account cannot make sales.") }));
     return;
   }
   const s = S.sale;
@@ -1546,7 +1602,7 @@ function draftSummary(d) {
   const stamp = isNaN(when) ? "" : fmtDate(d.created_at) + " " + fmtTime(d.created_at);
   return [
     el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
-      el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
+      el("span", { class: "small", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
     el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
       el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
       el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
@@ -1602,7 +1658,7 @@ async function openDrafts() {
         el("div", { class: "draft-act" },
           el("button", { type: "button", class: "btn primary draft-resume", onclick: () => resumeDraft(d, true) }, tr("Resume")),
           el("button", { type: "button", class: "btn draft-cancel", onclick: async () => { if (await cancelDraft(d)) render(); } }, tr("Cancel it")))))
-        : el("p", { class: "muted", text: tr("No sale is suspended.") })));
+        : el("p", { class: "small", text: tr("No sale is suspended.") })));
   };
   render();
   await loadDrafts();
@@ -1617,7 +1673,7 @@ async function openSuspendConflict() {
   const m = modal("conflict", tr("Another sale is suspended"), [
     el("p", { text: tr("The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.") }),
     el("div", { class: "draft" }, draftSummary(d)),
-    el("p", { class: "muted", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
+    el("p", { class: "small", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
   ], [
     el("button", { type: "button", class: "btn primary", id: "conflict-resume", onclick: () => resumeDraft(d, false) }, tr("Resume it")),
     el("button", { type: "button", class: "btn", id: "conflict-cancel", onclick: async () => { if (await cancelDraft(d)) m.close(); } }, tr("Cancel it")),
@@ -1801,7 +1857,7 @@ function renderPay(main) {
       el("div", { class: "pay-main" },
         el("div", { class: "pay-title" },
           el("h1", { class: "title", text: tr("Payment") }),
-          el("span", { class: "muted", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
+          el("span", { class: "small", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
         who,
         el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
         el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
@@ -1881,7 +1937,7 @@ async function renderReceipt(main, id) {
       el("span", { class: "lbl", text: tr("Posted") }),
       el("h1", { class: "title", text: tr("Sale saved") }),
       el("p", { class: "saved-line", text: tr("Ticket {n} · {t}", { n: ticketNo, t: total === null ? "" : fmtUZS(total) + " " + tr("so'm") }).replace(/ · $/, "") +
-        ". " + tr("The pieces are now marked as sold.") }),
+        "." + (training ? "" : " " + tr("The pieces are now marked as sold.")) }),
       training ? el("div", { class: "notice", role: "note", text: tr("Training ticket — it will not appear in reports and is cleared before go-live.") }) : null,
       el("div", { class: "saved-actions" },
         el("button", { type: "button", class: "btn", id: "print-receipt", onclick: () => window.print() }, tr("Print receipt")),
@@ -2443,7 +2499,7 @@ function clientCard(card) {
       el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
       last ? el("span", { text: tr("Last purchase {d}", { d: fmtDate(last) }) }) : null),
     el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Purchases") }),
-      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
+      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "small", text: tr("No purchases on file.") })),
     notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Notes") }),
       about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
       notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtDate(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
@@ -2479,11 +2535,11 @@ function renderClientPanel() {
           el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
           el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
             r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDate(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
-      : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
-  } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
+      : el("p", { class: "small", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
+  } else if (cp.busy) results = el("p", { class: "small", text: tr("Searching…") });
   const body = [];
   if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
-  if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
+  if (cp.loading) body.push(el("p", { class: "small", text: tr("Loading the client…") }));
   if (cp.card) body.push(clientCard(cp.card));
   const box = el("section", { class: "panel cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
     el("div", { class: "cp-head" },
@@ -2651,7 +2707,7 @@ function renderTkList() {
   const sumParts = [el("b", { text: pl(d.count, "ticket") })];
   if (d.void_count) sumParts.push(" · ", el("span", { text: tr("{n} void", { n: d.void_count }) }));
   sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
-  if (tk.busy) sumParts.push(" · ", el("span", { class: "muted", text: tr("Searching…") }));
+  if (tk.busy) sumParts.push(" · ", el("span", { class: "small", text: tr("Searching…") }));
   box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
   if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
   const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
@@ -2674,7 +2730,7 @@ function renderTkList() {
     const pg = (p) => { tk.page = p; loadTickets(); };
     box.append(el("div", { class: "tk-pager" },
       el("button", { type: "button", class: "btn", disabled: tk.page <= 1 ? true : null, onclick: () => pg(tk.page - 1) }, tr("← Newer")),
-      el("span", { class: "muted", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
+      el("span", { class: "small", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
       el("button", { type: "button", class: "btn", disabled: tk.page >= pages ? true : null, onclick: () => pg(tk.page + 1) }, tr("Older →"))));
   }
 }
@@ -2695,6 +2751,7 @@ async function renderTicket(main, id) {
     return;
   }
   if (!wrap.isConnected) return;
+  wrap.innerHTML = "";                            // the "Loading…" line goes
   drawTicket(wrap, doc, { receipt: false, voidOpen: false, reason: "", err: null });
 }
 function drawTicket(wrap, doc, ui) {
@@ -2762,19 +2819,19 @@ function drawTicket(wrap, doc, ui) {
       voided ? kv("Void reason", t.void_reason) : null,
       voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
-    voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
+    voided && mine ? el("p", { class: "notice era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
     el("ol", { class: "tl-lines" }, lines.map(lineRow)),
     el("div", { class: "tl-foot" },
       el("div", { class: "tl-pays" }, el("h5", { text: tr("Payments") }),
         pays.length ? pays.map((p) => el("div", { class: "tl-pay" }, el("span", { text: payText(p) }), el("span", { class: "money", text: fmtUZS(p.amount) })))
-          : el("p", { class: "muted", text: "—" })),
+          : el("p", { class: "small", text: "—" })),
       el("div", { class: "total" }, el("div", { class: "t-l", text: tr("Total") }),
-        el("div", { class: "t-v" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
+        el("div", { class: "keynum" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
     ui.voidOpen ? el("form", { class: "void-form", id: "void-form", onsubmit: (ev) => { ev.preventDefault(); submitVoid(); } },
       el("label", { for: "void-reason", class: "lbl", text: tr("Why is this sale being voided?") }),
       el("textarea", { id: "void-reason", rows: "3", maxlength: "500", value: ui.reason, oninput: (ev) => { ui.reason = ev.target.value; if (ui.err && ui.reason.trim()) { ui.err = null; const x = $("#void-form .form-err"); if (x) x.remove(); } } }),
       ui.err ? el("p", { class: "form-err", role: "alert", text: ui.err }) : null,
-      el("p", { class: "muted", text: tr("Cancel the fiscal receipt in Era as well.") }),
+      el("p", { class: "small", text: tr("Cancel the fiscal receipt in Era as well.") }),
       el("div", { class: "form-actions" },
         el("button", { type: "submit", class: "btn danger", id: "void-go" }, tr("Void this sale")),
         el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,
@@ -2891,7 +2948,7 @@ function renderAll() {
   const r = route();
   kitCloseMenus();                                 // the header is redrawn: no open menu is left listening
   app.innerHTML = "";
-  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); }
+  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false; }
   const main = el("main", { id: "main" });
   app.append(renderHeader(), main);
   ROUTES[r.name](main, r.arg);
