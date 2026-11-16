@@ -47,6 +47,7 @@ Object.assign(RU, {
   "Back to the sale": "Вернуться к продаже",
   "Sale saved": "Продажа сохранена",
   "Print receipt": "Печать чека",
+  "Receipt language": "Язык чека",
   "Ticket {n} · {t}": "Чек {n} · {t}",
   "The pieces are now marked as sold.": "Изделия отмечены как проданные.",
   "Training ticket — it will not appear in reports and is cleared before go-live.": "Тренировочный чек — в отчёты не попадёт и будет удалён перед запуском.",
@@ -210,23 +211,34 @@ function receiptLines(text) {
   rows.forEach((t, i) => {
     let cls = "rc-line", node = null;
     const amount = /^(.*?)\s+(-?\d{1,3}(?: \d{3})*)$/.exec(t);
-    if (i === 0 && /^TRAINING/.test(t)) cls += " rc-train";
+    if (i === 0 && /^(TRAINING|УЧЕБНЫЙ)/.test(t)) cls += " rc-train";
     else if (t === "DELARDI") { cls += " rc-brand"; afterBrand = true; }
     else if (afterBrand) { cls += " rc-addr"; afterBrand = false; }
-    else if (/^Ticket /.test(t)) cls += " rc-ticket";
-    else if (/^(Seller|Client): /.test(t)) { cls += " rc-who"; stage = "items"; }
-    else if (/^Total /.test(t) && amount) { stage = "pays"; node = el("div", { class: "rc-total" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] })); }
+    else if (/^(Ticket|Чек) /.test(t)) cls += " rc-ticket";
+    else if (/^(Seller|Client|Продавец|Клиент): /.test(t)) { cls += " rc-who"; stage = "items"; }
+    else if (/^(Total|Итого) /.test(t) && amount) { stage = "pays"; node = el("div", { class: "rc-total" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] })); }
     else if (stage === "pays" && amount) node = el("div", { class: "rc-pay" }, el("span", { text: amount[1] }), el("span", { class: "money", text: amount[2] }));
-    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : /^(Ref\. |S\/N )/.test(t) ? " rc-detail" : " rc-item";
+    else if (stage === "items") cls += / = /.test(t) ? " rc-amt" : /^(Ref\. |S\/N |Арт\. |С\/Н )/.test(t) ? " rc-detail" : " rc-item";
     out.push(node || el("div", { class: cls, text: t }));
   });
   return out;
+}
+/* Receipt language: follows the screen unless the seller picks EN or RU for this
+   receipt (S.rcLang remembers the pick for one ticket). The database prints the
+   receipt in the language asked for; the stored copy stays as posted. */
+function rcLangFor(id) { return S.rcLang && S.rcLang.id === id ? S.rcLang.lang : LANG; }
+function rcLangSwitch(id, onPick) {
+  const cur = rcLangFor(id);
+  const b = (code) => el("button", { type: "button", class: "btn rc-lang-btn", lang: code, "aria-pressed": cur === code ? "true" : "false",
+    onclick: () => { if (rcLangFor(id) === code) return; S.rcLang = { id, lang: code }; onPick(code); } }, code.toUpperCase());
+  return el("div", { class: "rc-lang", id: "rc-lang", role: "group", "aria-label": tr("Receipt language") },
+    el("span", { class: "lbl", text: tr("Receipt language") }), b("en"), b("ru"));
 }
 async function renderReceipt(main, id) {
   const wrap = el("div", { class: "receipt-wrap", id: "screen-receipt" }, el("p", { class: "loading", text: tr("Loading the receipt…") }));
   main.append(wrap);
   let doc = null, failed = null;
-  try { doc = await api("ticket", { ticket_id: id }); } catch (e) { failed = e; }
+  try { doc = await api("ticket", { ticket_id: id, lang: rcLangFor(id) }); } catch (e) { failed = e; }
   if (!wrap.isConnected) return;                 // the screen changed meanwhile
   wrap.innerHTML = "";
   const t = doc && doc.ticket;
@@ -245,7 +257,7 @@ async function renderReceipt(main, id) {
     card = el("article", { class: "receipt" },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" },
-        training ? el("div", { class: "rc-line rc-train", text: "TRAINING — NOT A SALE" }) : null,
+        training ? el("div", { class: "rc-line rc-train", text: rcLangFor(id) === "ru" ? "УЧЕБНЫЙ ЧЕК — НЕ ПРОДАЖА" : "TRAINING — NOT A SALE" }) : null,
         p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: p.ticket_no, t: fmtUZS(p.total) }) }) : null,
         el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) })));
   }
@@ -258,7 +270,8 @@ async function renderReceipt(main, id) {
         "." + (training ? "" : " " + tr("The pieces are now marked as sold.")) }),
       training ? el("div", { class: "notice", role: "note", text: tr("Training ticket — it will not appear in reports and is cleared before go-live.") }) : null,
       el("div", { class: "saved-actions" },
+        t ? rcLangSwitch(id, () => { wrap.remove(); renderReceipt(main, id); }) : null,
         el("button", { type: "button", class: "btn", id: "print-receipt", onclick: () => window.print() }, tr("Print receipt")),
         el("button", { type: "button", class: "btn primary big", id: "new-sale",
-          onclick: () => { S.sale = newSale(); S.lastPct = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")))));
+          onclick: () => { S.sale = newSale(); S.lastPct = null; S.rcLang = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")))));
 }

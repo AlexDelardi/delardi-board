@@ -374,10 +374,10 @@ function requireWalkInUnlessCrm(sess: Session, sale: Record<string, unknown>) {
 
 // Client data a login without the CRM view right may not see: the client's
 // name and Colibri's raw client text go; the reference stays. The receipt's
-// "Client: <name>" line becomes "Client: <client_id>" (Walk-in stays).
+// "Client: <name>" line (Russian receipts: "Клиент: <name>") becomes the client_id (Walk-in stays).
 function receiptWithoutName(text: unknown, clientId: unknown): unknown {
   if (typeof text !== "string" || clientId === null || clientId === undefined || clientId === "") return text;
-  return text.replace(/^Client: .*$/m, `Client: ${clientId}`);
+  return text.replace(/^(Client|Клиент): .*$/m, (_m, k) => `${k}: ${clientId}`);
 }
 
 // ------------------------------------------------------------------ actions
@@ -526,6 +526,11 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const [doc, reps] = await Promise.all([rpc("pos_ticket_detail", { p_ticket: id }), repMap()]);
     if (!doc?.ticket) throw new HttpErr(404, "No sale with that reference.");
     const t = pick(doc.ticket, TICKET_KEYS);
+    // The stored receipt is the English copy made at posting; the till asks for the
+    // language it shows ("ru" or "en"), printed fresh from the same ticket.
+    if (body.lang === "ru" && typeof t.receipt_text === "string" && t.receipt_text) {
+      t.receipt_text = await rpc("pos_receipt_text", { p_ticket: id, p_lang: "ru" });
+    }
     t.seller = asLabel(reps, t.seller);
     t.entered_by = actorLabel(reps, t.entered_by);
     t.voided_by = actorLabel(reps, t.voided_by);
