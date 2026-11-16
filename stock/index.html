@@ -212,7 +212,8 @@ main { padding: 24px 24px 96px; }
 .tbl.pieces .ref-a { color: var(--navy-deep); }
 .tbl.pieces .ref-m { display: block; color: var(--slate); margin-top: 2px; }
 .tbl.pieces td.brand { overflow-wrap: break-word; }   /* whole words: a brand never splits mid-word */
-.tbl.pieces td.st .tag { white-space: normal; line-height: 1.25; padding: 4px 8px; }
+.tbl.pieces td.st { white-space: nowrap; }
+.tbl.pieces td.st .tag { white-space: nowrap; }   /* a state tag is always one line; the Reference column gives way */
 .tbl.pieces tbody tr.prow { cursor: pointer; }
 .tbl.pieces tbody tr.prow:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
 .tbl.pieces .empty td { padding: 32px 12px; text-align: center; color: var(--slate); }
@@ -225,7 +226,8 @@ main { padding: 24px 24px 96px; }
 .tbl.reviews th, .tbl.reviews td { padding: 8px 10px; vertical-align: top; }
 .tbl.reviews td.rk { min-width: 0; overflow-wrap: break-word; }
 .tbl.reviews td.since { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl.reviews td.st .tag { white-space: normal; line-height: 1.25; padding: 4px 8px; }
+.tbl.reviews td.st { white-space: nowrap; }
+.tbl.reviews td.st .tag { white-space: nowrap; }
 .tbl.reviews .rv-piece { display: block; width: 100%; height: auto; padding: 4px 0; text-align: left; text-decoration: none; font-weight: 400; }
 .tbl.reviews .rv-piece .serial { display: block; font-weight: 700; text-decoration: underline; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tbl.reviews .rv-piece .ref-m { display: block; color: var(--slate); margin-top: 2px; overflow-wrap: anywhere; }
@@ -382,6 +384,7 @@ const RU = {
   "Your session has expired. Enter your passcode again.": "Сеанс истёк. Введите код доступа ещё раз.",
   "Too many failed attempts. Try again in an hour.": "Слишком много неудачных попыток. Попробуйте через час.",
   "No piece with that reference.": "Изделия с таким номером нет.",
+  "No client with that reference.": "Клиента с таким номером нет.",
   "Write who has it and why.": "Напишите, у кого изделие и зачем.",
   "Write what is wrong.": "Напишите, что не так.",
   "Something went wrong on the server.": "Ошибка на сервере.",
@@ -565,13 +568,19 @@ function sstore(key, val) {
 const touchDevice = () => window.matchMedia("(pointer: coarse)").matches;
 
 /* --------------------------------------------------------------------- api */
+// 20 s; window.__API_TIMEOUT_MS is a test-only override that can only shorten it.
+function apiLimit() {
+  const ms = Number(window.__API_TIMEOUT_MS);
+  return ms > 0 && ms < 20000 ? ms : 20000;
+}
+
 async function api(action, body) {
   const payload = Object.assign({ action }, body || {});
   if (S.token && action !== "unlock") payload.token = S.token;
   // A request that hangs is cut after 20 s (window.__API_TIMEOUT_MS: test-only override),
   // so a busy panel can always be released.
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), window.__API_TIMEOUT_MS || 20000);
+  const timer = setTimeout(() => ctl.abort(), apiLimit());
   let res, data = {};
   try {
     res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: ctl.signal });
@@ -940,13 +949,20 @@ function listFilters() {
   return out;
 }
 
-async function loadList() {
+async function loadList(clamped) {
   const seq = ++listSeq;
   S.listBusy = true;
   try {
     const r = await api("list", { filters: listFilters() });
     if (seq !== listSeq) return;                   // a newer request is on its way
     if (S.locked) { S.listBusy = false; return; }  // locked meanwhile: nothing is kept or drawn
+    // A change moved the last row of the last page away: the page is past the end.
+    // Clamp to the last page and ask once more (never twice).
+    const size = Number(r.page_size) || 50, count = Number(r.count);
+    if (!clamped && S.page > 1 && count > 0 && !(r.rows && r.rows.length)) {
+      S.page = Math.max(1, Math.ceil(count / size));
+      return loadList(true);
+    }
     S.list = r; S.listError = null;
   } catch (e) {
     if (seq !== listSeq) return;
@@ -1040,7 +1056,7 @@ function drawResults() {
   if (S.listError) {
     rows.append(el("tr", { class: "empty" }, el("td", { colspan: "7" },
       el("p", { class: "notice", role: "alert", text: tr("Could not load the list.") + " " + S.listError }),
-      el("button", { type: "button", class: "btn", onclick: loadList, text: tr("Try again") }))));
+      el("button", { type: "button", class: "btn", onclick: () => loadList(), text: tr("Try again") }))));
   } else if (!L) {
     rows.append(el("tr", { class: "empty" }, el("td", { colspan: "7", text: tr("Loading…") })));
   } else if (!L.rows.length) {

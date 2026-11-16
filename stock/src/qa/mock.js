@@ -190,8 +190,8 @@ function detail(sess, id) {
   const out = {
     piece: Object.assign(row(p), { hold_client_id: p.hold_client_id, hold_until: p.hold_until, state_note: p.state_note,
       shipped_on: p.shipped_on, first_seen_at: p.first_seen_at }),
-    model: Object.assign({}, p.model),
-    events: events[id].map((e) => Object.assign({}, e)),
+    model: p.model ? Object.assign({}, p.model) : null,
+    events: (events[id] || []).map((e) => Object.assign({}, e)),
     reviews: reviews.filter((r) => r.piece_id === id).sort((a, b) => cmp(b.raised_at, a.raised_at))
       .map(({ piece_id, ...r }) => r),
     sales: p.state === "sold" ? [
@@ -210,7 +210,6 @@ function move(p, state, actor, note, client, until, reason, refKind, refId) {
     fail(409, `state ${from} → ${state} is not allowed`);
   }
   const holds = state === "reserved" || state === "booked_out";
-  if (holds && client && !CLIENTS[client]) fail(409, `client ${client} not found`);
   const at = new Date().toISOString();
   Object.assign(p, { state, state_since: at, hold_client_id: holds ? client : null, hold_until: holds ? until : null,
     state_note: state === "in_stock" ? null : note });
@@ -282,7 +281,12 @@ function handle(body) {
       }
       const p = pieces.find((x) => x.piece_id === id.toLowerCase());
       if (!p) fail(409, `piece ${id} not found`);
-      move(p, state, s.name, note, holds ? str(rawClient, 20) : null, until, null, "manual", null);
+      let client = holds ? str(rawClient, 20) : null;
+      if (client) {
+        client = client.toUpperCase();
+        if (!CLIENTS[client]) fail(409, "No client with that reference.");
+      }
+      move(p, state, s.name, note, client, until, null, "manual", null);
       return [200, detail(s, p.piece_id)];
     }
     if (action === "resolve") {

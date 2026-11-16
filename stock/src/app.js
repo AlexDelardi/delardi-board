@@ -49,6 +49,7 @@ const RU = {
   "Your session has expired. Enter your passcode again.": "Сеанс истёк. Введите код доступа ещё раз.",
   "Too many failed attempts. Try again in an hour.": "Слишком много неудачных попыток. Попробуйте через час.",
   "No piece with that reference.": "Изделия с таким номером нет.",
+  "No client with that reference.": "Клиента с таким номером нет.",
   "Write who has it and why.": "Напишите, у кого изделие и зачем.",
   "Write what is wrong.": "Напишите, что не так.",
   "Something went wrong on the server.": "Ошибка на сервере.",
@@ -232,13 +233,19 @@ function sstore(key, val) {
 const touchDevice = () => window.matchMedia("(pointer: coarse)").matches;
 
 /* --------------------------------------------------------------------- api */
+// 20 s; window.__API_TIMEOUT_MS is a test-only override that can only shorten it.
+function apiLimit() {
+  const ms = Number(window.__API_TIMEOUT_MS);
+  return ms > 0 && ms < 20000 ? ms : 20000;
+}
+
 async function api(action, body) {
   const payload = Object.assign({ action }, body || {});
   if (S.token && action !== "unlock") payload.token = S.token;
   // A request that hangs is cut after 20 s (window.__API_TIMEOUT_MS: test-only override),
   // so a busy panel can always be released.
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), window.__API_TIMEOUT_MS || 20000);
+  const timer = setTimeout(() => ctl.abort(), apiLimit());
   let res, data = {};
   try {
     res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: ctl.signal });

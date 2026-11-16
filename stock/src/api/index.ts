@@ -340,7 +340,14 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const rawClient = body.client_id === null || body.client_id === undefined ? "" : String(body.client_id);
     if (rawClient.trim().length > 20) throw new HttpErr(400, "client_id can be at most 20 characters.");
     const holds = state === "reserved" || state === "booked_out";
-    const client = holds ? str(rawClient, 20) : null;
+    let client = holds ? str(rawClient, 20) : null;
+    if (client) {
+      // ops_move_state does not check the client and hold_client_id has a foreign key,
+      // so an unknown reference would surface as a 23503 and a 500. Check it here.
+      client = client.toUpperCase();
+      const found = await select(`crm_clients?client_id=eq.${encodeURIComponent(client)}&select=client_id`);
+      if (!Array.isArray(found) || found.length === 0) throw new HttpErr(409, "No client with that reference.");
+    }
     const until = holds ? dateOrNull(body.until, "until") : null;
     await rpc("ops_set_state", {
       p_piece: id, p_state: state, p_actor: sess.name, p_note: note, p_client: client, p_until: until,

@@ -98,8 +98,8 @@ until then.
 2. Deploy `stock-api` with `verify_jwt` off, like `sales-api`; the repository
    copy `stock/src/api/index.ts` and the deployed one must be identical.
 3. Merge the pull request (the page, `stock/index.html`).
-4. Alex opens Stock, checks the counts against today's figures (677 in stock,
-   19 in transit, 4 sold), and does one Reserve, then Back in stock, on a piece.
+4. Alex opens Stock, checks the counts against the ones he sees in Colibri,
+   and does one Reserve, then Back in stock, on a piece.
 
 ## Screenshots
 

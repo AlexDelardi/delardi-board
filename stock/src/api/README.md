@@ -107,11 +107,11 @@ Unknown piece → `404`. `client_name` may be `null` for a crm login when no cli
 ### `set_state {token, piece_id, state, note?, client_id?, until?}` — manage
 - `state`: `in_stock`, `reserved`, `booked_out` or `damaged`, else `400`.
 - `note`: at most 500 characters. **Required** for `booked_out` ("Write who has it and why.") and `damaged` ("Write what is wrong."), else `400`. Optional for `reserved` and `in_stock`.
-- `client_id`: at most 20 characters (`DLD-…`); used only for `reserved` and `booked_out`, ignored (sent as null) otherwise.
+- `client_id`: at most 20 characters (`DLD-…`); used only for `reserved` and `booked_out`, ignored (sent as null) otherwise. It is trimmed and upper-cased, then looked up in `crm_clients`; no such client → `409` "No client with that reference." (the database would otherwise fail on the foreign key). Stored upper-case.
 - `until`: a real `YYYY-MM-DD` date or null; used only for `reserved` and `booked_out`.
 
 Calls `ops_set_state(piece, state, <login name>, note, client_id, until)`. Its
-refusals (a piece that cannot move to that state, an unknown client, …) → `409`
+refusals (a piece that cannot move to that state, …) → `409`
 verbatim.
 → the fresh detail, exactly as `piece` returns it (same `client_name` rule).
 

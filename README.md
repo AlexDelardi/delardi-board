@@ -1,6 +1,6 @@
 # Delardi internal tools
 
-One repository, four pages:
+One repository, six pages:
 
 | Path | Page |
 |---|---|

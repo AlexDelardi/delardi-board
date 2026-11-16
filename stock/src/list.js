@@ -58,13 +58,20 @@ function listFilters() {
   return out;
 }
 
-async function loadList() {
+async function loadList(clamped) {
   const seq = ++listSeq;
   S.listBusy = true;
   try {
     const r = await api("list", { filters: listFilters() });
     if (seq !== listSeq) return;                   // a newer request is on its way
     if (S.locked) { S.listBusy = false; return; }  // locked meanwhile: nothing is kept or drawn
+    // A change moved the last row of the last page away: the page is past the end.
+    // Clamp to the last page and ask once more (never twice).
+    const size = Number(r.page_size) || 50, count = Number(r.count);
+    if (!clamped && S.page > 1 && count > 0 && !(r.rows && r.rows.length)) {
+      S.page = Math.max(1, Math.ceil(count / size));
+      return loadList(true);
+    }
     S.list = r; S.listError = null;
   } catch (e) {
     if (seq !== listSeq) return;
@@ -158,7 +165,7 @@ function drawResults() {
   if (S.listError) {
     rows.append(el("tr", { class: "empty" }, el("td", { colspan: "7" },
       el("p", { class: "notice", role: "alert", text: tr("Could not load the list.") + " " + S.listError }),
-      el("button", { type: "button", class: "btn", onclick: loadList, text: tr("Try again") }))));
+      el("button", { type: "button", class: "btn", onclick: () => loadList(), text: tr("Try again") }))));
   } else if (!L) {
     rows.append(el("tr", { class: "empty" }, el("td", { colspan: "7", text: tr("Loading…") })));
   } else if (!L.rows.length) {

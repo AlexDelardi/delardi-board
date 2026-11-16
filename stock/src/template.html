@@ -92,7 +92,8 @@ main { padding: 24px 24px 96px; }
 .tbl.pieces .ref-a { color: var(--navy-deep); }
 .tbl.pieces .ref-m { display: block; color: var(--slate); margin-top: 2px; }
 .tbl.pieces td.brand { overflow-wrap: break-word; }   /* whole words: a brand never splits mid-word */
-.tbl.pieces td.st .tag { white-space: normal; line-height: 1.25; padding: 4px 8px; }
+.tbl.pieces td.st { white-space: nowrap; }
+.tbl.pieces td.st .tag { white-space: nowrap; }   /* a state tag is always one line; the Reference column gives way */
 .tbl.pieces tbody tr.prow { cursor: pointer; }
 .tbl.pieces tbody tr.prow:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
 .tbl.pieces .empty td { padding: 32px 12px; text-align: center; color: var(--slate); }
@@ -105,7 +106,8 @@ main { padding: 24px 24px 96px; }
 .tbl.reviews th, .tbl.reviews td { padding: 8px 10px; vertical-align: top; }
 .tbl.reviews td.rk { min-width: 0; overflow-wrap: break-word; }
 .tbl.reviews td.since { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl.reviews td.st .tag { white-space: normal; line-height: 1.25; padding: 4px 8px; }
+.tbl.reviews td.st { white-space: nowrap; }
+.tbl.reviews td.st .tag { white-space: nowrap; }
 .tbl.reviews .rv-piece { display: block; width: 100%; height: auto; padding: 4px 0; text-align: left; text-decoration: none; font-weight: 400; }
 .tbl.reviews .rv-piece .serial { display: block; font-weight: 700; text-decoration: underline; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tbl.reviews .rv-piece .ref-m { display: block; color: var(--slate); margin-top: 2px; overflow-wrap: anywhere; }

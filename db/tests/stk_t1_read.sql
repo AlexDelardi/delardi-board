@@ -178,7 +178,7 @@ begin
   end;
 
   -- privileges
-  foreach f in array array['stk_piece_list(jsonb)', 'stk_piece_detail(uuid)', 'stk_review_list()', 'stk_facets()', 'stk_export(jsonb)'] loop
+  foreach f in array array['stk_piece_list(jsonb)', 'stk_piece_detail(uuid)', 'stk_review_list()', 'stk_facets()', 'stk_export(jsonb)', 'stk_base(jsonb)', 'stk_row_json(stk_row)', 'ops_has_right(text,text)'] loop
     assert not has_function_privilege('anon', 'public.' || f, 'execute'), 'anon must not run ' || f;
     assert not has_function_privilege('authenticated', 'public.' || f, 'execute'), 'authenticated must not run ' || f;
   end loop;

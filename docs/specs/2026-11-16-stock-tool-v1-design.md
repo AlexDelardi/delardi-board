@@ -122,4 +122,4 @@ Layout details the guideline already covers (spacing, empty states, errors), the
 1. Apply migration `stk_1`.
 2. Deploy `stock-api` (verify_jwt off, like `sales-api`).
 3. Merge the PR (the page).
-4. Alex opens Stock, checks the counts against today's figures (677 in stock, 19 in transit, 4 sold), and tries one Reserve → Back in stock on a piece.
+4. Alex opens Stock, checks the counts against the ones he sees in Colibri, and tries one Reserve → Back in stock on a piece.

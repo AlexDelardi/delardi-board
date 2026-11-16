@@ -66,6 +66,11 @@ async function settled(page) {
 }
 const rowCount = (page) => page.$$eval("#rows tr.prow", (ns) => ns.length);
 const colText = (page, i) => page.$$eval("#rows tr.prow", (ns, i) => ns.map((n) => n.children[i].textContent.trim()), i);
+// tags (in the given scope) whose text breaks onto a second line
+const wrappedTags = (page, scope) => page.evaluate((sc) => [...document.querySelectorAll(sc + " .tag")].filter((t) => {
+  const r = document.createRange(); r.selectNodeContents(t);
+  return r.getClientRects().length > 1 || t.getBoundingClientRect().height > 30;
+}).map((t) => t.textContent.trim() + ":" + Math.round(t.getBoundingClientRect().height) + "/" + (() => { const r = document.createRange(); r.selectNodeContents(t); return r.getClientRects().length; })()), scope);
 const noHScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 const listCalls = () => mock.calls.filter((c) => c.action === "list");
 async function shot(page, name) {
@@ -351,6 +356,55 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await ctx.close();
   });
 
+  await run("pager: the last row of the last page leaves", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    mock.pieces.splice(51);                           // 51 pieces: page 2 holds one
+    await settled(page);
+    await page.evaluate(() => loadList());
+    await page.waitForFunction(() => !S.listBusy && /51 pieces/.test(document.querySelector("#pager").textContent));
+    await page.click("#pg-next");
+    await page.waitForFunction(() => S.page === 2 && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 1);
+    mock.pieces.pop();                                // a change moves it out: 50 pieces, one page
+    const calls0 = listCalls().length;
+    await page.evaluate(() => loadList());
+    await page.waitForFunction(() => S.page === 1 && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 50, null, { timeout: 4000 }).catch(() => {});
+    const asked = listCalls().slice(calls0).map((c) => c.filters.page).join();
+    check("pager: an empty page past the end falls back to the last page, rows shown", (await rowCount(page)) === 50 && await page.evaluate(() => S.page === 1), asked);
+    check("pager: it asked page 2, then page 1, once", asked === "2,1", asked);
+    check("pager: Page 1 of 1, no empty-state text", norm(await page.textContent("#pager .pg-n")) === "Page 1 of 1" && !/No pieces match/.test(await page.textContent("#rows")));
+    check("pager: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("pieces without a catalogue model", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    const bare = (n, brand) => ({ piece_id: "00000000-0000-4000-8000-00000000099" + n, serial: "ZZ.00.9900" + n, barcode: null, brand,
+      article: null, collection: null, model_name: null, colour: null, size: null, category: null, state: "in_stock",
+      state_since: new Date(Date.now() - 86400000).toISOString(), price_uzs: null, hold_client_id: null, hold_until: null,
+      state_note: null, shipped_on: null, first_seen_at: new Date().toISOString(), model: null });
+    const withBrand = bare("1", "Zz Watchmaker"), nothing = bare("2", null);
+    mock.pieces.push(withBrand, nothing);
+    await settled(page);
+    await page.fill("#f-q", "ZZ.00.9900");
+    await page.waitForFunction(() => document.querySelectorAll("#rows tr.prow").length === 2 && !S.listBusy);
+    const cellsOf = (id) => page.$$eval(`#rows tr[data-id="${id}"] td`, (ns) => ns.map((n) => n.textContent.replace(/\s+/g, " ").trim()));
+    const a = await cellsOf(withBrand.piece_id), b = await cellsOf(nothing.piece_id);
+    check("no model: the row shows — for reference, size, price; the serial and the state stay", a[0] === withBrand.serial && a[1] === "Zz Watchmaker" && a[2] === "—" && a[3] === "—" && a[4] === "In stock" && a[6] === "—", a.join("|"));
+    check("no model, no brand: the brand cell shows —", b[0] === nothing.serial && b[1] === "—" && b[2] === "—", b.join("|"));
+    await page.click(`#rows tr[data-id="${withBrand.piece_id}"]`);
+    await page.waitForSelector("#pc-title");
+    check("no model: the panel opens, the title is the brand", norm(await page.textContent("#pc-title")) === "Zz Watchmaker" && (await page.textContent("#pc-facts")).includes(withBrand.serial));
+    await page.click("#piece-close");
+    await page.waitForFunction(() => !document.querySelector("#piece-panel"));
+    await page.click(`#rows tr[data-id="${nothing.piece_id}"]`);
+    await page.waitForSelector("#pc-title");
+    check("no model, no brand: the panel title falls back to the serial", norm(await page.textContent("#pc-title")) === nothing.serial, norm(await page.textContent("#pc-title")));
+    const facts = norm(await page.textContent("#pc-facts"));
+    check("no model: the empty facts show —, no 'null' or 'undefined' on screen", !/null|undefined/.test(await page.textContent("#piece-panel")) && /Reference—/.test(facts) && /Price—/.test(facts), facts);
+    check("no model: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   // ------------------------------------------------- long names, widths
   for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
     await run("widths " + vp.width, async () => {
@@ -365,12 +419,26 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       }, mock.LONG_NAME);
       check(`widths ${vp.width}×${vp.height}: the 60-character model name wraps`, ok === "wraps", ok);
       check(`widths ${vp.width}×${vp.height}: no sideways scroll`, await noHScroll(page));
+      const tagsEvery = async (lang) => {
+        const bad = [];
+        for (const st of ["", "in_stock", "reserved", "booked_out", "in_transit", "damaged", "not_received", "sold"]) {
+          await page.selectOption("#f-state", st);
+          await page.waitForFunction((x) => S.filters.state === x && !S.listBusy, st);
+          bad.push(...(await wrappedTags(page, "#rows td.st")));
+        }
+        check(`widths ${vp.width}×${vp.height} ${lang}: state tags in the list stay on one line`, bad.length === 0, bad.join());
+        check(`widths ${vp.width}×${vp.height} ${lang}: still no sideways scroll`, await noHScroll(page));
+        await page.selectOption("#f-state", "");
+        await page.waitForFunction(() => S.filters.state === "" && !S.listBusy);
+      };
+      await tagsEvery("EN");
       await page.click(".kit-head [data-kit-menu] > button");
       check(`widths ${vp.width}×${vp.height}: no sideways scroll with Tools open`, await noHScroll(page));
       await page.click(".kit-head [data-kit-menu] > button");
       await page.click(".kit-lang .kit-hbtn[lang=ru]");
       await settled(page);
       check(`widths ${vp.width}×${vp.height}: no sideways scroll in RU`, await noHScroll(page));
+      await tagsEvery("RU");
       const small = await page.evaluate(() => [...document.querySelectorAll("#main button, #main select, #main input")]
         .filter((n) => { const r = n.getBoundingClientRect(); return r.width && (r.height < 43.5); }).map((n) => n.id || n.className));
       check(`widths ${vp.width}×${vp.height}: controls are 44 px targets`, small.length === 0, small.join());
@@ -667,8 +735,17 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.fill("#pf-client", "DLD-9999");
     await page.click("#pf-submit"); await page.click("#confirm-ok");
     await page.waitForFunction(() => document.querySelector("#pf-err") && !document.querySelector("#pf-err").hidden && document.querySelector("#pf-err").textContent);
-    check("409: the database sentence is shown in the form, verbatim", norm(await page.textContent("#pf-err")) === "client DLD-9999 not found", norm(await page.textContent("#pf-err")));
-    await page.click("#pf-cancel");
+    check("409: the database sentence is shown in the form, verbatim", norm(await page.textContent("#pf-err")) === "No client with that reference.", norm(await page.textContent("#pf-err")));
+    check("409 RU: «Клиента с таким номером нет.»", await page.evaluate(() => RU["No client with that reference."] === "Клиента с таким номером нет."));
+    check("409: the piece stays In stock after the refusal", mock.pieces.find((p) => p.piece_id === piece.piece_id).state === "in_stock");
+    // a lower-case reference that exists is accepted and stored upper-case
+    await page.fill("#pf-client", "dld-9001");
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => /Reserved/.test(document.querySelector("#piece-panel .pc-state .tag").textContent) && !document.querySelector("#pc-form"));
+    check("lower-case client: accepted, stored upper-case", mock.pieces.find((p) => p.piece_id === piece.piece_id).hold_client_id === "DLD-9001", String(mock.pieces.find((p) => p.piece_id === piece.piece_id).hold_client_id));
+    await page.click('#pc-actions button[data-act="in_stock"]');
+    await page.click("#pf-submit"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => /In stock/.test(document.querySelector("#piece-panel .pc-state .tag").textContent) && !document.querySelector("#pc-form"));
     // 409: the piece was sold meanwhile
     const other = mock.pieces.filter((p) => p.state === "in_stock" && onPage1(p) && p.piece_id !== piece.piece_id)[0];
     await openId(page, other.piece_id);
@@ -757,6 +834,9 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   await run("api timeout", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await settled(page);
+    const lim = (v) => page.evaluate((x) => { window.__API_TIMEOUT_MS = x; return apiLimit(); }, v);
+    check("timeout clamp: the override can only shorten the 20 s limit",
+      (await lim(400)) === 400 && (await lim(999999)) === 20000 && (await lim(0)) === 20000 && (await lim(-5)) === 20000 && (await lim("abc")) === 20000 && (await lim(undefined)) === 20000 && (await lim(19999)) === 19999);
     await page.evaluate(() => { window.__API_TIMEOUT_MS = 400; });
     mock.delay.facets = 1500;
     let t0 = Date.now();
@@ -779,9 +859,11 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.waitForSelector("#confirm-dialog");
     await page.click("#confirm-ok");
     await page.waitForFunction(() => /The server did not answer/.test((document.querySelector("#pf-err") || {}).textContent || ""), null, { timeout: 1200 });
+    const busyErr = norm(await page.textContent("#pf-err"));
+    const submitFree = await page.$eval("#pf-submit", (n) => !n.disabled);
     await page.click("#piece-close");
     await page.waitForFunction(() => !document.querySelector("#piece-panel"), null, { timeout: 1500 });
-    check("timeout: the panel shows the sentence and closes again", true);
+    check("timeout: the panel shows the sentence, the form is free again, and the panel closes", busyErr === "The server did not answer. Try again." && submitFree && !(await page.$("#piece-panel")), busyErr + " " + submitFree);
     mock.delay.set_state = 0;
     check("timeout: no script errors", errors.length === 0, errors.join(" | "));
     await page.waitForTimeout(1300);
@@ -1001,8 +1083,9 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.$eval("#rv-confirm", (n) => n.click());
     await page.click("#confirm-ok");
     await page.waitForFunction(() => document.querySelectorAll("#rv-rows tr.rrow").length === 2);
+    const pieceCallsBefore = mock.calls.filter((x) => x.action === "piece").length;
     await page.waitForFunction(() => !document.querySelector("#pc-reviews"));
-    check("review: the open piece panel reloads after a resolve (no open review left)", true);
+    check("review: the open piece panel reloads after a resolve (no open review left)", !(await page.$("#pc-reviews")) && !!(await page.$("#pc-title")) && mock.calls.filter((x) => x.action === "piece").length >= pieceCallsBefore, String(pieceCallsBefore));
     check("review: no script errors, no foreign requests", errors.length === 0 && foreign.length === 0, errors.concat(foreign).join(" | "));
     await ctx.close();
   });
@@ -1115,6 +1198,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("review RU: kind words and answer words", rows.every((r, i) => r.cells[0] === KIND_RU[kinds[i]] && r.answers.join() === KIND_ANS[kinds[i]].map((a) => a + ":" + ANS_RU[a]).join()), JSON.stringify(rows.map((r) => [r.cells[0], r.answers])));
     check("review RU: the date and state in Russian", /^\d{1,2} (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек) 2026$/.test(rows[0].cells[3]) && rows[0].cells[2] === "В наличии", JSON.stringify(rows[0].cells));
     check("review RU: headings", (await page.$$eval("#rv-table thead th", (ns) => ns.map((n) => n.textContent.trim()))).join() === "Вид,Изделие,Статус,Поднято,Ответ");
+    check("review 768 RU: state tags stay on one line", (await wrappedTags(page, "#rv-rows")).length === 0, (await wrappedTags(page, "#rv-rows")).join());
     check("review 768: no sideways scroll", await noHScroll(page) && await page.$eval(".tbl-wrap", (n) => n.scrollWidth <= n.clientWidth + 1));
     check("review 768: controls are 44 px targets", await page.$$eval("#rv-rows button", (ns) => ns.every((n) => n.getBoundingClientRect().height >= 43.5)));
     await page.click('#rv-rows tr.rrow[data-review="1"] button[data-answer="booked_out"]');
