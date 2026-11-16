@@ -146,7 +146,7 @@ function renderTkList() {
   sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
   if (tk.busy) sumParts.push(" · ", el("span", { class: "small", text: tr("Searching…") }));
   box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
-  if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
+  if (!d.rows.length) { box.append(el("p", { class: "small tk-pad", text: tr("No ticket matches.") })); return; }
   const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
     ["Source", "tk-src"], ["Status", "tk-st"], ["Net", "tk-net r"]];
   box.append(el("div", { class: "tk-scroll" }, el("table", { class: "tbl tk-list", id: "tk-list", "aria-label": tr("Tickets") },

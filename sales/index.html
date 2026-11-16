@@ -483,7 +483,7 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
 .tk-meta dt { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .tk-meta dd { margin: 0; font-size: 15px; color: var(--navy-deep); overflow-wrap: anywhere; }
 .ro-note { margin: 0 24px 8px; font-size: 13px; color: var(--slate); }
-.notice.era-reminder { margin: 8px 24px 0; font-weight: 700; }
+.notice.era-reminder { margin: 8px 24px 12px; font-weight: 700; }
 .tl-lines { list-style: none; margin: 0; padding: 4px 24px; border-top: 1px solid var(--mist); }
 .tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 150px; gap: 4px 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--mist); }
 .tl-row:first-child { border-top: 0; }
@@ -1606,7 +1606,7 @@ function draftSummary(d) {
     el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
       el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
       el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
-    el("div", { class: "draft-m muted" }, [
+    el("div", { class: "draft-m small" }, [
       d.walk_in ? walkInText() : d.client_id || tr("no client yet"),
       d.seller || tr("no seller yet"),
       tr("Total") + " " + fmtUZS(total),
@@ -2709,7 +2709,7 @@ function renderTkList() {
   sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
   if (tk.busy) sumParts.push(" · ", el("span", { class: "small", text: tr("Searching…") }));
   box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
-  if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
+  if (!d.rows.length) { box.append(el("p", { class: "small tk-pad", text: tr("No ticket matches.") })); return; }
   const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
     ["Source", "tk-src"], ["Status", "tk-st"], ["Net", "tk-net r"]];
   box.append(el("div", { class: "tk-scroll" }, el("table", { class: "tbl tk-list", id: "tk-list", "aria-label": tr("Tickets") },

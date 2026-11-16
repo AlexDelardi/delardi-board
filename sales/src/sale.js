@@ -422,7 +422,7 @@ function draftSummary(d) {
     el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
       el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
       el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
-    el("div", { class: "draft-m muted" }, [
+    el("div", { class: "draft-m small" }, [
       d.walk_in ? walkInText() : d.client_id || tr("no client yet"),
       d.seller || tr("no seller yet"),
       tr("Total") + " " + fmtUZS(total),
