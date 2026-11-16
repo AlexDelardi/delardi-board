@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
@@ -10,588 +10,598 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Delardi Sales">
 <style>
-/* ===========================================================================
-   Delardi Sales — the till
-   Sister page to the Client Instrument and the Catalogue, same brand system:
-   the two official navies #001A4A / #082966, Palatino Linotype as the accent
-   face, Evolventa as the text face. iPad first: every button is a 44 px
-   target, and nothing scrolls sideways at 768 or 1024 wide.
-   ========================================================================= */
+/* Delardi UI kit. Palette only, radius 0, no shadows, no dark mode. */
 :root {
-  --navy:        #001A4A;
-  --navy-2:      #082966;
-  --page:        #EEF1F7;
-  --surface:     #FFFFFF;
-  --surface-2:   #F5F7FB;
-  --ink:         #001A4A;
-  --ink-2:       #5B6478;
-  --muted:       #5B6478;
-  --grid:        #DCE3EF;
-  --line:        #C6D0E2;
-  --border:      rgba(0,26,74,0.12);
-  --shadow:      0 1px 2px rgba(0,26,74,.05), 0 10px 28px rgba(0,26,74,.08);
-  --header-bg:   #001A4A;
-  --header-ink:  #FFFFFF;
-  --header-ink-2:#B9C6DE;
-  --header-line: rgba(255,255,255,0.16);
-  --row-hover:   #F2F5FB;
-  --focus:       #2E5490;
-
-  --good:        #2F6F4F;
-  --warning:     #B07A1E;
-  --serious:     #C2612F;
-  --critical:    #9B3B3B;
-  --good-ink:    #2F6F4F;
-
-  --sans:  "Evolventa","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
-  --serif: "Palatino Linotype","Book Antiqua",Palatino,"Times New Roman",Georgia,serif;
-  --radius: 4px;
-  --tap: 44px;
-  color-scheme: light;
+  --navy: #082966; --navy-deep: #001A4A; --slate: #5B6478; --sky: #8FA8CC;
+  --mist: #D3DCE9; --card: #EEF1F7; --white: #FFFFFF; --alert: #8C2F2F;
+  --serif: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --sans: "Evolventa", "Century Gothic", "Segoe UI", sans-serif;
+  --tap: 44px; --radius: 0;
+  /* legacy aliases, literal hex on purpose (qa/ui-foundations.cjs reads them) */
+  --page: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF1F7;
+  --ink: #001A4A; --ink-2: #5B6478; --muted: #5B6478;
+  --line: #D3DCE9; --grid: #D3DCE9; --border: #D3DCE9;
+  --focus: #082966; --critical: #8C2F2F;
 }
-:root[data-theme="dark"], html[data-theme="auto"].sysdark {
-  --page:        #000D22;
-  --surface:     #00112F;
-  --surface-2:   #041B3F;
-  --ink:         #F2F5FA;
-  --ink-2:       #B9C6DE;
-  --muted:       #8892A6;
-  --grid:        #0C2650;
-  --line:        #1B3A69;
-  --border:      rgba(255,255,255,0.13);
-  --shadow:      0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.55);
-  --header-bg:   #000B1C;
-  --header-line: rgba(255,255,255,0.13);
-  --row-hover:   #07224B;
-  --focus:       #8FA8CC;
+* { box-sizing: border-box; border-radius: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: #FFFFFF; color: var(--navy-deep); font: 15px/1.5 var(--sans); }
+:focus-visible { outline: 2px solid #082966; outline-offset: 2px; }
+.kit-head :focus-visible { outline-color: #8FA8CC; }
+.kit-head .kit-menu :focus-visible { outline-color: #082966; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-  --good:        #4E9E72;
-  --warning:     #D9A23C;
-  --serious:     #E08B5C;
-  --critical:    #E07C7C;
-  --good-ink:    #4E9E72;
-  color-scheme: dark;
-}
+/* Header bar */
+.kit-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 24px; background: var(--navy-deep); color: var(--white); position: relative; z-index: 50; }
+.kit-brand { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--white); text-decoration: none; font: 13px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
+.kit-brand img, .kit-brand svg { display: block; height: 26px; width: auto; }
+.kit-rule { width: 1px; align-self: stretch; margin: 12px 0; background: var(--sky); }
+.kit-staff { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
+.kit-tool { font: normal 19px/1.2 var(--serif); color: var(--white); }
+.kit-spacer { flex: 1 1 auto; }
+.kit-head a { color: var(--white); }
+.kit-hbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); min-width: var(--tap); padding: 0 16px; background: transparent; color: var(--white); border: 1px solid rgba(143, 168, 204, .45); font: 15px/1 var(--sans); cursor: pointer; text-decoration: none; }
+.kit-hbtn:hover { border-color: var(--sky); }
+.kit-lang { display: inline-flex; }
+.kit-lang .kit-hbtn { padding: 0 12px; min-width: var(--tap); }
+.kit-lang .kit-hbtn + .kit-hbtn { border-left-width: 0; }
+.kit-lang .kit-hbtn[aria-pressed="true"], .kit-lang .kit-hbtn.on { background: var(--navy); border-color: var(--sky); font-weight: 700; }
+.kit-tool-wrap, [data-kit-menu] { position: relative; }
+.kit-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; min-width: 200px; margin: 0; padding: 0; list-style: none; background: var(--white); color: var(--navy-deep); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: var(--tap); padding: 0 16px; color: var(--navy-deep); text-decoration: none; font: 15px/1.5 var(--sans); }
+.kit-menu a:hover { background: var(--card); }
+.kit-menu [aria-current="page"] { font-weight: 700; color: var(--navy); background: var(--card); }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+/* Tabs */
+.kit-tabs { display: flex; gap: 28px; padding: 0 24px; background: var(--white); border-bottom: 1px solid var(--mist); }
+.kit-tab { display: inline-flex; align-items: center; min-height: 48px; padding: 0; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--slate); font: 15px/1.5 var(--sans); cursor: pointer; text-decoration: none; }
+.kit-tab:hover { color: var(--navy); }
+.kit-tab[aria-current="page"] { color: var(--navy); font-weight: 700; border-bottom-color: var(--navy); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); padding: 0 16px; background: var(--white); color: var(--navy); border: 1px solid var(--navy); font: 700 15px/1.2 var(--sans); cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--card); }
+.btn.primary { background: var(--navy); color: var(--white); border-color: var(--navy); }
+.btn.primary:hover { background: var(--navy-deep); border-color: var(--navy-deep); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--navy); font-weight: 400; text-decoration: underline; }
+.btn.quiet:hover { background: var(--card); }
+.btn.danger { background: var(--white); color: var(--alert); border-color: var(--alert); }
+.btn.danger:hover { background: var(--alert); color: var(--white); }
+.btn.big { min-height: 52px; padding: 0 24px; font-size: 17px; }
+.btn:disabled, .btn[aria-disabled="true"] { background: var(--card); color: var(--slate); border-color: var(--mist); cursor: not-allowed; text-decoration: none; }
+
+/* Fields */
+input, select, textarea { width: 100%; min-height: var(--tap); padding: 8px 12px; background: var(--white); color: var(--navy-deep); border: 1px solid var(--sky); font: 15px/1.5 var(--sans); }
+textarea { min-height: 96px; resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--slate); }
+input:disabled, select:disabled, textarea:disabled { background: var(--card); color: var(--slate); border-color: var(--mist); }
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--alert); border-width: 2px; }
+input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; padding: 0; accent-color: var(--navy); }
+.lbl { display: block; margin: 0 0 4px; color: var(--slate); font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+
+/* Type */
+.title { margin: 0 0 16px; font: normal 28px/1.25 var(--serif); color: var(--navy-deep); }
+.h2 { margin: 0 0 12px; font: normal 21px/1.3 var(--serif); color: var(--navy-deep); }
+.item { font: normal 17px/1.35 var(--serif); color: var(--navy-deep); overflow-wrap: anywhere; }
+.keynum { font: normal 32px/1.1 var(--serif); color: var(--navy-deep); font-variant-numeric: tabular-nums; }
+.small { font: 13px/1.45 var(--sans); color: var(--slate); }
+
+/* Table */
+.tbl { width: 100%; border-collapse: collapse; font: 15px/1.5 var(--sans); }
+.tbl thead th { padding: 12px; background: var(--card); color: var(--slate); text-align: left; font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; border-bottom: 1px solid var(--mist); }
+.tbl tbody tr { height: 48px; }   /* a row height is a minimum in a table; td min-height does nothing */
+.tbl td { padding: 12px; border-bottom: 1px solid var(--mist); vertical-align: middle; }
+.tbl th.r, .tbl td.r, .tbl .r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl tbody tr:hover { background: var(--card); }
+
+/* Tags */
+.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--navy); color: var(--navy); background: var(--white); font: 700 12px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.tag.act { background: var(--navy); color: var(--white); border-color: var(--navy); }
+.tag.info { background: var(--card); color: var(--navy); border-color: var(--card); }
+.tag.done { background: var(--white); color: var(--slate); border-color: var(--mist); }
+.tag.line { background: var(--white); color: var(--navy); border-color: var(--navy); }
+.tag.alert { background: var(--white); color: var(--alert); border-color: var(--alert); }
+
+/* Band and notice */
+.band { padding: 12px 24px; background: var(--card); color: var(--navy); font: 13px/1.45 var(--sans); }
+.band .lbl { display: inline; margin: 0 12px 0 0; color: var(--navy); }
+.notice { padding: 12px 16px; background: var(--card); color: var(--navy); border: 1px solid var(--mist); font: 15px/1.5 var(--sans); }
+
+/* Detail panel (right) */
+.panel-wrap { position: fixed; inset: 0; z-index: 100; display: flex; justify-content: flex-end; }
+.panel-scrim { position: absolute; inset: 0; background: rgba(0, 26, 74, .4); }
+.panel { position: relative; width: 560px; max-width: 100%; height: 100%; overflow-y: auto; padding: 24px; background: var(--white); color: var(--navy-deep); border-top: 2px solid var(--navy); }
+@media (max-width: 599px) { .panel { width: 100%; } }
+
+/* Modal (centred) */
+.modal-wrap { position: fixed; inset: 0; z-index: 110; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal-scrim { position: absolute; inset: 0; background: rgba(0, 26, 74, .4); }
+.modal { position: relative; width: 640px; max-width: 100%; max-height: 100%; overflow-y: auto; padding: 24px; background: var(--white); color: var(--navy-deep); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.modal.confirm { width: 480px; }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 120; max-width: calc(100% - 32px); padding: 12px 16px; background: var(--navy-deep); color: var(--white); font: 15px/1.5 var(--sans); }
+.toast.err { background: var(--white); color: var(--alert); border: 1px solid var(--alert); }
+
+/* Lock card */
+.gate { position: fixed; inset: 0; overflow-y: auto; z-index: 115; min-height: 100vh; display: flex; padding: 24px; background: var(--card); }
+.gate-card { margin: auto; width: 100%; max-width: 400px; background: var(--white); border: 1px solid var(--mist); }
+.gate-mast { padding: 24px; background: var(--navy-deep); color: var(--white); font: 13px/1.4 var(--sans); letter-spacing: .18em; text-transform: uppercase; }
+.gate-card > :not(.gate-mast) { margin-left: 24px; margin-right: 24px; }
+.gate-card > :last-child { margin-bottom: 24px; }
+.gate-card > .gate-mast + * { margin-top: 24px; }
+
+
+/* ===========================================================================
+   Delardi Sales — the till. The look is the shared UI kit above (ui/kit.css,
+   inlined by build.py); what follows is Sales layout only, written with kit
+   tokens: palette colours, square corners, no shadows, no dark mode.
+   iPad first: every button is a 44 px target, nothing scrolls sideways at
+   768 or 1024 wide.
+   ========================================================================= */
+body { overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 html { -webkit-tap-highlight-color: transparent; }
-body {
-  background: var(--page); color: var(--ink);
-  font: 15px/1.5 var(--sans);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-}
-button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .num, .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ header */
-.top { position: sticky; top: 0; z-index: 40; background: var(--surface); border-bottom: 1px solid var(--border); }
-.top-row {
-  display: flex; align-items: center; gap: 12px 14px; flex-wrap: wrap;
-  padding: 10px 22px; background: var(--header-bg); color: var(--header-ink);
+.top { position: sticky; top: 0; z-index: 40; background: var(--white); }
+.top .kit-head { flex-wrap: wrap; }
+.top .kit-tabs { overflow-x: auto; }
+.top .kit-tab { white-space: nowrap; }
+.top .kit-tab:focus-visible { outline-offset: -2px; }
+@media (max-width: 900px) {                       /* portrait iPad, RU labels: still one 56 px row */
+  .top .kit-head { gap: 8px; padding: 0 16px; }
+  .top .kit-head .kit-hbtn { padding: 0 12px; }
+  .top .kit-staff { max-width: 120px; }
 }
-.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.brand .mark { height: 34px; width: auto; display: block; }
-.brand .home { display: flex; align-items: center; flex: none; border-radius: 3px; min-height: var(--tap); }
-.brand .rule { width: 1px; height: 34px; background: var(--header-line); flex: none; }
-.brand .title { font-family: var(--serif); font-size: 17px; line-height: 1.25; letter-spacing: .015em; }
-.brand .sub { font-size: 11px; letter-spacing: .11em; text-transform: uppercase; color: var(--header-ink-2); margin-top: 3px; }
-.spacer { flex: 1 1 auto; }
-.top-row .btn {
-  background: rgba(255,255,255,0.07); color: var(--header-ink); border-color: var(--header-line);
-}
-.top-row .btn:hover { background: rgba(255,255,255,0.14); }
-.top-row .btn.subtle { background: transparent; color: var(--header-ink-2); border-color: transparent; }
-.top-row .btn.subtle:hover { background: rgba(255,255,255,0.12); color: var(--header-ink); }
-.lock-state {
-  display: inline-flex; align-items: center; gap: 7px; font-size: 13px;
-  padding: 0 0 0 11px; border-radius: 8px;
-  background: rgba(255,255,255,0.08); border: 1px solid var(--header-line); color: var(--header-ink);
-}
-.lock-state .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); flex: none; }
+/* training: on every screen, impossible to miss, never alarming */
+.band.training-band { border-bottom: 1px solid var(--mist); }
 
-.btn {
-  background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 8px;
-  padding: 0 14px; min-height: var(--tap); min-width: var(--tap); font-size: 14px; font-weight: 500;
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap;
-}
-.btn:hover { background: var(--surface-2); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-.btn.primary:hover:not(:disabled) { opacity: .88; }
-.btn.subtle { border-color: transparent; background: transparent; color: var(--ink-2); }
-.btn.subtle:hover { background: var(--surface-2); }
-.btn.big { min-height: 52px; padding: 0 22px; font-size: 15.5px; font-weight: 600; }
-.btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+/* ----------------------------------------------------------------- buttons */
+.btn { min-width: var(--tap); white-space: nowrap; }
+.btn.subtle { background: transparent; color: var(--slate); border-color: transparent; font-weight: 400; }
+.btn.subtle:hover { background: var(--card); color: var(--navy); }
+.btn.sm { font-size: 13px; }
+.btn[aria-pressed="true"] { background: var(--navy); color: var(--white); border-color: var(--navy); }
 .linkish {
-  background: none; border: 0; padding: 0 4px; margin: 0; font: inherit; color: var(--ink-2);
+  background: none; border: 0; padding: 0 4px; margin: 0; font: inherit; color: var(--navy);
   text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
   min-height: var(--tap); min-width: var(--tap); display: inline-flex; align-items: center;
 }
-.linkish:hover { color: var(--ink); }
-
-/* language switch (as in the CRM) */
-.lang { display: inline-flex; border: 1px solid var(--header-line); border-radius: 8px; overflow: hidden; flex: none; }
-.lang button {
-  background: transparent; border: 0; color: var(--header-ink-2); cursor: pointer;
-  min-height: var(--tap); min-width: var(--tap); padding: 0 10px; font-size: 12px; letter-spacing: .06em; font-weight: 600;
-}
-.lang button + button { border-left: 1px solid var(--header-line); }
-.lang button[aria-pressed="true"] { background: rgba(255,255,255,0.14); color: var(--header-ink); }
-.lang button:hover { color: var(--header-ink); }
-
-/* view tabs */
-.views { display: flex; gap: 4px; padding: 0 22px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
-.view-tab {
-  background: transparent; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
-  min-height: var(--tap); padding: 0 14px; font-size: 14px; font-weight: 600; color: var(--ink-2); letter-spacing: .01em;
-  text-decoration: none; display: inline-flex; align-items: center; white-space: nowrap;
-}
-.view-tab:hover { color: var(--ink); background: var(--surface-2); }
-.view-tab[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
-.view-tab:focus-visible { outline-offset: -3px; }
-
-/* training: on every screen, impossible to miss, never alarming */
-.training-band {
-  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
-  padding: 7px 22px; font-size: 13px; letter-spacing: .02em; text-align: center;
-  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 22%, var(--surface)) 0 14px,
-    color-mix(in srgb, var(--warning) 14%, var(--surface)) 14px 28px);
-  color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
-}
-.training-band b { letter-spacing: .14em; font-weight: 700; }
+.linkish:hover { color: var(--navy-deep); }
 
 /* ------------------------------------------------------------------ screens */
-main { padding: 20px 22px 120px; }
-.sheet {
-  max-width: 1040px; margin: 0 auto; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow);
-}
+main { padding: 24px 24px 120px; }
+.sheet { max-width: 1040px; margin: 0 auto; background: var(--white); border: 1px solid var(--mist); }
 .sheet-head {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
-  padding: 16px 20px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px;
+  padding: 16px 24px; border-bottom: 1px solid var(--mist);
 }
-.sheet-head h1 { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: .005em; }
-.sheet-head .aside { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.field-inline { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
-.field-inline select { min-width: 180px; }
-input[type=text], input[type=search], input[type=password], select, textarea {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
-  padding: 0 12px; min-height: var(--tap); font-size: 15px; min-width: 0; color: var(--ink);
-}
+.sheet-head h1 { margin: 0; font: normal 28px/1.25 var(--serif); color: var(--navy-deep); }
+.sale-head { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px 12px; padding: 20px 24px 0; }
+.sale-head .title { margin: 0; flex: 1 1 auto; color: var(--navy); }
+.sale-head .aside { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.field-stack { display: flex; flex-direction: column; gap: 4px; }
+.field-stack .lbl { margin: 0; }
+.field-stack select { width: 210px; }
+.sheet-head .aside { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 select { padding-right: 28px; }
-select.unset { color: var(--muted); }
-input[aria-invalid="true"] { border-color: var(--critical); box-shadow: 0 0 0 2px color-mix(in srgb, var(--critical) 35%, transparent); }
-.needs { box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 60%, transparent); }
+select.unset { color: var(--slate); }
+.needs { border-color: var(--navy); border-width: 2px; }
 
 /* search */
-.search { position: relative; padding: 16px 20px 6px; }
-.search input {
-  width: 100%; min-height: 54px; font-size: 17px; padding: 0 16px 0 44px; border-radius: 10px;
-  background: var(--surface-2);
-}
-.search input:focus { background: var(--surface); }
-.search .glass { position: absolute; left: 36px; top: 33px; width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
-.search .hint { font-size: 12.5px; color: var(--muted); margin: 6px 2px 0; }
+.search { position: relative; padding: 16px 24px 8px; }
+.search input { width: 100%; min-height: 52px; font-size: 16px; padding: 0 16px 0 44px; background: var(--white); border-color: var(--navy); }
+.search .glass { position: absolute; left: 40px; top: 34px; width: 18px; height: 18px; color: var(--slate); pointer-events: none; }
+.search .hint { font-size: 13px; color: var(--slate); margin: 4px 0 0; }
 .sugg {
-  position: absolute; left: 20px; right: 20px; top: calc(100% - 26px); z-index: 30;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
-  padding: 6px; max-height: min(420px, 60vh); overflow-y: auto;
+  position: absolute; left: 24px; right: 24px; top: calc(100% - 8px); z-index: 30;
+  background: var(--white); border: 1px solid var(--mist); border-top: 2px solid var(--navy);
+  padding: 0; max-height: min(480px, 70vh); overflow-y: auto;
 }
-.sugg .sg-note { padding: 10px 12px; font-size: 13.5px; color: var(--ink-2); }
-.sg {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; align-items: center;
-  width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit;
-  padding: 9px 12px; border-radius: 8px; min-height: 56px;
+.sugg .sg-note { padding: 10px 16px; border-top: 1px solid var(--mist); font-size: 13px; color: var(--slate); }
+.sg-head, .sg {
+  display: grid; grid-template-columns: minmax(0, 1fr) 190px 130px; gap: 16px; align-items: center;
+  width: 100%; padding: 12px 16px;
 }
-button.sg:hover, button.sg:focus-visible { background: var(--row-hover); }
-.sg .sg-t { font-weight: 600; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sg .sg-s { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sg .sg-p { grid-row: 1 / 3; grid-column: 2; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
-.sg.off { opacity: .55; cursor: default; }
-.sg.off .sg-p { font-size: 12.5px; }
-.sg-state {
-  display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
-  border: 1px dashed var(--line); color: var(--ink-2); white-space: nowrap;
-}
+.sg-head { padding: 10px 16px; background: var(--card); font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--slate); }
+.sg-head .r, .lines-head .r { text-align: right; }
+.sg .sg-st { min-width: 0; }
+.sg-st .tag { white-space: normal; line-height: 1.3; padding: 4px 8px; max-width: 100%; overflow-wrap: anywhere; }
+.sg { text-align: left; border: 0; border-top: 1px solid var(--mist); border-left: 3px solid transparent; background: none; font: inherit; color: inherit; min-height: 56px; }
+button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-color: var(--navy); }
+.sg .sg-n { display: flex; flex-direction: column; min-width: 0; }
+.sg .sg-t { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.sg .sg-s { font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+.sg .sg-p { text-align: right; font-variant-numeric: tabular-nums; color: var(--navy-deep); }
+.sg.off { cursor: default; }
+.sg.off .sg-t, .sg.off .sg-p { color: var(--slate); }
 
 /* lines */
-.lines { list-style: none; margin: 0; padding: 4px 20px 6px; }
-.lines .empty { padding: 34px 10px 30px; text-align: center; color: var(--muted); font-size: 14px; }
-.line {
-  display: grid; align-items: center; gap: 4px 14px; padding: 14px 0; border-top: 1px solid var(--grid);
-  grid-template-columns: minmax(0, 1fr) 150px 92px 130px var(--tap);
+.lines-head {
+  display: grid; align-items: end; gap: 16px; margin: 8px 24px 0; padding: 0 0 8px; border-bottom: 1px solid var(--mist);
+  grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
+  font: 700 12px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--slate);
+}
+@media (min-width: 901px) {
+  .l-cell > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.lines { list-style: none; margin: 0; padding: 4px 24px 8px; }
+.lines .empty { padding: 32px 12px; text-align: center; color: var(--slate); font-size: 15px; }
+.lines > .line {
+  display: grid; align-items: center; gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--mist);
+  grid-template-columns: minmax(0, 1fr) 160px 100px 150px var(--tap);
   grid-template-areas: "info price disc net x";
 }
-.line:first-child { border-top: 0; }
+.lines > .line:first-child { border-top: 0; }
 .l-info { grid-area: info; min-width: 0; }
-.l-title { font-weight: 600; font-size: 15.5px; line-height: 1.3; overflow-wrap: anywhere; }
-.l-title .dot { color: var(--muted); font-weight: 400; margin: 0 4px; }
-.l-spec { font-size: 13px; color: var(--ink-2); margin-top: 2px; overflow-wrap: anywhere; }
-.l-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; font-size: 12.5px; color: var(--muted); }
+.l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
+.l-spec { font-size: 13px; color: var(--slate); margin-top: 4px; overflow-wrap: anywhere; }
+.l-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; font-size: 13px; color: var(--slate); }
 .l-serial { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .l-seller-box { display: inline-flex; align-items: center; gap: 8px; }
-.l-seller-box select { min-height: var(--tap); font-size: 13px; }
+.l-seller-box select { width: auto; min-height: var(--tap); font-size: 13px; }
 .l-price { grid-area: price; }
 .l-disc { grid-area: disc; }
-.l-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.l-cell > span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.l-cell { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.l-cell > span { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
 .l-cell input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
-.l-cell .was { font-size: 11.5px; color: var(--muted); text-align: right; white-space: nowrap; }
+.l-cell .was { font-size: 12px; color: var(--slate); text-align: right; white-space: nowrap; }
 .pct { position: relative; }
-.pct input { padding-right: 26px; }
-.pct::after { content: "%"; position: absolute; right: 10px; bottom: 11px; color: var(--muted); font-size: 14px; pointer-events: none; }
-.l-net { grid-area: net; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 15.5px; font-weight: 600; }
-.l-net .eq { color: var(--muted); font-weight: 400; margin-right: 4px; }
+.pct input { padding-right: 28px; }
+.pct::after { content: "%"; position: absolute; right: 12px; bottom: 12px; color: var(--slate); font-size: 15px; pointer-events: none; }
+.l-net { grid-area: net; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 17px; font-weight: 700; color: var(--navy-deep); }
+.l-net .eq { color: var(--slate); font-weight: 400; margin-right: 4px; }
 .l-x { grid-area: x; }
-.l-x, .p-x { font-size: 18px; line-height: 1; color: var(--ink-2); padding: 0; }
-.l-x:hover, .p-x:hover { color: var(--critical); }
-
-.lines-tools { display: flex; justify-content: flex-end; padding: 0 20px 12px; gap: 8px; }
+.l-x, .p-x { font-size: 19px; line-height: 1; color: var(--slate); padding: 0; }
+.l-x:hover, .p-x:hover { color: var(--alert); }
+.lines-tools { display: flex; justify-content: flex-end; padding: 0 24px 12px; gap: 8px; }
 
 /* foot: client, total, next step */
 .foot {
   position: sticky; bottom: 0; z-index: 20;
-  display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px;
-  padding: 14px 20px; border-top: 1px solid var(--border); background: var(--surface);
-  border-radius: 0 0 6px 6px; box-shadow: 0 -8px 20px -14px rgba(0,26,74,.25);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px;
+  padding: 16px 24px; border-top: 1px solid var(--mist); background: var(--white);
 }
 .client-slot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.client-slot .lbl { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.client-slot .lbl { margin: 0; }
 .total { margin-left: auto; text-align: right; }
-.total .t-l { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
-.total .t-v { font-family: var(--serif); font-size: 28px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.total .t-v small { font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 4px; }
+.total .t-l { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.total .keynum { white-space: nowrap; }
+.total .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
 
 /* payment */
-.pay-body { padding: 16px 20px 6px; display: grid; gap: 18px; }
-.pay-who { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; padding: 12px 14px;
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.pay-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+.pay-main { padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; border-right: 1px solid var(--mist); }
+.pay-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
+.pay-title .title { margin: 0; color: var(--navy); }
+.pay-who { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 12px 16px; background: var(--card); }
+.pay-block { display: flex; flex-direction: column; gap: 8px; }
 .pay-rows { list-style: none; margin: 0; padding: 0; }
+.pay-rows:empty { display: none; }
 .pay-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) 220px var(--tap); gap: 12px; align-items: center;
-  padding: 10px 0; border-top: 1px solid var(--grid);
+  display: grid; grid-template-columns: 160px minmax(0, 1fr) var(--tap); gap: 12px; align-items: center;
+  padding: 12px 0; border-top: 1px solid var(--mist);
 }
-.pay-row:first-child { border-top: 0; }
-.pay-row .p-m { font-weight: 600; font-size: 15px; }
-.pay-row .p-m small { color: var(--ink-2); font-weight: 500; margin-left: 6px; font-size: 13.5px; }
-.pay-row input { text-align: right; width: 100%; font-variant-numeric: tabular-nums; font-size: 16px; }
-.pay-add { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
-.card-menu {
-  display: inline-flex; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 10px;
-  background: var(--surface); box-shadow: var(--shadow);
-}
-.pay-sum {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; font-size: 15px;
-  padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
-}
-.pay-sum b { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pay-sum .ok { color: var(--good-ink); font-weight: 600; margin-left: auto; }
-.pay-sum .short { color: var(--ink); font-weight: 600; margin-left: auto; }
-.cash-notice {
-  padding: 11px 14px; border-radius: 8px; font-size: 14px; line-height: 1.45;
-  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
-}
+.pay-row:last-child { border-bottom: 1px solid var(--mist); }
+.pay-row .p-m { font-weight: 700; font-size: 15px; color: var(--navy-deep); }
+.pay-row .p-m small { color: var(--slate); font-weight: 400; margin-left: 8px; font-size: 13px; }
+.pay-row input { text-align: right; width: 100%; font-variant-numeric: tabular-nums; font-size: 17px; }
+.pay-add { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.card-menu { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; border: 1px solid var(--mist); background: var(--white); }
 .cash-notice b { margin-right: 4px; }
 .fiscal { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
-.fiscal span { font-size: 12px; color: var(--ink-2); font-weight: 600; }
-.why { font-size: 13px; color: var(--ink-2); margin-right: auto; }
+.fiscal .lbl { margin: 0; }
+.pay-side { background: var(--card); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ps-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.ps-line, .ps-row { display: flex; justify-content: space-between; gap: 12px; }
+.ps-line > span:first-child, .ps-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.ps-line .money, .ps-row b { color: var(--navy-deep); font-variant-numeric: tabular-nums; text-align: right; }
+.ps-line .money { white-space: nowrap; }
+.ps-block { border-top: 1px solid var(--mist); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.ps-block .lbl { margin: 0; }
+.pay-side .keynum { font-size: 34px; color: var(--navy); white-space: nowrap; }
+.pay-side .keynum small { font: 13px/1.45 var(--sans); color: var(--slate); margin-left: 4px; }
+.ps-sum { display: flex; flex-direction: column; gap: 4px; }
+.ps-ok { color: var(--navy); font-weight: 700; }
+.ps-ok.short { color: var(--slate); font-weight: 400; }   /* Overpaid by …: a plain fact, not an alarm */
+.pay-side .why { font-size: 13px; color: var(--slate); margin-top: auto; min-height: 0; }
+.pay-side .btn.big { width: 100%; }
+.pay-side #back { width: 100%; }
 
 /* receipt */
-.receipt-wrap { max-width: 560px; margin: 0 auto; }
-.receipt-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 14px; }
-.receipt-head h1 { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 600; }
-.receipt-head .ok { color: var(--good-ink); font-weight: 600; font-size: 14px; }
-.receipt {
-  background: #FFFFFF; color: #001A4A; border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow);
-  overflow: hidden;
-}
-.receipt .rc-mast { background: #001A4A; padding: 18px 22px; display: flex; justify-content: center; }
-.receipt .rc-mast img { height: 38px; width: auto; display: block; }
-.receipt .rc-body { padding: 18px 26px 22px; font-size: 14px; line-height: 1.55; }
+.receipt-wrap { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; background: var(--white); border: 1px solid var(--mist); }
+.receipt-wrap > .loading { grid-column: 1 / -1; }
+.receipt-stage { background: var(--card); padding: 24px; display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
+.receipt { width: 100%; max-width: 360px; margin: 0 auto; background: var(--white); color: var(--navy-deep); border: 1px solid var(--mist); overflow: hidden; }
+.receipt .rc-mast { background: var(--navy-deep); padding: 16px; display: flex; justify-content: center; }
+.receipt .rc-mast img { height: 24px; width: auto; display: block; }
+.receipt .rc-body { padding: 16px; font-size: 13px; line-height: 1.5; }
 .receipt .rc-line { white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .receipt .rc-train {
-  margin: -18px -26px 14px; padding: 8px 26px; text-align: center; font-weight: 700; letter-spacing: .14em; font-size: 12.5px;
-  background: repeating-linear-gradient(135deg, #F3E6CD 0 14px, #F8EFDD 14px 28px); border-bottom: 1px solid #E2C99A;
+  margin: 0 0 12px; padding: 4px 8px; text-align: center; font: 700 12px/1.4 var(--sans); letter-spacing: .1em;
+  background: var(--navy-deep); color: var(--white);
 }
 .receipt .rc-brand { display: none; }           /* the logo above says it */
-.receipt .rc-addr { color: #5B6478; text-align: center; margin-bottom: 10px; }
-.receipt .rc-ticket { font-family: var(--serif); font-size: 17px; font-weight: 600; text-align: center; }
-.receipt .rc-who { color: #5B6478; text-align: center; }
+.receipt .rc-addr { color: var(--slate); text-align: center; margin-bottom: 12px; }
+.receipt .rc-ticket { color: var(--navy-deep); font-weight: 700; }
+.receipt .rc-who { color: var(--slate); }
 .receipt .rc-who:last-of-type { margin-bottom: 12px; }
-.receipt .rc-item { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #C6D0E2; font-weight: 600; }
-.receipt .rc-detail { font-size: 0.86em; color: #5B6478; }
-.receipt .rc-amt { text-align: right; color: #5B6478; }
+.receipt .rc-item { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--sky); font-weight: 700; }
+.receipt .rc-detail { font-size: 12px; color: var(--slate); }
+.receipt .rc-amt { text-align: right; color: var(--navy-deep); }
 .receipt .rc-total {
-  margin-top: 12px; padding-top: 10px; border-top: 1px solid #001A4A;
-  font-family: var(--serif); font-size: 19px; font-weight: 600; display: flex; justify-content: space-between;
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--sky);
+  font: 700 15px/1.4 var(--sans); display: flex; justify-content: space-between;
 }
-.receipt .rc-pay { display: flex; justify-content: space-between; color: #5B6478; }
+.receipt .rc-pay { display: flex; justify-content: space-between; color: var(--slate); }
 .receipt .rc-mono { display: block; width: 26px; margin: 16px auto 0; opacity: .5; }
-.receipt-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+.saved-panel { padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.saved-panel .lbl { margin: 0; }
+.saved-panel .title { margin: 0; color: var(--navy); }
+.saved-panel .saved-line { margin: 0; }
+.saved-actions { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
+.saved-actions .btn { width: 100%; }
 
-.muted { color: var(--muted); font-size: 13.5px; }
-.notice-box { max-width: 640px; margin: 20px auto; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+.receipt-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; justify-content: flex-end; }
+main > .notice { max-width: 640px; margin: 24px auto; }
 
-/* -------------------------------------------------------- Task 8: dialogs */
-.btn.danger { background: var(--critical); color: #FFFFFF; border-color: var(--critical); }
-.btn.danger:hover:not(:disabled) { opacity: .9; background: var(--critical); }
-.modal-wrap { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.modal-wrap.confirm { z-index: 80; }
-.modal-scrim { position: fixed; inset: 0; background: rgba(0,8,24,.45); }
-.modal {
-  position: relative; width: min(620px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.28);
-}
-.confirm .modal { width: min(460px, 100%); }
-.modal-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 18px; border-bottom: 1px solid var(--grid); }
-.modal-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; line-height: 1.3; }
-.close { font-size: 22px; line-height: 1; }
-.modal-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+/* ----------------------------------------------------------------- dialogs */
+.modal-wrap { padding: 24px; }                  /* stacking is the kit's: panel 100, modal 110, gate 115, toast 120 */
+.modal-scrim { position: fixed; }
+.modal { padding: 0; width: 640px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
+.modal.confirm, .confirm .modal { width: 480px; }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 24px; border-bottom: 1px solid var(--mist); }
+.modal-head h3 { flex: 1; min-width: 0; margin: 0; font: normal 21px/1.3 var(--serif); color: var(--navy-deep); }
+.close { font-size: 21px; line-height: 1; }
+.modal-body { padding: 16px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .modal-body p { margin: 0; line-height: 1.5; }
-.modal-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--grid); }
+.modal-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--mist); }
 
 /* ---------------------------------------------- the client on a sale */
-.client-chip { display: inline-flex; align-items: baseline; gap: 2px; padding: 0 4px; font-size: 14px; max-width: 100%; overflow-wrap: anywhere; }
-.client-chip .cid, .cc-name .cid { color: var(--muted); font-weight: 500; font-size: 13px; font-family: var(--sans); }
-.no-crm { font-size: 13px; color: var(--ink-2); padding: 4px 10px; border: 1px dashed var(--line); border-radius: 8px; }
-.cpbox { width: min(700px, 100%); }
-.cp-search input { width: 100%; min-height: 50px; font-size: 16px; background: var(--surface-2); }
-.cl-list { display: flex; flex-direction: column; gap: 2px; }
+.client-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 0 4px; font-size: 15px; max-width: 100%; overflow-wrap: anywhere; }
+.client-chip .cid, .cc-name .cid { color: var(--slate); font: 13px/1.45 var(--sans); }
+.no-crm { font-size: 13px; color: var(--slate); padding: 4px 12px; border: 1px dashed var(--mist); }
+/* the client detail panel (kit .panel-wrap / .panel / .panel-scrim, 560 wide from the right) */
+.panel.cpbox { display: flex; flex-direction: column; gap: 16px; padding: 0; }
+.cp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px 4px 24px; border-bottom: 1px solid var(--mist); }
+.cp-head .close { width: var(--tap); min-width: var(--tap); padding: 0; font-size: 21px; line-height: 1; }
+.cp-body { padding: 0 24px; display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; }
+.cp-body p { margin: 0; }
+.cp-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px; background: var(--white); border-top: 1px solid var(--mist); }
+.cp-foot .cp-use { margin-left: auto; }
+.cp-search input { width: 100%; min-height: var(--tap); }
+.cl-list { display: flex; flex-direction: column; }
+.cl-list:not(:empty) { border: 1px solid var(--mist); }
 .cl-row {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; width: 100%;
-  border: 0; background: none; border-radius: 8px; padding: 8px 12px; min-height: 52px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; width: 100%;
+  border: 0; border-top: 1px solid var(--mist); background: var(--white); padding: 8px 12px; min-height: 52px; font: 15px/1.5 var(--sans); color: var(--navy-deep); cursor: pointer;
 }
-.cl-row:hover, .cl-row.on { background: var(--row-hover); }
-.cl-name { font-weight: 600; font-size: 15px; }
-.cl-meta { font-size: 12.5px; color: var(--ink-2); }
-.client-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
-.cc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
-.cc-name { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
-.cc-crm { text-decoration: none; }
-.cc-owner { font-size: 14px; }
-.cc-owner .k { color: var(--ink-2); }
-.cc-facts { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14px; }
-.cc-facts span:first-child { font-weight: 600; }
-.cc-sec h5 { margin: 0 0 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.cl-row:first-child { border-top: 0; }
+.cl-row:hover, .cl-row.on { background: var(--card); }
+.cl-name { font-weight: 700; font-size: 15px; }
+.cl-meta { font-size: 13px; color: var(--slate); text-align: right; overflow-wrap: anywhere; }
+.client-card { display: flex; flex-direction: column; gap: 12px; }
+.cc-head { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cc-name { margin: 0; font: normal 24px/1.3 var(--serif); color: var(--navy); min-width: 0; overflow-wrap: anywhere; }
+.cc-crm { display: inline-flex; align-items: center; min-height: var(--tap); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; color: var(--navy); }
+.cc-owner { font-size: 13px; color: var(--slate); }
+.cc-owner b { font-weight: 400; color: var(--slate); }
+.cc-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--slate); }
+.cc-sec h5 { display: block; margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--mist); }
 .purchases { display: flex; flex-direction: column; }
 .purchase {
-  display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%;
-  min-height: 44px; padding: 6px 8px; border: 0; border-top: 1px solid var(--grid); background: none; text-align: left; font-size: 14px;
+  display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%;
+  min-height: 48px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--mist); background: none; text-align: left; font: 13px/1.45 var(--sans); color: var(--slate);
 }
-.purchase:first-child { border-top: 0; }
-.purchase.link { cursor: pointer; border-radius: 6px; }
-.purchase.link .pu-item { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
-.purchase.link:hover { background: var(--row-hover); }
-.pu-date { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.pu-item { overflow-wrap: anywhere; }
-.pu-net { text-align: right; }
-.cc-note { margin: 0 0 4px; font-size: 14px; line-height: 1.45; }
-.cc-note .when { color: var(--muted); font-size: 12.5px; }
-.cc-dates { list-style: none; margin: 0; padding: 0; font-size: 14px; }
-.cc-dates li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
-/* the CRM's add-client form (crm/src/addclient.js), in the CRM's own look */
-.addwrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.add-scrim { position: fixed; inset: 0; background: rgba(0,8,24,.45); }
+.purchase.link { cursor: pointer; }
+.purchase.link .pu-item { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--sky); }
+.purchase.link:hover { background: var(--card); }
+.pu-date { color: var(--slate); font-variant-numeric: tabular-nums; }
+.pu-item { overflow-wrap: anywhere; color: var(--navy-deep); }
+.pu-net { text-align: right; color: var(--navy-deep); font-variant-numeric: tabular-nums; }
+.cc-note { margin: 8px 0 0; font-size: 15px; line-height: 1.5; }
+.cc-note .when { color: var(--slate); font-size: 13px; }
+.cc-dates { list-style: none; margin: 0; padding: 0; font-size: 15px; }
+.cc-dates li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--mist); }
+/* the CRM's add-client form (crm/src/addclient.js, inlined unchanged), in the kit look */
+.addwrap { position: fixed; inset: 0; z-index: 105; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.add-scrim { position: fixed; inset: 0; background: rgba(0, 26, 74, .4); }
 .addbox { position: relative; width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.28); }
-.addbox .sheet-head { position: sticky; top: 0; background: var(--surface); z-index: 1; padding: 8px 8px 8px 16px; }
-.addbox .sheet-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--serif); font-size: 18px; font-weight: 600; }
-.editor { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+  background: var(--white); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.addbox .sheet-head { position: sticky; top: 0; background: var(--white); z-index: 1; padding: 8px 8px 8px 24px; }
+.addbox .sheet-head h3 { flex: 1; min-width: 0; margin: 0; font: normal 21px/1.3 var(--serif); }
+.editor { padding: 12px 24px 24px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
 .editor fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
-.editor legend, .editor .lbl { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 0; margin: 0 0 2px; }
+.editor legend, .editor .lbl { display: block; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); padding: 0; margin: 4px 0; }
 .editor input[type=text], .editor input[type=tel], .editor select, .editor textarea { width: 100%; }
-.editor fieldset.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
-.editor .opt { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
-.editor .opt input { width: 20px; height: 20px; margin: 0; accent-color: var(--navy-2); }
-.editor .hint { font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.45; }
-.form-err { margin: 0; color: var(--critical); font-size: 13.5px; font-weight: 500; }
-.form-actions, .editor .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
-.add-dup { font-size: 13px; background: color-mix(in srgb, var(--warning) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); border-radius: 8px; padding: 8px 10px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.editor fieldset.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.editor .opt { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 12px; border: 1px solid var(--mist); cursor: pointer; }
+.editor .opt input { width: 20px; height: 20px; min-height: 20px; margin: 0; accent-color: var(--navy); }
+.editor .hint { font-size: 13px; color: var(--slate); margin: 0; line-height: 1.45; }
+.form-err { margin: 0; color: var(--alert); font-size: 13px; font-weight: 700; }
+.form-actions, .editor .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.add-dup { font-size: 13px; background: var(--card); color: var(--navy); border: 1px solid var(--mist); padding: 8px 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 
 /* ------------------------------------------------------- suspended sales */
-.resumed { margin: 10px 20px 0; padding: 8px 12px; border-radius: 8px; font-size: 13.5px;
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--ink-2); }
-.draft { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
-.draft + .draft { margin-top: 10px; }
-.draft-lines { list-style: none; margin: 0; padding: 0; font-size: 14px; }
-.draft-lines li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; overflow-wrap: anywhere; }
+.resumed { margin: 12px 24px 0; padding: 8px 12px; font-size: 13px; background: var(--card); color: var(--navy); }
+.draft { border: 1px solid var(--mist); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.draft + .draft { margin-top: 12px; }
+.draft-lines { list-style: none; margin: 0; padding: 0; font-size: 15px; }
+.draft-lines li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; overflow-wrap: anywhere; }
 .draft-m { font-size: 13px; }
 .draft-act { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ---------------------------------------------------------------- tickets */
-.tk-pad { padding: 12px 20px; margin: 0; }
-.tk-filters { display: grid; grid-template-columns: 165px 165px repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 20px 6px; align-items: end; }
+.tk-pad { padding: 12px 24px; margin: 0; }
+.tk-filters { display: grid; grid-template-columns: 165px 165px repeat(3, minmax(0, 1fr)); gap: 12px; padding: 16px 24px 8px; align-items: end; }
 .tk-filters .tk-q { grid-column: 1 / -1; }
 .tk-filters .tk-q input { width: 100%; }
 .tk-filters select { width: 100%; }
-.tk-date-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.tk-date-f span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
-.tk-date-f input { min-height: var(--tap); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--surface); color: var(--ink); width: 100%; }
-.tk-train-note { margin: 6px 20px 0; padding: 8px 12px; font-size: 13px; border-radius: 8px;
-  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 16%, var(--surface)) 0 14px, color-mix(in srgb, var(--warning) 9%, var(--surface)) 14px 28px); }
-.tk-sum { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 10px 20px; font-size: 14.5px; border-bottom: 1px solid var(--grid); }
-.tk-list { display: flex; flex-direction: column; padding: 0 12px 10px; }
-.tk-row {
-  display: grid; align-items: center; gap: 2px 12px; padding: 10px 8px; min-height: 52px;
-  grid-template-columns: 88px 92px 80px 100px minmax(0, 1.2fr) minmax(0, 1.4fr) 112px 92px;
-  border-top: 1px solid var(--grid); text-decoration: none; color: inherit; font-size: 14px;
-}
-a.tk-row:hover { background: var(--row-hover); }
-.tk-headrow { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; border-top: 0; min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
-.tk-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tk-no { font-weight: 600; font-variant-numeric: tabular-nums; }
-.tk-net, .tk-h-net { text-align: right; }
-.tk-row.is-void .tk-net { text-decoration: line-through; color: var(--muted); }
-.tk-st { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); justify-self: start; }
-.tk-st.void { border-color: var(--critical); color: var(--critical); letter-spacing: .06em; }
+.tk-date-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tk-date-f span { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tk-date-f input { width: 100%; }
+.tk-train-note { margin: 8px 24px 0; padding: 8px 12px; font-size: 13px; background: var(--card); color: var(--navy); }
+.tk-sum { display: block; padding: 12px 24px; font-size: 15px; border-bottom: 1px solid var(--mist); }
+.tk-scroll { overflow-x: auto; }
+.tk-list { table-layout: auto; }
+.tk-list th, .tk-list td { padding-left: 8px; padding-right: 8px; }
+.tk-list th:first-child, .tk-list td:first-child { padding-left: 24px; }
+.tk-list th { white-space: nowrap; }
+.tk-list th:last-child, .tk-list td:last-child { padding-right: 24px; }
+.tk-list tbody tr { cursor: pointer; }
+.tk-list td { color: var(--navy-deep); font-size: 14px; }
+a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
+a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-date, .tk-seller, .tk-src { color: var(--slate); white-space: nowrap; }
+.tk-list td.tk-items, .tk-list td.tk-client { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-net { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tk-row.is-void .tk-net { text-decoration: line-through; color: var(--slate); }
 .tk-status { display: inline-flex; }
-.tk-pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 6px 20px 16px; }
+.tk-pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 24px 16px; }
 @media (max-width: 900px) {
   .tk-filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .tk-filters > .tk-date-f { grid-column: span 3; }
   .tk-filters > select { grid-column: span 2; }
-  .tk-headrow { display: none; }
-  .tk-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "no net" "client st" "meta meta"; }
-  .tk-no { grid-area: no; } .tk-net { grid-area: net; } .tk-client { grid-area: client; } .tk-row > .tk-st { grid-area: st; justify-self: end; }
-  .tk-date, .tk-src, .tk-seller { grid-row: 3; font-size: 12.5px; color: var(--ink-2); }
-  .tk-row { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "no no no net" "client client client st" "date src seller seller" "items items items items"; }
-  .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; font-size: 12.5px; color: var(--ink-2); }
+  .tk-list thead { display: none; }
+  .tk-list, .tk-list tbody { display: block; }
+  .tk-list tbody tr { display: grid; height: auto; padding: 8px 16px; gap: 0 12px; border-bottom: 1px solid var(--mist);
+    grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "no no no net" "client client client st" "date src seller seller" "items items items items"; }
+  .tk-list td, .tk-list td:first-child, .tk-list td:last-child { padding: 0; border: 0; min-height: 0; }
+  .tk-list td.tk-items, .tk-list td.tk-client { max-width: none; }
+  .tk-numcell { grid-area: no; } .tk-net { grid-area: net; } .tk-client { grid-area: client; } .tk-list td.tk-st { grid-area: st; justify-self: end; }
+  .tk-date { grid-area: date; } .tk-src { grid-area: src; } .tk-seller { grid-area: seller; } .tk-items { grid-area: items; }
+  .tk-date, .tk-src, .tk-seller, .tk-items { font-size: 13px; }
 }
-.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 20px; margin: 0; padding: 14px 20px; }
+/* one ticket (#/ticket/<id>) */
+.tk-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; padding: 16px 24px; }
 .tk-meta .kv { min-width: 0; }
-.tk-meta dt { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
-.tk-meta dd { margin: 0; font-size: 14.5px; overflow-wrap: anywhere; }
-.ro-note { margin: 0 20px; font-size: 13px; color: var(--ink-2); }
-.era-reminder { margin: 8px 20px 0; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 14px;
-  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); }
-.tl-lines { list-style: none; margin: 0; padding: 4px 20px; }
-.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 130px; gap: 4px 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--grid); }
+.tk-meta dt { font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tk-meta dd { margin: 0; font-size: 15px; color: var(--navy-deep); overflow-wrap: anywhere; }
+.ro-note { margin: 0 24px 8px; font-size: 13px; color: var(--slate); }
+.notice.era-reminder { margin: 8px 24px 12px; font-weight: 700; }
+.tl-lines { list-style: none; margin: 0; padding: 4px 24px; border-top: 1px solid var(--mist); }
+.tl-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 150px; gap: 4px 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--mist); }
 .tl-row:first-child { border-top: 0; }
-.tl-title { font-weight: 600; overflow-wrap: anywhere; }
-.tl-title .tag { margin-left: 8px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--serious); color: var(--serious); }
-.tl-meta { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
-.tl-price, .tl-net { text-align: right; }
-.tl-price small { color: var(--muted); }
-.tl-net { font-weight: 600; }
-.tl-row.refund .tl-net { color: var(--serious); }
-.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.tl-info { min-width: 0; }
+.tl-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
+.tl-title .tag { margin-left: 8px; vertical-align: middle; }
+.tl-meta { margin-top: 4px; font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+.tl-price, .tl-net { text-align: right; font-variant-numeric: tabular-nums; }
+.tl-price { color: var(--slate); }
+.tl-price small { font-size: 13px; color: var(--slate); }
+.tl-net { font-size: 17px; font-weight: 700; color: var(--navy-deep); }
+.tl-row.refund .tl-net { color: var(--navy); }
+.tl-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; padding: 16px 24px; border-top: 1px solid var(--mist); }
 .tl-pays { flex: 1 1 260px; min-width: 0; }
-.tl-pays h5 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.tl-pay { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; max-width: 360px; }
-.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 20px 16px; }
-.void-form { margin: 0 20px 14px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--critical) 40%, transparent); border-radius: 8px;
-  display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--critical) 5%, var(--surface)); }
-.void-form .lbl { font-size: 13px; font-weight: 600; }
-.void-form textarea { width: 100%; padding: 10px 12px; resize: vertical; }
-.tk-receipt { max-width: 560px; margin: 0 auto 20px; padding: 0 20px; }
+.tl-pays h5 { margin: 0 0 8px; font: 700 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--slate); }
+.tl-pay { display: flex; justify-content: space-between; gap: 12px; max-width: 360px; padding: 4px 0; font-size: 15px; color: var(--navy-deep); }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 24px 24px; }
+.void-form { margin: 0 24px 16px; padding: 12px 16px; border: 1px solid var(--alert); background: var(--white); display: flex; flex-direction: column; gap: 8px; }
+.void-form .lbl { margin: 0; }
+.void-form textarea { width: 100%; resize: vertical; }
+.tk-receipt { max-width: 560px; margin: 0 auto 24px; padding: 0 24px; }
 @media (max-width: 720px) {
-  .tk-filters, .tk-sum, .tk-meta, .tl-lines, .tl-foot, .tk-actions { padding-left: 14px; padding-right: 14px; }
+  .tk-filters, .tk-sum, .tk-meta, .tl-lines, .tl-foot, .tk-actions { padding-left: 16px; padding-right: 16px; }
   .tk-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tk-filters > .tk-date-f, .tk-filters > select { grid-column: auto; }
   .tl-row { grid-template-columns: minmax(0, 1fr) auto; } .tl-price { grid-column: 1; text-align: left; }
 }
 
 /* ------------------------------------------------------------------ admin */
-.admin-body { padding: 6px 20px 20px; display: flex; flex-direction: column; }
-.admin-sec { padding: 16px 0; border-top: 1px solid var(--grid); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.admin-body { padding: 8px 24px 24px; display: flex; flex-direction: column; }
+.admin-sec { padding: 16px 0; border-top: 1px solid var(--mist); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .admin-sec:first-child { border-top: 0; }
-.admin-sec h2 { margin: 0; font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.admin-sec .h2 { margin: 0; }
 .admin-sec p { margin: 0; max-width: 640px; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.seg .btn { border: 0; border-radius: 0; min-width: 120px; }
-.seg .btn + .btn { border-left: 1px solid var(--line); }
-.big-date { font-family: var(--serif); font-size: 20px; }
-.ok-line { color: var(--good-ink); font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--navy); }
+.seg .btn { border: 0; min-width: 120px; }
+.seg .btn + .btn { border-left: 1px solid var(--navy); }
+.ok-line { color: var(--navy); font-weight: 700; }
 
-/* -------------------------------------------------------------------- gate */
-#app.gated { filter: blur(9px) saturate(.9); pointer-events: none; user-select: none; }
-.gate { position: fixed; inset: 0; z-index: 85; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,26,74,.34); }
-.gate-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; width: min(400px, 100%); box-shadow: var(--shadow); overflow: hidden; }
-.gate-mast { background: var(--navy); padding: 12px 18px 12px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.gate-mast img { height: 34px; width: auto; display: block; }
-.gate-tools { display: flex; align-items: center; gap: 12px; }
-.gate-tools .lang { border-color: rgba(255,255,255,0.22); }
-.gate-tools .lang button { color: #B9C6DE; }
-.gate-tools .lang button[aria-pressed="true"] { color: #FFFFFF; }
-.gate-card h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 20px 22px 5px; }
-.gate-card p.lead { margin: 0 22px 18px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
-.gate-card label { display: block; margin: 0 22px 13px; }
-.gate-card label span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; font-weight: 600; }
+/* ---------------------------------------------------------- lock card */
+#app.gated { pointer-events: none; user-select: none; }
+#gate.gate { min-height: 0; }
+.gate-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 16px 24px; margin-bottom: 24px; }
+.gate-card > .gate-mast + * { margin-top: 0; }
+.gate-brand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gate-mast img { height: 26px; width: auto; display: block; }
+.gate-mast .kit-hbtn { letter-spacing: .06em; }
+.gate-card label { display: block; margin-bottom: 16px; }
+.gate-card label .lbl { margin-bottom: 4px; }
 .gate-card input { width: 100%; }
-.gate-card .err { margin: 0 22px 12px; color: var(--critical); font-size: 13.5px; }
-.gate-card .btn { margin: 5px 22px 0; width: calc(100% - 44px); }
-.gate-card .gate-foot { margin: 15px 22px 18px; font-size: 12px; color: var(--muted); line-height: 1.45; }
-.gate-card .kept { margin: 0 22px 12px; font-size: 13px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+.gate-card .err { margin-bottom: 12px; color: var(--alert); font-size: 13px; font-weight: 700; }
+.gate-card > .btn { display: flex; width: calc(100% - 48px); }
+.gate-card .gate-foot { margin-top: 12px; text-align: center; }
+.gate-card .kept { margin-bottom: 12px; padding: 8px 12px; font-size: 13px; color: var(--navy); background: var(--card); }
 
 /* ------------------------------------------------------------------- toast */
-.toast {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: var(--ink); color: var(--page); padding: 11px 20px; border-radius: 999px;
-  font-size: 14px; font-weight: 500; z-index: 100; opacity: 0;
-  transition: opacity .18s, transform .18s; pointer-events: none; box-shadow: var(--shadow); max-width: 90vw;
-}
-.toast.show { opacity: 1; transform: translateX(-50%); }
-.loading { padding: 60px 20px; text-align: center; color: var(--muted); }
-.watermark { position: fixed; right: 22px; bottom: 16px; width: 34px; opacity: .10; pointer-events: none; z-index: 1; }
-.watermark.dark { display: none; }
-:root[data-theme="dark"] .watermark.light, html[data-theme="auto"].sysdark .watermark.light { display: none; }
-:root[data-theme="dark"] .watermark.dark, html[data-theme="auto"].sysdark .watermark.dark { display: block; }
+.toast { opacity: 0; pointer-events: none; transition: opacity .18s; }
+.toast.show { opacity: 1; }
+.loading { padding: 48px 24px; text-align: center; color: var(--slate); }
 
 /* ---------------------------------------------------- narrower: portrait iPad */
 @media (max-width: 900px) {
-  .line {
+  .pay-layout, .receipt-wrap { grid-template-columns: minmax(0, 1fr); }
+  .pay-main { border-right: 0; }
+  .saved-actions { margin-top: 0; }
+  .lines-head { display: none; }
+  .sg-head, .sg { grid-template-columns: minmax(0, 1fr) 130px 120px; gap: 12px; }
+  .lines > .line {
     grid-template-columns: minmax(0, 1fr) 92px minmax(120px, auto) var(--tap);
     grid-template-areas: "info info info x" "price disc net net";
     gap: 8px 12px;
   }
-  .l-net { align-self: end; padding-bottom: 10px; }
+  .l-net { align-self: end; padding-bottom: 12px; }
 }
 @media (max-width: 720px) {
   .modal-wrap { padding: 0; align-items: flex-end; }
-  .modal { width: 100%; max-height: 92vh; border-radius: 10px 10px 0 0; }
+  .modal, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
   .addwrap { padding: 0; align-items: flex-end; }
-  .addbox { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; border: 0; }
-  main { padding: 12px 10px 120px; }
-  .top-row { padding: 8px 12px; }
-  .brand .rule, .brand .sub { display: none; }
-  .views { padding: 0 10px; }
-  .sheet-head, .search, .lines, .foot, .pay-body, .lines-tools { padding-left: 14px; padding-right: 14px; }
-  .sugg { left: 14px; right: 14px; }
-  .search .glass { left: 30px; }
-  .pay-row { grid-template-columns: minmax(0, 1fr) 150px var(--tap); }
-  .total .t-v { font-size: 24px; }
+  .addbox { width: 100%; max-height: 100vh; height: 100%; border: 0; }
+  main { padding: 12px 12px 120px; }
+  .top .kit-head { padding: 0 12px; gap: 8px; }
+  .top .kit-rule { display: none; }
+  .top .kit-tabs { padding: 0 12px; gap: 24px; }
+  .sheet-head, .search, .lines, .foot, .lines-tools { padding-left: 16px; padding-right: 16px; }
+  .pay-main, .pay-side, .saved-panel, .receipt-stage { padding: 16px; }
+  .lines-head { margin-left: 16px; margin-right: 16px; }
+  .sugg { left: 16px; right: 16px; }
+  .search .glass { left: 32px; }
+  .pay-row { grid-template-columns: 96px minmax(0, 1fr) var(--tap); }
+  .total .keynum { font-size: 28px; }
+  .sale-head { padding: 16px 16px 0; }
+  .sg-head, .sg { grid-template-columns: minmax(0, 1fr) auto; }
+  .sg-head span:nth-child(2) { display: none; }
+  .sg .sg-st { grid-column: 1; grid-row: 2; }
+  .sg .sg-p { grid-column: 2; grid-row: 1 / 3; }
   .hide-sm { display: none !important; }
 }
 @media (max-width: 480px) {
-  .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
+  .lines > .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
   .pay-row { grid-template-columns: minmax(0, 1fr) var(--tap); }
   .pay-row input { grid-column: 1 / 2; }
+  .pay-add, .card-menu { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media print {
-  .top, .training-band, .receipt-actions, .receipt-head, .toast, .watermark { display: none !important; }
+  .top, .training-band, .saved-panel, .receipt-actions, .toast { display: none !important; }
+  .receipt-wrap { display: block; border: 0; }
+  .receipt-stage { background: none; padding: 0; }
   #screen-ticket > :not(.tk-receipt) { display: none !important; }
-  #screen-ticket { border: 0; box-shadow: none; }
+  #screen-ticket { border: 0; }
   main { padding: 0; }
-  .receipt { box-shadow: none; border: 0; }
+  .receipt { border: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 </head>
 <body>
 <div id="app"><div class="loading">Loading the till…</div></div>
-<img class="watermark light" alt="" src="data:image/png;base64,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">
-<img class="watermark dark" alt="" src="data:image/png;base64,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">
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>/* ===========================================================================
    Delardi Sales — the till (POS, spec 2026-11-15)
@@ -608,7 +618,6 @@ const LOGO_WORDMARK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAACgCAY
 const LOGO_MONO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKwAAADICAYAAAB1VAqUAAApXklEQVR42u2de3ydVZX3v2vv56T3llubJr1wL2NRHEUQQSwj9JZykdEMjuMLjg4XR18Y8R3HedFPrDoooqgzjjp4QWX0HQkyCDQJBS+FQRigiohl1IJQ2iQttAV6ocl5nr3eP/Y+Jye95pzznOQkfdaH0OY0eW779/z2b6299lqQWWaZZXYQmtC8+ARAankSkz3nzFKxw0+fjJqrmb5gUgbYzOrY2jyGxk09DuTtRFNmD/o8A2xm9WVrggQwZxNNOBzcwsGfp607MsusWvwsWGD5/cQHsONOJel7mOZNb2b16jj8jGYMm1mdWKsBlKcmnYOYN+D6HSIn0z3ztJJ/zyRBZvVi8z17Jvq3iDWoxpjIIu79nlnna9pnzCRBZlU4W8sdTUvPQMzPQKMw/QtIPyRvorvrV8Wfyxg2szpwtgzwMcTmQJ3/Xh1ix6FckzldmdWLdrXQntC05EJMdBuaOBBT4mQpiGL0XNZ3dBV/PgNsZiMUGRAaFx6Byf0CY45BEy0BLIFlDc79nv7oDWy+Y3taEYNMEmRWSWTAYXP/hImO3Y1dC5g2aJJgonk05D/rgbrApnF2mw1AZkO3BRF0JMxaeikStaFxArIPDIkBl2DsG5ly7Dq23ftL//vPVuWAZZIgszLAuipmVssbUfkZMD7M8PvBkKqfxPUlnC6kt/PR4nEySZBZzcHavHQeKj9EZAI4PTDhiYBTxByCmNtoWvQnHqwLogywmdWYWc85HpW7EHPk3nXrPkEb9KyZg0R30rx0XjWgzQCb2X7kYqv1zNryp2hDB8YeH3RrmbgRi8YJYo8D08msJSeVgFbKvKiCtY1x8C5nt9CKZpjcl7UZWO7jqbOWteL4OkYOQ5P9OFlDMU2QyKJuE8rF9Ky422OwTYa6GiYHN4O0iV+x2SQwI6x9h4E6eFnVhCC/oXnpNWDaAAvOlc+sewWtQ4xByaPuWno6Pwm4sLjgDvTspahTZk78U8Q5yO3E5cdGuEtEMRKT1wRrYiKJIf8K61duObBUag3P5sAPcYwBFWYtOQlnv4Ax56CJB1kqYC0BLWKQCIjvAfl7Nqz4tf+3/QPXr1rMb82xZccHEH0/Yo4H3YGqGSNDoSAOcKgmILsQ7QF5AaUX0W5UejD8htg+g9GN9Ny1c+8DOqYYuGSGCUBtXDgDk/sgcCUmmobmC3q1FjOxerbNWTS/DeXLuPhf2HjPpgHg7vm8B1/I7GWzcO6bSG4JGo9NxSBScl8y8FeXgOoWYDPCE8CDYH6J8mt67nphT8/5LJdmFtKIsSnAjPMaiZKLQT+A5I70rOqq1Ktl6FqMRSxo/AzwVfLczPMdvQM/M8C6stuHCbNPm0By2J0Ye3ZlHmFFb9owyGzd5zfF8AsiHtBmYOZS9xzCb1BdiTU/Yf2KJ/Yy+KNTNsxachpO3g5yESaaA47gWJlhZqvAttaCARc/B/ofGPkRGzoe3jfDFkG7bBZOH0HMTNRpbcJf6kqAUg34KjHnV2H2RrtaMgWJQYyE1RrQpA94BGUFVu4aDN7iFObql1lRZi6Zj5HLQc4GORExYShcwqC3dUQsjIux/p1xoPpb0J/g5Ov0djy5G+WvUVgQ8fI9LzHl2FcQu8yvaIikDlaJPBhU+xDtB80Xv1RjKHyRAHHJV+K/1A38PWhUcAiFv2vxs+KXAkYQI0hkMNaAMYiIn20KYBUJ06H48yQuPIccYudi7Dkk7r1MPX4Bk4+dwNQjn2HbXTtglfqQ0Fni/153gBUmvWoyhmaUaaAzEJngwVF4T2UEdaD6Zy/GazVNekF+jchDKE+y/Q8vyT7n4KZzJyDuccQcizqX6psnFjRZheObqDxGQ/IK6gauRXMScB0+C38O+twJkTXFf9eCvLHh705Qa0reEcFIA+omI+YQ4EhU5yM0AfNAji5i1E+NAfSDpkcdAHWBBQCN16HmFiT5gc+yL8Qyoa51bvMFcyB/HvAexJziQRKXzHzDBlR/TolMUAePgH4Xp7fQ2/X8EARikAbNLV/CRFfh8mkJcIcIqC6ne+NnYHW+Lgbu0HOmMW78PEz8BjBvBT0VieaWgDcJHprZQ3f5F9CDN4lfAX6M8C90d/yiToFbGvEI13RyjlnTL8CZD2PsaUH+DJ/TJdaCgEsexLgbmDblDta09w88vzWyF6drD8A6mpYtQugKrCJVv0WSM2j/l+nu+jt/7rOs97aH0wr75QuLBXtxmJrOPQLcGcD5iLYg0czwbAPD7sE+JdrLBpbS28F9nu67HxxKfHGELMSbCxGDk3M0NV6McA0SHY3GmrLnu6cjIpGg8TMon6Znx3cHMrn2/rz2cSFh41jzBXOg/7dgplQJWkWM4JINqL6O3jdurj/WKcQkd3OcprfMJCctqF6KMacdYNoMrCsWicLPyQ9IuI6NBQctve0iNQt1Hdkyk36uxZi/DreU/sKBGO9sO3cTueQa1t3dM5QXW/brUdJmaHrkIYw9JTz8Ci9aE0zOkuS/SE/n1XU6aAeYNlstTdvOR8yViDkr3Na+QkC7A3c7ql+gT29gS9fLg9bq6xm4M5ddjOGfEZmWnkQI+QTObUb0/9Dd8Z1yZiC7/4tfpUyZtxAxJ1a3lhzCRk4/xfa1T8GJ4iMS9WxrNHj6UnzBtq/9H7b94WamHv8Eqidico3eAVS3m3dd0LvqIwxmPCY6i0gvYPIxT7H9W2sHBqnensOagXvefvtjTDj25whnYqLpIfRlqgNrzqLuSRJ3Lr2dK8MzANYMabbdz8lD1Q5xPQFvlT5Y/wBc0o9G66hRgYXaBrXbkwHg4tiw4lZM/BZc/DkgQawZiCvv/tKLBVU0nyBmPibqYlbL1zjmnGn+uK2W+ltSDPe8IGJT10M0cBaa3I/krF+ZqgKsLvkFUXw2mzp/41cM25NyZpr9AHZTeIiyI5WZRqQfa14O2pVRaDogY1ot61duobvjH8BdiLpnQkgm2c8DsGjiUFUkuoJd435B85KzB45Zj+mdq2JotTzb0cuOHeej8arKQFtg1vh+bP48r1dDrm35XuJwKqS+MZL1VMK43V13kiR/hrpHDjyYQe+6wLaYDpqWfsLPZstDil093mur5aVVL2LiP0fjR5DI7mNG2YeDFVk0/iVq/txnylXuw2Q7DtKYNjfe/QwuWYaLHxwaA4kNkYYGTK6N5u0/YuaS6SUSoT5Bu37lFmJ5J5psBGMGL2/vC6zWoMk6kuTtPomoOoc7A2xa02Zv1/OouwDNrw4MdCDQeqdM8wkmdwHGrmLWktPqHrSbVjwN+jdAPiyJ675faAHVPE6vYOPdz6QRHcoAm+Zg9nY9D8mFaPI/QwNt0LYunyDyKpztoKnlgiJz1+V9Lojo7rwL1c+G2cTtl12JP0lvZ2eJg0UG2HoCbffK53D8OS7Z7IPjQ9F6Yv3OUg5F5BZmLb24yNz1N6Mk0GZw+evQ/KN717NBt7rkIZpeuM47lKtSibtngK0J03Y8iXFXoGFaHFLYRmxIMmoA8x2al7y/TuWBwhph4z07ULkadfFuUTmfceWSXai7ktWr82E5XDPA1jNoN3TdirqP7ydGuw9d69SnK0RfpWnpVfUJ2nbPsj0r7ge9ZXBITx0mEtDv0dv1SNqrmhlgawnans5r0fi28mKXUkihdJjoSzS1XFmfmjYkERn5DBrvpJhxbQwufhkbXe81+vysx8EoAa1f4RO9Cs0/C7aM2GVIttbEYcyXmdlyebUlfmrGsutXPIHqj3zWlcaIFVS/z/o71w7ElzPAjgZz0GrY0LUelau8zBuqni2AVgV1Ditfo2nJX9WfIxZYVuzX0KQfkQhN+hC5kRotN2eAHRZp0PFjNLkxaL0ypkiR4h5Nsd9m1uJl9aVpw4pf910Poe4BTIOg+gDdpzxe8u8ZYEelNHD6MTT/LGLDNoYhg9Y7YiINOPtdZi99TX2BNrQ+Em7xe+X038Myc9YJcVRLg96u5xHz90XWLMsKFQDt4ThzE8ctmRpyR6VOXkhweh/xrueIop8P+jwD7KhkWQdthg133YrGXUjOlJ/xVKwAeDI75Bt+h0SrqQPQ+tkimvJHRH+AG9876PMMsKPSCnUOFMfHfRjIVBBMF4vGMSb3FzQ/XFhYqI8xXN/+Cjb/z6xv31XL02SAHTYL6YO9nY+C+3Z5CwqDzOfVYq6j+dw3FcNL9WDP3dtNjbf9ZIAdEQfMfB4Xb/EpeuULWnAgZhLqvk7TuRNDQnw97Fqo+TVkgB0RB6zjWcR900cMKmFZMWicYKKTIP5k8bh1I30ywI4hmx82+Y37Ci7eXCHLFkDrEHslzS2n15U0yAA75rSsofvHzyH6PUylLIuESko5lC8zu3VCHUmDDLBjkmVN8lVcvL1Klk0w0RtIdlxaR9IgA+zYY9k2Yf3KtaB3VsGyFFfC4KPMOK+xfhYUMsCOMVsTMrK4qby+V3uRBpo4TNREFH/IM/XYZdkMsCNmITFk3s6f4fSXlUcMCtIgUZDLaVx8VGBZkwE2s5RtgWXVqhj038tMPdyLA+YckjsEawosOyZlQZSBZiRtlWdU1/Bj6P8ExhyCVlolUgwaKyqX0Hjel9jY/kyxCmXVpFZL8JfXmScD7MiYDOjMQ3NsvPEZmpd2gv1LyLsKqwSKb/eemwb59wMfgTVpzKAO2jOGPbisUEW6qF1L6nTh/1Tzc0T/sjoPXwRNFOESjmy5gWfbNwbZ5yq75uWOpmWLEVoQ159qjVinDmMm4gBJvulL7R94RsgAW3OQtu/Zz2t6y0wMr8LqCcCrgHngTgo1o6sBhQGXILkZ5ON3A58P9V4rjWIAeh7R+A/g8qQWLVMgiiDZ9VvQazHuWX/w5QeUBRlgU3diCyXYS0DauPBobMNrwJ0N8nqUYzDSPPjxu8qDBHtKA0DfQ+PCr7GxfQfFAtUVoWsnLp/g4oT91xMeqiVI1IDbdRPdOy4rt4JhBthU9Wh7UmSz5sUn4KTFN+hzpyNyKOQ8bsThnau8AwklOMWUAKIaWWBQp4g5EcmdCXTt0fmw3OMVNXW1FbjVIVEDGv+M7p2XDewEHjpoM8BWDdT2pKSp8GycuRD0fOB0bG5iyViFatzgi0OrhMZ1Je2TkpI5s2pgWCT/Lg/YuiggrWAETV7E6QcHdgC3Zww77EBtWrIIzEUoyzBRY7HFgeaTAZYq/rod6FmXgEv+gLgnQB8AfofyaYx9bXWrX2J8dXcW0njhDDYu31SdLEgFr6FObP7f6O1aU2lFmAywlQJ1dusEku0XIlwB5szQLG83kIqliF5jQ2FfcMmvEVbg3Er6+RVbOl8unqW55WTEvNavXFWlYx0SzcT0LwS+X50sSIVdLRpvR8y3qKIiTAbYIVmBDdoTjrzgEPr7L8HteB8mek2YyhXNu8F6z3dnCw1/LS5+EU1ux/A9Dpn0wEDjtGJEIQISdOdPcfHHB8BeRaspLz3e5gE7f+TZ1cUP073iKf9ZZQsaGWAP6PWXVNpunnwp/fmrMNEJfhziQntPO9ghUd8iSHIWF/cg7mZEv0V3x+8B2FB4CaAk7JUHlNyyJ8jrRoxtri5qIAZNBNE307iwIAsqjMmmNkf91J+/PEdr9wHJbO/Tv6XQZLmxZRlNk1ch5qsYcwIaJwN9ywZ5zlrsQwV9uPhfMe5Uujv+ge7O33smLXSNKWpgLfG0hHUrtiLycHhXXHX3EGRBFJ0ZZooRyi8QE/pTh4owMypm+4xh97DCakt7QuN5R2PcZxH5C1//Ii70nLV7nfYwBhNZkvinGHcN3V0PDUiKobSmX+A7qzgexfK2dLSjgMqbgR+NnH5F0CSPM6E/2fwMsOlp1eWJbxbc+EHU/SNip/ukEtV9xyGDVlXtw8WfomfHdSVhGzd0Zycwj7hHPCNVvRQaqszomZx8WY7VN8YjAlgxgnO99PV3B/1aMWAzSTBIArQnNC8+gaYZd0N0AzA9eP2yb/AUWlGyAZJldHf8UwlYy2qaVmSenF2LS7aGWrFVOEsiQVWcQO+Goyi0Yy372VRLsAC6han5vjScikwCFByrpqV/A/a/MLk/80DdH6uWgFWTx1G3kO6un4QarlJZCCkwT0OyAWRTwGsa4a3JqL7Of7SmXACOqz56GxoLHrE9a8qRggRwzF12KM3L/g0TfQORIzxY5QAtNQvMmjyI7V9Kb8eTJd5vdW1O13b1gT4XhqfqZS+vv/WUsRK2OUgttOGZdc7x5LULYy/zrTWdHnjNvAjWhxhvL/QleiprRbmXlyj0+JUn0lORCj4rLITRMsCOQmZdFdO05M24cT/B2FNxceyfhxxgyiwsMSZPYFwrf7xzY9qNJ/xp5Nn0QkoKIicyfcFkqluMyAA7cs7VsksQ04GROSFcNYSIiTok8q0oSd7Bhq71NQGrP9fGoAaqB5cqKI1EU2YH3Z4BdpSA1a+nNy/9MPAdkCkhycQObdSNoO4lxF1E992/qx1YASMvpUeGCsJ4YG6FjlcG2JEDa8vHEPt5D0CnQ4x1KuAQEVzyQTZ0PZRWK8o9LYS24v51qMsXe9JWde+aIFYQbfIfbcoAO0rA2obYT4WOgxxYr5ZKgZxF3Zfp7fr39Bys/V11bhvozpQOpgH387IoQf07WB6sM1uuQewnvAQIfbCGBtYQa83fzyGTPuLjtrX0tEMsNk76UXam4x5p6Eajs/z3MzQDbF1amLZnLr0aaz9dPlhR39kveZGYD5SkBNZ+wMdrH/BKlQU2BosakWn+m9Eb2hrDgA3T9qwl78aY6ysAa5ACRhC9mk2dvykuNAyH7TQxQn9K70chp+AwBnYeSAbYugJre0Lz4jeh9l+R0FWwbLDmLC5eQXfnTQOJLMNk46IYlXy6uJLJzG/NZRq27u6pPWHOkmOR6IeITA2rV+WMvIIBTbaQM1eWeO/Dp/0OnRAjmk/vgAowka2vRBlg6yoiAH6/lXwfzBw0ScpP01NFrEHd51m34ulhlQIFW7PJbwFP8bGgOo54gskAW1cRARzJjusxuTf6Faxy99KrQ6zB5X9Lf+4rtY8K7MtmKKppnzci2ZYBtr50a8t7MPYDuHxSVQK08FE237EtrAqNQBioFhJEhMNGvd4bC9Y2oFvheq9Zy40IgI+55gwuuZfuzhXF446Irang+ocgdbZkgK0P3QpCLF9HoiPAVVKEQkP1vwS1n/bfj+Sa+yZBsCk/qRhp0AywI65blzual7wfE51TknxdLl5DJpa7m967VhWjDSNlRx4VoWntuQsYVemnwSUZYEdWCjiaF81BzScrCF+V0k9o8W6uDy/CyAbWt2/NITSkJ2MFYCeHTogzwI6sKWqux0SHeylQyT2FbCZ197FhxX0jzq4A43Y0oIwfrHqqxaxuZ017PgPsiEUFQoVoY1sHCltU+hwUkC/jm7ONJLv6c9tJ40DGp5TEXahPsJWBZVnNADusg9qunHxZDpLlvpNgpc0s1CFWcMkTNM/uCMceweSQNv9HvzQgTEpXEbB1QPdnDDvMjhaO7udawwKBq6LYrobH8ANW35gPxx559rF9hwKT0rkU8Qwr+tJo13+jEbCeAY9cMB7ko1WCy5eBdPmtGL3Zf9Q+wmAthNLsHF/5UFNoxakSds4+mQF2ZNhVyU++CBO9Bo21cu2qDmNB6PIbCke4ul+pOZ2a4jtufO1a88cMsCPFruo+FJoCV3M4wTlF5Yf+2HXUPVC0OaXk7bAgortQXec/mp/tOBhedp14ASYKVaorjgw4xBhI1tEf/dQPbB1l4guz0juWgOhG8tF6/8HyDLDDxq60GZAPVn84Dc6W3OmTXFptXThbBfZTOSad46kLaRVr/H2O3pDWKANsYNdZjywAOa3Klu3hBXCKc5319VIud8xvbUD02NQKaYiAFhyu1iy9cJiZ552Ijaqs6udzXjV5hn7+K0QHXH0AFnjxpUbg8FAjVqo+pmqoOQujuSbBaAKsT3CZ3jIT3Nt8P6tq2DXIAeW/2NL18kDJzRGfRSQ49bNAjqjunSw4XMagyQ40esx/dFZWDG7YBjInFyLRjJAzIFWxjl+hDHKgXkr3BPZz9iQkMqHTnFT1YvpacL/n0AlPM8R+rhlgq7aCs+XOTyHUU2Cdl1F+EY5fJ4NYKBmvr0npgGGFi9BmqU5W8cY2YMN0PevRY1EWpCAHnGcdfYLeSesHBrZeXkwAPSmlSwozCfczRmwUADZM106XYqIJ1cuBQp0p/tunENZLOCuEm45Y3IRyYliRrWZ8FKzBxRuJ7ar6mknGNGAD64guSmnlxy9TCv9dZzrdj0XOvBoxh1G1x6UOMYrwAJvu3BhmKpcBtvbXp8w4rxHl5OrlAOoB62IMa/xH9bJMWQg3yZmYSIAqHa5Q7Ub4cX05lmMasCE6EOVPxdiZIXcgBa9ZnyEfP+0/qxeveVVhh8PpXg6oVPdiGoPGm+iXlYP1cQbY4ZB3p4dLrfaha2hj8AQb79lB/SxT+plk7uIm0NdXr1/VIVZB7uX5jt76iTOPecC2BwdLzkjteftlyqcG6cb6mEmEvD0LEx1a/UwiBpzg5PtjSQ7UO2Al6NcZqDs+BPqrv15VUH18sG6sC1OEZX53QFUziS8Rqsn/kEy8byzJgToHbGA/m38tYhtLqrlUIQfE+u00GloKzaiTcFZ7wuxFh6EsACdVyoHQ6Ui/w/Pt2+sobDfWAVtgP3MCYqXKVuwlpM02EtbXT4QgvJhxdBbGzi4pvFypRhdc/gX645vrKwoy5gFbXKY8Pr0pNxSTGOe21k+EIADK8Pbq48xhB7ByM5vv7fbO1nKXAXZY7BbPNConpjOjBUWhuonGzdvqR6cvdyHOvLjKOHMhlLUdm3yVUdztcDQCVkCUxoUTEY5JtZiEyNOsXp2nEEqqC52enBsq11SxWFBgV72V9SvX+m6HY4td6xiwAUdWDgOdHGpkpMUYL/g/2urgPttDaSW9tMp3R8PO2JdJzKcYw1angP0Lf13ONqJMTZkIA2BHOjbZ6gt/NLYsQOQN1W2oVIdEgibfYNMIlbjPNCxg7DSMaSDNNj2qLw6OQoyos6UYvQSJqimY4YrLsDn9AoUyThnDDqcFMGl+BljSCWkV5fErI39/bQaWK42LjwKpcsuPagj7fY51d/cUyzhlgB2RyzvKS1dJkTFcn/9zJBcNQt8Ea67ARNMqd7bUIZHF5X+N2q+NXAORDLCBDKWhBgfdPvLs2u58ogt/XYV29VEPXILKlfTctXOwx5oBdiSsIU30g/MVUEbUArvm5f1IrooNlcUS91+lt+O+sbhIMIoAG6ZrZVzokZqGgxS22hCP7PNud8w5vxkxl/msrErYNUgBzT9JX+4af9zlykFgdS4JSLnNpILYEWShVs+ucf5DSNRYYd6Agijq+nByhS8/1DbmpcBokQRjaBBCz6/Z5x2HyOVVaNfEh8GSa70UGLsx19EHWCXlxhgCmozQPYeFiiT+DBJNqUy7aoKJIjS+nabnPzPsHcbrwOq7s7NIHCrvpce0VkdgwaDQVnTZ+Yi8A81XUMhOPbO6+DdE8l6fD7F6zGx9GeUMGxYOxKXoIKnzy/Z2xrArcdodsxcdBvoFiuGocthVHWIs6l7C6XtZt2JrWNo9qNh1FEgCSb+nlOq0YWZXz4LOtiHRcV67lvXcna+gTYy699Db+WiRsQ9Ci+r8+nbWgO8aBrH4cEiBmS1LQD4Qut2Uc96QxG4E7b+MnpW3w4II2mMOUqvvOKzIH31qYZq6UyYM37Nt9yVCDf+CiC0zr9cnx4g1OHcV3Stv8i/AqoMWrKMhSvBiCtVe9iEJap1LEGKuOb0hSIGkjPsoAWv8D/R0/PPBLANGAWAL1bbzW1HtI9WCF3LEoHPUNCqw9MNI9JdldhjfDaydnzsYw1ejDLBhmTFyPQgvpbw9KQB2eY3BuuQ8MJ8trxdDSKMUYyD/od3Aqhlc610SjIs2o7zo/RRNYcAUROfWrpJfAOsR5xwP9ka/tDxU3aqJB6o4XHIpG7q+lIF19ABWoc2wtqsP+E24zOqbyPlDzOLIx6YWYwapWVh6nXNOM7mG2xAzE3VDZFdNEGtRtiPJO+np/GaIBiQZWEcNw4alTOGxtMIDvkwRE+nLB8erTdID63K/OJA0/AgTvRqNh+JkqQdrzqL6NC45lw1dt3qwHtzRgNEpCTzOHg+zdwrgUhCZgkmxy2Ah+eSYc6aRRD9CotOG5mQFvWpyFs13YfvOpLdrVRa6GrWADV5xXh9Gk42IrXbdXMLe/QiYPYjFq9Wssxcdxq5xd2Cis9A4HgJYk+L9JPnrOeTZC3ju3u4sdFVfgBXUlbvKY3i+oxeVR0LdiyodJfENOUROqv52gsacu7gJl7sDsW/xzLq/1UN1gPOsqs8gnE9P50dYs6a/qIEzqxSwhcC6Tk7JjYrQhklB8w2VwQoAX5mOk6RexzoX6nVVuh06TNtN5/4JsV2J2DMOwKxaZFUxBhd/D/JvYUPHipDEIgdTTmuNABumZJWm6pdH1a/hGzetvKk4BPet/hwXvxKcmCplgQPkVcxvbSB8U97v45mwaenbEP0ZYl+9f2bVBEQwOYtzT+Hcu+juuITulc+VSIAsElAlYKUYWoIjq6xt5Y8lRnDaVN6vLveAWt/5BPCgL4NejSwQCeHcebz48tEVRAp8seGmpR9B5FaEmSEaYPcOVAgRgFdw+c8iDW+kp+P/heeaSYD0ABsGsfmxWYi+KhQlqYZhfS4q5nUewOVkSoX0PKN3BPBX21lFETMOohPKYHt/3rmLm2huuQ0TXYfvRuN2A6sGoCqSs57Q4x8i7gy6O/+R7ts3l2xpySRAeoBd4wfI5U9EzOSwylStfgR00cD012rD+Q/05a9zV74dF2+GaqMF6jAWVN/gvx/KyxNemlgWYMZd6PUqlMRZtdgX1gNVcPFduOQsejreSXfXrwa0asaqtYoSKEZbPIFU7Z1bNFFETqFp6bt8nLE9CSxzgK/wc5vv7QZuDTK2uuvxv366v/9VZQBI1EuAwsurrqhRJWeBGI1vR/St9HSc5+OqbaYkApBp1Sot2vv01+5oXDgJOLd6OTDILMg3aW45Bk06SKIXkfjA4HNiiaI86n5XfbqhGNSB6Ek0LjyCjfdsYsjZYFKYaWLAIpF4lRE/jyb/SSLfYuOKhweeY6uB5Rmj1hawC3zIxuTeh9ijQ5Z8GvFaCStNExD7KaCNyO0Co0OBuS86obkUwltBx9rpWE4F7vLAGspU7QwyzgANaJzgkkeAH2DlNtav2BD0v/GSqj3Jpv+aA7bVQntM07lzEXdNqEyS8ilVw67RCEx5MV5JKy1WHRiLuiUesEM0Z/qh/7fg7iQx/8nGiasHQNlmSiIbmdUesCEmOH3BZHDfReyMkgSOlLWXhPS+cse2KE2qfYsC2+tZHLdkHGvbD5AkHkCp+bsx2zpZ/9Aruz03lwF12J2u9oSZLUcSTfqxXxNPAOM93tp8GTBlfhV+N4VUQ00UzAnssKeWRAL2bxvv2eHB2moDo0rmTI0Ewx63ZBw77N+BXoGRo9D8TlRM3Y6DyPgqQ20SClNESH4xcP/Qf6+EcTMbIcCuneto7r4Pl/wUsa9AYuuyaY5GgtEEp5ci9n+H+lTVgBaUCzluyacOLAtCqC+zetCwN+bp5sFRc9Vzl7URJ61gGkNQtYIoRkEWyAlsM28CVg09WpBZHThdbaOkFT2Gdcu30tTyA4y9OkQcKpcFpsGi+YuAn2dwGFWAHS1ebpsHm7Nfgfx7ETOtcj0r4tsL6PnMXfZ/Wde+lVS3lGdWwyjBaLHlDloNG+/8I6JfDB1UtPL7Txwm10zsLhpytCCzDLDl2XzPqMZ9Bc2vq7Lbt4b//trnyLZX0007swyw+2HZ9Su3gH4WTBXTuFg0Vow9la3bF/jjZCybATZ1a3fQZpjIt9H40ZJugpVYyNeVy0sYPLMMsKmaB5UvtnEV6vJhJq8AbGLQWBE5l6bFr/cM3paxbAbYmkgDS3fHL1D3DSQyFbJsYQv4OMRcncEiA2yNHbA2g+oncPmnEVuhNAgsi3k7sxa91heka7UZRDLA1oBl1wi9Xc9j5G9Q7Q+J1uVKgwLLjsdFHyWLxWaAraEDlkCrZUPHz8DdULkDVtSy72DW0rcWj5tZBtjaRA1aLRP1E7j4pwG05eYFFHbVRqh+Ek7OFWO+mWWATT9qMF9Z29WHjS/HJT2V6VkxaOyQ3Bk0z3h3MeabWQbYmkUN1q9ci8jFqO4KdWEr0KOqwCeYdsEh2epXBtga69kFEd0r7sW5yxEjIGVWsRaDJg7JzWVC3+fIVr8ywNbWVsWwIKK383sk8bVez5bbtzZIA2PfR9OSRZkDlgG21qD1AOvt+hgu/20kivD1BMpxwEDEIObfmHNOc3E5OLMMsLVxwkIFxuZNV+Dyt2DKBa0YNEmQ6Cjihhv8MddUW98rswyw+wMtsHp1noadl+Dyt5XPtGLRfIKxFzGz5UNBI2fSIANsLUHbZnh21S4m6rt8NcFcVKwyOGSmdQ4j19K4+CyvkTM9mwG2Zrbcb1Rc29VHz+z/5TVtzlLoOjgkPev89nJrv03j4qM802Z6NgNs7Sw4TDfm6el4H5q/bqA4x1AWFwp61h6Nsbcwe9FhWRpiBtjhYFqBNkN350cheS/Q5zu6DGUZVywaJ5joFFx0M0cuGF9k78wywNZO04bUwe7Om3D5t6HaW5J7oENywiRqoX/iTZx8cm6AvTPLAFsz0IYVsd6VXTh9K5r8POjaIUiEQuQg9066Z3zbb14My8KZZYCtnQVvv7fjSbrdElz+i4AbmkQogvbdbN3RTvPbDi++BFmcNgNs7azg7Xf10dN5NY5lqD49EEXYH9sWQBudD/0/obnlT0PbTR3oaTDq56KGdI6jOV6YbDPApuqMtVp6O7owvAVNvuV7F0Rm/9q2oGnta4H7aG65BlobBspwFpuPjLYX2b+oQlN1xwk78EWmsX1artqryjTXIFvjAfby7S+x7Q93MGXeA4iehETNCAIuCdUSd2NOMeAcmPFI9Fam7GphynEvs23a7+DewLhtBmaEcvJ1v/3GX+Ps1glo/uMIh/lLrqJSpDKecfH3eHntVv8sVmkG2NRAG0Jf277xFOObv4/Yl4BXYxqmoirFzjGDgFsotJw4JJqFmHcwZdJSpsybyoR5G9nxjS3h2Fpkc040sKYOn0GrhTUwZe7JIB/2XTCl0hwK/1yMyZG4FWxf+1R4cTPApuyQebbd2dHH9rUPMG3ef5C4BNHXIrnxfhD3AK4MsC2K2FkYswjcu5ly3MlMOWEcU49+kW1PveQHrDhopQAead1rYLqBZx2Tj/snTO51kFTZmEUdEhmc/ortf3gIplt4tqKiJ5k3O6RnVFI3dvbS1+DMVcA7MHZaaNUVenftzkIaEseNLTZMdPEWhMdR7kfMKvrza3jh7p69n7dN9gTwphqN2YxCdpt/iZqW/BVibw47L6rU4JogOYuL76Cn44JwvAywwwrcWcuOR917UbkYEzWXdO0ssK4Z5GuHhmdgzEC3TweabETlEdDHgPsw+iQbutaP2F02L5oD9m/BfAhoqLLPcMn9i6C6maj/JJ67tycc02WArbnt1t5o5pLpWHkXKu8E3oiJxLOucwN1a2Vv4A3Omghiw/AlgL4MrAV9FvQFnOxAiBESEIcWWFs0HF9LZLQOPs8gcyX/H/xvRg0q04ATgNMx0WHh5Utxx3BgWeKr2dDxxZJO5hlghw+4a0p7xwpNS85AzMWg5yD26OLM5zGWlDhnpdKhFMB2AN9S8uPDZFqYJVwy+CJSMeerTCbPEUensun1z8NyymXZDLBpSwWAucsOJeZMcOejcibCPCSimM04CMBFZ00GI6eUBWWYwmAqNQDqbs5XzqD5m+nuvNiz7Hwtp/p7BthUgVtwkkrA27hwElHu1ThdgMjZqJ4I0oiNokHYHMBoQHQBpDqGxkjCvdkcmnyUns7PZZKgrlgX9tBpzWcfjssdgzGnoMxH9FiUeQgzQcZ7p8zsJgV076p01D6doIhc320Ycx3rJz4G7fmh3GEG2OFl3r3XR5h92gT6ps7C5A7DMhPc4ajOADMHmIBoA0oUks3HyJiJgk7G8ALoDWzoetz7BfuXBxlgR4x9N8kesc/MDmj/H87Hzth8m/kOAAAAAElFTkSuQmCC";
 const SESSION_KEY = "sales_session";      // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "sales_last_active";   // sessionStorage: last touch, for the idle lock
-const THEME_KEY = "board_theme";          // shared with the other Delardi tools
 const LANG_KEY = "delardi_lang";          // shared with the landing page
 const IDLE_MIN = 15;                      // touch devices only (global constraints)
 const MAX_DISCOUNT = 99.9999;             // ops_ticket_lines.discount_pct is numeric(6,4)
@@ -621,25 +630,24 @@ const MAX_PAYMENTS = 10;
 const RU = {
   // shell, gate
   "Sales": "Продажи",
-  "Delardi till": "Касса Delardi",
   "All tools": "Все инструменты",
-  "All Delardi tools": "Все инструменты Delardi",
+  "Leave the till?": "Уйти из кассы?",
+  "The sale on screen will be lost.": "Продажа на экране будет потеряна.",
+  "Leave": "Уйти",
+  "Stay": "Остаться",
   "Language": "Язык",
-  "Switch between light and dark": "Переключить светлую и тёмную тему",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
   "New sale": "Новая продажа",
   "Tickets": "Чеки",
   "Admin": "Управление",
-  "Unlock": "Вход",
-  "Enter your personal passcode to open the till.": "Введите свой личный код доступа, чтобы открыть кассу.",
-  "Your passcode": "Ваш код доступа",
-  "Open the till": "Открыть кассу",
+  "Unlock": "Открыть",
+  "Boutique tools": "Инструменты бутика",
+  "Passcode": "Код доступа",
+  "Opens the till": "Открывает кассу",
   "Checking…": "Проверяем…",
   "Enter your passcode.": "Введите код доступа.",
   "The sale in progress is kept: {n}.": "Текущая продажа сохранена: {n}.",
-  "Nothing behind this card is real until your passcode is accepted. A CRM or board passcode opens the till only if you have been given Sales rights.":
-    "За этой карточкой нет данных, пока код не принят. Код от CRM или доски открывает кассу, только если вам даны права на продажи.",
   "Locked after {n} minutes without use.": "Заблокировано после {n} минут без действий.",
   "Welcome, {name}": "Здравствуйте, {name}!",
   "TRAINING": "ОБУЧЕНИЕ",
@@ -769,8 +777,36 @@ function markInvalid(input, bad) {
   if (!input) return;
   if (bad) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
 }
+// Dates on screens: "16 Nov 2026" / "16 ноя 2026"; on receipts and exports: "16.11.2026".
+// Always the boutique's day (Tashkent). Month names come from fixed lists, not from
+// Intl, whose Russian short months carry a trailing dot.
+const MONTHS = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  ru: ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
+};
+const TZ = "Asia/Tashkent";
+function tashkentDay(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const parts = {};
+  for (const p of new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(d)) parts[p.type] = p.value;
+  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) };
+}
+function fmtDate(iso) {
+  const t = tashkentDay(iso);
+  if (!t) return "—";
+  return t.d + " " + MONTHS[LANG === "ru" ? "ru" : "en"][t.m - 1] + " " + t.y;
+}
+function fmtDateNum(iso) {
+  const t = tashkentDay(iso);
+  if (!t) return "—";
+  return String(t.d).padStart(2, "0") + "." + String(t.m).padStart(2, "0") + "." + t.y;
+}
+// "14:05" in Tashkent time, so it agrees with fmtDate around midnight
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString(LANG === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 function toast(msg) {
   const t = $("#toast");
@@ -804,6 +840,10 @@ function lineNet(line) {
   let q = a / 1000000n;
   if ((a % 1000000n) * 2n >= 1000000n) q += 1n;           // half away from zero
   return Number(neg ? -q : q);
+}
+// Net of a stored ticket's lines: Number() because the API may send numerics as strings; refunds count negative.
+function docTotal(lines) {
+  return (lines || []).reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
 }
 function saleTotal(sale) {
   return (sale || S.sale).lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
@@ -850,7 +890,7 @@ function syncMode(mode) {
   if (S.locked) return;
   if (route().name === "admin") { renderAll(); return; }
   const h = document.querySelector("#app > header.top");
-  if (h) h.replaceWith(renderHeader());
+  if (h) { kitCloseMenus(); h.replaceWith(renderHeader()); }
 }
 
 /* ----------------------------------------------------------------- dialogs
@@ -863,7 +903,7 @@ function modal(id, title, body, foot, cls) {
   const close = () => { const h = document.getElementById(id); if (h) h.remove(); };
   const host = el("div", { id, class: "modal-wrap" + (cls ? " " + cls : "") },
     el("div", { class: "modal-scrim", onclick: close }),
-    el("section", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
+    el("section", { class: "modal" + (cls ? " " + cls : ""), role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
       el("div", { class: "modal-head" },
         el("h3", { id: id + "-title", text: title }),
         el("button", { class: "btn subtle close", type: "button", id: id + "-close", "aria-label": tr("Close"), onclick: close, text: "×" })),
@@ -872,13 +912,13 @@ function modal(id, title, body, foot, cls) {
   document.body.appendChild(host);
   return { host, close };
 }
-function confirmBox({ title, body, ok, danger }) {
+function confirmBox({ title, body, ok, cancel, danger }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
       el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
-      el("button", { type: "button", class: "btn subtle", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, cancel || tr("Cancel")),
     ], "confirm");
     // closing it any other way (×, the scrim) is a no
     new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
@@ -917,38 +957,40 @@ window.addEventListener("hashchange", () => { if (!S.locked) renderAll(); });
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
-  return el("div", { class: "lang", role: "group", "aria-label": tr("Language") }, ["en", "ru"].map((l) =>
-    el("button", { type: "button", lang: l, "aria-pressed": LANG === l ? "true" : "false",
+  return el("div", { class: "kit-lang", role: "group", "aria-label": tr("Language") }, ["en", "ru"].map((l) =>
+    el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
-// The half-disc theme icon the other tools use (markup, no namespace URL).
-const THEME_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4"></circle><path d="M8 1.5a6.5 6.5 0 0 0 0 13z" fill="currentColor"></path></svg>';
+// Leaving the till (the Tools switcher, the wordmark) drops the sale on screen: with lines
+// on it, ask first. The kit calls this before it follows the link (ui/tools.js kitGuardLink).
+function beforeLeave() {
+  if (S.locked || !S.sale.lines.length) return Promise.resolve(true);
+  return confirmBox({ title: tr("Leave the till?"), body: tr("The sale on screen will be lost."), ok: tr("Leave"), cancel: tr("Stay") });
+}
+// The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
+// the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
+// TRAINING band sit under it, in the same sticky block.
 function renderHeader() {
   const r = route().name;
-  const tab = (name, href, label, show) => show ? el("a", { class: "view-tab", href,
+  const tab = (name, href, label, show) => show ? el("a", { class: "kit-tab", href,
     "aria-current": (r === name || (name === "sale" && (r === "pay" || r === "receipt")) || (name === "tickets" && r === "ticket")) ? "page" : null,
     text: tr(label) }) : null;
   return el("header", { class: "top" },
-    el("div", { class: "top-row" },
-      el("div", { class: "brand" },
-        el("a", { class: "home", href: "../", title: tr("All Delardi tools") },
-          el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
-        el("span", { class: "rule", "aria-hidden": "true" }),
-        el("div", {}, el("div", { class: "title", text: tr("Sales") }), el("div", { class: "sub", text: tr("Delardi till") }))),
-      el("div", { class: "spacer" }),
+    el("div", { class: "kit-head" },
+      kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
+      el("span", { class: "kit-rule", "aria-hidden": "true" }),
+      el("span", { class: "kit-tool", text: tr("Sales") }),
+      el("span", { class: "kit-spacer" }),
+      kitToolsMenu("sales", LANG, { beforeLeave }),
       langSwitch(),
-      el("button", { class: "btn subtle", type: "button", "aria-label": tr("Switch between light and dark"),
-        title: tr("Switch between light and dark"), onclick: toggleTheme, html: THEME_ICON }),
-      S.token ? el("span", { class: "lock-state" },
-        el("span", { class: "dot", "aria-hidden": "true" }),
-        el("span", { class: "who hide-sm", text: S.name }),
-        el("button", { class: "btn subtle", type: "button", onclick: lockNow, text: tr("Lock") })) : null),
-    el("nav", { class: "views", "aria-label": tr("Sales") },
+      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
+      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
+    el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
       tab("tickets", "#/tickets", "Tickets", S.rights.view),
       tab("admin", "#/admin", "Admin", S.rights.manage)),
-    S.mode === "training" ? el("div", { class: "training-band", role: "note" },
-      el("b", { text: tr("TRAINING") }), el("span", { text: "— " + tr("practice mode: nothing posted here is a real sale") })) : null);
+    S.mode === "training" ? el("div", { class: "band training-band", role: "note" },
+      el("span", { class: "lbl", text: tr("TRAINING") }), el("span", { text: tr("practice mode: nothing posted here is a real sale") })) : null);
 }
 
 /* -------------------------------------------------------------------- gate */
@@ -959,7 +1001,7 @@ function renderGate() {
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
-  const btn = el("button", { class: "btn primary", type: "submit", text: tr("Open the till") });
+  const btn = el("button", { class: "btn primary", type: "submit", text: tr("Unlock") });
   const n = S.sale.lines.length;
   const submit = async (ev) => {
     ev.preventDefault();
@@ -982,25 +1024,26 @@ function renderGate() {
       toast(tr("Welcome, {name}", { name: r.name }));
     } catch (e) {
       err.textContent = e.message; err.hidden = false;
-      btn.disabled = false; btn.textContent = tr("Open the till");
+      btn.disabled = false; btn.textContent = tr("Unlock");
       pass.value = ""; pass.focus();
     }
   };
   const card = el("form", { class: "gate-card", onsubmit: submit },
     el("div", { class: "gate-mast" },
-      el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
-      el("div", { class: "gate-tools" }, langSwitch())),
-    el("h2", { text: tr("Sales") }),
-    el("p", { class: "lead", text: tr("Enter your personal passcode to open the till.") }),
+      el("div", { class: "gate-brand" },
+        el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
+        el("span", { text: tr("Boutique tools") })),
+      langSwitch()),
     n ? el("p", { class: "kept", text: tr("The sale in progress is kept: {n}.", { n: pl(n, "piece") }) }) : null,
     err,
-    el("label", { for: "gate-pass" }, el("span", { text: tr("Your passcode") }), pass),
+    el("label", { for: "gate-pass" }, el("span", { class: "lbl", text: tr("Passcode") }), pass),
     btn,
-    el("p", { class: "gate-foot", text: tr("Nothing behind this card is real until your passcode is accepted. A CRM or board passcode opens the till only if you have been given Sales rights.") }));
+    el("p", { class: "gate-foot small", text: tr("Opens the till") }));
   document.body.appendChild(el("div", { class: "gate", id: "gate", role: "dialog", "aria-modal": "true", "aria-label": tr("Unlock") }, card));
   const app = $("#app");
   app.classList.add("gated");
   app.setAttribute("aria-hidden", "true");
+  app.inert = true;                                // Tab cannot reach the header behind the card
   setTimeout(() => pass.focus(), 60);
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
@@ -1012,10 +1055,14 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   S.search.open = false;
+  payMenuOpen = false;                             // pay.js: the Card menu is shut after the unlock
+  // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
+  kitCloseMenus();
   // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
   // seller typed or looked up stays on screen above the passcode card.
   if (typeof closeAddClient === "function") closeAddClient(true);
-  document.querySelectorAll("#addwrap, .modal-wrap").forEach((n) => n.remove());
+  if (typeof closeClientPanel === "function") closeClientPanel();      // clears the search timer and S.cp
+  document.querySelectorAll("#addwrap, .modal-wrap, .panel-wrap").forEach((n) => n.remove());
   renderGate();
 }
 function lockNow() { lockDown(); toast(tr("Locked.")); }
@@ -1042,26 +1089,97 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", (e) => { if (e.persisted) idleCheck(); });
 
-/* ------------------------------------------------------------------- theme */
-function applyTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("sysdark", mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-}
-function toggleTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  const next = mode === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark")
-    : mode === "dark" ? "light" : "dark";
-  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* ignore */ }
-  applyTheme();
-}
-
 async function loadReference() {
   const r = await api("reference");
   // the owner list for the add-client form comes from crm-api's reference
   S.ref = Object.assign(r, crmRefFields()); S.rights = r.rights || S.rights; syncMode(r.mode);
+}
+
+// Delardi UI kit: tool switcher. No dependencies. Inlined ahead of each tool's own modules.
+const KIT_TOOLS = [
+  { id: 'sales', href: '../sales/', en: 'Sales', ru: 'Продажи' },
+  { id: 'crm', href: '../crm/', en: 'Clients', ru: 'Клиенты' },
+  { id: 'catalogue', href: '../catalogue/', en: 'Catalogue', ru: 'Каталог' },
+  { id: 'board', href: '../board/', en: 'Board', ru: 'Доска' },
+];
+
+// Close functions of the menus that are open right now.
+const kitOpenMenus = [];
+
+// A tool calls this on lock: closes every open kit menu and detaches its listeners.
+function kitCloseMenus() {
+  for (const close of kitOpenMenus.slice()) close();
+}
+
+// A link that leaves the page can ask first. beforeLeave(href) returns a Promise:
+// true follows the link, false stays. A modified click (new tab) is left alone.
+function kitGuardLink(a, beforeLeave) {
+  if (typeof beforeLeave !== 'function') return a;
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const href = a.href;
+    Promise.resolve(beforeLeave(href)).then(go => { if (go) window.location.assign(href); });
+  });
+  return a;
+}
+
+// opts.beforeLeave: see kitGuardLink; asked before any tool link is followed.
+function kitToolsMenu(currentId, lang, opts) {
+  const beforeLeave = opts && opts.beforeLeave;
+  const ru = lang === 'ru';
+  const wrap = document.createElement('span');
+  wrap.className = 'kit-tool-wrap';
+  wrap.setAttribute('data-kit-menu', '');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'kit-hbtn';
+  btn.textContent = ru ? 'Инструменты' : 'Tools';
+  btn.setAttribute('aria-expanded', 'false');
+  const list = document.createElement('ul');
+  list.className = 'kit-menu';
+  list.hidden = true;
+  for (const t of KIT_TOOLS) {
+    const li = document.createElement('li');
+    let item;
+    if (t.id === currentId) {
+      item = document.createElement('span');
+      item.setAttribute('aria-current', 'page');
+    } else {
+      item = document.createElement('a');
+      item.setAttribute('href', t.href);
+      kitGuardLink(item, beforeLeave);
+    }
+    item.textContent = ru ? t.ru : t.en;
+    li.appendChild(item);
+    list.appendChild(li);
+  }
+  function close(refocus) {
+    list.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('click', onDoc);
+    const i = kitOpenMenus.indexOf(close);
+    if (i >= 0) kitOpenMenus.splice(i, 1);
+    if (refocus === true && btn.isConnected) btn.focus();
+  }
+  function open() {
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onDoc);
+    kitOpenMenus.push(close);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(true); }
+  function onDoc(e) { if (!wrap.contains(e.target)) close(); }
+  btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => { if (e.target.closest && e.target.closest('a')) close(); });
+  wrap.addEventListener('focusout', e => {
+    if (!list.hidden && e.relatedTarget && !wrap.contains(e.relatedTarget)) close();
+  });
+  wrap.appendChild(btn);
+  wrap.appendChild(list);
+  return wrap;
 }
 
 /* ===========================================================================
@@ -1085,6 +1203,11 @@ Object.assign(RU, {
   "Booked out": "Выдано",
   "Damaged": "Повреждено",
   "Sold": "Продано",
+  "Piece": "Изделие",
+  "Status": "Статус",
+  "Price, so'm": "Цена, сум",
+  "To pay": "К оплате",
+  "Tap a piece to add it. Pieces that cannot be sold show why.": "Нажмите на изделие, чтобы добавить его. У изделий, которые нельзя продать, указана причина.",
   "Not received": "Не получено",
   "no price": "нет цены",
   "Seller": "Продавец",
@@ -1193,6 +1316,15 @@ const stateWords = (p) => inSale(p) ? tr("Already in this sale")
   : p.held ? tr("in suspended sale #{n}", { n: p.held.draft_id })
   : tr(STATE_WORDS[p.state] || p.state);
 
+// The state as a kit tag: In stock navy, Suspended sale card, Sold alert, anything else mist.
+function stateTag(p) {
+  if (inSale(p)) return el("span", { class: "tag done", text: stateWords(p) });
+  if (p.held) return el("span", { class: "tag info", text: stateWords(p) });
+  if (p.state === "in_stock") return el("span", { class: "tag act", text: tr("In stock") });
+  if (p.state === "sold") return el("span", { class: "tag alert", text: tr("Sold") });
+  return el("span", { class: "tag done", text: stateWords(p) });
+}
+
 /* ------------------------------------------------------------------ search */
 let searchTimer = null, searchSeq = 0;
 async function runSearch(q) {
@@ -1265,18 +1397,22 @@ function renderSugg() {
   box.hidden = !(s.open && s.pieces);
   if (box.hidden) return;
   if (!s.pieces.length) { box.append(el("div", { class: "sg-note", text: tr("Nothing found for “{q}”.", { q: s.q }) })); return; }
+  box.append(el("div", { class: "sg-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { text: tr("Status") }), el("span", { class: "r", text: tr("Price, so'm") })));
   for (const p of s.pieces) {
     const ok = p.sellable && !inSale(p);
     const kids = [
-      el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
-      el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · ")),
-      ok ? el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? tr("no price") : fmtUZS(p.price_uzs) })
-        : el("span", { class: "sg-p" }, el("span", { class: "sg-state", text: stateWords(p) })),
+      el("span", { class: "sg-n" },
+        el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
+        el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · "))),
+      el("span", { class: "sg-st" }, stateTag(p)),
+      el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? (ok ? tr("no price") : "") : fmtUZS(p.price_uzs) }),
     ];
     box.append(ok
       ? el("button", { type: "button", class: "sg", onclick: () => addPiece(p, false) }, kids)
       : el("div", { class: "sg off", "aria-disabled": "true" }, kids));
   }
+  box.append(el("div", { class: "sg-note", text: tr("Tap a piece to add it. Pieces that cannot be sold show why.") }));
 }
 document.addEventListener("pointerdown", (ev) => {
   if (S.search.open && !ev.target.closest(".search")) closeSugg();
@@ -1296,7 +1432,7 @@ function sellerSelect() {
     onchange: (ev) => { S.sale.seller = ev.target.value; renderAll(); } },
   sellerOptions(S.sale.seller, tr("Choose the seller…")));
   sel.value = S.sale.seller || "";
-  return el("label", { class: "field-inline" }, el("span", { text: tr("Seller") }), sel);
+  return el("label", { class: "field-stack" }, el("span", { class: "lbl", text: tr("Seller") }), sel);
 }
 function refreshNumbers() {
   S.sale.lines.forEach((l, i) => {
@@ -1370,7 +1506,7 @@ function renderLine(l, i) {
 /* ------------------------------------------------------------------ screen */
 function renderSale(main) {
   if (!S.rights.post) {
-    main.append(el("div", { class: "notice-box", text: tr("Your account cannot make sales.") }));
+    main.append(el("div", { class: "notice", text: tr("Your account cannot make sales.") }));
     return;
   }
   const s = S.sale;
@@ -1378,6 +1514,9 @@ function renderSale(main) {
     enterkeyhint: "search", placeholder: tr("Scan or type: barcode, serial, article, name…"), "aria-label": tr("Find a piece"),
     oninput: onSearchInput, onkeydown: onSearchKey });
   const sugg = el("div", { class: "sugg", id: "sugg", hidden: true });
+  const linesHead = s.lines.length ? el("div", { class: "lines-head", "aria-hidden": "true" },
+    el("span", { text: tr("Piece") }), el("span", { class: "r", text: tr("Price, so'm") }), el("span", { class: "r", text: tr("Discount") }),
+    el("span", { class: "r", text: tr("To pay") }), el("span")) : null;
   const lines = el("ol", { class: "lines", id: "lines" },
     s.lines.length ? s.lines.map(renderLine) : el("li", { class: "empty", text: tr("Scan or find the first piece.") }));
   const foot = el("div", { class: "foot" });
@@ -1385,17 +1524,18 @@ function renderSale(main) {
   foot.append(
     el("div", { class: "total" },
       el("div", { class: "t-l", text: tr("Total") }),
-      el("div", { class: "t-v", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
+      el("div", { class: "keynum", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
     el("button", { type: "button", class: "btn primary big", id: "to-pay", disabled: saleReady() ? null : true,
       title: s.lines.some((l) => !(l.price_uzs > 0)) ? tr("Every piece needs a price.") : null,
       onclick: () => go("#/pay") }, tr("Payment →")));
   main.append(el("section", { class: "sheet", id: "screen-sale" },
-    el("div", { class: "sheet-head" }, el("h1", { text: tr("New sale") }),
-      el("div", { class: "aside" }, suspendTools(), sellerSelect())),
+    el("div", { class: "sale-head" }, el("h1", { class: "title", text: tr("New sale") }),
+      el("div", { class: "aside" }, sellerSelect(), suspendTools())),
     s.draft_id ? el("p", { class: "resumed", text: tr("Resumed suspended sale #{n}. Post it, or suspend it again.", { n: s.draft_id }) }) : null,
     el("div", { class: "search" },
       el("span", { class: "glass", "aria-hidden": "true", html: '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M11.6 11.6 16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>' }),
       q, sugg),
+    linesHead,
     lines,
     s.lines.length > 1 ? el("div", { class: "lines-tools" },
       el("button", { type: "button", class: "btn", id: "same-pct",
@@ -1459,14 +1599,14 @@ async function suspendSale() {
 function draftSummary(d) {
   const total = d.lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
   const when = new Date(d.created_at);
-  const stamp = isNaN(when) ? "" : fmtStampDay(d.created_at) + " " + fmtTime(d.created_at);
+  const stamp = isNaN(when) ? "" : fmtDate(d.created_at) + " " + fmtTime(d.created_at);
   return [
     el("div", { class: "draft-t" }, el("b", { text: tr("Suspended sale #{n}", { n: d.draft_id }) }),
-      el("span", { class: "muted", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
+      el("span", { class: "small", text: " · " + tr("{who}, {when}", { who: who(d.created_by), when: stamp }) })),
     el("ul", { class: "draft-lines" }, d.lines.map((l) => el("li", {},
       el("span", {}, [l.brand, l.model_name].filter(Boolean).join(" · ") + " · " + l.serial),
       el("span", { class: "money", text: l.price_uzs ? fmtUZS(lineNet(l)) : tr("no price") })))),
-    el("div", { class: "draft-m muted" }, [
+    el("div", { class: "draft-m small" }, [
       d.walk_in ? walkInText() : d.client_id || tr("no client yet"),
       d.seller || tr("no seller yet"),
       tr("Total") + " " + fmtUZS(total),
@@ -1518,7 +1658,7 @@ async function openDrafts() {
         el("div", { class: "draft-act" },
           el("button", { type: "button", class: "btn primary draft-resume", onclick: () => resumeDraft(d, true) }, tr("Resume")),
           el("button", { type: "button", class: "btn draft-cancel", onclick: async () => { if (await cancelDraft(d)) render(); } }, tr("Cancel it")))))
-        : el("p", { class: "muted", text: tr("No sale is suspended.") })));
+        : el("p", { class: "small", text: tr("No sale is suspended.") })));
   };
   render();
   await loadDrafts();
@@ -1533,7 +1673,7 @@ async function openSuspendConflict() {
   const m = modal("conflict", tr("Another sale is suspended"), [
     el("p", { text: tr("The till keeps one suspended sale at a time, and nothing else can be suspended or posted until it is resumed or cancelled.") }),
     el("div", { class: "draft" }, draftSummary(d)),
-    el("p", { class: "muted", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
+    el("p", { class: "small", text: tr("Resume it (the sale on screen is cleared), or cancel it and carry on with this one.") }),
   ], [
     el("button", { type: "button", class: "btn primary", id: "conflict-resume", onclick: () => resumeDraft(d, false) }, tr("Resume it")),
     el("button", { type: "button", class: "btn", id: "conflict-cancel", onclick: async () => { if (await cancelDraft(d)) m.close(); } }, tr("Cancel it")),
@@ -1582,6 +1722,16 @@ Object.assign(RU, {
   "Ticket {n} · total {t}": "Чек {n} · итого {t}",
   "Print": "Печать",
   "{n} on this sale": "{n} в продаже",
+  "Add a payment": "Добавить оплату",
+  "Card ▾": "Карта ▾",
+  "Summary": "Итог",
+  "Left to pay": "Осталось оплатить",
+  "Back to the sale": "Вернуться к продаже",
+  "Sale saved": "Продажа сохранена",
+  "Print receipt": "Печать чека",
+  "Ticket {n} · {t}": "Чек {n} · {t}",
+  "The pieces are now marked as sold.": "Изделия отмечены как проданные.",
+  "Training ticket — it will not appear in reports and is cleared before go-live.": "Тренировочный чек — в отчёты не попадёт и будет удалён перед запуском.",
 });
 const METHOD_LABEL = { cash: "Cash", card: "Card", transfer: "Transfer" };
 const CARD_LABEL = { uzcard: "Uzcard", humo: "Humo", visa: "Visa" };
@@ -1619,10 +1769,10 @@ function refreshPay() {
   if (sum) {
     sum.innerHTML = "";
     sum.append(...[
-      el("span", {}, tr("Paid") + " ", el("b", { text: fmtUZS(paid) })),
-      el("span", {}, tr("Remaining") + " ", el("b", { text: fmtUZS(Math.max(rem, 0)) })),
-      rem === 0 && paid > 0 ? el("span", { class: "ok", text: "✓ " + tr("Balanced") })
-        : rem < 0 ? el("span", { class: "short", text: tr("Overpaid by {x}", { x: fmtUZS(-rem) }) }) : null,
+      el("div", { class: "ps-row" }, el("span", { text: tr("Paid") + " " }), el("b", { text: fmtUZS(paid) })),
+      el("div", { class: "ps-row" }, el("span", { text: tr("Left to pay") + " " }), el("b", { text: fmtUZS(Math.max(rem, 0)) })),
+      rem === 0 && paid > 0 ? el("div", { class: "ps-ok ok", text: "✓ " + tr("Balanced") })
+        : rem < 0 ? el("div", { class: "ps-ok short", text: tr("Overpaid by {x}", { x: fmtUZS(-rem) }) }) : null,
     ].filter(Boolean));
   }
   const notice = $(".cash-notice");
@@ -1687,39 +1837,48 @@ async function postSale() {
 }
 function renderPay(main) {
   const s = S.sale;
-  if (!S.rights.post) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot make sales.") })); return; }
+  if (!S.rights.post) { main.append(el("div", { class: "notice", text: tr("Your account cannot make sales.") })); return; }
   if (!s.lines.length) { go("#/sale"); return; }
   const who = el("div", { class: "pay-who" }, sellerSelect());
   renderClientSlot(who);
   const fiscal = el("input", { type: "text", id: "fiscal", maxlength: "60", autocomplete: "off", value: s.fiscal_ref || "",
     oninput: (ev) => { s.fiscal_ref = ev.target.value; } });
   const add = el("div", { class: "pay-add" },
-    el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("+ Cash")),
+    el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("Cash")),
     el("button", { type: "button", class: "btn", id: "add-card", "aria-expanded": payMenuOpen ? "true" : "false",
-      onclick: () => { payMenuOpen = !payMenuOpen; renderAll(); } }, tr("+ Card ▾")),
+      onclick: () => { payMenuOpen = !payMenuOpen; renderAll(); } }, tr("Card ▾")),
+    el("button", { type: "button", class: "btn", id: "add-transfer", onclick: () => addPayment("transfer") }, tr("Transfer")),
     payMenuOpen ? el("div", { class: "card-menu", role: "group", "aria-label": tr("Card type") },
       ["uzcard", "humo", "visa"].map((c) => el("button", { type: "button", class: "btn", "data-card": c,
-        onclick: () => addPayment("card", c) }, CARD_LABEL[c]))) : null,
-    el("button", { type: "button", class: "btn", id: "add-transfer", onclick: () => addPayment("transfer") }, tr("+ Transfer")));
+        onclick: () => addPayment("card", c) }, CARD_LABEL[c]))) : null);
+  const clientText = s.walk_in ? walkInText() : s.client_id ? (s.client_name || s.client_id) : "—";
   main.append(el("section", { class: "sheet", id: "screen-pay" },
-    el("div", { class: "sheet-head" },
-      el("h1", { text: tr("Payment") }),
-      el("div", { class: "aside" }, el("span", { class: "muted", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) }))),
-    el("div", { class: "pay-body" },
-      who,
-      el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
-      add,
-      el("div", { class: "pay-sum", id: "pay-sum", "aria-live": "polite" }),
-      el("div", { class: "cash-notice", role: "note", hidden: true },
-        el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), tr("this payment should go by card.")),
-      el("label", { class: "fiscal", for: "fiscal" }, el("span", { text: tr("Era receipt no. (optional)") }), fiscal)),
-    el("div", { class: "foot" },
-      el("button", { type: "button", class: "btn", id: "back", onclick: () => go("#/sale") }, tr("← Back")),
-      el("span", { class: "why", id: "why" }),
-      el("div", { class: "total" },
-        el("div", { class: "t-l", text: tr("Total") }),
-        el("div", { class: "t-v", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") }))),
-      el("button", { type: "button", class: "btn primary big", id: "post", disabled: true, onclick: postSale }, tr("Post sale")))));
+    el("div", { class: "pay-layout" },
+      el("div", { class: "pay-main" },
+        el("div", { class: "pay-title" },
+          el("h1", { class: "title", text: tr("Payment") }),
+          el("span", { class: "small", text: tr("{n} on this sale", { n: pl(s.lines.length, "piece") }) })),
+        who,
+        el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
+        el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
+        el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal),
+        el("div", { class: "notice cash-notice", role: "note", hidden: true },
+          el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), " ", tr("this payment should go by card."))),
+      el("aside", { class: "pay-side", "aria-label": tr("Summary") },
+        el("span", { class: "lbl", text: tr("Summary") }),
+        el("ul", { class: "ps-lines" }, s.lines.map((l) => el("li", { class: "ps-line" },
+          el("span", { text: [l.brand, pieceName(l)].filter(Boolean).join(" · ") }),
+          el("span", { class: "money", text: fmtUZS(lineNet(l)) })))),
+        el("div", { class: "ps-block" },
+          el("div", { class: "ps-row" }, el("span", { text: tr("Client") }), el("b", { text: clientText })),
+          el("div", { class: "ps-row" }, el("span", { text: tr("Seller") }), el("b", { text: s.seller || "—" }))),
+        el("div", { class: "ps-block" },
+          el("span", { class: "lbl", text: tr("To pay") }),
+          el("div", { class: "keynum", id: "total" }, fmtUZS(saleTotal()), el("small", { text: tr("so'm") })),
+          el("div", { class: "ps-sum", id: "pay-sum", "aria-live": "polite" })),
+        el("span", { class: "why", id: "why" }),
+        el("button", { type: "button", class: "btn primary big", id: "post", disabled: true, onclick: postSale }, tr("Post sale")),
+        el("button", { type: "button", class: "btn", id: "back", onclick: () => go("#/sale") }, tr("Back to the sale"))))));
   refreshPay();
 }
 
@@ -1748,35 +1907,42 @@ function receiptLines(text) {
 async function renderReceipt(main, id) {
   const wrap = el("div", { class: "receipt-wrap", id: "screen-receipt" }, el("p", { class: "loading", text: tr("Loading the receipt…") }));
   main.append(wrap);
-  const actions = () => el("div", { class: "receipt-actions" },
-    el("button", { type: "button", class: "btn", onclick: () => window.print() }, tr("Print")),
-    el("button", { type: "button", class: "btn primary big", id: "new-sale",
-      onclick: () => { S.sale = newSale(); S.lastPct = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")));
   let doc = null, failed = null;
   try { doc = await api("ticket", { ticket_id: id }); } catch (e) { failed = e; }
   if (!wrap.isConnected) return;                 // the screen changed meanwhile
   wrap.innerHTML = "";
   const t = doc && doc.ticket;
+  const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
-  wrap.append(el("div", { class: "receipt-head" },
-    el("h1", { text: tr(training ? "Test sale posted" : "Sale posted") }),
-    el("span", { class: "ok", text: "✓ " + (t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "")) })));
+  const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
+  const total = p ? p.total : doc && doc.lines && doc.lines.length ? docTotal(doc.lines) : null;
+  let card;
   if (t) {
-    wrap.append(el("article", { class: "receipt", "aria-label": t.ticket_no },
+    card = el("article", { class: "receipt", "aria-label": t.ticket_no },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" }, receiptLines(t.receipt_text),
-        el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))));
+        el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" })));
   } else {
     // Posted, but the receipt cannot be read (no right to look up sales, or no connection).
-    const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
-    wrap.append(el("article", { class: "receipt" },
+    card = el("article", { class: "receipt" },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" },
         training ? el("div", { class: "rc-line rc-train", text: "TRAINING — NOT A SALE" }) : null,
         p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: p.ticket_no, t: fmtUZS(p.total) }) }) : null,
-        el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) }))));
+        el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) })));
   }
-  wrap.append(actions());
+  wrap.append(
+    el("div", { class: "receipt-stage" }, card),
+    el("aside", { class: "saved-panel" },
+      el("span", { class: "lbl", text: tr("Posted") }),
+      el("h1", { class: "title", text: tr("Sale saved") }),
+      el("p", { class: "saved-line", text: tr("Ticket {n} · {t}", { n: ticketNo, t: total === null ? "" : fmtUZS(total) + " " + tr("so'm") }).replace(/ · $/, "") +
+        "." + (training ? "" : " " + tr("The pieces are now marked as sold.")) }),
+      training ? el("div", { class: "notice", role: "note", text: tr("Training ticket — it will not appear in reports and is cleared before go-live.") }) : null,
+      el("div", { class: "saved-actions" },
+        el("button", { type: "button", class: "btn", id: "print-receipt", onclick: () => window.print() }, tr("Print receipt")),
+        el("button", { type: "button", class: "btn primary big", id: "new-sale",
+          onclick: () => { S.sale = newSale(); S.lastPct = null; payMenuOpen = false; go("#/sale"); } }, tr("New sale")))));
 }
 
 /* ===========================================================================
@@ -2189,6 +2355,7 @@ Object.assign(RU, {
   "Find client": "Найти клиента",
   "Change": "Изменить",
   "Find a client": "Найти клиента",
+  "Client for this sale": "Клиент для продажи",
   "Name, phone or DLD-…": "Имя, телефон или DLD-…",
   "Type at least two characters.": "Введите хотя бы два символа.",
   "No client found for “{q}”.": "По запросу «{q}» клиентов нет.",
@@ -2208,7 +2375,7 @@ Object.assign(RU, {
   "Partner's birthday": "День рождения партнёра",
   "Child's birthday": "День рождения ребёнка",
   "Use this client": "Выбрать этого клиента",
-  "+ New": "+ Новый",
+  "+ New client": "+ Новый клиент",
   "Client on this sale: {n}": "Клиент продажи: {n}",
   "The ticket for this purchase is not in the till.": "Чека этой покупки в кассе нет.",
 });
@@ -2216,17 +2383,6 @@ PL.purchase = { en: ["purchase", "purchases"], ru: ["покупка", "поку�
 // addclient.js gives RU "Walk-in" its own CRM meaning ("how we met"), so the
 // till's Walk-in button keeps its own wording here.
 const walkInText = () => (LANG === "ru" ? "Без карты клиента" : "Walk-in");
-// "2026-11-14" → "14.11.2026"
-function fmtDay(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : "—";
-}
-// A timestamp → its local day (the till's own clock: Tashkent), "15.11.2026".
-function fmtStampDay(iso) {
-  const d = new Date(iso);
-  if (isNaN(d)) return fmtDay(iso);
-  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
-}
 const CLIENT_DATE_KINDS = { anniversary: "Wedding anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Other" };
 
 /* -------------------------------------------------------- the slot on a sale */
@@ -2273,7 +2429,7 @@ function closeClientPanel() {
 }
 async function cpSearch(q) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   const seq = ++cp.seq;
   cp.busy = true;
   try {
@@ -2289,7 +2445,7 @@ async function cpSearch(q) {
 }
 async function cpOpen(id) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   cp.id = id; cp.card = null; cp.loading = true; cp.err = null;
   renderClientPanel();
   try {
@@ -2321,7 +2477,7 @@ function clientCard(card) {
   const canOpen = !!S.rights.view;
   const purchase = (t) => {
     const kids = [
-      el("span", { class: "pu-date", text: fmtDay(t.sold_at) }),
+      el("span", { class: "pu-date", text: fmtDate(t.sold_at) }),
       el("span", { class: "pu-item" }, [t.brand, (LANG === "ru" ? t.cat_name_ru : t.cat_name_en) || t.item].filter(Boolean).join(" · ")),
       el("span", { class: "pu-net money", text: fmtUZS(t.net_uzs) }),
     ];
@@ -2334,34 +2490,34 @@ function clientCard(card) {
   const dates = card.important_dates || [];
   return el("div", { class: "client-card", id: "client-card" },
     el("div", { class: "cc-head" },
-      el("h4", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
-      el("a", { class: "btn subtle cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
+      el("h3", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
+      el("a", { class: "cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
         title: tr("Opens the client's card in the Client Instrument"), text: tr("View in CRM ↗") })),
     el("div", { class: "cc-owner" }, el("span", { class: "k", text: tr("Owner") + ": " }), el("b", { text: blank(c.client_owner) ? "—" : who(c.client_owner) })),
     el("div", { class: "cc-facts" },
       el("span", {}, pl(roll.lines || 0, "purchase")),
       el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
-      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDay(last) }) }) : null),
-    el("div", { class: "cc-sec" }, el("h5", { text: tr("Purchases") }),
-      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
-    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Notes") }),
+      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDate(last) }) }) : null),
+    el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Purchases") }),
+      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "small", text: tr("No purchases on file.") })),
+    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Notes") }),
       about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
-      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtStampDay(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
-    dates.length ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Important dates") }),
+      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtDate(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
+    dates.length ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Important dates") }),
       el("ul", { class: "cc-dates" }, dates.map((d) => {
         const k = tr(CLIENT_DATE_KINDS[d.kind] || d.kind);
         const what = d.kind === "other" ? (d.label || k) : k + (blank(d.label) ? "" : " (" + d.label + ")");
-        const when = String(d.day).padStart(2, "0") + "." + String(d.month).padStart(2, "0") + (d.year ? "." + d.year : "");
+        const when = d.day + " " + MONTHS[LANG === "ru" ? "ru" : "en"][d.month - 1] + (d.year ? " " + d.year : "");
         return el("li", {}, el("span", { text: what }), el("span", { class: "money", text: when }));
       }))) : null);
 }
 function renderClientPanel() {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   let host = $("#client-panel");
   const focused = $("#client-q") === document.activeElement;
   const pos = focused ? $("#client-q").selectionStart : null;
-  if (!host) { host = el("div", { id: "client-panel", class: "modal-wrap" }); document.body.appendChild(host); }
+  if (!host) { host = el("div", { id: "client-panel", class: "panel-wrap" }); document.body.appendChild(host); }
   host.innerHTML = "";
   const q = el("input", { type: "search", id: "client-q", autocomplete: "off", spellcheck: "false", value: cp.q,
     placeholder: tr("Name, phone or DLD-…"), "aria-label": tr("Find a client"),
@@ -2378,27 +2534,27 @@ function renderClientPanel() {
       ? cp.rows.map((r) => el("button", { type: "button", class: "cl-row" + (r.client_id === cp.id ? " on" : ""), onclick: () => cpOpen(r.client_id) },
           el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
           el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
-            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDay(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
-      : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
-  } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
+            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDate(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
+      : el("p", { class: "small", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
+  } else if (cp.busy) results = el("p", { class: "small", text: tr("Searching…") });
   const body = [];
   if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
-  if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
+  if (cp.loading) body.push(el("p", { class: "small", text: tr("Loading the client…") }));
   if (cp.card) body.push(clientCard(cp.card));
-  const box = el("section", { class: "modal cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
-    el("div", { class: "modal-head" },
-      el("h3", { id: "cp-title", text: tr("Find a client") }),
+  const box = el("section", { class: "panel cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
+    el("div", { class: "cp-head" },
+      el("span", { id: "cp-title", class: "lbl", text: tr("Client for this sale") }),
       el("button", { class: "btn subtle close", type: "button", id: "client-close", "aria-label": tr("Close"), onclick: closeClientPanel, text: "×" })),
-    el("div", { class: "modal-body" },
+    el("div", { class: "cp-body" },
       el("div", { class: "cp-search" }, q),
-      el("div", { id: "client-results", class: "cl-list" }, results),
+      results ? el("div", { id: "client-results", class: "cl-list" }, results) : el("div", { id: "client-results", class: "cl-list" }),
       body),
-    el("div", { class: "modal-foot" },
-      cp.card ? el("button", { type: "button", class: "btn primary", id: "use-client",
-        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null,
-      el("button", { type: "button", class: "btn", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
-      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New")) : null));
-  host.append(el("div", { class: "modal-scrim", onclick: closeClientPanel }), box);
+    el("div", { class: "cp-foot" },
+      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New client")) : null,
+      el("button", { type: "button", class: "btn subtle", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
+      cp.card ? el("button", { type: "button", class: "btn primary cp-use", id: "use-client",
+        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null));
+  host.append(el("div", { class: "panel-scrim", onclick: closeClientPanel }), box);
   if (focused) { const n = $("#client-q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
 }
 document.addEventListener("keydown", (e) => {
@@ -2505,7 +2661,7 @@ async function loadTickets() {
 function tkSet(patch) { Object.assign(S.tk.f, patch); S.tk.page = 1; loadTickets(); }
 let tkTimer = null;
 function renderTickets(main) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const tk = tkState(), f = tk.f;
   const opt = (v, t, cur) => el("option", { value: v, text: t, selected: v === cur ? true : null });
   const sel = (id, label, cur, opts, key) => {
@@ -2533,9 +2689,13 @@ function renderTickets(main) {
   renderTkList();
   loadTickets();
 }
-function tkStatus(status) {
-  return el("span", { class: "tk-st" + (status === "void" ? " void" : "") }, status === "void" ? tr("VOIDED") : tr("Posted"));
+// Status tag: void alert, a test sale card-filled, otherwise navy (the till's "Posted" is the mockup's "Sold").
+function tkStatus(status, source) {
+  if (status === "void") return el("span", { class: "tag alert", text: tr("VOIDED") });
+  if (source === "training") return el("span", { class: "tag info", text: tr("Training") });
+  return el("span", { class: "tag act", text: tr("Posted") });
 }
+const tkWhen = (iso) => fmtDate(iso) + " " + fmtTime(iso);
 function renderTkList() {
   const box = $("#tk-body");
   if (!box || !S.tk) return;
@@ -2544,36 +2704,40 @@ function renderTkList() {
   if (tk.err) { box.append(el("p", { class: "form-err tk-pad", role: "alert", text: tk.err })); return; }
   if (!d) { box.append(el("p", { class: "loading", text: tr("Loading tickets…") })); return; }
   const pages = Math.max(1, Math.ceil(d.count / (d.page_size || 50)));
-  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" },
-    el("b", { text: pl(d.count, "ticket") }),
-    d.void_count ? el("span", { text: tr("{n} void", { n: d.void_count }) }) : null,
-    el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }),
-    tk.busy ? el("span", { class: "muted", text: tr("Searching…") }) : null));
-  if (!d.rows.length) { box.append(el("p", { class: "muted tk-pad", text: tr("No ticket matches.") })); return; }
-  box.append(el("div", { class: "tk-list", id: "tk-list", role: "table", "aria-label": tr("Tickets") },
-    el("div", { class: "tk-row tk-headrow", role: "row" }, ["Date", "Ticket", "Source", "Seller", "Client", "Items", "Net", "Status"]
-      .map((h) => el("span", { role: "columnheader", class: "tk-h-" + h.toLowerCase(), text: tr(h) }))),
-    d.rows.map((r) => el("a", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), role: "row", href: "#/ticket/" + encodeURIComponent(r.ticket_id) },
-      el("span", { class: "tk-date", text: fmtDay(r.sold_at) }),
-      el("span", { class: "tk-no", text: r.ticket_no }),
-      el("span", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
-      el("span", { class: "tk-seller", text: r.seller || "—" }),
-      el("span", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
-      el("span", { class: "tk-items", text: r.items || "—" }),
-      el("span", { class: "tk-net money", text: fmtUZS(r.net) }),
-      tkStatus(r.status)))));
+  const sumParts = [el("b", { text: pl(d.count, "ticket") })];
+  if (d.void_count) sumParts.push(" · ", el("span", { text: tr("{n} void", { n: d.void_count }) }));
+  sumParts.push(" · ", el("span", { class: "money", text: tr("net {x} so'm", { x: fmtUZS(d.net_total) }) }));
+  if (tk.busy) sumParts.push(" · ", el("span", { class: "small", text: tr("Searching…") }));
+  box.append(el("div", { class: "tk-sum", id: "tk-sum", "aria-live": "polite" }, ...sumParts));
+  if (!d.rows.length) { box.append(el("p", { class: "small tk-pad", text: tr("No ticket matches.") })); return; }
+  const cols = [["Ticket", "tk-numcell"], ["Date", "tk-date"], ["Items", "tk-items"], ["Client", "tk-client"], ["Seller", "tk-seller"],
+    ["Source", "tk-src"], ["Status", "tk-st"], ["Net", "tk-net r"]];
+  box.append(el("div", { class: "tk-scroll" }, el("table", { class: "tbl tk-list", id: "tk-list", "aria-label": tr("Tickets") },
+    el("thead", {}, el("tr", {}, cols.map(([h, c]) => el("th", { scope: "col", class: "tk-h " + c, text: tr(h) })))),
+    el("tbody", {}, d.rows.map((r) => {
+      const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
+      return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
+        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
+        el("td", { class: "tk-date", text: tkWhen(r.sold_at) }),
+        el("td", { class: "tk-items", text: r.items || "—" }),
+        el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
+        el("td", { class: "tk-seller", text: r.seller || "—" }),
+        el("td", { class: "tk-src", text: tr(SOURCE_LABEL[r.source] || r.source) }),
+        el("td", { class: "tk-st" }, tkStatus(r.status, r.source)),
+        el("td", { class: "tk-net r money", text: fmtUZS(r.net) }));
+    })))));
   if (pages > 1) {
     const pg = (p) => { tk.page = p; loadTickets(); };
     box.append(el("div", { class: "tk-pager" },
       el("button", { type: "button", class: "btn", disabled: tk.page <= 1 ? true : null, onclick: () => pg(tk.page - 1) }, tr("← Newer")),
-      el("span", { class: "muted", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
+      el("span", { class: "small", text: tr("Page {p} of {n}", { p: tk.page, n: pages }) }),
       el("button", { type: "button", class: "btn", disabled: tk.page >= pages ? true : null, onclick: () => pg(tk.page + 1) }, tr("Older →"))));
   }
 }
 
 /* ------------------------------------------------------------- one ticket */
 async function renderTicket(main, id) {
-  if (!S.rights.view) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot look up sales.") })); return; }
+  if (!S.rights.view) { main.append(el("div", { class: "notice", text: tr("Your account cannot look up sales.") })); return; }
   const wrap = el("section", { class: "sheet", id: "screen-ticket" }, el("p", { class: "loading", text: tr("Loading…") }));
   main.append(wrap);
   let doc;
@@ -2587,13 +2751,14 @@ async function renderTicket(main, id) {
     return;
   }
   if (!wrap.isConnected) return;
+  wrap.innerHTML = "";                            // the "Loading…" line goes
   drawTicket(wrap, doc, { receipt: false, voidOpen: false, reason: "", err: null });
 }
 function drawTicket(wrap, doc, ui) {
   const t = doc.ticket, lines = doc.lines || [], pays = doc.payments || [];
   const mine = ours(t), voided = t.status === "void";
   const canVoid = mine && !voided && S.rights.void;
-  const total = lines.reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
+  const total = docTotal(lines);
   const redraw = () => { wrap.innerHTML = ""; drawTicket(wrap, doc, ui); };
   const kv = (k, v) => blank(v) ? null : el("div", { class: "kv" }, el("dt", { text: tr(k) }), el("dd", {}, v));
   const client = doc.client_name ? doc.client_name + (t.client_id ? " · " + t.client_id : "") : t.walk_in ? walkInText() : (t.client_id || t.client_raw || null);
@@ -2603,7 +2768,7 @@ function drawTicket(wrap, doc, ui) {
     return el("li", { class: "tl-row" + (refund ? " refund" : "") },
       el("div", { class: "tl-info" },
         el("div", { class: "tl-title" }, [l.brand_raw, l.item_name].filter(Boolean).join(" · ") || l.article || "—",
-          refund ? el("span", { class: "tag", text: tr("Refund") }) : null),
+          refund ? el("span", { class: "tag line", text: tr("Refund") }) : null),
         el("div", { class: "tl-meta" }, [l.serial_raw, l.article, l.size ? tr("size {s}", { s: l.size }) : null, l.seller ? tr("Seller: {s}", { s: l.seller }) : null]
           .filter(Boolean).join(" · "))),
       el("div", { class: "tl-price money" }, fmtUZS(sign(l.price_current)),
@@ -2641,32 +2806,32 @@ function drawTicket(wrap, doc, ui) {
   wrap.append(...[
     el("div", { class: "sheet-head" },
       el("h1", { text: t.ticket_no }),
-      el("span", { class: "tk-status" }, tkStatus(t.status)),
+      el("span", { class: "tk-status" }, tkStatus(t.status, t.source)),
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
     el("dl", { class: "tk-meta" },
-      kv("Date", fmtDay(t.sold_at)),
+      kv("Date", tkWhen(t.sold_at)),
       kv("Source", tr(SOURCE_LABEL[t.source] || t.source)),
       kv("Seller", t.seller),
       kv("Client", client),
       kv("Entered by", t.entered_by ? who(t.entered_by) : null),
       kv("Era receipt no.", t.fiscal_ref),
       voided ? kv("Void reason", t.void_reason) : null,
-      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? fmtStampDay(t.voided_at) : null].filter(Boolean).join(", ")) : null),
+      voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
-    voided && mine ? el("p", { class: "era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
+    voided && mine ? el("p", { class: "notice era-reminder", id: "era-reminder", role: "note", text: tr("Cancel the fiscal receipt in Era as well.") }) : null,
     el("ol", { class: "tl-lines" }, lines.map(lineRow)),
     el("div", { class: "tl-foot" },
       el("div", { class: "tl-pays" }, el("h5", { text: tr("Payments") }),
         pays.length ? pays.map((p) => el("div", { class: "tl-pay" }, el("span", { text: payText(p) }), el("span", { class: "money", text: fmtUZS(p.amount) })))
-          : el("p", { class: "muted", text: "—" })),
+          : el("p", { class: "small", text: "—" })),
       el("div", { class: "total" }, el("div", { class: "t-l", text: tr("Total") }),
-        el("div", { class: "t-v" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
+        el("div", { class: "keynum" }, fmtUZS(total), el("small", { text: tr("so'm") })))),
     ui.voidOpen ? el("form", { class: "void-form", id: "void-form", onsubmit: (ev) => { ev.preventDefault(); submitVoid(); } },
       el("label", { for: "void-reason", class: "lbl", text: tr("Why is this sale being voided?") }),
       el("textarea", { id: "void-reason", rows: "3", maxlength: "500", value: ui.reason, oninput: (ev) => { ui.reason = ev.target.value; if (ui.err && ui.reason.trim()) { ui.err = null; const x = $("#void-form .form-err"); if (x) x.remove(); } } }),
       ui.err ? el("p", { class: "form-err", role: "alert", text: ui.err }) : null,
-      el("p", { class: "muted", text: tr("Cancel the fiscal receipt in Era as well.") }),
+      el("p", { class: "small", text: tr("Cancel the fiscal receipt in Era as well.") }),
       el("div", { class: "form-actions" },
         el("button", { type: "submit", class: "btn danger", id: "void-go" }, tr("Void this sale")),
         el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,
@@ -2720,25 +2885,25 @@ PL.testDraft = { en: ["suspended test sale", "suspended test sales"], ru: ["от
 S.adminCleared = null;
 
 function renderAdmin(main) {
-  if (!S.rights.manage) { main.append(el("div", { class: "notice-box", text: tr("Your account cannot manage the till.") })); return; }
+  if (!S.rights.manage) { main.append(el("div", { class: "notice", text: tr("Your account cannot manage the till.") })); return; }
   const live = S.mode === "live";
   const goLive = S.ref && S.ref.go_live_date;
   main.append(el("section", { class: "sheet", id: "screen-admin" },
     el("div", { class: "sheet-head" }, el("h1", { text: tr("Admin") })),
     el("div", { class: "admin-body" },
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Till mode") }),
+        el("h2", { class: "h2", text: tr("Till mode") }),
         el("div", { class: "seg", role: "group", "aria-label": tr("Till mode") },
           el("button", { type: "button", class: "btn", id: "mode-training", "aria-pressed": live ? "false" : "true", onclick: () => switchMode("training") }, tr("Training")),
           el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
-        el("p", { class: "muted", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
+        el("p", { class: "small", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
           : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Go-live date") }),
-        el("p", { id: "go-live", class: goLive ? "big-date" : "muted", text: goLive ? fmtDay(goLive) : tr("Not yet — the till has not been Live.") })),
+        el("h2", { class: "h2", text: tr("Go-live date") }),
+        el("p", { id: "go-live", class: goLive ? "h2" : "small", text: goLive ? fmtDate(goLive) : tr("Not yet — the till has not been Live.") })),
       el("div", { class: "admin-sec" },
-        el("h2", { text: tr("Test sales") }),
-        el("p", { class: "muted", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
+        el("h2", { class: "h2", text: tr("Test sales") }),
+        el("p", { class: "small", text: tr("Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.") }),
         el("button", { type: "button", class: "btn", id: "clear-training", onclick: clearTraining }, tr("Clear test sales")),
         S.adminCleared ? el("p", { class: "ok-line", id: "clear-result", role: "status", text: tr("Cleared: {t} and {d}.",
           { t: pl(S.adminCleared.tickets, "testTicket"), d: pl(S.adminCleared.drafts, "testDraft") }) }) : null))));
@@ -2781,8 +2946,9 @@ function renderAll() {
   document.title = "Delardi " + tr("Sales");
   if (S.locked && !S.ref) return;                  // nothing behind the gate before a passcode
   const r = route();
+  kitCloseMenus();                                 // the header is redrawn: no open menu is left listening
   app.innerHTML = "";
-  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); }
+  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false; }
   const main = el("main", { id: "main" });
   app.append(renderHeader(), main);
   ROUTES[r.name](main, r.arg);
@@ -2798,10 +2964,8 @@ function restoreSession() {
     return true;
   } catch (e) { return false; }
 }
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
 (async function boot() {
-  applyTheme();
   document.documentElement.lang = LANG;
   if (restoreSession()) {
     try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); }

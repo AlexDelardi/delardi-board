@@ -11,6 +11,7 @@ Object.assign(RU, {
   "Find client": "Найти клиента",
   "Change": "Изменить",
   "Find a client": "Найти клиента",
+  "Client for this sale": "Клиент для продажи",
   "Name, phone or DLD-…": "Имя, телефон или DLD-…",
   "Type at least two characters.": "Введите хотя бы два символа.",
   "No client found for “{q}”.": "По запросу «{q}» клиентов нет.",
@@ -30,7 +31,7 @@ Object.assign(RU, {
   "Partner's birthday": "День рождения партнёра",
   "Child's birthday": "День рождения ребёнка",
   "Use this client": "Выбрать этого клиента",
-  "+ New": "+ Новый",
+  "+ New client": "+ Новый клиент",
   "Client on this sale: {n}": "Клиент продажи: {n}",
   "The ticket for this purchase is not in the till.": "Чека этой покупки в кассе нет.",
 });
@@ -38,17 +39,6 @@ PL.purchase = { en: ["purchase", "purchases"], ru: ["покупка", "поку�
 // addclient.js gives RU "Walk-in" its own CRM meaning ("how we met"), so the
 // till's Walk-in button keeps its own wording here.
 const walkInText = () => (LANG === "ru" ? "Без карты клиента" : "Walk-in");
-// "2026-11-14" → "14.11.2026"
-function fmtDay(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : "—";
-}
-// A timestamp → its local day (the till's own clock: Tashkent), "15.11.2026".
-function fmtStampDay(iso) {
-  const d = new Date(iso);
-  if (isNaN(d)) return fmtDay(iso);
-  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
-}
 const CLIENT_DATE_KINDS = { anniversary: "Wedding anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Other" };
 
 /* -------------------------------------------------------- the slot on a sale */
@@ -95,7 +85,7 @@ function closeClientPanel() {
 }
 async function cpSearch(q) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   const seq = ++cp.seq;
   cp.busy = true;
   try {
@@ -111,7 +101,7 @@ async function cpSearch(q) {
 }
 async function cpOpen(id) {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   cp.id = id; cp.card = null; cp.loading = true; cp.err = null;
   renderClientPanel();
   try {
@@ -143,7 +133,7 @@ function clientCard(card) {
   const canOpen = !!S.rights.view;
   const purchase = (t) => {
     const kids = [
-      el("span", { class: "pu-date", text: fmtDay(t.sold_at) }),
+      el("span", { class: "pu-date", text: fmtDate(t.sold_at) }),
       el("span", { class: "pu-item" }, [t.brand, (LANG === "ru" ? t.cat_name_ru : t.cat_name_en) || t.item].filter(Boolean).join(" · ")),
       el("span", { class: "pu-net money", text: fmtUZS(t.net_uzs) }),
     ];
@@ -156,34 +146,34 @@ function clientCard(card) {
   const dates = card.important_dates || [];
   return el("div", { class: "client-card", id: "client-card" },
     el("div", { class: "cc-head" },
-      el("h4", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
-      el("a", { class: "btn subtle cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
+      el("h3", { class: "cc-name" }, name, el("span", { class: "cid", text: " · " + id })),
+      el("a", { class: "cc-crm", href: "../crm/#" + encodeURIComponent(id), target: "_blank", rel: "noopener",
         title: tr("Opens the client's card in the Client Instrument"), text: tr("View in CRM ↗") })),
     el("div", { class: "cc-owner" }, el("span", { class: "k", text: tr("Owner") + ": " }), el("b", { text: blank(c.client_owner) ? "—" : who(c.client_owner) })),
     el("div", { class: "cc-facts" },
       el("span", {}, pl(roll.lines || 0, "purchase")),
       el("span", { class: "money" }, fmtUZS(roll.net || 0) + " " + tr("so'm")),
-      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDay(last) }) }) : null),
-    el("div", { class: "cc-sec" }, el("h5", { text: tr("Purchases") }),
-      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "muted", text: tr("No purchases on file.") })),
-    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Notes") }),
+      last ? el("span", { text: tr("Last purchase {d}", { d: fmtDate(last) }) }) : null),
+    el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Purchases") }),
+      tx.length ? el("div", { class: "purchases" }, tx.map(purchase)) : el("p", { class: "small", text: tr("No purchases on file.") })),
+    notes.length || about ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Notes") }),
       about ? el("p", { class: "cc-note" }, el("b", { text: tr("About the client") + ". " }), about) : null,
-      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtStampDay(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
-    dates.length ? el("div", { class: "cc-sec" }, el("h5", { text: tr("Important dates") }),
+      notes.map((e) => el("p", { class: "cc-note" }, el("span", { class: "when", text: fmtDate(e.at) + " · " + who(e.actor) + " — " }), e.note))) : null,
+    dates.length ? el("div", { class: "cc-sec" }, el("h5", { class: "lbl", text: tr("Important dates") }),
       el("ul", { class: "cc-dates" }, dates.map((d) => {
         const k = tr(CLIENT_DATE_KINDS[d.kind] || d.kind);
         const what = d.kind === "other" ? (d.label || k) : k + (blank(d.label) ? "" : " (" + d.label + ")");
-        const when = String(d.day).padStart(2, "0") + "." + String(d.month).padStart(2, "0") + (d.year ? "." + d.year : "");
+        const when = d.day + " " + MONTHS[LANG === "ru" ? "ru" : "en"][d.month - 1] + (d.year ? " " + d.year : "");
         return el("li", {}, el("span", { text: what }), el("span", { class: "money", text: when }));
       }))) : null);
 }
 function renderClientPanel() {
   const cp = S.cp;
-  if (!cp) return;
+  if (!cp || S.locked) return;
   let host = $("#client-panel");
   const focused = $("#client-q") === document.activeElement;
   const pos = focused ? $("#client-q").selectionStart : null;
-  if (!host) { host = el("div", { id: "client-panel", class: "modal-wrap" }); document.body.appendChild(host); }
+  if (!host) { host = el("div", { id: "client-panel", class: "panel-wrap" }); document.body.appendChild(host); }
   host.innerHTML = "";
   const q = el("input", { type: "search", id: "client-q", autocomplete: "off", spellcheck: "false", value: cp.q,
     placeholder: tr("Name, phone or DLD-…"), "aria-label": tr("Find a client"),
@@ -200,27 +190,27 @@ function renderClientPanel() {
       ? cp.rows.map((r) => el("button", { type: "button", class: "cl-row" + (r.client_id === cp.id ? " on" : ""), onclick: () => cpOpen(r.client_id) },
           el("span", { class: "cl-name", text: blank(r.display_name) ? tr("Unnamed record") : r.display_name }),
           el("span", { class: "cl-meta" }, [r.client_id, blank(r.client_owner) ? null : who(r.client_owner),
-            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDay(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
-      : el("p", { class: "muted", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
-  } else if (cp.busy) results = el("p", { class: "muted", text: tr("Searching…") });
+            r.last_purchase_at ? tr("Last purchase {d}", { d: fmtDate(r.last_purchase_at) }) : null].filter(Boolean).join(" · "))))
+      : el("p", { class: "small", text: tr("No client found for “{q}”.", { q: cp.q.trim() }) });
+  } else if (cp.busy) results = el("p", { class: "small", text: tr("Searching…") });
   const body = [];
   if (cp.err) body.push(el("p", { class: "form-err", role: "alert", text: cp.err }));
-  if (cp.loading) body.push(el("p", { class: "muted", text: tr("Loading the client…") }));
+  if (cp.loading) body.push(el("p", { class: "small", text: tr("Loading the client…") }));
   if (cp.card) body.push(clientCard(cp.card));
-  const box = el("section", { class: "modal cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
-    el("div", { class: "modal-head" },
-      el("h3", { id: "cp-title", text: tr("Find a client") }),
+  const box = el("section", { class: "panel cpbox", role: "dialog", "aria-modal": "true", "aria-labelledby": "cp-title" },
+    el("div", { class: "cp-head" },
+      el("span", { id: "cp-title", class: "lbl", text: tr("Client for this sale") }),
       el("button", { class: "btn subtle close", type: "button", id: "client-close", "aria-label": tr("Close"), onclick: closeClientPanel, text: "×" })),
-    el("div", { class: "modal-body" },
+    el("div", { class: "cp-body" },
       el("div", { class: "cp-search" }, q),
-      el("div", { id: "client-results", class: "cl-list" }, results),
+      results ? el("div", { id: "client-results", class: "cl-list" }, results) : el("div", { id: "client-results", class: "cl-list" }),
       body),
-    el("div", { class: "modal-foot" },
-      cp.card ? el("button", { type: "button", class: "btn primary", id: "use-client",
-        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null,
-      el("button", { type: "button", class: "btn", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
-      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New")) : null));
-  host.append(el("div", { class: "modal-scrim", onclick: closeClientPanel }), box);
+    el("div", { class: "cp-foot" },
+      canAdd() ? el("button", { type: "button", class: "btn", id: "new-client", onclick: openAddClient }, tr("+ New client")) : null,
+      el("button", { type: "button", class: "btn subtle", id: "panel-walk-in", onclick: () => { closeClientPanel(); setWalkIn(true); } }, walkInText()),
+      cp.card ? el("button", { type: "button", class: "btn primary cp-use", id: "use-client",
+        onclick: () => useClient(cp.card.client.client_id, cardName(cp.card)) }, tr("Use this client")) : null));
+  host.append(el("div", { class: "panel-scrim", onclick: closeClientPanel }), box);
   if (focused) { const n = $("#client-q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } }
 }
 document.addEventListener("keydown", (e) => {

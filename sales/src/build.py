@@ -12,13 +12,19 @@ uri = lambda f: 'data:image/png;base64,' + base64.b64encode((B / f).read_bytes()
 
 t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
+# The shared UI kit (ui/kit.css, ui/tools.js) is inlined, never copied into this folder.
+KIT = HERE.parent.parent / 'ui'
+assert (KIT / 'kit.css').exists() and (KIT / 'tools.js').exists(), 'ui/kit.css and ui/tools.js must exist'
+assert t.count('/*__KIT_CSS__*/') == 1, 'the kit marker must appear exactly once in template.html'
+t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # In this order, before the init marker. The later ones arrive with Task 8;
 # whatever is not there yet is skipped, and the build says so.
-MODULES = ['sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
+MODULES = ['../../ui/tools.js', 'sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()
     if not f.exists():
+        assert 'ui/' not in m, m + ' is required'
         print('note: skipped', m, '(not there yet)')
         continue
     parts.append(f.read_text(encoding='utf-8'))
@@ -30,7 +36,6 @@ TOKENS = {
     '__WORDMARK__': uri('wordmark_white.png'),
     '__FAVICON__': uri('favicon.png'),
     '__MONO_NAVY__': uri('monogram_navy.png'),
-    '__MONO_WHITE__': uri('monogram_white.png'),
 }
 for k, v in TOKENS.items():
     t = t.replace(k, v)

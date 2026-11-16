@@ -24,6 +24,7 @@ const norm = (s) => String(s || "").replace(/[\s  ]+/g, " ").trim();
 
 async function setup(browser, viewport, opts = {}) {
   mock.reset();
+  if (opts.mode === "live") mock.switchModeBehind("live");
   const ctx = await browser.newContext({ viewport, locale: "en-GB",
     ...(opts.touch ? { hasTouch: true, isMobile: true } : {}) });
   const page = await ctx.newPage();
@@ -185,6 +186,30 @@ async function shot(page, name) {
     await page.fill("#q", "");
     await page.waitForSelector("#sugg .sg", { state: "detached" });
 
+    // the restyled New sale screen (Task 3)
+    check("sale: title row has the Palatino title, seller select and Suspend", await page.evaluate(() => {
+      const h = document.querySelector(".sale-head");
+      const t = h && h.querySelector("h1.title");
+      return !!t && t.textContent.trim() === "New sale" && /Palatino/.test(getComputedStyle(t).fontFamily) &&
+        !!h.querySelector("select#seller") && !!h.querySelector("#suspend");
+    }));
+    check("sale: bottom bar holds client, total and Payment", await page.evaluate(() => {
+      const f = document.querySelector(".foot");
+      return !!f && !!f.querySelector(".client-slot") && !!f.querySelector(".total .keynum") && !!f.querySelector("#to-pay") &&
+        getComputedStyle(f.querySelector(".total .keynum")).fontWeight !== "700";
+    }));
+    await page.fill("#q", "Armillas");
+    await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length === 3);
+    const tagInfo = await page.$$eval("#sugg .sg .tag", (ns) => ns.map((n) => n.className + ":" + n.textContent.trim()));
+    check("search: results show status tags", tagInfo.some((x) => /\bact\b.*:In stock/.test(x)) && tagInfo.some((x) => /\balert\b.*:Sold/.test(x)), tagInfo.join(" | "));
+    await page.fill("#q", "Messika");
+    await page.waitForFunction(() => /Glam/.test(document.querySelector("#sugg").textContent));
+    const tagInfo2 = await page.$$eval("#sugg .sg .tag", (ns) => ns.map((n) => n.className + ":" + n.textContent.trim()));
+    check("search: suspended sale is an info tag, other states a done tag",
+      tagInfo2.some((x) => /\binfo\b.*:in suspended sale #7/i.test(x)) && tagInfo2.some((x) => /\bdone\b.*:In transit/.test(x)), tagInfo2.join(" | "));
+    await page.fill("#q", "");
+    await page.waitForSelector("#sugg .sg", { state: "detached" });
+
     // discount
     await page.fill("#lines .line:nth-child(1) input.l-disc", "5");
     const net1 = norm(await lineText(page, 1, ".l-net"));
@@ -225,7 +250,7 @@ async function shot(page, name) {
     await page.click("#walk-in");
     await addPay(page, "cash", "29 924 999");
     check("post guard: Walk-in and payments short by 1 → disabled", !(await postEnabled(page)));
-    check("post guard: Remaining 1", /Remaining 1$/.test(norm(await page.textContent("#pay-sum"))), norm(await page.textContent("#pay-sum")));
+    check("post guard: Left to pay 1", /Left to pay 1$/.test(norm(await page.textContent("#pay-sum"))), norm(await page.textContent("#pay-sum")));
     await page.fill(".pay-row:nth-child(1) input.amt", "29925000");
     await page.dispatchEvent(".pay-row:nth-child(1) input.amt", "change");
     check("post guard: exact → enabled", await postEnabled(page));
@@ -239,7 +264,7 @@ async function shot(page, name) {
     await addPay(page, "cash", "20 000 000");
     await addPay(page, "uzcard", "9 925 000");
     const sum = norm(await page.textContent("#pay-sum"));
-    check("split payment: Cash 20 000 000 + Uzcard 9 925 000 → Remaining 0", /Paid 29 925 000/.test(sum) && /Remaining 0\b/.test(sum), sum);
+    check("split payment: Cash 20 000 000 + Uzcard 9 925 000 → Left to pay 0", /Paid 29 925 000/.test(sum) && /Left to pay 0\b/.test(sum), sum);
     check("split payment: the card row says Uzcard", /Uzcard/.test(await page.textContent(".pay-row:nth-child(2)")));
     check("split payment: Post enabled", await postEnabled(page));
     await page.fill("#fiscal", "ERA-0042");
@@ -269,6 +294,19 @@ async function shot(page, name) {
     check("post: New sale clears the sale", (await page.$$("#lines .line")).length === 0 && (await valOf(page, "#seller")) === "" &&
       (await page.getAttribute("#walk-in", "aria-pressed")) === "false");
     check("sale: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("sale long name", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000086");
+    await page.waitForTimeout(150);
+    const r = await page.evaluate(() => {
+      const b = document.querySelector("#to-pay").getBoundingClientRect();
+      return { sw: document.documentElement.scrollWidth, iw: window.innerWidth, bw: b.width, bh: b.height, right: b.right };
+    });
+    check("sale: a 60-character piece name wraps inside 1024 wide", r.sw <= r.iw + 1 && r.bw > 0 && r.bh > 0 && r.right <= r.iw, JSON.stringify(r));
+    check("sale: long name page has no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
@@ -339,7 +377,7 @@ async function shot(page, name) {
   await run("russian", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await addLine(page, "2000000000031");
-    await page.click(".lang button[lang=ru]");
+    await page.click(".kit-lang button[lang=ru]");
     await page.waitForSelector("#screen-sale");
     const txt = await page.textContent("#screen-sale");
     check("russian: Новая продажа on the sale screen", /Новая продажа/.test(txt));
@@ -350,6 +388,26 @@ async function shot(page, name) {
     check("russian: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
+
+  // a held piece's status tag stays in its column, EN and RU, both iPad sizes
+  for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    for (const lang of ["en", "ru"]) {
+      await run(`status tag fit ${lang} ${vp.width}`, async () => {
+        const { ctx, page, errors } = await setup(browser, vp);
+        if (lang === "ru") { await page.click(".kit-lang button[lang=ru]"); await page.waitForSelector("#screen-sale"); }
+        await page.fill("#q", "Glam");
+        await page.waitForFunction(() => /Glam/.test(document.querySelector("#sugg").textContent));
+        const r = await page.evaluate(() => {
+          const row = [...document.querySelectorAll("#sugg .sg")].find((n) => /Glam/.test(n.textContent));
+          const t = row.querySelector(".tag").getBoundingClientRect(), p = row.querySelector(".sg-p").getBoundingClientRect(), w = row.getBoundingClientRect();
+          return { tr: t.right, pl: p.left, tl: t.left, wl: w.left, wr: w.right, tb: t.bottom, wb: w.bottom, tt: t.top, wt: w.top, p: p.width };
+        });
+        check(`search: held tag stays clear of the price (${lang} ${vp.width})`, r.tr <= r.pl + 0.5 && r.tl >= r.wl && r.tr <= r.wr && r.tt >= r.wt && r.tb <= r.wb, JSON.stringify(r));
+        check(`search: no script errors (${lang} ${vp.width})`, errors.length === 0, errors.join(" | "));
+        await ctx.close();
+      });
+    }
+  }
 
   // ----------------------------------------------------------------- ipad
   for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
@@ -397,6 +455,71 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  /* ================================================== UI kit (shell) checks */
+  await run("kit shell", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    const toolsBtn = page.locator(".kit-head [data-kit-menu] > button");
+    check("kit: header has the Tools switcher with 4 tools (button)", (await toolsBtn.count()) === 1 && norm(await toolsBtn.textContent()) === "Tools");
+    await toolsBtn.click();
+    const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
+    const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
+    check("kit: header has the Tools switcher with 4 tools", items.join() === "Sales,Clients,Catalogue,Board" && current.join() === "Sales",
+      items.join() + " / " + current.join());
+    check("kit: the Tools menu is open", await page.isVisible(".kit-head .kit-menu"));
+    check("kit: no theme switch", await page.evaluate(() => ![...document.querySelectorAll("[title], [aria-label]")]
+      .some((n) => /theme|тема/i.test((n.getAttribute("title") || "") + " " + (n.getAttribute("aria-label") || "")))));
+    check("kit: no dark mode on the page", await page.evaluate(() => !document.documentElement.hasAttribute("data-theme") &&
+      !document.documentElement.classList.contains("sysdark")));
+    check("kit: header order — wordmark, rule, Sales, spacer, Tools, EN/RU, staff, Lock", await page.evaluate(() => {
+      const h = document.querySelector(".kit-head");
+      const kids = [...h.children].map((n) => n.matches("a.kit-brand") ? "brand" : n.matches(".kit-rule") ? "rule" : n.matches(".kit-tool") ? "tool"
+        : n.matches(".kit-spacer") ? "spacer" : n.matches("[data-kit-menu]") ? "tools" : n.matches(".kit-lang") ? "lang"
+        : n.matches(".kit-staff") ? "staff" : n.matches("button.kit-hbtn") ? "lock:" + n.textContent.trim() : "?");
+      return kids.join() === "brand,rule,tool,spacer,tools,lang,staff,lock:Lock" &&
+        h.querySelector("a.kit-brand").getAttribute("href") === "../" && h.querySelector(".kit-tool").textContent === "Sales" &&
+        h.querySelector(".kit-staff").textContent === S.name && S.name === "Till Manager";
+    }));
+    check("kit: tabs are kit tabs, New sale current", norm(await page.textContent(".kit-tabs .kit-tab[aria-current=page]")) === "New sale");
+    check("kit: the training band is a kit band", await page.evaluate(() => {
+      const b = document.querySelector(".band.training-band");
+      return !!b && b.querySelector(".lbl").textContent === "TRAINING";
+    }));
+    for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+      await page.setViewportSize(vp);
+      await page.waitForTimeout(50);
+      check(`kit: no sideways scroll at ${vp.width}×${vp.height} on the sale screen (Tools open)`, await noHScroll(page));
+    }
+    check("dates: fmtDate gives 16 Nov 2026 and 16 ноя 2026, fmtDateNum gives 16.11.2026", await page.evaluate(() => {
+      const iso = "2026-11-16T09:05:00Z";
+      const en = fmtDate(iso); LANG = "ru"; const ru = fmtDate(iso); LANG = "en";
+      return en === "16 Nov 2026" && ru === "16 ноя 2026" && fmtDateNum(iso) === "16.11.2026" &&
+        fmtDate("2026-11-16T20:30:00Z") === "17 Nov 2026";      // Tashkent is UTC+5
+    }));
+    check("dates: fmtTime is pinned to Tashkent (20:30Z → 17 Nov 01:30)", await page.evaluate(() =>
+      fmtDate("2026-11-16T20:30:00Z") === "17 Nov 2026" && fmtTime("2026-11-16T20:30:00Z") === "01:30"));
+    await page.evaluate(() => lockDown());
+    await page.waitForSelector("#gate-pass");
+    check("kit: lock closes the Tools menu", await page.evaluate(() => kitOpenMenus.length === 0 &&
+      ![...document.querySelectorAll(".kit-menu")].some((m) => !m.hidden)));
+    check("kit: lock card has the mast and Unlock", await page.evaluate(() => !!document.querySelector("#gate .gate-mast img") &&
+      document.querySelector("#gate .gate-card button[type=submit]").textContent === "Unlock" &&
+      /Boutique tools/.test(document.querySelector("#gate .gate-mast").textContent) &&
+      /Opens the till/.test(document.querySelector("#gate").textContent)));
+    check("kit shell: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("kit lock panel", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await page.evaluate(() => document.body.appendChild(Object.assign(document.createElement("div"), { className: "panel-wrap" })));
+    await page.evaluate(() => lockDown());
+    check("kit: lock removes any detail panel", !(await page.$(".panel-wrap")));
+    await ctx.close();
+  });
+  await run("kit css", async () => {
+    const r = require("child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "..", "..", "qa", "kit.cjs")], { encoding: "utf8" });
+    check("kit: node qa/kit.cjs passes on the built page", r.status === 0, (r.stderr || r.stdout).trim().split("\n")[0]);
+  });
+
   /* ======================================================== Task 8 checks */
   const openClientPanel = async (page, q) => {
     await page.click("#find-client");
@@ -406,6 +529,7 @@ async function shot(page, name) {
       await page.waitForSelector("#client-results .cl-row");
     }
   };
+  const niceDay = (d) => { const [y, m, dd] = d.split("-"); return Number(dd) + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] + " " + y; };
   const openSokolova = async (page) => {
     await openClientPanel(page, "Соколова");
     await page.click("#client-results .cl-row >> nth=0");
@@ -431,13 +555,24 @@ async function shot(page, name) {
     check("client panel: 'View in CRM ↗' links to the CRM card (../crm/#DLD-9001, the CRM's deep link)", /^\.\.\/crm\/#DLD-9001$/.test(href || "") &&
       /View in CRM ↗/.test(await page.textContent("#client-card a.cc-crm")), href);
     check("client panel: purchase count and total from the rollup", /2 purchases/.test(card) && /54 700 000/.test(card), card);
-    check("client panel: the last purchase date", card.includes(mock.tkDate(2).split("-").reverse().join(".")), card);
+    check("client panel: the last purchase date reads like 14 Nov 2026", card.includes(niceDay(mock.tkDate(2))), card);
     check("client panel: notes as the card shows them", /Looking for a gift for her sister/.test(card) && /Prefers an appointment after 18:00/.test(card), card);
     check("client panel: important dates", /Wedding anniversary/.test(card) && /Child's birthday/.test(card), card);
     const all = await page.evaluate(() => document.body.innerText);
     check("client panel: no ABC class anywhere", !/\bABC\b/.test(all) && !/Class A\b/.test(all), "");
     check("client panel: no lifecycle / segment tag anywhere", !/Champion/.test(all) && !/\bActive\b/.test(all), "");
     check("client panel: + New offered (CRM editor)", await page.isVisible("#new-client"));
+    check("client: Use this client is primary, + New client secondary", await page.evaluate(() =>
+      document.querySelector("#use-client").classList.contains("primary") && document.querySelector("#new-client").classList.contains("btn") &&
+      !document.querySelector("#new-client").classList.contains("primary")));
+    const pb = await page.evaluate(() => { const r = document.querySelector("#client-panel .panel").getBoundingClientRect(); return { right: r.right, w: r.width, vw: innerWidth }; });
+    check("client: opens as a right panel 560 wide at 1024", Math.abs(pb.right - pb.vw) <= 1 && Math.abs(pb.w - 560) <= 1, JSON.stringify(pb));
+    await page.setViewportSize({ width: 560, height: 900 });
+    await page.waitForTimeout(50);
+    const pn = await page.evaluate(() => { const r = document.querySelector("#client-panel .panel").getBoundingClientRect(); return { w: r.width, vw: innerWidth }; });
+    check("client: full width under 600 px", Math.abs(pn.w - pn.vw) <= 1, JSON.stringify(pn));
+    await page.setViewportSize({ width: 1024, height: 768 });
+    check("client: the scrim sits behind the panel and closes it", await page.evaluate(() => !!document.querySelector("#client-panel .panel-scrim") && !document.querySelector("#client-panel .modal")));
     await shot(page, "client-panel-1024x768");
     await page.click("#use-client");
     await page.waitForSelector("#client-panel", { state: "detached" });
@@ -488,10 +623,44 @@ async function shot(page, name) {
     await page.clock.fastForward("15:30");
     await page.waitForSelector("#gate-pass", { timeout: 5000 });
     check("lock: the add-client form is gone", !(await page.$("#addwrap")));
-    check("lock: the client panel is gone", !(await page.$("#client-panel .modal")));
+    check("lock: the client panel is gone", !(await page.$("#client-panel .panel")) && !(await page.$("#client-panel")));
     check("lock: no typed client name left on the page", !/Zz Locktest/.test(await page.content()));
     check("lock: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+
+  // ------------------------------------------- lock vs. pending client lookups (fix round 1)
+  await run("lock vs pending lookups", async () => {
+    const gateOver = (page) => page.evaluate(() => { const g = document.querySelector("#gate"); return !!g && getComputedStyle(g).display !== "none"; });
+    // (a) lock inside the 300 ms debounce window
+    let t = await setup(browser, { width: 1024, height: 768 });
+    await addLine(t.page, "2000000000031");
+    await openClientPanel(t.page);
+    await t.page.fill("#client-q", "Соколова");
+    await t.page.evaluate(() => lockDown());
+    await t.page.waitForTimeout(1000);
+    check("lock: a typed search does not bring the client panel back", !(await t.page.$("#client-panel")) && await gateOver(t.page));
+    await t.ctx.close();
+    // (b) lock while a client lookup is in flight
+    t = await setup(browser, { width: 1024, height: 768 });
+    await addLine(t.page, "2000000000031");
+    await openClientPanel(t.page);
+    await t.page.evaluate(() => { const orig = call; call = async (...a) => { await new Promise((r) => setTimeout(r, 500)); return orig(...a); }; });
+    await t.page.fill("#client-q", "Соколова");
+    await t.page.waitForTimeout(350);
+    await t.page.evaluate(() => lockDown());
+    await t.page.waitForTimeout(1200);
+    check("lock: an answer arriving after the lock draws no client panel", !(await t.page.$("#client-panel")) && await gateOver(t.page));
+    // (c) the passcode card is above every overlay
+    const z = await t.page.evaluate(() => {
+      const probe = (cls) => { const n = document.createElement("div"); n.className = cls; n.style.display = "none"; document.body.appendChild(n); const v = parseInt(getComputedStyle(n).zIndex, 10); n.remove(); return v; };
+      return { gate: parseInt(getComputedStyle(document.querySelector("#gate")).zIndex, 10), panel: probe("panel-wrap"), add: probe("addwrap"),
+        modal: probe("modal-wrap"), confirm: probe("modal-wrap confirm") };
+    });
+    check("lock: the passcode card is above the panel and the add-client form", z.gate > z.panel && z.gate > z.add, JSON.stringify(z));
+    check("lock: the passcode card is above .modal-wrap, which keeps the kit order (panel 100 < modal 110 < gate 115)",
+      z.gate > z.modal && z.gate > z.confirm && z.modal === 110 && z.confirm === 110 && z.panel === 100 && z.gate === 115, JSON.stringify(z));
+    await t.ctx.close();
   });
 
   // ------------------------------------------------------------ add client
@@ -606,40 +775,53 @@ async function shot(page, name) {
   // ------------------------------------------------------------ tickets list
   await run("tickets list", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
-    await page.click("a.view-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
-    const nos = () => page.$$eval("#screen-tickets a.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
+    await page.click("a.kit-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    const nos = () => page.$$eval("#screen-tickets tr.tk-row .tk-no", (ns) => ns.map((n) => n.textContent.trim()));
     let list = await nos();
     check("tickets: the last 30 days by default (no T-, not the 45-day-old one)", list.length === 4 && !list.includes("C-103900") && !list.some((x) => /^T-/.test(x)), list.join(","));
     check("tickets: the From box says 30 days back", (await valOf(page, "#tk-from")) === mock.tkDate(29) && (await valOf(page, "#tk-to")) === mock.tkDate(0),
       await valOf(page, "#tk-from"));
     const sum = norm(await page.textContent("#tk-sum"));
     check("tickets: the count and total line", /4 tickets/.test(sum) && /69 500 000/.test(sum), sum);
-    const refund = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230')) .tk-net"));
+    const refund = norm(await page.textContent("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230')) .tk-net"));
     check("tickets: a refund shows negative", refund === "-9 800 000", refund);
+    check("tickets: table with card header and tags", await page.evaluate(() => {
+      const t = document.querySelector("#screen-tickets table.tbl");
+      const th = t && t.querySelector("thead th");
+      const sold = t && t.querySelector("tr.tk-row .tag.act");
+      return !!th && getComputedStyle(th).backgroundColor === "rgb(238, 241, 247)" && !!sold && /posted/i.test(sold.textContent);
+    }));
+    const d0 = norm(await page.textContent("#screen-tickets tr.tk-row >> nth=0 >> .tk-date"));
+    check("tickets: dates read like 15 Nov 2026 14:05", /^\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d\d:\d\d$/.test(d0) && !/\d\.\d\d\.\d{4}/.test(d0), d0);
+    check("tickets: count line reads 'N tickets · net … so'm'", /^4 tickets · net 69 500 000 so'm$/.test(sum), sum);
+    await page.evaluate(() => { LANG = "ru"; renderTkList(); LANG = "en"; });
+    const sumRu = norm(await page.textContent("#tk-sum"));
+    await page.evaluate(() => renderTkList());
+    check("tickets: count line in Russian is pluralised", /^4 чека · нетто 69 500 000 сум$/.test(sumRu), sumRu);
     check("tickets: test sales offered only while training", (await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
     await shot(page, "tickets-1024x768");
     await page.selectOption("#tk-source", "delardi");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 2);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 2);
     list = await nos();
     check("tickets: source 'ours' shows only D-/T-", list.length === 2 && list.every((x) => /^[DT]-/.test(x)), list.join(","));
     await page.selectOption("#tk-source", "");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 4);
     await page.fill("#tk-q", "ZZ.00.11001");
     await page.press("#tk-q", "Enter");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 1);
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 1);
     list = await nos();
     check("tickets: search by serial finds the Colibri ticket", list.length === 1 && list[0] === "C-104233", list.join(","));
     await page.fill("#tk-q", "");
     await page.press("#tk-q", "Enter");
-    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets a.tk-row").length === 4);
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForFunction(() => document.querySelectorAll("#screen-tickets tr.tk-row").length === 4);
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     const det = norm(await page.textContent("#screen-ticket"));
     check("ticket detail: the refund line shows negative", /-9 800 000/.test(norm(await page.textContent("#screen-ticket .tl-row .tl-net"))), det);
     check("ticket detail: Colibri is read-only (no Void, no Receipt)", !(await page.$("#void")) && !(await page.$("#show-receipt")) && /read-only/i.test(det), det);
     await page.goBack();
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     check("tickets: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
@@ -671,6 +853,15 @@ async function shot(page, name) {
     check("void: the reason is shown", /changed her mind/.test(det), det);
     check("void: no stray 'null' on the ticket", !/\bnull\b/.test(await page.evaluate(() => document.querySelector("#screen-ticket").innerText)));
     check("void: no Void button on a void ticket", !(await page.$("#void")));
+    check("void: the ticket's status is a Void tag in alert", await page.evaluate(() => !!document.querySelector("#screen-ticket .tk-status .tag.alert")));
+    await page.click("#screen-ticket a[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    const vr = await page.evaluate(() => {
+      const r = [...document.querySelectorAll("#screen-tickets tr.tk-row")].find((x) => /D-000001/.test(x.textContent));
+      const amt = r.querySelector(".tk-net"), cs = getComputedStyle(amt);
+      return { tag: !!r.querySelector(".tag.alert"), line: cs.textDecorationLine, colour: cs.color };
+    });
+    check("tickets: a voided ticket has a Void tag and its amount struck through", vr.tag && vr.line === "line-through" && vr.colour === "rgb(91, 100, 120)", JSON.stringify(vr));
     await shot(page, "ticket-1024x768");
     check("void: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -687,14 +878,14 @@ async function shot(page, name) {
     const a = await setup(browser, { width: 1024, height: 768 }, { login: false });
     await login(a.page, "rep");
     await a.page.waitForSelector("#screen-sale");
-    check("admin: no tab without manage", !(await a.page.$("a.view-tab[href='#/admin']")));
+    check("admin: no tab without manage", !(await a.page.$("a.kit-tab[href='#/admin']")));
     await a.page.evaluate(() => { location.hash = "#/admin"; });
     await a.page.waitForTimeout(200);
     check("admin: the screen holds no switch without manage", !(await a.page.$("#mode-live")) && !(await a.page.$("#clear-training")));
     await a.ctx.close();
 
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
-    await page.click("a.view-tab[href='#/admin']");
+    await page.click("a.kit-tab[href='#/admin']");
     await page.waitForSelector("#screen-admin #mode-live");
     check("admin: training now", (await page.getAttribute("#mode-training", "aria-pressed")) === "true");
     check("admin: no go-live date yet", /not yet/i.test(await page.textContent("#go-live")));
@@ -722,10 +913,11 @@ async function shot(page, name) {
     await page.click("#confirm-ok");
     await page.waitForSelector(".training-band", { state: "detached" });
     check("admin: Live removes the TRAINING banner", mock.state.mode === "live" && !(await page.$(".training-band")));
-    check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(mock.tkDate(0).split("-").reverse().join(".")),
+    await page.waitForFunction((d) => (document.querySelector("#go-live") || {}).textContent.includes(d), niceDay(mock.tkDate(0))).catch(() => {});
+    check("admin: the go-live date is shown", (await page.textContent("#go-live")).includes(niceDay(mock.tkDate(0))),
       await page.textContent("#go-live"));
-    await page.click("a.view-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.click("a.kit-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     check("admin: Live → no test-sales option in the ticket list", !(await page.$$eval("#tk-source option", (os) => os.map((o) => o.value))).includes("training"));
     check("admin: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -757,25 +949,73 @@ async function shot(page, name) {
       check(`ipad ${tag}: client panel — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-client-" + tag);
       await page.click("#client-close");
-      await page.click("a.view-tab[href='#/tickets']");
-      await page.waitForSelector("#screen-tickets a.tk-row");
+      await page.click("a.kit-tab[href='#/tickets']");
+      await page.waitForSelector("#screen-tickets tr.tk-row");
       check(`ipad ${tag}: tickets — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
       check(`ipad ${tag}: tickets — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-tickets-" + tag);
-      await page.click("#screen-tickets a.tk-row >> nth=0");
+      await page.click("#screen-tickets tr.tk-row >> nth=0");
       await page.waitForSelector("#screen-ticket .tl-row");
       check(`ipad ${tag}: ticket — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
       check(`ipad ${tag}: ticket — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-ticket-" + tag);
-      await page.click("a.view-tab[href='#/admin']");
+      await page.click("a.kit-tab[href='#/admin']");
       await page.waitForSelector("#screen-admin #mode-live");
       check(`ipad ${tag}: admin — no sideways scroll`, await noHScroll(page));
       small = await smallButtons(page);
       check(`ipad ${tag}: admin — buttons ≥ 44 px`, small.length === 0, small.join(", "));
       await shot(page, "ipad-admin-" + tag);
       check(`ipad ${tag} screens: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    });
+  }
+
+  // ------------------------------------- every screen at both iPad sizes
+  // No sideways scroll always; named screenshots (SHOTS) for a visual pass.
+  for (const vp of [{ width: 1024, height: 768, land: true }, { width: 768, height: 1024, land: false }]) {
+    const tag = vp.width + "x" + vp.height;
+    await run("screens pass " + tag, async () => {
+      const { ctx, page, errors } = await setup(browser, vp, { touch: true });
+      const calm = () => page.waitForFunction(() => !document.querySelector('#toast.show')).catch(() => {});
+      const out = (n1, n2) => (vp.land ? n1 : n2);
+      await addLine(page, "2000000000031");
+      await addLine(page, "2000000000048");
+      check(`screens ${tag}: no watermark monogram`, !(await page.$(".watermark")));
+      check(`screens ${tag}: sale — no sideways scroll`, await noHScroll(page));
+      await calm(); await shot(page, out("01-sale", "08-sale-portrait"));
+      await page.fill("#q", "Messika");
+      await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length >= 3);
+      check(`screens ${tag}: search — no sideways scroll`, await noHScroll(page));
+      if (vp.land) { await calm(); await shot(page, "02-search"); }
+      await page.fill("#q", "");
+      await openSokolova(page);
+      check(`screens ${tag}: client — no sideways scroll`, await noHScroll(page));
+      await calm(); await shot(page, out("05-client", "10-client-portrait"));
+      await page.evaluate(() => document.querySelector("#client-panel .panel-scrim").click());
+      await page.waitForSelector("#client-panel .panel", { state: "detached" });
+      await toPay(page);
+      await addPay(page, "cash", "100 000 000");
+      check(`screens ${tag}: payment — no sideways scroll`, await noHScroll(page));
+      await calm(); await shot(page, out("03-payment", "09-payment-portrait"));
+      await page.click("#add-card");
+      await page.click("[data-card=visa]");
+      await page.fill(".pay-row:nth-child(2) input.amt", "176 500 000");
+      await page.dispatchEvent(".pay-row:nth-child(2) input.amt", "change");
+      await page.click("#post");
+      await page.waitForSelector("#screen-receipt .receipt");
+      check(`screens ${tag}: receipt — no sideways scroll`, await noHScroll(page));
+      if (vp.land) { await calm(); await shot(page, "04-receipt"); }
+      await page.click("a.kit-tab[href='#/tickets']");
+      await page.waitForSelector("#screen-tickets tr.tk-row");
+      check(`screens ${tag}: tickets — no sideways scroll`, await noHScroll(page));
+      if (vp.land) { await calm(); await shot(page, "06-tickets"); }
+      await page.evaluate(() => lockDown());
+      await page.waitForSelector("#gate-pass");
+      check(`screens ${tag}: lock — no sideways scroll`, await noHScroll(page));
+      if (vp.land) { await calm(); await shot(page, "07-lock"); }
+      check(`screens ${tag}: no script errors`, errors.length === 0, errors.join(" | "));
       await ctx.close();
     });
   }
@@ -846,23 +1086,23 @@ async function shot(page, name) {
     await login(page, "nocrm");
     await page.waitForSelector("#screen-sale");
     check("sales only: rights.crm is false", await page.evaluate(() => S.rights.crm === false));
-    await page.click("a.view-tab[href='#/tickets']");
-    await page.waitForSelector("#screen-tickets a.tk-row");
+    await page.click("a.kit-tab[href='#/tickets']");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
     const list = norm(await page.textContent("#screen-tickets"));
-    const row = norm(await page.textContent("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
+    const row = norm(await page.textContent("#screen-tickets tr.tk-row:has(.tk-no:text-is('D-000002')) .tk-client"));
     check("sales only: the list shows the client reference, not the name", row === "DLD-9001" && !/Соколова/.test(list), row);
     const listCall = mock.state.calls.filter((c) => c.action === "tickets").pop();
     const [, listRes] = mock.handle(Object.assign({}, listCall));
     check("sales only: no client_name in the list answer", listRes.rows.every((r) => !("client_name" in r)), JSON.stringify(listRes.rows[0]));
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('D-000002'))");
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('D-000002'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     await page.click("#show-receipt");
     await page.waitForSelector("#screen-ticket .receipt");
     const det = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
     check("sales only: the receipt says Client: DLD-9001, without the name", /Client: DLD-9001/.test(det) && !/Соколова/.test(det), det);
     await page.goBack();
-    await page.waitForSelector("#screen-tickets a.tk-row");
-    await page.click("#screen-tickets a.tk-row:has(.tk-no:text-is('C-104230'))");
+    await page.waitForSelector("#screen-tickets tr.tk-row");
+    await page.click("#screen-tickets tr.tk-row:has(.tk-no:text-is('C-104230'))");
     await page.waitForSelector("#screen-ticket .tl-row");
     const det2 = norm(await page.evaluate(() => document.querySelector("#screen-ticket").innerText));
     check("sales only: Colibri's raw client text is not shown", !/Invented Buyer/.test(det2), det2);
@@ -875,7 +1115,7 @@ async function shot(page, name) {
       lines: [{ piece_id: p.piece_id, price_uzs: 31500000 }], payments: [{ method: "cash", amount: 31500000 }] } });
     check("sales only: (contract) a post naming a client is 403", st403 === 403 && b403.error === "Your account cannot attach clients — use Walk-in.", b403.error);
     // the page posts Walk-in, which goes through
-    await page.click("a.view-tab[href='#/sale']");
+    await page.click("a.kit-tab[href='#/sale']");
     await page.waitForSelector("#screen-sale");
     await addLine(page, "2000000000031");
     await toPay(page);
@@ -928,6 +1168,278 @@ async function shot(page, name) {
     check("payment: a minus sign is refused", (await inv(".pay-row:nth-child(1) input.amt")) && !(await postEnabled(page)));
     check("amount input: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
+  });
+
+  // ----------------------------------------------------- payment and receipt on the kit
+  const geo = (page, sel) => page.$eval(sel, (n) => { const r = n.getBoundingClientRect(); return { l: r.left, t: r.top, b: r.bottom, w: r.width }; });
+  await run("pay on the kit", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await addLine(page, "2000000000048");
+    await toPay(page);
+    await addPay(page, "cash", "100 000 000");
+    const m = await geo(page, ".pay-main"), sd = await geo(page, ".pay-side");
+    check("pay: two columns at 1024 — methods left, summary right", sd.l > m.l + 100 && Math.abs(sd.t - m.t) <= 4, JSON.stringify([m, sd]));
+    check("pay: the summary column is on the card ground", await page.$eval(".pay-side", (n) => getComputedStyle(n).backgroundColor) === "rgb(238, 241, 247)");
+    const side = norm(await page.textContent(".pay-side"));
+    check("pay: summary shows To pay, Paid, Left to pay and Post sale", /To pay/.test(side) && /Paid/.test(side) && /Left to pay/.test(side) && /Post sale/.test(side) &&
+      await page.$eval("#post", (b) => b.matches(".btn.primary") && !!b.closest(".pay-side")), side);
+    check("pay: the summary lists the lines and the To pay amount is a key number",
+      (await page.$$(".pay-side .ps-line")).length === 2 && await page.$eval(".pay-side .keynum", (k) => { const n = (t) => Number(t.replace(/\D/g, "")); return n(k.textContent) === [...document.querySelectorAll(".ps-line .money")].reduce((x, m) => x + n(m.textContent), 0) && n(k.textContent) > 0; }));
+    check("pay: Back to the sale sits in the summary", /Back to the sale/.test(norm(await page.textContent("#back"))) && await page.$eval("#back", (b) => !!b.closest(".pay-side")));
+    await page.click("#add-card");
+    check("pay: the Card menu still opens with Uzcard, Humo, Visa", (await page.$$eval("[data-card]", (bs) => bs.map((b) => b.dataset.card))).join() === "uzcard,humo,visa");
+    await page.click("#add-card");
+    check("pay: cash notice hidden below the limit", !(await page.isVisible(".cash-notice")));
+    await page.fill(".pay-row:nth-child(1) input.amt", "170 000 001");
+    await page.dispatchEvent(".pay-row:nth-child(1) input.amt", "change");
+    check("pay: cash notice is a .notice box and appears above 170 000 000 cash",
+      await page.isVisible(".notice.cash-notice") && /card/i.test(await page.textContent(".notice.cash-notice")));
+    await page.setViewportSize({ width: 768, height: 1024 });
+    const m2 = await geo(page, ".pay-main"), s2 = await geo(page, ".pay-side");
+    check("pay: stacks at 768 wide", s2.t >= m2.b - 1 && s2.w > 600, JSON.stringify([m2, s2]));
+    check("pay: no sideways scroll at 768", await noHScroll(page));
+    check("pay: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("pay in Russian", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await toPay(page, { seller: "Dilnoza A." });
+    const t = norm(await page.textContent(".pay-side"));
+    check("pay (RU): Left to pay, Back to the sale and To pay are translated", /Осталось оплатить/.test(t) && /Вернуться к продаже/.test(t) && !/Left to pay|Back to the sale/.test(t), t);
+    await ctx.close();
+  });
+  for (const mode of ["training", "live"]) {
+    await run("receipt on the kit " + mode, async () => {
+      const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { mode });
+      await addLine(page, "2000000000031");
+      await toPay(page);
+      await addPay(page, "cash", "31 500 000");
+      await page.click("#post");
+      await page.waitForSelector("#screen-receipt .receipt");
+      const r = await geo(page, "#screen-receipt .receipt"), sv = await geo(page, ".saved-panel");
+      check(`receipt ${mode}: preview on the left, Sale saved panel on the right`, sv.l > r.l + r.w - 1 && /Sale saved/.test(await page.textContent(".saved-panel")), JSON.stringify([r, sv]));
+      check(`receipt ${mode}: preview sits on a card ground`, await page.$eval(".receipt-stage", (n) => getComputedStyle(n).backgroundColor) === "rgb(238, 241, 247)");
+      const sp = norm(await page.textContent(".saved-panel"));
+      check(`receipt ${mode}: panel has the ticket, the amount, Print receipt and New sale`, /(T|D)-\d{6}/.test(sp) && /31 500 000/.test(sp) && /Print receipt/.test(sp) && !!(await page.$(".saved-panel #new-sale")), sp);
+      check(`receipt ${mode}: "The pieces are now marked as sold." only in Live`,
+        mode === "live" ? /marked as sold/.test(sp) : !/marked as sold/.test(sp), sp);
+      if (mode === "training") {
+        check("receipt training: the note and the TRAINING strip show", /not appear in reports|cleared/i.test(sp) && !!(await page.$(".receipt .rc-train")), sp);
+        await page.setViewportSize({ width: 768, height: 1024 });
+        const r2 = await geo(page, "#screen-receipt .receipt"), s2 = await geo(page, ".saved-panel");
+        check("receipt: stacks under 900 px", s2.t >= r2.b - 1, JSON.stringify([r2, s2]));
+        check("receipt: no sideways scroll at 768", await noHScroll(page));
+        await page.setViewportSize({ width: 1024, height: 768 });
+        await page.emulateMedia({ media: "print" });
+        check("receipt print: the side panel and the page chrome do not print, the receipt does",
+          !(await page.isVisible(".saved-panel")) && !(await page.isVisible(".top")) && await page.isVisible("#screen-receipt .receipt"));
+        await page.emulateMedia({ media: "screen" });
+      } else {
+        check("receipt: Live shows no TRAINING strip and no empty gap", !(await page.$(".receipt .rc-train")) && !/training/i.test(sp) &&
+          await page.$eval(".receipt .rc-body", (b) => { const f = [...b.children].find((c) => c.offsetHeight > 0); return !!f && f.getBoundingClientRect().top - b.getBoundingClientRect().top <= 24; }));
+      }
+      check(`receipt ${mode}: the date on the receipt is dd.mm.yyyy hh:mm`, /\d\d\.\d\d\.\d{4} \d\d:\d\d/.test(await page.textContent(".receipt .rc-ticket")));
+      check(`receipt ${mode}: no script errors`, errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    });
+  }
+
+  await run("receipt reload", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await addLine(page, "2000000000048");
+    await toPay(page);
+    const due = norm(await page.textContent("#total")).replace(/\s*so'm$/, "");
+    await addPay(page, "cash", due);
+    await page.click("#post");
+    await page.waitForSelector("#screen-receipt .receipt");
+    const tk = mock.state.tickets[mock.state.tickets.length - 1];
+    tk.lines.forEach((l) => { l.net = String(l.net); });          // numerics arrive as strings from the API
+    await page.reload();
+    await page.waitForSelector("#screen-receipt .saved-panel");
+    const sp = norm(await page.textContent(".saved-panel"));
+    check("receipt reload: the amount is the grouped total even when net arrives as a string", sp.includes("· " + due + " so'm"), sp + " | due " + due);
+    check("receipt reload: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  /* ============================================== final whole-branch review */
+  // F1: the single ticket keeps its layout on the kit
+  await run("ticket detail layout", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/ticket/30000000-0000-4000-8000-000000000002" });
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const g = await page.evaluate(() => {
+      const cs = (n) => getComputedStyle(n);
+      const row = document.querySelector(".tl-row"), tag = document.querySelector(".tl-title .tag");
+      const pay = document.querySelector(".tl-pay"), [m, a] = pay ? pay.children : [];
+      const dl = document.querySelector(".tk-meta"), ol = document.querySelector(".tl-lines");
+      return { row: cs(row).display, tag: cs(tag).display, tagW: tag.getBoundingClientRect().width,
+        payGap: m && a ? a.getBoundingClientRect().left - m.getBoundingClientRect().right : -1, payText: pay ? pay.textContent : "",
+        dl: cs(dl).display, dd: cs(dl.querySelector("dd")).marginLeft, ol: cs(ol).listStyleType,
+        loading: !!document.querySelector("#screen-ticket .loading") };
+    });
+    check("ticket detail: .tl-row is a grid", g.row === "grid", JSON.stringify(g));
+    check("ticket detail: the Refund tag is a kit tag (inline, narrower than 200 px)", /^inline/.test(g.tag) && g.tagW < 200, JSON.stringify(g));
+    check("ticket detail: payments show the method and the amount apart", g.payGap >= 12 && /Cash/.test(g.payText), JSON.stringify(g));
+    check("ticket detail: the facts are a grid, no default <dl> indent, no numbered list", g.dl === "grid" && g.dd === "0px" && g.ol === "none", JSON.stringify(g));
+    check("ticket detail: the Loading… line is gone once the ticket shows", !g.loading, JSON.stringify(g));
+    await page.goto(PAGE_URL + "#/ticket/30000000-0000-4000-8000-000000000003");
+    await page.waitForSelector("#screen-ticket .tl-row");
+    const acts = await page.evaluate(() => { const a = document.querySelector(".tk-actions"); const [b1, b2] = a.children;
+      return { d: getComputedStyle(a).display, gap: b2.getBoundingClientRect().left - b1.getBoundingClientRect().right }; });
+    check("ticket detail: Receipt and Void sit in a row with a gap", acts.d === "flex" && acts.gap >= 8, JSON.stringify(acts));
+    await page.click("#void");
+    await page.fill("#void-reason", "Checking the layout.");
+    await page.click("#void-go");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForSelector("#era-reminder");
+    const era = await page.$eval("#era-reminder", (n) => { const c = getComputedStyle(n); return { cls: n.className, bg: c.backgroundColor, bd: c.borderTopStyle, fw: c.fontWeight }; });
+    check("ticket detail: the Era reminder after a void is a .notice box in bold", /\bnotice\b/.test(era.cls) && era.bg === "rgb(238, 241, 247)" && era.bd === "solid" && Number(era.fw) >= 700, JSON.stringify(era));
+    check("ticket detail: no sideways scroll", await noHScroll(page));
+    await page.waitForFunction(() => !document.querySelector("#toast.show")).catch(() => {});
+    await page.waitForTimeout(300);                 // the toast's fade-out
+    await shot(page, "11-ticket");
+    check("ticket detail: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  // F3: leaving the till asks first while a sale is on screen
+  const stubOut = async (page) => {
+    await page.route(ROOT + "crm/", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p id=away>crm</p>" }));
+    await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p id=away>landing</p>" }));
+  };
+  await run("leave the till", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await addLine(page, "2000000000031");
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    const d = norm(await page.textContent("#confirm-dialog"));
+    check("leave: with sale lines the Tools switcher asks first", /Leave the till\?/.test(d) && /The sale on screen will be lost\./.test(d) &&
+      norm(await page.textContent("#confirm-ok")) === "Leave" && norm(await page.textContent("#confirm-cancel")) === "Stay" &&
+      await page.$eval("#confirm-ok", (b) => b.matches(".btn.primary")), d);
+    await page.click("#confirm-cancel");
+    await page.waitForSelector("#confirm-dialog", { state: "detached" });
+    await page.waitForTimeout(150);
+    check("leave: Stay keeps the sale and the URL", page.url().startsWith(PAGE_URL) && (await page.$$("#lines .line")).length === 1, page.url());
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    await page.click("#confirm-ok");
+    await page.waitForURL(ROOT + "crm/");
+    check("leave: Leave goes to the tool", page.url() === ROOT + "crm/", page.url());
+    await page.goto(PAGE_URL);
+    await page.waitForSelector("#q");
+    await addLine(page, "2000000000031");
+    await page.click(".kit-head a.kit-brand");
+    await page.waitForSelector("#confirm-dialog");
+    check("leave: the wordmark asks too", /Leave the till\?/.test(norm(await page.textContent("#confirm-dialog"))));
+    await page.click("#confirm-ok");
+    await page.waitForURL(ROOT);
+    check("leave: Leave from the wordmark goes to the landing page", page.url() === ROOT, page.url());
+    check("leave: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+  await run("leave the till, empty sale", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForURL(ROOT + "crm/", { timeout: 3000 }).catch(() => {});
+    check("leave: with no sale lines the switcher goes straight there", page.url() === ROOT + "crm/", page.url());
+    await ctx.close();
+  });
+  await run("leave the till RU", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await stubOut(page);
+    await addLine(page, "2000000000031");
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await page.click(".kit-head [data-kit-menu] > button");
+    await page.click(".kit-menu a[href='../crm/']");
+    await page.waitForSelector("#confirm-dialog");
+    const d = norm(await page.textContent("#confirm-dialog"));
+    check("leave (RU): the question is in Russian", /Уйти из кассы\?/.test(d) && /Продажа на экране будет потеряна\./.test(d) &&
+      norm(await page.textContent("#confirm-ok")) === "Уйти" && norm(await page.textContent("#confirm-cancel")) === "Остаться", d);
+    await ctx.close();
+  });
+
+  // F4 + F9: lock closes the card menu and makes the page behind it inert
+  await run("lock resets the card menu and makes #app inert", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await page.click("#add-card");
+    await page.waitForSelector(".card-menu");
+    await page.evaluate(() => lockDown());
+    await page.waitForSelector("#gate-pass");
+    check("lock: the card menu is closed by the lock", await page.evaluate(() => payMenuOpen === false));
+    const foc = await page.evaluate(() => { const b = document.querySelector(".kit-head [data-kit-menu] > button"); b.focus();
+      return { inert: document.querySelector("#app").inert === true, focused: document.activeElement === b }; });
+    check("lock: #app is inert, Tab cannot reach the Tools button", foc.inert && !foc.focused, JSON.stringify(foc));
+    await login(page);
+    await page.waitForSelector("#screen-pay");
+    check("lock: after unlock #app is not inert and the card menu is shut", await page.evaluate(() => document.querySelector("#app").inert === false) &&
+      !(await page.$(".card-menu")));
+    await ctx.close();
+  });
+
+  // F5: a dialog opened over the client panel is on top of it
+  await run("modal above panel", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await page.evaluate(() => { document.body.appendChild(Object.assign(document.createElement("div"), { className: "panel-wrap", id: "probe-panel" })); confirmBox({ title: "Probe", body: "x" }); });
+    await page.waitForSelector("#confirm-dialog");
+    check("dialogs: a confirm opened over a panel is on top", await page.evaluate(() => {
+      const r = document.querySelector("#confirm-ok").getBoundingClientRect();
+      return !!document.elementFromPoint(r.left + 4, r.top + 4).closest("#confirm-dialog");
+    }));
+    await ctx.close();
+  });
+
+  // F7: Russian at 768 — one header row, the client panel footer fits
+  await run("russian header at 768", async () => {
+    const { ctx, page } = await setup(browser, { width: 768, height: 1024 });
+    await page.click(".kit-lang button[lang=ru]");
+    await page.waitForSelector("#screen-sale");
+    await page.evaluate(() => { S.name = "Александра Константиновна Иванова-Петрова"; renderAll(); });   // a long signed-in name
+    await page.waitForSelector("#screen-sale");
+    const h = await page.$eval(".kit-head", (n) => n.getBoundingClientRect().height);
+    check("RU 768: the header stays one row (≤ 60 px)", h <= 60, String(h));
+    check("RU 768: no sideways scroll", await noHScroll(page));
+    const st = await page.$eval(".kit-staff", (n) => { const c = getComputedStyle(n); return { o: c.overflow, t: c.textOverflow, mw: c.maxWidth }; });
+    check("RU 768: the staff name truncates with an ellipsis", st.t === "ellipsis" && st.o === "hidden" && st.mw !== "none", JSON.stringify(st));
+    await page.click("#find-client");
+    await page.waitForSelector("#client-q");
+    await page.fill("#client-q", "Соколова");
+    await page.waitForSelector("#client-results .cl-row");
+    await page.click("#client-results .cl-row >> nth=0");
+    await page.waitForSelector("#client-card .cc-name");
+    const o = await page.evaluate(() => { const f = document.querySelector(".cp-foot"), p = f.closest(".panel").getBoundingClientRect();
+      return { wrap: getComputedStyle(f).flexWrap, out: [...f.querySelectorAll("button, a")].filter((b) => { const r = b.getBoundingClientRect(); return r.width && (r.right > p.right + 0.5 || r.left < p.left - 0.5); }).map((b) => b.textContent) }; });
+    check("RU 768: the client panel footer wraps and its buttons stay inside the panel", o.wrap === "wrap" && o.out.length === 0, JSON.stringify(o));
+    await ctx.close();
+  });
+
+  // F8: the Overpaid line is plain slate text; no rights → kit .notice
+  await run("overpaid and notice", async () => {
+    const { ctx, page } = await setup(browser, { width: 1024, height: 768 });
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    await addPay(page, "cash", "99 000 000");
+    const o = await page.$eval(".ps-ok.short", (n) => { const c = getComputedStyle(n); return { c: c.color, w: c.fontWeight }; });
+    check("pay: Overpaid by … is plain slate text", o.c === "rgb(91, 100, 120)" && Number(o.w) === 400, JSON.stringify(o));
+    await ctx.close();
+    const b = await setup(browser, { width: 1024, height: 768 }, { login: false, hash: "#/sale" });
+    await login(b.page, "look");
+    await b.page.waitForSelector("#main .notice");
+    check("sale: no right to sell → a kit .notice, not .notice-box", !(await b.page.$(".notice-box")) && /cannot make sales/.test(await b.page.textContent("#main .notice")));
+    await b.ctx.close();
   });
 
   await browser.close();

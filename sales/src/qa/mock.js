@@ -49,6 +49,9 @@ function freshPieces() {
     // sold on the seeded live ticket D-000001 (voiding it puts it back)
     p({ serial: "ZZ.00.12001", barcode: "2000000000123", brand: "Pomellato", article: "ZZ-PO-1201", collection: "Nudo",
       model_name: "Nudo Ring", size: "53", metal_keys: ["rose_gold"], stone_keys: [], price_uzs: 24600000, state: "sold" }),
+    // a 60-character model name, to see long names wrap
+    p({ serial: "ZZ.00.80001", barcode: "2000000000086", brand: "Invented Maison", article: "ZZ-IM-0801", collection: "Long Names",
+      model_name: "Grand Heritage Perpetual Calendar Skeleton Tourbillon Piece", size: "40", metal_keys: ["platinum"], stone_keys: [], price_uzs: 99000000 }),
     // no catalogue price: the seller types one
     p({ serial: "ZZ.00.70001", barcode: "2000000000079", brand: "Chimento", article: "ZZ-CH-0701", collection: "Stretch",
       model_name: "Stretch Ring", size: "54", metal_keys: ["rose_gold"], stone_keys: [], price_uzs: null }),

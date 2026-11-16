@@ -13,7 +13,6 @@ const LOGO_WORDMARK = "__WORDMARK__";
 const LOGO_MONO = "__MONO_NAVY__";
 const SESSION_KEY = "sales_session";      // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "sales_last_active";   // sessionStorage: last touch, for the idle lock
-const THEME_KEY = "board_theme";          // shared with the other Delardi tools
 const LANG_KEY = "delardi_lang";          // shared with the landing page
 const IDLE_MIN = 15;                      // touch devices only (global constraints)
 const MAX_DISCOUNT = 99.9999;             // ops_ticket_lines.discount_pct is numeric(6,4)
@@ -26,25 +25,24 @@ const MAX_PAYMENTS = 10;
 const RU = {
   // shell, gate
   "Sales": "Продажи",
-  "Delardi till": "Касса Delardi",
   "All tools": "Все инструменты",
-  "All Delardi tools": "Все инструменты Delardi",
+  "Leave the till?": "Уйти из кассы?",
+  "The sale on screen will be lost.": "Продажа на экране будет потеряна.",
+  "Leave": "Уйти",
+  "Stay": "Остаться",
   "Language": "Язык",
-  "Switch between light and dark": "Переключить светлую и тёмную тему",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
   "New sale": "Новая продажа",
   "Tickets": "Чеки",
   "Admin": "Управление",
-  "Unlock": "Вход",
-  "Enter your personal passcode to open the till.": "Введите свой личный код доступа, чтобы открыть кассу.",
-  "Your passcode": "Ваш код доступа",
-  "Open the till": "Открыть кассу",
+  "Unlock": "Открыть",
+  "Boutique tools": "Инструменты бутика",
+  "Passcode": "Код доступа",
+  "Opens the till": "Открывает кассу",
   "Checking…": "Проверяем…",
   "Enter your passcode.": "Введите код доступа.",
   "The sale in progress is kept: {n}.": "Текущая продажа сохранена: {n}.",
-  "Nothing behind this card is real until your passcode is accepted. A CRM or board passcode opens the till only if you have been given Sales rights.":
-    "За этой карточкой нет данных, пока код не принят. Код от CRM или доски открывает кассу, только если вам даны права на продажи.",
   "Locked after {n} minutes without use.": "Заблокировано после {n} минут без действий.",
   "Welcome, {name}": "Здравствуйте, {name}!",
   "TRAINING": "ОБУЧЕНИЕ",
@@ -174,8 +172,36 @@ function markInvalid(input, bad) {
   if (!input) return;
   if (bad) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
 }
+// Dates on screens: "16 Nov 2026" / "16 ноя 2026"; on receipts and exports: "16.11.2026".
+// Always the boutique's day (Tashkent). Month names come from fixed lists, not from
+// Intl, whose Russian short months carry a trailing dot.
+const MONTHS = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  ru: ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
+};
+const TZ = "Asia/Tashkent";
+function tashkentDay(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const parts = {};
+  for (const p of new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(d)) parts[p.type] = p.value;
+  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) };
+}
+function fmtDate(iso) {
+  const t = tashkentDay(iso);
+  if (!t) return "—";
+  return t.d + " " + MONTHS[LANG === "ru" ? "ru" : "en"][t.m - 1] + " " + t.y;
+}
+function fmtDateNum(iso) {
+  const t = tashkentDay(iso);
+  if (!t) return "—";
+  return String(t.d).padStart(2, "0") + "." + String(t.m).padStart(2, "0") + "." + t.y;
+}
+// "14:05" in Tashkent time, so it agrees with fmtDate around midnight
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString(LANG === "ru" ? "ru-RU" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 function toast(msg) {
   const t = $("#toast");
@@ -209,6 +235,10 @@ function lineNet(line) {
   let q = a / 1000000n;
   if ((a % 1000000n) * 2n >= 1000000n) q += 1n;           // half away from zero
   return Number(neg ? -q : q);
+}
+// Net of a stored ticket's lines: Number() because the API may send numerics as strings; refunds count negative.
+function docTotal(lines) {
+  return (lines || []).reduce((a, l) => a + (l.kind === "refund" ? -Number(l.net) : Number(l.net)), 0);
 }
 function saleTotal(sale) {
   return (sale || S.sale).lines.reduce((t, l) => t + (lineNet(l) || 0), 0);
@@ -255,7 +285,7 @@ function syncMode(mode) {
   if (S.locked) return;
   if (route().name === "admin") { renderAll(); return; }
   const h = document.querySelector("#app > header.top");
-  if (h) h.replaceWith(renderHeader());
+  if (h) { kitCloseMenus(); h.replaceWith(renderHeader()); }
 }
 
 /* ----------------------------------------------------------------- dialogs
@@ -268,7 +298,7 @@ function modal(id, title, body, foot, cls) {
   const close = () => { const h = document.getElementById(id); if (h) h.remove(); };
   const host = el("div", { id, class: "modal-wrap" + (cls ? " " + cls : "") },
     el("div", { class: "modal-scrim", onclick: close }),
-    el("section", { class: "modal", role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
+    el("section", { class: "modal" + (cls ? " " + cls : ""), role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title" },
       el("div", { class: "modal-head" },
         el("h3", { id: id + "-title", text: title }),
         el("button", { class: "btn subtle close", type: "button", id: id + "-close", "aria-label": tr("Close"), onclick: close, text: "×" })),
@@ -277,13 +307,13 @@ function modal(id, title, body, foot, cls) {
   document.body.appendChild(host);
   return { host, close };
 }
-function confirmBox({ title, body, ok, danger }) {
+function confirmBox({ title, body, ok, cancel, danger }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal("confirm-dialog", title, [].concat(body).map((t) => typeof t === "string" ? el("p", { text: t }) : t), [
       el("button", { type: "button", class: "btn " + (danger ? "danger" : "primary"), id: "confirm-ok", onclick: () => finish(true) }, ok || tr("Yes")),
-      el("button", { type: "button", class: "btn subtle", id: "confirm-cancel", onclick: () => finish(false) }, tr("Cancel")),
+      el("button", { type: "button", class: "btn", id: "confirm-cancel", onclick: () => finish(false) }, cancel || tr("Cancel")),
     ], "confirm");
     // closing it any other way (×, the scrim) is a no
     new MutationObserver((_, obs) => { if (!m.host.isConnected) { obs.disconnect(); finish(false); } })
@@ -322,38 +352,40 @@ window.addEventListener("hashchange", () => { if (!S.locked) renderAll(); });
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
-  return el("div", { class: "lang", role: "group", "aria-label": tr("Language") }, ["en", "ru"].map((l) =>
-    el("button", { type: "button", lang: l, "aria-pressed": LANG === l ? "true" : "false",
+  return el("div", { class: "kit-lang", role: "group", "aria-label": tr("Language") }, ["en", "ru"].map((l) =>
+    el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
-// The half-disc theme icon the other tools use (markup, no namespace URL).
-const THEME_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4"></circle><path d="M8 1.5a6.5 6.5 0 0 0 0 13z" fill="currentColor"></path></svg>';
+// Leaving the till (the Tools switcher, the wordmark) drops the sale on screen: with lines
+// on it, ask first. The kit calls this before it follows the link (ui/tools.js kitGuardLink).
+function beforeLeave() {
+  if (S.locked || !S.sale.lines.length) return Promise.resolve(true);
+  return confirmBox({ title: tr("Leave the till?"), body: tr("The sale on screen will be lost."), ok: tr("Leave"), cancel: tr("Stay") });
+}
+// The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
+// the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
+// TRAINING band sit under it, in the same sticky block.
 function renderHeader() {
   const r = route().name;
-  const tab = (name, href, label, show) => show ? el("a", { class: "view-tab", href,
+  const tab = (name, href, label, show) => show ? el("a", { class: "kit-tab", href,
     "aria-current": (r === name || (name === "sale" && (r === "pay" || r === "receipt")) || (name === "tickets" && r === "ticket")) ? "page" : null,
     text: tr(label) }) : null;
   return el("header", { class: "top" },
-    el("div", { class: "top-row" },
-      el("div", { class: "brand" },
-        el("a", { class: "home", href: "../", title: tr("All Delardi tools") },
-          el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
-        el("span", { class: "rule", "aria-hidden": "true" }),
-        el("div", {}, el("div", { class: "title", text: tr("Sales") }), el("div", { class: "sub", text: tr("Delardi till") }))),
-      el("div", { class: "spacer" }),
+    el("div", { class: "kit-head" },
+      kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
+      el("span", { class: "kit-rule", "aria-hidden": "true" }),
+      el("span", { class: "kit-tool", text: tr("Sales") }),
+      el("span", { class: "kit-spacer" }),
+      kitToolsMenu("sales", LANG, { beforeLeave }),
       langSwitch(),
-      el("button", { class: "btn subtle", type: "button", "aria-label": tr("Switch between light and dark"),
-        title: tr("Switch between light and dark"), onclick: toggleTheme, html: THEME_ICON }),
-      S.token ? el("span", { class: "lock-state" },
-        el("span", { class: "dot", "aria-hidden": "true" }),
-        el("span", { class: "who hide-sm", text: S.name }),
-        el("button", { class: "btn subtle", type: "button", onclick: lockNow, text: tr("Lock") })) : null),
-    el("nav", { class: "views", "aria-label": tr("Sales") },
+      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
+      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
+    el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
       tab("tickets", "#/tickets", "Tickets", S.rights.view),
       tab("admin", "#/admin", "Admin", S.rights.manage)),
-    S.mode === "training" ? el("div", { class: "training-band", role: "note" },
-      el("b", { text: tr("TRAINING") }), el("span", { text: "— " + tr("practice mode: nothing posted here is a real sale") })) : null);
+    S.mode === "training" ? el("div", { class: "band training-band", role: "note" },
+      el("span", { class: "lbl", text: tr("TRAINING") }), el("span", { text: tr("practice mode: nothing posted here is a real sale") })) : null);
 }
 
 /* -------------------------------------------------------------------- gate */
@@ -364,7 +396,7 @@ function renderGate() {
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
-  const btn = el("button", { class: "btn primary", type: "submit", text: tr("Open the till") });
+  const btn = el("button", { class: "btn primary", type: "submit", text: tr("Unlock") });
   const n = S.sale.lines.length;
   const submit = async (ev) => {
     ev.preventDefault();
@@ -387,25 +419,26 @@ function renderGate() {
       toast(tr("Welcome, {name}", { name: r.name }));
     } catch (e) {
       err.textContent = e.message; err.hidden = false;
-      btn.disabled = false; btn.textContent = tr("Open the till");
+      btn.disabled = false; btn.textContent = tr("Unlock");
       pass.value = ""; pass.focus();
     }
   };
   const card = el("form", { class: "gate-card", onsubmit: submit },
     el("div", { class: "gate-mast" },
-      el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
-      el("div", { class: "gate-tools" }, langSwitch())),
-    el("h2", { text: tr("Sales") }),
-    el("p", { class: "lead", text: tr("Enter your personal passcode to open the till.") }),
+      el("div", { class: "gate-brand" },
+        el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
+        el("span", { text: tr("Boutique tools") })),
+      langSwitch()),
     n ? el("p", { class: "kept", text: tr("The sale in progress is kept: {n}.", { n: pl(n, "piece") }) }) : null,
     err,
-    el("label", { for: "gate-pass" }, el("span", { text: tr("Your passcode") }), pass),
+    el("label", { for: "gate-pass" }, el("span", { class: "lbl", text: tr("Passcode") }), pass),
     btn,
-    el("p", { class: "gate-foot", text: tr("Nothing behind this card is real until your passcode is accepted. A CRM or board passcode opens the till only if you have been given Sales rights.") }));
+    el("p", { class: "gate-foot small", text: tr("Opens the till") }));
   document.body.appendChild(el("div", { class: "gate", id: "gate", role: "dialog", "aria-modal": "true", "aria-label": tr("Unlock") }, card));
   const app = $("#app");
   app.classList.add("gated");
   app.setAttribute("aria-hidden", "true");
+  app.inert = true;                                // Tab cannot reach the header behind the card
   setTimeout(() => pass.focus(), 60);
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
@@ -417,10 +450,14 @@ function lockDown(message) {
   S.locked = true;
   S.gateMessage = message || null;
   S.search.open = false;
+  payMenuOpen = false;                             // pay.js: the Card menu is shut after the unlock
+  // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
+  kitCloseMenus();
   // Client data lives in overlays on <body>, outside the gated #app: close them, so nothing the
   // seller typed or looked up stays on screen above the passcode card.
   if (typeof closeAddClient === "function") closeAddClient(true);
-  document.querySelectorAll("#addwrap, .modal-wrap").forEach((n) => n.remove());
+  if (typeof closeClientPanel === "function") closeClientPanel();      // clears the search timer and S.cp
+  document.querySelectorAll("#addwrap, .modal-wrap, .panel-wrap").forEach((n) => n.remove());
   renderGate();
 }
 function lockNow() { lockDown(); toast(tr("Locked.")); }
@@ -447,22 +484,6 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", (e) => { if (e.persisted) idleCheck(); });
 
-/* ------------------------------------------------------------------- theme */
-function applyTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("sysdark", mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-}
-function toggleTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  const next = mode === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark")
-    : mode === "dark" ? "light" : "dark";
-  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* ignore */ }
-  applyTheme();
-}
-
 async function loadReference() {
   const r = await api("reference");
   // the owner list for the add-client form comes from crm-api's reference
@@ -476,8 +497,9 @@ function renderAll() {
   document.title = "Delardi " + tr("Sales");
   if (S.locked && !S.ref) return;                  // nothing behind the gate before a passcode
   const r = route();
+  kitCloseMenus();                                 // the header is redrawn: no open menu is left listening
   app.innerHTML = "";
-  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); }
+  if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false; }
   const main = el("main", { id: "main" });
   app.append(renderHeader(), main);
   ROUTES[r.name](main, r.arg);
@@ -493,10 +515,8 @@ function restoreSession() {
     return true;
   } catch (e) { return false; }
 }
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
 (async function boot() {
-  applyTheme();
   document.documentElement.lang = LANG;
   if (restoreSession()) {
     try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); }
