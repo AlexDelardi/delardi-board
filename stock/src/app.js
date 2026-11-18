@@ -413,7 +413,8 @@ async function setTraining(on) {
   S.training = on;
   sstore(TRAIN_KEY, on ? "1" : null);
   if (route().name !== "pieces" || (location.hash && !/^#\/pieces/.test(location.hash))) history.replaceState(null, "", "#/pieces");   // both modes start on the pieces
-  S.filters = { q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null };
+  S.filters = blankFilters();                      // listx.js: no filter, no sort, no checklist crosses the switch
+  if (typeof closeFacet === "function") closeFacet(true);
   S.page = 1; S.list = null; S.listError = null; S.listBusy = false;
   if (typeof dropListAnswers === "function") dropListAnswers();
   S.facets = { brands: [], categories: [], stores: [] };
@@ -503,6 +504,7 @@ function lockDown(message) {
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
+  if (typeof closeFacet === "function") closeFacet(true);      // listx.js: an open column checklist lives on <body> too
   // Panels and dialogs live on <body>, outside the gated #app: close them, so no piece
   // detail stays on screen above the passcode card.
   if (typeof closePiece === "function") closePiece();          // piece.js (Task 4)

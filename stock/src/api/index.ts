@@ -38,6 +38,9 @@ const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
 // Training mode (stk_train_*): made-up pieces in two made-up stores, with the transfer state.
 const TRAIN_STATES = ["in_stock", "reserved", "booked_out", "damaged", "in_transfer"];
+// The columns the table can be sorted by, and those with a checklist of values (training adds the store).
+const SORT_COLS = ["serial", "brand", "article", "state", "since", "price"];
+const FACET_COLS = ["brand", "state"];
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -228,9 +231,30 @@ function filtersIn(v: unknown, training = false): Record<string, unknown> {
   if (brand !== null) out.brand = brand;
   const category = text("category", 80);
   if (category !== null) out.category = category;
+  // Several values of one column (the table's checklists): a list of texts, empty values dropped.
+  const list = (k: string, max: number) => {
+    const raw = f[k];
+    if (raw === null || raw === undefined) return;
+    if (!Array.isArray(raw) || raw.length > 200 || raw.some((x) => typeof x !== "string" || x.trim().length > max)) {
+      throw new HttpErr(400, `${k} must be a list of texts.`);
+    }
+    const vals = [...new Set(raw.map((x) => str(x, max)).filter((x): x is string => x !== null))];
+    if (vals.length > 0) out[k] = vals;
+  };
+  list("brands", 80);
   if (training) {
     const store = text("store", 20);
     if (store !== null) out.store = store;
+    list("stores", 20);
+  }
+  // "<column>.<asc|desc>"; left out, the list is in its usual order (brand, reference, serial).
+  const sort = text("sort", 20);
+  if (sort !== null) {
+    const [col, dir] = sort.split(".");
+    if (!(training ? SORT_COLS.concat("store") : SORT_COLS).includes(col) || (dir !== "asc" && dir !== "desc")) {
+      throw new HttpErr(400, "sort must be a column and asc or desc.");
+    }
+    out.sort = `${col}.${dir}`;
   }
   if (f.states !== null && f.states !== undefined) {
     if (!Array.isArray(f.states) || f.states.some((s) => typeof s !== "string" || !states.includes(s))) {
@@ -356,6 +380,18 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "list") {
     await requireStock(body.token, "view");
     return await rpc("stk_piece_list", { p: filtersIn(body.filters) });
+  }
+
+  // The values of one column among the pieces the other filters leave, with a count each (the column checklists).
+  if (action === "facet" || action === "train_facet") {
+    await requireStock(body.token, "view");
+    const training = action === "train_facet";
+    const column = str(body.column, 20) ?? "";
+    if (!(training ? FACET_COLS.concat("store") : FACET_COLS).includes(column)) throw new HttpErr(400, "That column has no checklist.");
+    const p = filtersIn(body.filters, training);
+    delete p.page; delete p.sort;
+    const values = await rpc(training ? "stk_train_facet_values" : "stk_facet_values", { p, p_col: column });
+    return { column, values: values ?? [] };
   }
 
   if (action === "piece") {

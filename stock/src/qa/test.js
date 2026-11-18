@@ -174,7 +174,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await settled(page);
     const exp = mock.expectList({});
     check("list: 50 rows on page 1", (await rowCount(page)) === 50);
-    const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.trim()));
+    const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.replace(/[↕↑↓▾]/g, "").trim()));   // without the sort arrow and the checklist ▾
     check("list: the columns", heads.join("|") === "Serial|Brand|Reference / Model|Size|State|Since|Price", heads.join("|"));
     check("list: a kit table", await page.evaluate(() => !!document.querySelector("table.tbl #rows")));
     const serials = await colText(page, 0);
@@ -461,7 +461,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       norm(await page.textContent(".kit-head > button.kit-hbtn")) === "Заблокировать");
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: tabs Изделия / Проверка / Импорт", tabs.join() === "Изделия,Проверка (5),Импорт", tabs.join());
-    const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.trim()));
+    const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.replace(/[↕↑↓▾]/g, "").trim()));   // without the sort arrow and the checklist ▾
     check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|С даты|Цена", heads.join("|"));
     const opts = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: state words", opts.join() === ["Все статусы"].concat(ORDER.map((s) => WORDS_RU[s])).join(), opts.join());
@@ -1919,6 +1919,169 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       check("training stale: no script errors", errors.length === 0, errors.join(" | "));
       await ctx.close();
     }
+  });
+
+  // ------------------------------------------- table tools: sort and column checklists
+  await run("table tools: sort by a column", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const lastList = () => mock.calls.filter((c) => c.action === "list").pop();
+    const sorts = await page.$$eval("table.pieces thead .th-sort", (ns) => ns.map((n) => n.dataset.sort));
+    check("sort: every column but Size can be sorted", sorts.join() === "serial,brand,article,state,since,price", sorts.join());
+    check("sort: nothing sorted at first, and nothing sent", !(await page.$("table.pieces thead th[aria-sort]")) && !("sort" in lastList().filters) && !(await page.$("#f-clear")));
+    await page.click("#pg-next");
+    await settled(page);
+    await page.click('.th-sort[data-sort="serial"]');
+    await page.waitForFunction(() => !S.listBusy && document.querySelector('th[aria-sort="ascending"] .th-sort[data-sort="serial"]'));
+    check("sort: a click sorts ascending, on the server, from page 1", lastList().filters.sort === "serial.asc" && lastList().filters.page === 1 && (await colText(page, 0))[0] === "ZZ.00.10001", JSON.stringify(lastList().filters));
+    check("sort: the arrow shows the direction", (await page.$eval('.th-sort[data-sort="serial"] .arr', (n) => n.textContent)) === "↑");
+    await page.click('.th-sort[data-sort="serial"]');
+    await page.waitForFunction(() => !S.listBusy && document.querySelector('th[aria-sort="descending"]'));
+    check("sort: a second click reverses", lastList().filters.sort === "serial.desc" && (await colText(page, 0))[0] === "ZZ.00.10060");
+    check("sort: the keyboard stays on the header after the redraw", await page.evaluate(() => document.activeElement && document.activeElement.dataset.sort === "serial"));
+    await page.click('.th-sort[data-sort="price"]');
+    await page.waitForFunction(() => !S.listBusy && document.querySelector('th[aria-sort] .th-sort[data-sort="price"]'));
+    check("sort: Price and Since start with the largest", lastList().filters.sort === "price.desc" && (await colText(page, 0))[0] === "ZZ.00.10002" && (await page.$$("th[aria-sort]")).length === 1);
+    check("sort: Clear filters appears", !!(await page.$("#f-clear")));
+    // the download follows the sort
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export-btn")]);
+    await dl.path();
+    check("sort: the download asks for the same order", mock.calls.filter((c) => c.action === "export").pop().filters.sort === "price.desc");
+    await page.click("#f-clear");
+    await page.waitForFunction(() => !S.listBusy && !document.querySelector("th[aria-sort]") && !document.querySelector("#f-clear"));
+    check("sort: Clear filters goes back to the usual order", !("sort" in lastList().filters) && (await colText(page, 0))[0] === "ZZ.00.10001");
+    check("sort: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("table tools: column checklists", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    const lastList = () => mock.calls.filter((c) => c.action === "list").pop();
+    const lastFacet = () => mock.calls.filter((c) => c.action === "facet").pop();
+    const popRows = () => page.$$eval("#facet-pop .fp-list .fp-row", (ns) => ns.map((n) => n.querySelector(".fp-l").textContent.trim() + ":" + n.querySelector(".fp-n").textContent.trim() + ":" + (n.querySelector("input").checked ? "1" : "0")));
+    const waitPop = () => page.waitForFunction(() => document.querySelector("#facet-pop [data-act=fp-apply]"));
+    check("checklist: ▾ on Brand and State only", (await page.$$eval("table.pieces thead .th-filter", (ns) => ns.map((n) => n.dataset.facet))).join() === "brand,state");
+    await page.selectOption("#f-state", "in_stock");
+    await settled(page);
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    check("checklist: asks for the brand values under the other filters", lastFacet().column === "brand" && lastFacet().filters.states.join() === "in_stock" && !("page" in lastFacet().filters), JSON.stringify(lastFacet()));
+    check("checklist: each value with its count, all ticked when there is no filter", (await popRows()).join("|") === "Zz Atelier:10:1|Zz Jeweller:10:1|Zz Watchmaker:10:1", (await popRows()).join("|"));
+    check("checklist: a dialog named after the column, opened by its button", await page.evaluate(() => document.querySelector("#facet-pop").getAttribute("role") === "dialog"
+      && /Brand/.test(document.querySelector("#facet-pop").getAttribute("aria-label")) && document.querySelector('.th-filter[data-facet="brand"]').getAttribute("aria-expanded") === "true"));
+    await page.click("#facet-pop .fp-all input");
+    check("checklist: Select all unticks everything, and Apply needs at least one", (await popRows()).every((r) => r.endsWith(":0")) && await page.$eval("#facet-pop [data-act=fp-apply]", (b) => b.disabled));
+    await page.click('#facet-pop .fp-row[data-value="Zz Atelier"] input');
+    await page.click('#facet-pop .fp-row[data-value="Zz Watchmaker"] input');
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !document.querySelector("#facet-pop") && !S.listBusy && document.querySelector('.th-filter[data-facet="brand"].on'));
+    check("checklist: two brands are sent as a list, with the state still on", (lastList().filters.brands || []).join() === "Zz Atelier,Zz Watchmaker" && !("brand" in lastList().filters) && lastList().filters.states.join() === "in_stock", JSON.stringify(lastList().filters));
+    check("checklist: only those brands are listed", [...new Set(await colText(page, 1))].join() === "Zz Atelier,Zz Watchmaker" && (await rowCount(page)) === 20);
+    check("checklist: the Brand select says Several (2)", (await page.$eval("#f-brand", (n) => n.value + ":" + n.selectedOptions[0].textContent.trim())) === "__multi:Several (2)");
+    check("checklist: the totals follow the brands", norm(await page.textContent('#totals .tot[data-state="in_stock"]')).includes("20 pieces"));
+    // open again: the two are ticked; the state checklist counts under the brands
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    check("checklist: opens with what is chosen", (await popRows()).map((r) => r.slice(-1)).join("") === "101");
+    await page.keyboard.press("Escape");
+    check("checklist: Escape closes it and focus goes back to its button", await page.evaluate(() => !document.querySelector("#facet-pop") && document.activeElement.dataset.facet === "brand"));
+    await page.click('.th-filter[data-facet="state"]');
+    await waitPop();
+    check("checklist: State counts are under the brands, not under the state filter", (await popRows()).slice(0, 2).join("|") === "In stock:20:1|Reserved:3:0" && lastFacet().filters.brands.length === 2, (await popRows()).join("|"));
+    await page.click('#facet-pop .fp-row[data-value="reserved"] input');
+    await shot(page, "f02-checklist-state", { fullPage: false });
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !document.querySelector("#facet-pop") && !S.listBusy && document.querySelector("#f-state").value === "__multi");
+    check("checklist: two states → Several (2), sent as states", lastList().filters.states.join() === "in_stock,reserved" && (await rowCount(page)) === 23, JSON.stringify(lastList().filters));
+    check("checklist: no totals card is pressed while several states are chosen", (await page.$$('#totals .tot[aria-pressed="true"]')).length === 0);
+    // a totals card is one state: it replaces the several
+    await page.click('#totals .tot[data-state="reserved"]');
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-state").value === "reserved");
+    check("checklist: a totals card replaces the several states with its one", lastList().filters.states.join() === "reserved" && !(await page.$('#f-state option[value="__multi"]')));
+    // one value from a checklist is the select's own value
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    await page.click('#facet-pop .fp-row[data-value="Zz Atelier"] input');
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-brand").value === "Zz Watchmaker");
+    check("checklist: one value left is the single filter", lastList().filters.brand === "Zz Watchmaker" && !("brands" in lastList().filters) && !(await page.$('#f-brand option[value="__multi"]')));
+    // the select clears a checklist; Clear filter in the checklist clears the select
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    await page.click("#facet-pop [data-act=fp-clear]");
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-brand").value === "" && !document.querySelector('.th-filter[data-facet="brand"].on'));
+    check("checklist: Clear filter takes the brand filter off", !("brand" in lastList().filters) && !("brands" in lastList().filters));
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    await page.click('#facet-pop .fp-row[data-value="Zz Jeweller"] input');
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-brand").value === "__multi");
+    await page.selectOption("#f-brand", "Zz Jeweller");
+    await page.waitForFunction(() => !S.listBusy && !document.querySelector('#f-brand option[value="__multi"]'));
+    check("checklist: choosing one brand in the select drops the several", lastList().filters.brand === "Zz Jeweller" && !("brands" in lastList().filters));
+    // a click elsewhere closes; the download carries the lists
+    await page.selectOption("#f-brand", "");
+    await settled(page);
+    await page.click('.th-filter[data-facet="brand"]');
+    await waitPop();
+    await page.click('#facet-pop .fp-row[data-value="Zz Jeweller"] input');
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-brand").value === "__multi");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#export-btn")]);
+    await dl.path();
+    check("checklist: the download asks for the same brands", (mock.calls.filter((c) => c.action === "export").pop().filters.brands || []).join() === "Zz Atelier,Zz Watchmaker");
+    await page.click('.th-filter[data-facet="state"]');
+    await waitPop();
+    await page.mouse.click(5, 300);
+    check("checklist: a click elsewhere closes it", !(await page.$("#facet-pop")));
+    await page.click("#f-clear");
+    await page.waitForFunction(() => !S.listBusy && document.querySelector("#f-brand").value === "" && document.querySelector("#f-state").value === "" && !document.querySelector(".th-filter.on"));
+    check("checklist: Clear filters takes everything off", (await rowCount(page)) === 50 && Object.keys(lastList().filters).join() === "page");
+    // an answer that arrives after the lock is not drawn
+    mock.delay.facet = 400;
+    await page.click('.th-filter[data-facet="brand"]');
+    await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+    await page.waitForSelector("#gate-pass");
+    await page.waitForTimeout(600);
+    check("checklist: the lock takes it away, and a late answer does not bring it back", !(await page.$("#facet-pop")) && await page.evaluate(() => S.facet === null));
+    delete mock.delay.facet;
+    check("checklist: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("table tools: training, RU, portrait", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 });
+    await settled(page);
+    await page.click('.kit-lang button[lang="ru"]');
+    await settled(page);
+    await page.click("#train-toggle");
+    await page.waitForFunction(() => S.training && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 12);
+    check("training tools: Store can be sorted and has a checklist", (await page.$$eval("table.pieces thead .th-filter", (ns) => ns.map((n) => n.dataset.facet))).join() === "brand,store,state"
+      && !!(await page.$('.th-sort[data-sort="store"]')));
+    await page.click('.th-filter[data-facet="store"]');
+    await page.waitForFunction(() => document.querySelector("#facet-pop [data-act=fp-apply]"));
+    const f = mock.calls.filter((c) => c.action === "train_facet").pop();
+    check("training tools: the values come from train_facet", f && f.column === "store" && mock.calls.filter((c) => c.action === "facet").length === 0);
+    const rows = await page.$$eval("#facet-pop .fp-list .fp-row", (ns) => ns.map((n) => n.dataset.value + ":" + n.querySelector(".fp-l").textContent.trim() + ":" + n.querySelector(".fp-n").textContent.trim()));
+    check("training tools: stores by name with counts", rows.join("|") === "TRN-A:Training store A:8|TRN-B:Training store B:4", rows.join("|"));
+    check("tools RU: the checklist is in Russian and inside the screen", await page.evaluate(() => { const p = document.querySelector("#facet-pop"), r = p.getBoundingClientRect();
+      return /Выбрать все/.test(p.textContent) && /Применить/.test(p.textContent) && r.left >= 0 && r.right <= window.innerWidth; }));
+    await page.click('#facet-pop .fp-row[data-value="TRN-A"] input');
+    await page.click("#facet-pop [data-act=fp-apply]");
+    await page.waitForFunction(() => !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 4);
+    check("training tools: one store left is the Store select's value", (await page.$eval("#f-store", (n) => n.value)) === "TRN-B" && mock.calls.filter((c) => c.action === "train_list").pop().filters.store === "TRN-B");
+    await page.click('.th-sort[data-sort="price"]');
+    await page.waitForFunction(() => !S.listBusy && document.querySelector('th[aria-sort="descending"]'));
+    check("training tools: sorted through train_list", mock.calls.filter((c) => c.action === "train_list").pop().filters.sort === "price.desc" && (await colText(page, 0))[0] === "TRN-0011");
+    check("tools RU 768: no sideways scroll, no tag wraps", (await noHScroll(page)) && (await wrappedTags(page, "#rows")).length === 0);
+    await shot(page, "f01-table-tools-ru-portrait");
+    // leaving training takes the sort and the checklists with it
+    await page.click("#train-toggle");
+    await page.waitForFunction(() => !S.training && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 50);
+    check("training tools: the mode switch clears sort and filters", !(await page.$("th[aria-sort]")) && !(await page.$("#f-clear")) && Object.keys(mock.calls.filter((c) => c.action === "list").pop().filters).join() === "page");
+    check("training tools: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
   });
 
   await run("kit css", async () => {
