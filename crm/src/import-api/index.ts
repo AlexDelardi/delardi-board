@@ -6,9 +6,11 @@
 // whose digest sits in crm_import_tokens (two hours, single use), claimed
 // before the load runs. Nothing here reads or returns CRM data.
 //
-// POST { import_key, source, chats?: [...], missed?: [...], tickets?: {...} }
+// POST { import_key, source, chats?: [...], missed?: [...], tickets?: {...}, stock?: {...} }
 //   chats   -> crm_telegram_load(p, p_actor, p_source)  — skips chats already on file
 //   missed  -> crm_missed_load(p, p_source)             — dedupes on telegram_id+asked_at+kind
+//   stock   -> stk_load_enrichment(p, p_source)         — Colibri record, codes, arrival documents, costs per piece;
+//              p is the payload made by tools/stock_enrich_parse.py
 //   tickets -> ops_load_tickets(p, p_actor)             — sales tickets; p is the whole payload
 //              { source_files, tickets: [...], summary } made by tools/colibri_sales_parse.py
 // All three loaders are idempotent, so retrying a half-finished request is safe.
@@ -79,6 +81,20 @@ function ticketPayload(v: unknown): Record<string, unknown> | null {
   return v as Record<string, unknown>;
 }
 
+// The stock-enrichment payload made by tools/stock_enrich_parse.py: { pieces: [...], receipts, costs, ... }.
+function stockPayload(v: unknown): Record<string, unknown> | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) throw new HttpErr(400, `"stock" must be an object.`);
+  const o = v as Record<string, unknown>;
+  if (!Array.isArray(o.pieces)) throw new HttpErr(400, `"stock.pieces" must be a list of pieces.`);
+  if (o.pieces.length > MAX_TICKETS) throw new HttpErr(413, `That is more than ${MAX_TICKETS} pieces.`);
+  for (const k of ["receipts", "costs"]) {
+    if (o[k] !== undefined && o[k] !== null && !Array.isArray(o[k])) throw new HttpErr(400, `"stock.${k}" must be a list.`);
+    if (Array.isArray(o[k]) && (o[k] as unknown[]).length > MAX_TICKETS) throw new HttpErr(413, `That is more than ${MAX_TICKETS} ${k}.`);
+  }
+  return o;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
@@ -105,7 +121,9 @@ Deno.serve(async (req: Request) => {
     const missed = rows(body.missed, "missed");
     const tickets = ticketPayload(body.tickets);
     const ticketCount = (tickets?.tickets as unknown[] | undefined)?.length ?? 0;
-    if (!chats?.length && !missed?.length && !ticketCount) throw new HttpErr(400, "Nothing to load.");
+    const stock = stockPayload(body.stock);
+    const stockCount = (stock?.pieces as unknown[] | undefined)?.length ?? 0;
+    if (!chats?.length && !missed?.length && !ticketCount && !stockCount) throw new HttpErr(400, "Nothing to load.");
     const source = typeof body.source === "string" ? body.source.slice(0, 300) : "unknown";
     const actor = typeof body.actor === "string" ? body.actor.slice(0, 80) : "Claude";
 
@@ -124,6 +142,7 @@ Deno.serve(async (req: Request) => {
     if (missed?.length) out.missed = await rpc("crm_missed_load", { p: missed, p_source: source });
     if (tickets && ticketCount)
       out.tickets = await rpc("ops_load_tickets", { p: tickets, p_actor: "import:" + source });
+    if (stock && stockCount) out.stock = await rpc("stk_load_enrichment", { p: stock, p_source: source });
     return json(out);
   } catch (e) {
     if (e instanceof HttpErr) return json({ error: e.message }, e.status);
