@@ -827,6 +827,26 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.click("#imp-apply");
     await page.waitForSelector("#imp-err");
     check("load failure: the error shows and the preview stays for another try", !!(await page.$("#imp-rows")) && !!(await page.$("#imp-apply")) && !(await page.$("#imp-done")));
+    // Codex on #18: an answer for an earlier file never replaces the current one
+    mock.delay.import = 900;
+    await page.setInputFiles("#imp-file", FX("upload_errors.xlsx"));
+    await page.waitForFunction(() => /Checking/.test((document.querySelector("#imp-busy") || {}).textContent || ""));
+    await page.waitForTimeout(150);                 // the first file's request is out and held
+    mock.delay.import = 0;
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-apply");
+    await page.waitForTimeout(1200);
+    check("stale answer: the later file's preview stays", (await page.textContent("#imp-file-name")).trim() === "File: upload_ok.xlsx" && !(await page.$("#imp-blocked")) && /Errors=0/.test(await cards()), await cards());
+    delete mock.delay.import;
+    // Codex on #18: a lock clears the file and its preview
+    await page.click("header.top .kit-hbtn:has-text('Lock')");
+    await page.waitForSelector("#gate-pass");
+    check("lock: nothing of the file is left behind the card", !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")));
+    await page.fill("#gate-pass", "demo");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector("#gate-pass", { state: "detached" });
+    await page.waitForSelector("#imp-template");
+    check("lock: the next person finds no file, no preview and no Load", !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")) && !(await page.$("#imp-file-name")));
     // the piece panel shows what the file said about the item
     await openId(page, mock.pieces[0].piece_id);
     await page.click("#pc-tab-origin");

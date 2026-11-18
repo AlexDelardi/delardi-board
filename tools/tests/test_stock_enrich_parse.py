@@ -113,6 +113,12 @@ class ArrivalDates(unittest.TestCase):
     def test_one_source_document_with_two_dates_uses_the_matching_rows(self):
         docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "9", (2026, 10, 14)), ("Yy Watches", "YY-1", "9", (2025, 3, 3)))
         self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], docs), {"7": "2026-10-14"})
+    def test_an_unresolved_tie_between_documents_with_different_dates_stays_undated(self):   # Codex on #17
+        rows = [("Zz Atelier", "ZZ-AT-0100", "8", (2022, 8, 18)), ("Zz Atelier", "ZZ-AT-0100", "9", (2023, 1, 5))]
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], self.sf(*rows)), {})
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], self.sf(*reversed(rows))), {})
+        same = [("Zz Atelier", "ZZ-AT-0100", "8", (2022, 8, 18)), ("Zz Atelier", "ZZ-AT-0100", "9", (2022, 8, 18))]
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], self.sf(*same)), {"7": "2022-08-18"})
     def test_a_tie_prefers_the_same_number(self):
         docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "2", (2022, 2, 3)), ("Zz Atelier", "ZZ-AT-0100", "7", (2022, 12, 10)))
         self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], docs), {"7": "2022-12-10"})

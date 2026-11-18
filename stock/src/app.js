@@ -427,6 +427,8 @@ function lockDown(message) {
   for (const k of Object.keys(S.priceTimers)) clearTimeout(S.priceTimers[k]);
   S.priceTimers = {};
   // Nothing from the session stays in memory behind the card; the filters do.
+  S.imp = null;                                    // import.js: no file, preview or pending Load crosses a lock
+  { const h = $("#screen-import"); if (h) h.innerHTML = ""; }                    // nor stays on screen behind the card
   S.rv = null; S.reviewCount = null;
   { const h = $("#rv-host"); if (h) h.innerHTML = ""; if (typeof setReviewTab === "function") setReviewTab(); }   // review.js: no queue is left on screen behind the card
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;

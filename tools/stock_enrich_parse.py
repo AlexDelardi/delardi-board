@@ -78,24 +78,28 @@ def arrival_dates(pieces, docs, min_share=0.6):
     The Stock Report ("Приход №") and the arrival-date report ("Номер накладной прихода") number the same
     documents differently, so they are paired by content: for each brand on a Stock Report document, the
     arrival-date document holding the most of its references (at least min_share of them; on a tie, the one with
-    the same number). The date comes from the matching rows. A document whose brands end up on different dates,
-    or whose match is weak, stays undated."""
+    the same number). The date comes from the matching rows. A document stays undated when its match is weak,
+    when its brands end up on different dates, or when equally good candidates disagree on the date."""
     refs = defaultdict(set)
     for p in pieces:
         if p.get("receipt_no") and norm(p.get("article")):
             refs[(p["receipt_no"], brand_key(p["brand"]))].add(norm(p["article"]))
     found = defaultdict(set)
     for (no, brand), want in refs.items():
-        best, best_key = None, (0, False)
+        scores = {}
         for doc_no, rows in docs.items():
             hit = {a for b, a, _ in rows if b == brand and a in want}
-            key = (len(hit), doc_no == no)
-            if key > best_key:
-                best, best_key = doc_no, key
-        if best is None or best_key[0] < min_share * len(want):
+            if hit:
+                scores[doc_no] = len(hit)
+        top = max(scores.values(), default=0)
+        if top < min_share * len(want) or top == 0:
             found[no].add(None)
             continue
-        dates = {d for b, a, d in docs[best] if b == brand and a in want}
+        # equally good candidates: the same number wins; otherwise they must agree on the date
+        best = [d for d, n in scores.items() if n == top]
+        if no in best:
+            best = [no]
+        dates = {d for doc_no in best for b, a, d in docs[doc_no] if b == brand and a in want}
         found[no].add(next(iter(dates)) if len(dates) == 1 else None)
     return {no: next(iter(ds)) for no, ds in found.items() if len(ds) == 1 and None not in ds}
 
