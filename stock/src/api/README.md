@@ -159,7 +159,11 @@ unless any row is in error: then `409` and nothing is loaded.
 ```
 
 ### `import_pending {token, check_only?}` — manage
-Applies waiting rows whose piece has arrived (not with `check_only: true`). → `{ applied, waiting }`
+Applies waiting rows whose piece has arrived (not with `check_only: true`).
+→ `{ applied, waiting, rows: [ { brand_key, serial_key, brand, serial, article, file_name, actor, created_at } ] }` (oldest first, at most 500)
+
+### `import_remove {token, brand_key, serial_key}` — manage
+Takes one waiting row off the list (a row loaded by mistake). Nothing in stock changes. → `{ removed, waiting, rows }`
 
 ### `reviews {token}` — view
 Open review items, oldest first.

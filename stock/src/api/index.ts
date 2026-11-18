@@ -320,6 +320,20 @@ async function stateChangeIn(body: Record<string, unknown>) {
   return { state, note, client, until };
 }
 
+// The rows of earlier upload files that still wait for their pieces: how many, and which (oldest first).
+async function waitingRows() {
+  const rows = await select("ops_upload_pending?select=brand_key,serial_key,brand,serial,file_name,actor,created_at,row&order=created_at.asc,serial_key.asc");
+  const list = Array.isArray(rows) ? rows : [];
+  return {
+    waiting: list.length,
+    rows: list.slice(0, 500).map((r) => {
+      const { row, ...rest } = r as Record<string, unknown>;
+      const article = ((row as Record<string, Record<string, unknown>> | null)?.colibri ?? {})["\u0410\u0440\u0442\u0438\u043a\u0443\u043b"];   // Артикул
+      return { ...rest, article: article === undefined || article === null ? null : String(article) };
+    }),
+  };
+}
+
 // ------------------------------------------------------------------ actions
 async function handle(req: Request, body: Record<string, unknown>) {
   const action = str(body.action, 40);
@@ -515,8 +529,22 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "import_pending") {
     await requireStock(body.token, "manage");
     const applied = body.check_only === true ? 0 : await rpc("stk_apply_pending", {});
-    const left = await select("ops_upload_pending?select=serial_key");
-    return { applied: applied ?? 0, waiting: Array.isArray(left) ? left.length : 0 };
+    return { applied: applied ?? 0, ...(await waitingRows()) };
+  }
+
+  // A row loaded by mistake never finds its piece: take it off the waiting list. Nothing in stock changes.
+  if (action === "import_remove") {
+    await requireStock(body.token, "manage");
+    // The keys exactly as import_pending listed them: never trimmed or cut, so a long one cannot match another row.
+    const brandKey = body.brand_key, serialKey = body.serial_key;
+    if (typeof brandKey !== "string" || typeof serialKey !== "string" || !brandKey || !serialKey || brandKey.length > 4000 || serialKey.length > 4000) {
+      throw new HttpErr(400, "Say which waiting row to remove.");
+    }
+    const gone = await db(
+      `ops_upload_pending?brand_key=eq.${encodeURIComponent(brandKey)}&serial_key=eq.${encodeURIComponent(serialKey)}`,
+      { method: "DELETE", headers: { Prefer: "return=representation" } },
+    );
+    return { removed: Array.isArray(gone) ? gone.length : 0, ...(await waitingRows()) };
   }
 
   if (action === "resolve") {

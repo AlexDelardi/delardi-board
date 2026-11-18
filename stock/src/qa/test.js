@@ -832,7 +832,35 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const ap = mock.calls.filter((c) => c.action === "import").pop();
     check("load: the same rows are sent with apply", ap.apply === true && ap.rows.length === 3 && ap.file_name === "upload_ok.xlsx");
     check("load: says what happened; the preview is gone", (await page.textContent("#imp-done")).trim() === "Loaded: 2 updated, 1 waiting for their pieces." && !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")));
-    check("load: the waiting rows are announced with a way to check", /1 rows from earlier files are waiting/.test(await page.textContent("#imp-waiting")) && !!(await page.$("#imp-check")));
+    await page.waitForSelector("#imp-waiting-rows tbody tr");
+    check("load: the waiting rows are announced with a way to check", /Rows from earlier files waiting for their pieces: 1/.test(await page.textContent("#imp-waiting")) && !!(await page.$("#imp-check")));
+    // the waiting rows are listed: which piece, from which file, loaded by whom
+    const wait = await page.$$eval("#imp-waiting-rows tbody tr", (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.replace(/\s+/g, " ").trim())));
+    const pend = ap.rows.find((r) => !mock.pieces.some((q) => q.serial.toUpperCase() === String(r.colibri["Серийный номер"]).toUpperCase()));
+    check("waiting: one row with brand, serial, reference, file and who loaded it", wait.length === 1 && wait[0][0] === pend.colibri["Бренд"] && wait[0][1] === pend.colibri["Серийный номер"]
+      && wait[0][2] === pend.colibri["Артикул"] && wait[0][3] === "upload_ok.xlsx" && /Stock Manager/.test(wait[0][4]) && wait[0][5] === "Remove", JSON.stringify(wait));
+    // Check now when nothing has arrived says so, instead of "applied to 0"
+    await page.click("#imp-check");
+    await page.waitForFunction(() => /Checked/.test((document.querySelector("#imp-done") || {}).textContent || ""));
+    check("waiting: Check now with nothing arrived says none is in stock yet", (await page.textContent("#imp-done")).trim() === "Checked: none of the waiting pieces is in stock yet." && (await page.$$("#imp-waiting-rows tbody tr")).length === 1);
+    // a row loaded by mistake can be removed
+    await page.click("#imp-waiting-rows .imp-remove");
+    await page.waitForSelector("#confirm-ok");
+    check("waiting: Remove asks first and names the piece", (await page.textContent("#confirm-dialog")).includes(String(pend.colibri["Серийный номер"])));
+    await page.click("#confirm-cancel");
+    check("waiting: Cancel removes nothing", mock.calls.filter((c) => c.action === "import_remove").length === 0 && (await page.$$("#imp-waiting-rows tbody tr")).length === 1);
+    await page.click("#imp-waiting-rows .imp-remove");
+    await page.waitForSelector("#confirm-ok");
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => !document.querySelector("#imp-waiting"));
+    const rm = mock.calls.filter((c) => c.action === "import_remove").pop();
+    check("waiting: Remove sends the row's keys and the block goes", rm && typeof rm.brand_key === "string" && rm.serial_key === String(pend.colibri["Серийный номер"]).toUpperCase()
+      && /Removed/.test(await page.textContent("#imp-done")), JSON.stringify(rm));
+    // put it back for the checks below
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-apply");
+    await page.click("#imp-apply");
+    await page.waitForSelector("#imp-waiting-rows tbody tr");
     // the same file again: nothing to load
     await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
     await page.waitForSelector("#imp-rows");

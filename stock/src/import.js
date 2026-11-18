@@ -58,6 +58,14 @@ Object.assign(RU, {
   "{n} rows from earlier files are waiting for their pieces.": "Строк из прошлых файлов, которые ждут свои изделия: {n}.",
   "Check now": "Проверить",
   "Applied to {n} pieces.": "Применено к изделиям: {n}.",
+  "Rows from earlier files waiting for their pieces: {n}": "Строк из прошлых файлов, которые ждут свои изделия: {n}",
+  "A row waits until its piece is in Stock (it arrives from Colibri). Remove a row that was loaded by mistake.": "Строка ждёт, пока её изделие не появится на Складе (оно приходит из Colibri). Строку, загруженную по ошибке, можно удалить.",
+  "Checked: none of the waiting pieces is in stock yet.": "Проверено: ни одного из ожидаемых изделий на складе пока нет.",
+  "Applied to {n} pieces. Still waiting: {w}.": "Применено к изделиям: {n}. Ещё ждут: {w}.",
+  "File": "Файл", "Loaded": "Загружено", "Remove": "Удалить",
+  "Remove the waiting row for {s}?": "Удалить ожидающую строку для {s}?",
+  "The row from {f} will not be applied when the piece arrives. Nothing in stock changes.": "Строка из файла {f} не будет применена, когда изделие появится. На складе ничего не меняется.",
+  "Removed the waiting row for {s}.": "Ожидающая строка для {s} удалена.",
   "Item details": "Данные изделия",
   "Subcategory": "Подкатегория", "Metal": "Металл", "Metal purity": "Проба", "Metal weight, g": "Вес металла, г",
   "Stones": "Камни", "Certificate": "Сертификат", "Name (Uzbek)": "Наименование (узб)", "Store": "Магазин",
@@ -217,8 +225,18 @@ function renderImport(main) {
     el("p", { class: "small", id: "imp-help", text: tr("The Colibri upload template (columns A–AK, unchanged) with our columns added from AL. Unknown values: leave empty or write TBD.") }),
     importGuide(im));
   if (im.waiting > 0 && !im.res) {
-    sec.append(el("p", { class: "notice", id: "imp-waiting" }, tr("{n} rows from earlier files are waiting for their pieces.", { n: im.waiting }) + " ",
-      el("button", { type: "button", class: "btn", id: "imp-check", onclick: importCheckPending, text: tr("Check now") })));
+    const rows = im.waitingRows || [];
+    sec.append(el("div", { class: "notice imp-waiting", id: "imp-waiting" },
+      el("p", {}, el("strong", { text: tr("Rows from earlier files waiting for their pieces: {n}", { n: im.waiting }) }), " ",
+        el("button", { type: "button", class: "btn", id: "imp-check", onclick: importCheckPending, text: tr("Check now") })),
+      el("p", { class: "small", text: tr("A row waits until its piece is in Stock (it arrives from Colibri). Remove a row that was loaded by mistake.") }),
+      rows.length ? el("div", { class: "table-wrap" }, el("table", { class: "tbl", id: "imp-waiting-rows" },
+        el("thead", null, el("tr", null, ["Brand", "Serial", "Reference", "File", "Loaded"].map((h) => el("th", { scope: "col", text: tr(h) })), el("th", { scope: "col" }, el("span", { class: "sr-only", text: tr("Remove") })))),
+        el("tbody", null, rows.map((r) => el("tr", null,
+          el("td", { text: blank(r.brand) ? "—" : r.brand }), el("td", { class: "mono", text: blank(r.serial) ? "—" : r.serial }),
+          el("td", { class: "mono", text: blank(r.article) ? "—" : r.article }), el("td", { text: blank(r.file_name) ? "—" : r.file_name }),
+          el("td", { text: [fmtDate(r.created_at), r.actor].filter((x) => !blank(x)).join(" · ") }),
+          el("td", { class: "r" }, el("button", { type: "button", class: "btn imp-remove", onclick: () => importRemoveWaiting(r), text: tr("Remove") }))))))) : null));
   }
   if (im.busy) sec.append(el("p", { class: "small", id: "imp-busy", role: "status", text: tr(im.busy) }));
   if (im.err) sec.append(el("p", { class: "notice", role: "alert", id: "imp-err", text: im.err }));
@@ -263,6 +281,7 @@ async function importApply() {
     if (S.imp !== im || im.seq !== seq) return;
     Object.assign(im, { busy: null, res: null, rows: null, waiting: res.waiting,
       done: tr("Loaded: {u} updated, {p} waiting for their pieces.", { u: res.summary.update, p: res.summary.pending }) });
+    if (res.waiting > 0) importRefreshWaiting();   // which rows wait, for the list under the message
   } catch (e) {
     if (S.imp !== im || im.seq !== seq) return;
     Object.assign(im, { busy: null, err: e.message });
@@ -273,16 +292,40 @@ async function importCheckPending() {
   const im = S.imp;
   try {
     const r = await api("import_pending", {});
-    im.waiting = r.waiting; im.done = tr("Applied to {n} pieces.", { n: r.applied });
-  } catch (e) { im.err = e.message; }
+    if (S.imp !== im || S.locked) return;
+    im.waiting = r.waiting; im.waitingRows = r.rows || []; im.err = null;
+    im.done = !r.applied ? tr("Checked: none of the waiting pieces is in stock yet.")
+      : r.waiting ? tr("Applied to {n} pieces. Still waiting: {w}.", { n: r.applied, w: r.waiting }) : tr("Applied to {n} pieces.", { n: r.applied });
+  } catch (e) { if (S.imp !== im || S.locked) return; im.err = e.message; }
   importRedraw();
+}
+// A row loaded by mistake (a test row, a wrong serial) never finds its piece: it can be taken off the waiting list.
+async function importRemoveWaiting(row) {
+  const im = S.imp;
+  const ok = await confirmBox({ title: tr("Remove the waiting row for {s}?", { s: [row.brand, row.serial].filter((x) => !blank(x)).join(" ") }),
+    body: tr("The row from {f} will not be applied when the piece arrives. Nothing in stock changes.", { f: row.file_name || "—" }), ok: tr("Remove"), cancel: tr("Cancel") });
+  if (!ok || S.imp !== im || S.locked) return;
+  try {
+    const r = await api("import_remove", { brand_key: row.brand_key, serial_key: row.serial_key });
+    if (S.imp !== im || S.locked) return;
+    im.waiting = r.waiting; im.waitingRows = r.rows || []; im.err = null;
+    im.done = tr("Removed the waiting row for {s}.", { s: [row.brand, row.serial].filter((x) => !blank(x)).join(" ") });
+  } catch (e) { if (S.imp !== im || S.locked) return; im.err = e.message; }
+  importRedraw();
+}
+// After a load the list of waiting rows is asked again (the load answers with their number only).
+async function importRefreshWaiting() {
+  const im = S.imp;
+  try { const r = await api("import_pending", { check_only: true }); if (S.imp !== im || S.locked) return; im.waiting = r.waiting; im.waitingRows = r.rows || []; importRedraw(); }
+  catch (e) { /* the number is already shown */ }
 }
 // The count of waiting rows, asked once when the screen is first opened.
 async function importLoadWaiting() {
   if (!S.rights.manage || (S.imp && S.imp.waiting !== null)) return;
   S.imp = S.imp || { busy: null, err: null, file: null, rows: null, res: null, done: null, waiting: null };
   S.imp.waiting = 0;
-  try { const r = await api("import_pending", { check_only: true }); S.imp.waiting = r.waiting; importRedraw(); } catch (e) { /* the screen works without it */ }
+  const im = S.imp;
+  try { const r = await api("import_pending", { check_only: true }); if (S.imp !== im || S.locked) return; im.waiting = r.waiting; im.waitingRows = r.rows || []; importRedraw(); } catch (e) { /* the screen works without it */ }
 }
 
 const IMPORT_ERR = {
