@@ -79,6 +79,8 @@ begin
      and d->'events'->0->>'reason' = 'transfer_cancelled' and d->'events'->0->>'note' = 'Sent by mistake', 'cancelled: ' || d::text;
   begin perform stk_train_cancel(v_b, 'Alex', null); assert false, 'cancelled a piece that is not in transfer'; exception when raise_exception then null; end;
 
+  -- Supabase refuses a DELETE without WHERE to the API roles (safeupdate): the reset must not use one
+  assert (select prosrc from pg_proc where proname = 'stk_train_seed') !~* 'delete from stk_train_pieces\s*;', 'the reset deletes without a WHERE clause';
   -- reset: the set as it started, same piece references
   r := stk_train_reset('Alex');
   assert (r->>'pieces')::int = 12, 'reset answer: ' || r::text;
