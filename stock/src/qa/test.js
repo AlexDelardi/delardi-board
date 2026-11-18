@@ -151,7 +151,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       [...document.querySelectorAll(".kit-head .kit-lang .kit-hbtn")].map((b) => b.textContent + ":" + b.getAttribute("aria-pressed")).join() === "EN:true,RU:false"));
     // tabs
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim() + (n.getAttribute("aria-current") === "page" ? "*" : "")));
-    check("tabs: Pieces (current) and Review with its count", tabs.join() === "Pieces*,Review (5)", tabs.join());
+    check("tabs: Pieces (current), Review with its count, and Import for a login that can change stock", tabs.join() === "Pieces*,Review (5),Import", tabs.join());
     check("routes: the default is #/pieces", await page.evaluate(() => route().name === "pieces"));
     await page.click(".kit-tabs .kit-tab >> text=Review");
     await page.waitForSelector("#screen-review");
@@ -460,7 +460,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       norm(await page.textContent(".kit-head [data-kit-menu] > button")) === "Инструменты" &&
       norm(await page.textContent(".kit-head > button.kit-hbtn")) === "Заблокировать");
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
-    check("RU: tabs Изделия / Проверка", tabs.join() === "Изделия,Проверка (5)", tabs.join());
+    check("RU: tabs Изделия / Проверка / Импорт", tabs.join() === "Изделия,Проверка (5),Импорт", tabs.join());
     const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|С даты|Цена", heads.join("|"));
     const opts = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.textContent.trim()));
@@ -735,6 +735,116 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await t.page.click("#pc-more-retry");
     await t.page.waitForSelector("#pc-colibri .pc-fact");
     check("load failure: Try again loads it", !(await t.page.$("#pc-more-err")));
+    await t.ctx.close();
+  });
+
+  await run("import: upload file with preview", async () => {
+    const FX = (n) => path.join(__dirname, "fixtures", n);
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 });
+    await settled(page);
+    const tabs = () => page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
+    check("import: a tab for a login that can change stock", (await tabs()).join() === "Pieces,Review (5),Import", (await tabs()).join());
+    await page.click("#tab-import");
+    await page.waitForSelector("#screen-import");
+    check("import: says what the file is; nothing previewed yet", /A–AK/.test(await page.textContent("#imp-help")) && !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")));
+    // the template: Colibri's 37 headings in order, then ours; and the page reads its own file back
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#imp-template")]);
+    const tpl = path.join(require("os").tmpdir(), "stock-template-" + process.pid + ".xlsx");
+    await dl.saveAs(tpl);
+    check("template: file name", dl.suggestedFilename() === "Delardi_upload_template_v1.xlsx", dl.suggestedFilename());
+    const head = await page.evaluate(async (b64) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return (await kitXlsxRead(u.buffer))[0]; }, fs.readFileSync(tpl).toString("base64"));
+    check("template: 37 Colibri headings then 19 of ours", head.length === 56 && head[0] === "Бренд" && head[3] === "Серийный номер" && head[19] === "Штрих Код" && head[36] === "Путь для сайта"
+      && head[37] === "Код ТН ВЭД" && head[38] === "ИКПУ" && head[44] === "Дата прихода" && head[55] === "Магазин", head.length + " " + head.slice(35, 40).join("|"));
+    const z = require("child_process").spawnSync("python3", ["-m", "zipfile", "-t", tpl], { encoding: "utf8" });
+    check("template: a valid workbook archive", z.status === 0, (z.stderr || z.stdout || "").trim());
+    // a good file
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-rows");
+    const sent = mock.calls.filter((c) => c.action === "import").pop();
+    check("preview: asked as a preview, with the file name", sent.apply === false && sent.file_name === "upload_ok.xlsx" && sent.rows.length === 3, JSON.stringify({ a: sent.apply, n: sent.rows.length }));
+    const r0 = sent.rows[0];
+    check("read: row numbers are the sheet's; the empty row is skipped", sent.rows.map((r) => r.row).join() === "2,4,5");
+    check("read: Colibri cells by heading, numbers as numbers, zero kept, blanks left out", r0.colibri["Бренд"] === "Zz Atelier" && r0.colibri["Цена оригинального инвойса"] === 875.5
+      && r0.colibri["Коэф-т 1"] === 2.31 && r0.colibri["НДС"] === 0 && !("Состав" in r0.colibri) && Object.keys(r0.colibri).length === 9, JSON.stringify(r0.colibri));
+    check("read: our columns by key; a date cell and a typed 14.10.2026 both become 2026-10-14; TBD passes through", r0.extra.hs_code === "7113190000" && r0.extra.ikpu === "TBD"
+      && r0.extra.invoice_date === "2026-10-01" && r0.extra.arrival_date === "2026-10-14" && r0.extra.metal_purity === "750" && r0.extra.name_uz === "Uzuk"
+      && sent.rows[2].extra.arrival_date === "2026-10-14" && !("store" in r0.extra), JSON.stringify(r0.extra));
+    const cards = () => page.$$eval("#imp-summary .imp-card", (ns) => ns.map((n) => n.querySelector(".lbl").textContent.trim() + "=" + n.querySelector(".tc-n").textContent.trim()).join());
+    check("preview: the four counts", (await cards()) === "Will update=2,No change=0,Waiting for the piece=1,Errors=0", await cards());
+    const rows = () => page.$$eval("#imp-rows tbody tr", (ns) => ns.map((n) => ({ cls: n.className, cells: [...n.children].slice(0, 4).map((c) => c.textContent.trim()), tag: n.querySelector(".tag").textContent.trim(),
+      msgs: [...n.querySelectorAll(".imp-msg")].map((m) => m.textContent.trim()) })));
+    let rs = await rows();
+    check("preview: one line per row with its sheet row, serial, brand and reference", rs.length === 3 && rs[0].cells.join("|") === "2|ZZ.00.10001|Zz Atelier|ZZ-AT-0100" && rs[2].cells[0] === "5", JSON.stringify(rs[0].cells));
+    check("preview: what an update changes, in words", rs[0].tag === "Will update" && rs[0].msgs[0] === "9 Colibri fields · arrival document: new · brand barcode · HS code · item details", rs[0].msgs.join(" / "));
+    check("preview: a value that differs from the one on file is reported, not overwritten", rs[1].msgs.some((m) => m === "Supplier differs from the arrival document on file (Older Supplier); kept."), rs[1].msgs.join(" / "));
+    check("preview: a serial not in stock waits", rs[2].tag === "Waiting for the piece" && /kept and applied when the piece appears/.test(rs[2].msgs[0]));
+    check("preview: the button says how many rows load", (await page.textContent("#imp-apply")).trim() === "Load 3 rows");
+    // a row's serial opens the piece
+    await page.click("#imp-rows tbody tr:first-child .linklike");
+    await page.waitForSelector("#pc-title");
+    check("preview: the serial opens the piece", /ZZ\.00\.10001/.test(await page.textContent("#piece-panel")));
+    await page.keyboard.press("Escape");
+    // Russian
+    await page.evaluate(() => setLang("ru"));
+    await page.waitForSelector("#imp-rows");
+    rs = await rows();
+    check("ru: tab, counts, result words", (await tabs())[2] === "Импорт" && /Будет обновлено=2/.test(await cards()) && rs[0].tag === "Будет обновлено" && /полей Colibri: 9/.test(rs[0].msgs[0])
+      && (await page.textContent("#imp-apply")).trim() === "Загрузить строк: 3", rs[0].msgs[0]);
+    await page.evaluate(() => setLang("en"));
+    // load
+    await page.click("#imp-apply");
+    await page.waitForSelector("#imp-done");
+    const ap = mock.calls.filter((c) => c.action === "import").pop();
+    check("load: the same rows are sent with apply", ap.apply === true && ap.rows.length === 3 && ap.file_name === "upload_ok.xlsx");
+    check("load: says what happened; the preview is gone", (await page.textContent("#imp-done")).trim() === "Loaded: 2 updated, 1 waiting for their pieces." && !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")));
+    check("load: the waiting rows are announced with a way to check", /1 rows from earlier files are waiting/.test(await page.textContent("#imp-waiting")) && !!(await page.$("#imp-check")));
+    // the same file again: nothing to load
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-rows");
+    check("again: already on file, and no Load button", (await cards()) === "Will update=0,No change=2,Waiting for the piece=1,Errors=0" && (await page.textContent("#imp-apply")).trim() === "Load 1 rows");
+    // a file with errors cannot be loaded
+    await page.setInputFiles("#imp-file", FX("upload_errors.xlsx"));
+    await page.waitForSelector("#imp-blocked");
+    rs = await rows();
+    check("errors: counted, and no Load button", /Errors=5/.test(await cards()) && !(await page.$("#imp-apply")) && /Nothing is loaded while a row is in error/.test(await page.textContent("#imp-blocked")), await cards());
+    check("errors: a serial twice in the file (case and brand spelling ignored)", rs[0].msgs.join() === "This serial number is in the file more than once." && rs[1].msgs.join() === rs[0].msgs.join());
+    check("errors: a serial that is already on another reference", rs[2].msgs.join() === "This serial number is already on a piece with another reference (ZZ-AT-0100).", rs[2].msgs.join());
+    check("errors: HS code and date formats", rs[3].msgs.join("|") === "HS code must be 10 digits.|Arrival date: not a date. Write it as 14.10.2026.", rs[3].msgs.join("|"));
+    check("errors: a row without brand, serial or reference", rs[4].msgs.join("|") === "No brand.|No serial number.|No reference." && rs[4].cells.slice(1).join() === "—,—,—", rs[4].msgs.join("|"));
+    check("errors: the rows are marked", rs.every((r) => r.tag === "Error" && /imp-error/.test(r.cls)));
+    // wrong files
+    await page.setInputFiles("#imp-file", FX("upload_wrong_headings.xlsx"));
+    await page.waitForSelector("#imp-err");
+    check("wrong headings: names the missing Colibri headings, asks the server nothing", (await page.textContent("#imp-err")).trim() === "These Colibri headings are missing: Артикул, Серийный номер" && !(await page.$("#imp-rows")));
+    const before = mock.calls.filter((c) => c.action === "import").length;
+    await page.setInputFiles("#imp-file", FX("not_a_workbook.xlsx"));
+    await page.waitForFunction(() => /must be an \.xlsx/.test((document.querySelector("#imp-err") || {}).textContent || ""));
+    check("not a workbook: says so", mock.calls.filter((c) => c.action === "import").length === before);
+    // a server failure on load keeps the preview
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-apply");
+    mock.failNext = "import";
+    await page.click("#imp-apply");
+    await page.waitForSelector("#imp-err");
+    check("load failure: the error shows and the preview stays for another try", !!(await page.$("#imp-rows")) && !!(await page.$("#imp-apply")) && !(await page.$("#imp-done")));
+    // the piece panel shows what the file said about the item
+    await openId(page, mock.pieces[0].piece_id);
+    await page.click("#pc-tab-origin");
+    await page.waitForSelector("#pc-details .pc-fact");
+    const det = await page.$$eval("#pc-details .pc-fact", (ns) => ns.map((n) => n.querySelector("dt").textContent.trim() + "=" + n.querySelector("dd").textContent.trim()).join());
+    check("piece: item details from the upload file", det === "Category=Ring,Metal=White gold,Metal purity=750,Name (Uzbek)=Uzuk", det);
+    check("import: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    // without the manage right: no tab, no screen, and the API refuses
+    const t = await setup(browser, { width: 1024, height: 768 }, { pass: "look" });
+    await settled(t.page);
+    check("rights: no Import tab without the manage right", !(await t.page.$("#tab-import")));
+    await t.page.evaluate(() => { location.hash = "#/import"; });
+    await t.page.waitForTimeout(300);
+    check("rights: the address alone opens the list, not the import", !(await t.page.$("#screen-import")) && !!(await t.page.$("#rows")));
+    const tk = mock.handle({ action: "unlock", passcode: "look" })[1].token;
+    const refused = mock.handle({ action: "import", token: tk, rows: [{ row: 2, colibri: {}, extra: {} }], apply: true });
+    check("rights: the API refuses an import without the manage right", refused[0] === 403, JSON.stringify(refused));
     await t.ctx.close();
   });
 
