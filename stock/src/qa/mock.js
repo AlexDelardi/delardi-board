@@ -258,7 +258,7 @@ function handle(body) {
     }
     // Enrichment: pieces[0] has everything recorded, pieces[1] a Colibri record only, the rest nothing (TBD).
     if (action === "origin" || action === "cost") {
-      session(body.token, action === "cost" ? "cost" : "view");
+      const sess = session(body.token, action === "cost" ? "cost" : "view");
       const id = (str(body.piece_id, 40) || "").toLowerCase();
       if (!UUID_RE.test(id)) fail(400, "That is not a valid piece reference.");
       const i = pieces.findIndex((x) => x.piece_id === id);
@@ -270,6 +270,8 @@ function handle(body) {
             "Наименование товара (рус)": "Кольцо из жёлтого золота", "Код цвета": "YG", "Цена оригинального инвойса": 875,
             "Инв. цена, долл": 983.15, "Коэф-т 1": 2.31, "Рек. цена, долл": 2270, "Цена продажи, долл": 2270,
             "Штрих Код": "6000000000017", "НДС": 0, "ЦП": 28375000, "Отправлять в ККМ": "Нет", "Склад (старое поле)": "A1" } };
+        // as stk_piece_origin: purchase-price columns only with the cost right
+        if (colibri && !sess.rights.cost) for (const k of ["Цена оригинального инвойса", "Инв. цена, долл", "Коэф-т 1", "Коэф-т 2", "Цена в СФ"]) delete colibri.data[k];
         return [200, i > 0 ? { colibri, receipt: null, codes: [], hs_code: null, ikpu: null } : { colibri,
           receipt: { supplier: "T2 Supplier SpA", contract: "No. T2-01", invoice_no: "INV-77", invoice_date: "2026-10-01",
             currency: "EUR", arrival_date: "2026-10-14", customs_decl: null, source_file: "t2 cost.xlsx" },

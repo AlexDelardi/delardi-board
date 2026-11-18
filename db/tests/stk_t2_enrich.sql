@@ -80,7 +80,7 @@ begin
   exception when check_violation then null; end;
 
   -- nothing is callable or readable by the API roles
-  foreach f in array array['stk_piece_origin(uuid)', 'stk_piece_cost(uuid)'] loop
+  foreach f in array array['stk_piece_origin(uuid, boolean)', 'stk_piece_cost(uuid)', 'stk_colibri_cost_columns()'] loop
     assert not has_function_privilege('anon', 'public.' || f, 'execute') and not has_function_privilege('authenticated', 'public.' || f, 'execute'), f || ' is closed';
   end loop;
   foreach f in array array['ops_receipts', 'ops_piece_colibri', 'ops_piece_codes', 'ops_piece_costs'] loop

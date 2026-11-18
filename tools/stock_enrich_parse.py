@@ -137,6 +137,29 @@ def dedupe_docs(docs):
 
 
 # ----------------------------------------------------------------- matching
+def code_re(code):
+    """A serial or reference as it may be written inside a product name: punctuation and spaces inside it are
+    optional, and it must be the whole identifier — not the start or the end of a longer run of digits (or of
+    letters). Names are often glued ("...208515dv08042602Dinh van"), so a change between digits, Latin letters
+    and Russian letters counts as a boundary."""
+    chars = [c for c in str(code or "").upper() if c.isalnum()]
+    if not chars:
+        return None
+    cls = lambda c: "0-9" if c.isdigit() else ("A-Z" if c < "\u0400" else "А-ЯЁ")   # Russian text glued to a Latin code is a boundary
+    body = r"[^0-9A-ZА-ЯЁ]*".join(re.escape(c) for c in chars)
+    return re.compile(f"(?<![{cls(chars[0])}]){body}(?![{cls(chars[-1])}])")
+
+
+def has_code(code, name):
+    rx = code_re(code)
+    return bool(rx and rx.search(str(name or "").upper()))
+
+
+# A reference match is trusted as exact only when the cost document and the arrival fit in time: the piece
+# may not have arrived more than 60 days after the document (a later shipment), and the document may not be
+# dated more than a year after the arrival (Colibri is often loaded months before 1C posts the receipt).
+LATE_ARRIVAL_DAYS, LATE_DOCUMENT_DAYS = 60, 365
+
 COST_FIELDS = ("invoice_price", "fx_rate", "invoice_uzs", "customs_vat_uzs", "clearance_uzs", "assay_uzs",
                "customs_fee_uzs", "other_uzs", "landed_uzs")
 
@@ -147,13 +170,10 @@ def days_between(a, b):
 
 def match_costs(pieces, docs, arrival=None):
     """-> {(brand, serial): cost dict}. See the module docstring for what exact / estimated mean.
-    arrival: {receipt_no: 'YYYY-MM-DD'}. A reference match to a document dated more than 60 days before the
-    piece arrived is another shipment's cost, so it is only an estimate."""
+    arrival: {receipt_no: 'YYYY-MM-DD'}. A reference match whose document and arrival do not fit in time
+    (see LATE_ARRIVAL_DAYS, LATE_DOCUMENT_DAYS) is another shipment's cost, so it is only an estimate."""
     arrival = arrival or {}
-    lines = []
-    for d in docs:
-        for it in d["items"]:
-            lines.append((d, it, norm(it["name"])))
+    lines = [(d, it) for d in docs for it in d["items"]]
     out = {}
     used = set()
     def cost(d, vals, quality):
@@ -167,10 +187,12 @@ def match_costs(pieces, docs, arrival=None):
         s = norm(p["serial"])
         if len(s) < 5:
             continue
-        hits = [(d, it) for d, it, n in lines if s in n]
+        # the serial alone, or glued straight onto its reference ("...828712Udv08042679...")
+        hits = [(d, it) for d, it in lines if has_code(p["serial"], it["name"])
+                or (len(norm(p["article"])) >= 5 and has_code(p["article"] + p["serial"], it["name"]))]
         art = norm(p["article"])
         if len(hits) > 1 and len(art) >= 4:
-            hits = [h for h in hits if art in norm(h[1]["name"])] or hits
+            hits = [h for h in hits if has_code(p["article"], h[1]["name"])] or hits
         if len(hits) == 1 or (hits and len({h[1]["landed_uzs"] for h in hits}) == 1):
             out[(p["brand"], p["serial"])] = cost(hits[-1][0], hits[-1][1], "exact")
             used.add(id(hits[-1][1]))
@@ -178,9 +200,9 @@ def match_costs(pieces, docs, arrival=None):
     by_art = defaultdict(list)
     for p in pieces:
         if (p["brand"], p["serial"]) not in out and len(norm(p["article"])) >= 5:
-            by_art[norm(p["article"])].append(p)
+            by_art[p["article"].strip().upper()].append(p)
     for art, group in by_art.items():
-        hits = [(d, it) for d, it, n in lines if art in n and id(it) not in used]
+        hits = [(d, it) for d, it in lines if has_code(art, it["name"]) and id(it) not in used]
         if not hits:
             continue
         d = hits[-1][0]                       # the latest document
@@ -196,7 +218,8 @@ def match_costs(pieces, docs, arrival=None):
                         if any(it[k] is not None for it in same_doc) else None) for k in COST_FIELDS}
         for p in group:
             came = arrival.get(p.get("receipt_no"))
-            later = bool(came and d["doc_date"] and days_between(d["doc_date"], came) > 60)
+            gap = days_between(d["doc_date"], came) if came and d["doc_date"] else 0
+            later = gap > LATE_ARRIVAL_DAYS or -gap > LATE_DOCUMENT_DAYS
             out[(p["brand"], p["serial"])] = cost(d, vals, "exact" if agree and not later else "estimated")
     return out
 
@@ -223,6 +246,8 @@ def build(stock_path, sf_path=None, cost_paths=()):
         "pieces": [{k: p[k] for k in ("brand", "serial", "barcode", "receipt_no", "data")} for p in pieces],
         "receipts": [dict({"colibri_no": no, "arrival_date": dates.get(no)}, **receipt_origin(no, pieces, costs)) for no in receipts],
         "costs": [dict(brand=b, serial=s, **c) for (b, s), c in costs.items()],
+        # with cost files given, these costs are the whole truth for the pieces: a cost no longer matched is withdrawn
+        "costs_complete": bool(cost_paths),
     }
     by_brand = defaultdict(lambda: {"pieces": 0, "barcode": 0, "arrival": 0, "exact": 0, "estimated": 0, "tbd": 0})
     for p in pieces:
