@@ -1833,6 +1833,13 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       await login(page, "look");
       await page.waitForFunction(() => S.training && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 12);
       check("training: after unlocking it is still training", !!(await page.$("#train-band")) && !!(await page.$("#f-store")));
+      // locked, then reloaded before unlocking: the mode is still Training after the passcode
+      await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+      await page.waitForSelector("#gate-pass");
+      await page.reload();
+      await login(page, "look");
+      await page.waitForFunction(() => typeof S !== "undefined" && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length > 0);
+      check("training: lock, reload, unlock stays in training", await page.evaluate(() => S.training && !!document.querySelector("#train-band") && document.querySelectorAll("#rows tr.prow").length === 12));
       check("training viewer: no script errors", errors.length === 0, errors.join(" | "));
       await ctx.close();
     }

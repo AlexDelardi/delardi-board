@@ -559,13 +559,15 @@ function renderAll() {
   if (typeof renderPiece === "function") renderPiece();      // an open piece panel follows the language
 }
 function restoreSession() {
+  // The mode is the tab's, not the login's: it is read before anything that can send the page to the
+  // gate (no saved session, an expired one, the idle lock), so unlocking comes back to the same mode.
+  S.training = sstore(TRAIN_KEY) === "1";
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;
     const last = Number(sstore(ACTIVE_KEY) || 0);
     if (touchDevice() && last && Date.now() - last >= IDLE_MIN * 60000) { sstore(SESSION_KEY, null); return false; }
     S.token = s.token; S.name = s.name; S.expires_at = s.expires_at; S.rights = s.rights || S.rights;
-    S.training = sstore(TRAIN_KEY) === "1";
     return true;
   } catch (e) { return false; }
 }
