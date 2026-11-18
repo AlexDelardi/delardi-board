@@ -421,6 +421,12 @@ function trainHandle(action, body) {
   fail(400, `Unknown action: ${action}`);
 }
 
+// ops_upload_pending as import_pending lists it
+function waitingList() {
+  return [...waitingRows].map(([k, r]) => ({ brand_key: r.brand.toLowerCase(), serial_key: k, brand: r.brand, serial: r.serial, article: r.article,
+    file_name: r.file_name, actor: r.actor, created_at: r.created_at }));
+}
+
 function handle(body) {
   calls.push(body);
   try {
@@ -493,7 +499,7 @@ function handle(body) {
     }
     // The upload file. A reduced stk_import: the same statuses, error codes and all-or-nothing rule.
     if (action === "import") {
-      session(body.token, "manage");
+      const s = session(body.token, "manage");
       if (!Array.isArray(body.rows) || !body.rows.length) fail(400, "The file has no rows.");
       const cell = (v) => (v === null || v === undefined || String(v).trim() === "" || String(v).trim().toUpperCase() === "TBD" ? null : String(v).trim());
       const key = (r) => (cell(r.colibri["Бренд"]) || "").toLowerCase().replace(/[^a-z0-9]/g, "") + "|" + (cell(r.colibri["Серийный номер"]) || "").toUpperCase();
@@ -524,14 +530,22 @@ function handle(body) {
       });
       const apply = body.apply === true;
       if (apply && sum.error) fail(409, "The file has " + sum.error + " row(s) with errors. Nothing was loaded: fix them and upload again.");
-      if (apply) for (const r of out) { if (r.status === "update") imported.add(r.piece_id); if (r.status === "pending") waitingRows.set(r.serial.toUpperCase(), r); }
+      if (apply) for (const r of out) { if (r.status === "update") imported.add(r.piece_id); if (r.status === "pending") waitingRows.set(r.serial.toUpperCase(), Object.assign({}, r, { file_name: str(body.file_name, 200) || "upload.xlsx", actor: s.name, created_at: new Date().toISOString() })); }
       return [200, { applied: apply, file_name: str(body.file_name, 200) || "upload.xlsx", rows: out, summary: sum, waiting: waitingRows.size }];
     }
     if (action === "import_pending") {
       session(body.token, "manage");
       let applied = 0;
       if (body.check_only !== true) for (const [k] of [...waitingRows]) if (pieces.some((q) => q.serial.toUpperCase() === k)) { waitingRows.delete(k); applied++; }
-      return [200, { applied, waiting: waitingRows.size }];
+      return [200, { applied, waiting: waitingRows.size, rows: waitingList() }];
+    }
+    if (action === "import_remove") {
+      session(body.token, "manage");
+      const bk = str(body.brand_key, 120), sk = str(body.serial_key, 120);
+      if (!bk || !sk) fail(400, "Say which waiting row to remove.");
+      const hit = [...waitingRows].find(([k, r]) => k === sk && r.brand.toLowerCase() === bk);
+      if (hit) waitingRows.delete(hit[0]);
+      return [200, { removed: hit ? 1 : 0, waiting: waitingRows.size, rows: waitingList() }];
     }
     if (action === "reviews") {
       session(body.token, "view");
