@@ -541,8 +541,8 @@ function handle(body) {
     }
     if (action === "import_remove") {
       session(body.token, "manage");
-      const bk = str(body.brand_key, 120), sk = str(body.serial_key, 120);
-      if (!bk || !sk) fail(400, "Say which waiting row to remove.");
+      const bk = body.brand_key, sk = body.serial_key;
+      if (typeof bk !== "string" || typeof sk !== "string" || !bk || !sk || bk.length > 4000 || sk.length > 4000) fail(400, "Say which waiting row to remove.");
       const hit = [...waitingRows].find(([k, r]) => k === sk && r.brand.toLowerCase() === bk);
       if (hit) waitingRows.delete(hit[0]);
       return [200, { removed: hit ? 1 : 0, waiting: waitingRows.size, rows: waitingList() }];

@@ -535,8 +535,11 @@ async function handle(req: Request, body: Record<string, unknown>) {
   // A row loaded by mistake never finds its piece: take it off the waiting list. Nothing in stock changes.
   if (action === "import_remove") {
     await requireStock(body.token, "manage");
-    const brandKey = str(body.brand_key, 120), serialKey = str(body.serial_key, 120);
-    if (!brandKey || !serialKey) throw new HttpErr(400, "Say which waiting row to remove.");
+    // The keys exactly as import_pending listed them: never trimmed or cut, so a long one cannot match another row.
+    const brandKey = body.brand_key, serialKey = body.serial_key;
+    if (typeof brandKey !== "string" || typeof serialKey !== "string" || !brandKey || !serialKey || brandKey.length > 4000 || serialKey.length > 4000) {
+      throw new HttpErr(400, "Say which waiting row to remove.");
+    }
     const gone = await db(
       `ops_upload_pending?brand_key=eq.${encodeURIComponent(brandKey)}&serial_key=eq.${encodeURIComponent(serialKey)}`,
       { method: "DELETE", headers: { Prefer: "return=representation" } },
