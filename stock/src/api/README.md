@@ -152,7 +152,7 @@ unless any row is in error: then `409` and nothing is loaded.
   summary: { rows, update, same, pending, error },
   rows: [ { row, brand, serial, article, status,     // update | same | pending | error
             piece_id,                                // update, same
-            changes: { colibri_new, colibri_changed, details, receipt: "new" | "fill" | null, brand_code, hs_code, ikpu },
+            changes: { colibri_new, colibri_changed, details, receipt: "new" | "fill" | "link" | null, brand_code, hs_code, ikpu },
             warnings: [ { code, field?, on_file? } ],  // hs_differs | ikpu_differs | receipt_differs | no_model: the value on file is kept
             errors:   [ { code, field?, on_file? } ] } ] }   // no_brand | no_serial | no_article | bad_hs | bad_ikpu | bad_date |
                                                              // serial_repeated | serial_ambiguous | serial_other_reference

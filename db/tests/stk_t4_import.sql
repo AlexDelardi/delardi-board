@@ -77,6 +77,30 @@ begin
   select stk_piece_origin(piece_id) into x from ops_pieces where serial = 'ZY.00.79999';
   assert x->'colibri'->'data'->>'Страна' = 'Италия' and x->'receipt'->>'invoice_no' = 'INV-4', 'pending row landed: ' || x::text;
 
+  -- Codex on #18: a waiting row is not applied to a piece of another reference; it keeps waiting
+  perform stk_import(jsonb_build_object('rows', jsonb_build_array(jsonb_build_object('row', 2,
+    'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'OTHER-REF', 'Серийный номер', 'ZY.00.78888', 'Страна', 'Франция')))), 'Alex', true);
+  insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, state, state_since)
+    select store_id, brand, 'ZY.00.78888', article, model_id, variant_id, 'in_stock', now() from ops_pieces where piece_id = v_a;
+  assert stk_apply_pending() = 0, 'a row for another reference is not applied';
+  assert (select count(*) from ops_upload_pending where serial_key = 'ZY.00.78888') = 1, 'and it keeps waiting';
+  assert not exists (select 1 from ops_piece_colibri c join ops_pieces o using (piece_id) where o.serial = 'ZY.00.78888'), 'the piece was not touched';
+  delete from ops_upload_pending where serial_key = 'ZY.00.78888';
+
+  -- Codex on #18: attaching a piece to an arrival document that is already complete is a change, so it can be loaded
+  insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, state, state_since)
+    select store_id, brand, 'ZY.00.77777', article, model_id, variant_id, 'in_stock', now() from ops_pieces where piece_id = v_a;
+  x := jsonb_build_object('rows', jsonb_build_array(jsonb_build_object('row', 2,
+    'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-A', 'Серийный номер', 'ZY.00.77777'),
+    'extra', jsonb_build_object('supplier', 'T4 Supplier SpA', 'invoice_no', 'INV-4'))));
+  update ops_piece_colibri set data = data where false;
+  insert into ops_piece_colibri(piece_id, data) select piece_id, '{"Бренд":"T4 Jeweller","Артикул":"ZY-ART-A","Серийный номер":"ZY.00.77777"}' from ops_pieces where serial = 'ZY.00.77777';
+  r := stk_import(x, 'Alex', false);
+  assert r->'rows'->0->>'status' = 'update' and r->'rows'->0->'changes'->>'receipt' = 'link', 'link is a change: ' || (r->'rows'->0)::text;
+  perform stk_import(x, 'Alex', true);
+  assert (select receipt_id from ops_pieces where serial = 'ZY.00.77777') = (select receipt_id from ops_pieces where piece_id = v_a), 'linked';
+  assert stk_import(x, 'Alex', false)->'rows'->0->>'status' = 'same', 'then nothing left to do';
+
   -- errors: each is named, and a file with any error is not applied at all
   f := jsonb_build_object('rows', jsonb_build_array(
     jsonb_build_object('row', 2, 'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-A', 'Серийный номер', 'DUP-1')),

@@ -782,6 +782,8 @@ function lockDown(message) {
   for (const k of Object.keys(S.priceTimers)) clearTimeout(S.priceTimers[k]);
   S.priceTimers = {};
   // Nothing from the session stays in memory behind the card; the filters do.
+  S.imp = null;                                    // import.js: no file, preview or pending Load crosses a lock
+  { const h = $("#screen-import"); if (h) h.innerHTML = ""; }                    // nor stays on screen behind the card
   S.rv = null; S.reviewCount = null;
   { const h = $("#rv-host"); if (h) h.innerHTML = ""; if (typeof setReviewTab === "function") setReviewTab(); }   // review.js: no queue is left on screen behind the card
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
@@ -2332,6 +2334,7 @@ Object.assign(RU, {
   "{n} Colibri fields": "полей Colibri: {n}",
   "arrival document: new": "документ прихода: новый",
   "arrival document: filled in": "документ прихода: дополнен",
+  "arrival document: linked": "документ прихода: привязан",
   "brand barcode": "штрихкод бренда",
   "item details": "данные изделия",
   "No brand.": "Нет бренда.",
@@ -2437,20 +2440,25 @@ function importRedraw() { if (route().name === "import" && !S.locked) renderAll(
 
 async function importFile(file) {
   const im = S.imp;
+  // each selection gets a number: an answer for an earlier file is dropped, and so is one that arrives after a lock
+  const seq = im.seq = (im.seq || 0) + 1;
+  const current = () => S.imp === im && im.seq === seq && !S.locked;
   Object.assign(im, { busy: "Reading the file…", err: null, res: null, rows: null, done: null, file: file.name });
   importRedraw();
   try {
     let sheet;
     try { sheet = await kitXlsxRead(await file.arrayBuffer()); }
     catch (e) { throw new Error(tr("Could not read this file. It must be an .xlsx workbook.")); }
+    if (!current()) return;
     const parsed = uploadRows(sheet);
     if (parsed.missing.length) throw new Error(tr("These Colibri headings are missing: {h}", { h: parsed.missing.join(", ") }));
     if (!parsed.rows.length) throw new Error(tr("The file has no rows under the headings."));
     im.busy = "Checking…"; importRedraw();
     const res = await api("import", { file_name: file.name, rows: parsed.rows, apply: false });
-    if (S.imp !== im) return;
+    if (!current()) return;
     Object.assign(im, { busy: null, rows: parsed.rows, res });
   } catch (e) {
+    if (!current()) return;
     Object.assign(im, { busy: null, err: e.message, res: null, rows: null });
   }
   importRedraw();
@@ -2459,11 +2467,14 @@ async function importApply() {
   const im = S.imp;
   if (!im || !im.rows || im.busy) return;
   im.busy = "Loading…"; im.err = null; importRedraw();
+  const seq = im.seq;
   try {
     const res = await api("import", { file_name: im.file, rows: im.rows, apply: true });
+    if (S.imp !== im || im.seq !== seq) return;
     Object.assign(im, { busy: null, res: null, rows: null, waiting: res.waiting,
       done: tr("Loaded: {u} updated, {p} waiting for their pieces.", { u: res.summary.update, p: res.summary.pending }) });
   } catch (e) {
+    if (S.imp !== im || im.seq !== seq) return;
     Object.assign(im, { busy: null, err: e.message });
   }
   importRedraw();
@@ -2505,6 +2516,7 @@ function importChangeWords(c) {
   if (c.colibri_new + c.colibri_changed > 0) out.push(tr("{n} Colibri fields", { n: c.colibri_new + c.colibri_changed }));
   if (c.receipt === "new") out.push(tr("arrival document: new"));
   if (c.receipt === "fill") out.push(tr("arrival document: filled in"));
+  if (c.receipt === "link") out.push(tr("arrival document: linked"));
   if (c.brand_code) out.push(tr("brand barcode"));
   if (c.hs_code) out.push(tr("HS code"));
   if (c.ikpu) out.push("ИКПУ");
