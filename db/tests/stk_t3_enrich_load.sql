@@ -72,6 +72,13 @@ begin
         'costs', '[]'::jsonb), 't3');
   assert (r->>'costs_removed')::int = 1 and stk_piece_cost(v_a)->>'match_quality' = 'tbd' and stk_piece_cost(v_b)->>'match_quality' = 'estimated', 'withdrawn only for the payload''s pieces: ' || r::text;
 
+  -- dates_complete: an arrival date the payload no longer supports is withdrawn; supplier is kept
+  r := stk_load_enrichment(jsonb_build_object('dates_complete', true, 'pieces', '[]'::jsonb,
+        'receipts', jsonb_build_array(jsonb_build_object('colibri_no', 'T3-7', 'arrival_date', null), jsonb_build_object('colibri_no', 'T3-8', 'arrival_date', '2026-12-01'))), 't3');
+  assert (r->>'receipts_updated')::int = 2, 'dates_complete: ' || r::text;
+  assert stk_piece_origin(v_a)->'receipt'->>'arrival_date' is null and stk_piece_origin(v_a)->'receipt'->>'supplier' = 'T3 Supplier'
+     and stk_piece_origin(v_b)->'receipt'->>'arrival_date' = '2026-12-01', 'withdrawn and replaced';
+
   -- Codex on #15: a narrower report adds and changes columns but never erases one already on file
   r := stk_load_enrichment(jsonb_build_object('pieces', jsonb_build_array(jsonb_build_object('brand', 'T3 Jeweller', 'serial', 'ZY.00.80001',
         'data', jsonb_build_object('НДС', 15, 'Описание', 'new')))), 't3 narrow.xlsx');

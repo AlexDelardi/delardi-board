@@ -91,9 +91,31 @@ class Colibri(unittest.TestCase):
         self.assertEqual(len(p), 1)
         self.assertEqual((p[0]["serial"], p[0]["barcode"], p[0]["receipt_no"]), ("ZZ.00.90001", "6000000000017", "7"))
         self.assertEqual(p[0]["data"]["НДС"], 0); self.assertNotIn("Состав", p[0]["data"])
-        sf = [["x"], ["Год", "Бренд", "Артикул", "Номер накладной прихода", "Дата прихода"],
-              [2026, "Zz", "A", "7", datetime.datetime(2026, 10, 14)], [2026, "Zz", "B", 8, datetime.datetime(2026, 1, 1)], [2026, "Zz", "C", 8, datetime.datetime(2026, 2, 1)]]
-        self.assertEqual(m.parse_sf(sf), {"7": "2026-10-14"})
+
+class ArrivalDates(unittest.TestCase):
+    """Colibri numbers arrival documents differently in the two reports, so documents are paired by what is on them."""
+    HEAD = ["Год", "Бренд", "Артикул", "Номер накладной прихода", "Дата прихода"]
+    def sf(self, *rows):
+        return m.parse_sf([["x"], self.HEAD] + [[2026, b, a, n, datetime.datetime(*d)] for b, a, n, d in rows])
+    def test_paired_by_brand_and_reference_not_by_number(self):
+        docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "9", (2026, 10, 14)), ("Zz Atelier", "ZZ-AT-0101", 9, (2026, 10, 14)),
+                       ("Other", "OT-1", "7", (2025, 1, 1)))
+        pieces = [piece("S1AAAA", "ZZ-AT-0100", "7"), piece("S2BBBB", "ZZ-AT-0101", "7")]
+        self.assertEqual(m.arrival_dates(pieces, docs), {"7": "2026-10-14"})
+    def test_two_brands_on_one_document_with_one_date(self):
+        docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "9", (2026, 10, 14)), ("Yy Watches", "YY-1", "10", (2026, 10, 14)))
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7"), piece("S2BBBB", "YY-1", "7", "Yy Watches")], docs), {"7": "2026-10-14"})
+    def test_brands_that_disagree_or_weak_matches_stay_undated(self):
+        docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "9", (2026, 10, 14)), ("Yy Watches", "YY-1", "10", (2026, 11, 2)))
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7"), piece("S2BBBB", "YY-1", "7", "Yy Watches")], docs), {})
+        # under 60% of the references found
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "8"), piece("S2", "QQ-1", "8"), piece("S3", "QQ-2", "8")], docs), {})
+    def test_one_source_document_with_two_dates_uses_the_matching_rows(self):
+        docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "9", (2026, 10, 14)), ("Yy Watches", "YY-1", "9", (2025, 3, 3)))
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], docs), {"7": "2026-10-14"})
+    def test_a_tie_prefers_the_same_number(self):
+        docs = self.sf(("Zz Atelier", "ZZ-AT-0100", "2", (2022, 2, 3)), ("Zz Atelier", "ZZ-AT-0100", "7", (2022, 12, 10)))
+        self.assertEqual(m.arrival_dates([piece("S1AAAA", "ZZ-AT-0100", "7")], docs), {"7": "2022-12-10"})
 
 if __name__ == "__main__":
     unittest.main()
