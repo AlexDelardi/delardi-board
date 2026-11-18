@@ -739,6 +739,40 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await t.ctx.close();
   });
 
+  await run("import guide: what to fill and how", async () => {
+    const FX = (n) => path.join(__dirname, "fixtures", n);
+    const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 });
+    await settled(page);
+    await page.click("#tab-import");
+    await page.waitForSelector("#imp-guide");
+    check("guide: open before any file is chosen", await page.$eval("#imp-guide", (d) => d.open === true));
+    const steps = await page.$$eval("#imp-guide-steps > li", (ns) => ns.map((n) => n.textContent.replace(/\s+/g, " ").trim()));
+    check("guide: five numbered steps", steps.length === 5, String(steps.length));
+    check("guide: the three required cells are named by their headings", /Бренд/.test(steps[1]) && /Артикул/.test(steps[1]) && /Серийный номер/.test(steps[1]), steps[1]);
+    check("guide: says the file does not add pieces, Colibri does", /Colibri/.test(steps[3]) && /does not add/i.test(steps[3]), steps[3]);
+    const cols = await page.$$eval("#imp-guide-cols tbody tr", (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.replace(/\s+/g, " ").trim())));
+    const ours = await page.evaluate(() => UPLOAD_OURS.map((c) => c[0]));
+    check("guide: one row for each of our 19 columns, in file order, with its letter", cols.length === 19 && cols.map((c) => c[1]).join("|") === ours.join("|")
+      && cols[0][0] === "AL" && cols[18][0] === "BD", cols.map((c) => c[0] + " " + c[1]).join("|"));
+    check("guide: every column says what to write and gives an example", cols.every((c) => c.length === 4 && c[2].length > 8 && c[3].length > 0), JSON.stringify(cols.find((c) => !(c.length === 4 && c[2].length > 8 && c[3].length > 0))));
+    check("guide: the formats the server checks are stated", /10 digits/.test(cols[0][2]) && /17 digits/.test(cols[1][2]) && /date/i.test(cols[5][2]) && /date/i.test(cols[7][2]));
+    const rules = norm(await page.textContent("#imp-guide-rules"));
+    check("guide: the rules: TBD, never overwrites, one error stops the file", /TBD/.test(rules) && /never overwrit/i.test(rules) && /nothing is loaded/i.test(rules), rules);
+    check("guide 768: no sideways scroll", await noHScroll(page));
+    await shot(page, "g01-import-guide");
+    await page.setInputFiles("#imp-file", FX("upload_ok.xlsx"));
+    await page.waitForSelector("#imp-rows");
+    check("guide: folded away once a file is previewed, still there to open", await page.$eval("#imp-guide", (d) => d.open === false));
+    await page.click("#imp-guide > summary");
+    check("guide: opens again on a click, and the preview stays", await page.evaluate(() => document.querySelector("#imp-guide").open && !!document.querySelector("#imp-rows")));
+    await page.click('.kit-lang button[lang="ru"]');
+    await page.waitForFunction(() => /Как заполнить/.test(document.querySelector("#imp-guide > summary").textContent));
+    const ru = await page.$$eval("#imp-guide-cols tbody tr", (rs) => rs.map((r) => r.cells[2].textContent.trim()));
+    check("guide RU: the steps and every column note are in Russian", ru.length === 19 && ru.every((t) => /[а-яё]/i.test(t)) && /Скачайте/.test(await page.textContent("#imp-guide-steps")), ru.find((t) => !/[а-яё]/i.test(t)));
+    check("guide: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   await run("import: upload file with preview", async () => {
     const FX = (n) => path.join(__dirname, "fixtures", n);
     const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 });

@@ -122,6 +122,90 @@ function uploadRows(sheet) {
 }
 
 /* ------------------------------------------------------------------ screen */
+Object.assign(RU, {
+  "How to fill the file": "Как заполнить файл",
+  "Download the template and fill one row for each piece. Do not rename, move or delete the headings in row 1.": "Скачайте шаблон и заполните по одной строке на каждое изделие. Не переименовывайте, не переставляйте и не удаляйте заголовки в строке 1.",
+  "Every row needs three cells: {h}. The serial number must be the one on the piece, and must not repeat within a brand.": "В каждой строке обязательны три ячейки: {h}. Серийный номер — тот, что на изделии; внутри одного бренда он не должен повторяться.",
+  "Columns A–AK are Colibri's own: fill them exactly as you do for Colibri today. Columns {a}–{b} are ours: the table below says what goes in each.": "Столбцы A–AK — это шаблон Colibri: заполняйте их так же, как сейчас для Colibri. Столбцы {a}–{b} — наши: что в них писать, сказано в таблице ниже.",
+  "Load the pieces into Colibri as usual. This file does not add pieces to Stock: a piece appears here once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.": "Загрузите изделия в Colibri как обычно. Этот файл не добавляет изделия на Склад: изделие появится здесь после загрузки в Colibri, а его строка до тех пор ждёт. Если Colibri не примет файл из-за наших столбцов, загрузите в Colibri копию без столбцов {a}–{b}.",
+  "Choose the file here. You first see every row and what it will change; nothing is saved until you press Load.": "Выберите файл здесь. Сначала вы увидите каждую строку и что она изменит; ничего не сохраняется, пока вы не нажмёте «Загрузить».",
+  "Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.": "Значение неизвестно: оставьте ячейку пустой или напишите TBD. Пустая ячейка ничего не меняет.",
+  "If any row has an error, nothing is loaded from the file. Correct the rows marked as errors and choose the file again.": "Если хотя бы в одной строке ошибка, из файла не загружается ничего. Исправьте строки, отмеченные как ошибки, и выберите файл снова.",
+  "Supplier, contract, invoice, dates, customs declaration, HS code and ИКПУ never overwrite a value already on file: they fill empty fields only, and a different value is shown as a warning.": "Поставщик, договор, инвойс, даты, ГТД, код ТН ВЭД и ИКПУ не заменяют уже записанное значение: заполняются только пустые поля, а расхождение показывается как предупреждение.",
+  "Pieces with the same supplier and invoice number go on one arrival document. HS code and ИКПУ are saved for the reference, so they apply to all its pieces.": "Изделия с одним поставщиком и номером инвойса попадают в один документ прихода. Код ТН ВЭД и ИКПУ сохраняются для артикула и действуют для всех его изделий.",
+  "Column": "Столбец", "Heading in the file": "Заголовок в файле", "What to write": "Что писать", "Example": "Пример",
+  "Customs commodity code (ТН ВЭД): 10 digits, no spaces or dots.": "Код ТН ВЭД: 10 цифр, без пробелов и точек.",
+  "Tax catalogue code (ИКПУ): 17 digits.": "Код ИКПУ: 17 цифр.",
+  "Legal name of the company that issued the invoice.": "Юридическое название компании, выставившей инвойс.",
+  "Contract number and date, as written in the contract.": "Номер и дата договора, как в самом договоре.",
+  "Number of the supplier's invoice.": "Номер инвойса поставщика.",
+  "Invoice date: a date cell, or text as DD.MM.YYYY.": "Дата инвойса: ячейка с датой или текст в виде ДД.ММ.ГГГГ.",
+  "Currency of the invoice, three letters.": "Валюта инвойса, три буквы.",
+  "The date the pieces arrived at the boutique: a date cell, or text as DD.MM.YYYY.": "Дата прихода изделий в бутик: ячейка с датой или текст в виде ДД.ММ.ГГГГ.",
+  "Customs declaration (ГТД) number.": "Номер таможенной декларации (ГТД).",
+  "The barcode printed by the brand on its own tag, if there is one. Not the Colibri barcode: that one is column T.": "Штрихкод с бирки самого бренда, если он есть. Не штрихкод Colibri: тот в столбце T.",
+  "Type of piece, in one or two words.": "Вид изделия, одним-двумя словами.",
+  "Narrower type, if it helps.": "Более узкий вид, если это полезно.",
+  "Metal and its colour.": "Металл и его цвет.",
+  "Fineness of the metal.": "Проба металла.",
+  "Metal weight in grams: a number.": "Вес металла в граммах: число.",
+  "Stones, separated by commas.": "Камни, через запятую.",
+  "Certificate number, if the piece has one.": "Номер сертификата, если он есть.",
+  "Name of the piece in Uzbek.": "Наименование изделия на узбекском.",
+  "The store that receives the piece.": "Магазин, который получает изделие.",
+});
+
+/* The guide: what to fill and how. Open until a file is previewed, then folded (a click opens it again).
+   One row per column of ours, in file order: [what to write, an example]. Examples are invented. */
+const GUIDE_COLS = {
+  hs_code: ["Customs commodity code (ТН ВЭД): 10 digits, no spaces or dots.", "7113190000"],
+  ikpu: ["Tax catalogue code (ИКПУ): 17 digits.", "07113001001000000"],
+  supplier: ["Legal name of the company that issued the invoice.", "Example Gioielli S.p.A."],
+  contract: ["Contract number and date, as written in the contract.", "№ 12 от 01.03.2026"],
+  invoice_no: ["Number of the supplier's invoice.", "INV-2026-0456"],
+  invoice_date: ["Invoice date: a date cell, or text as DD.MM.YYYY.", "14.10.2026"],
+  currency: ["Currency of the invoice, three letters.", "EUR"],
+  arrival_date: ["The date the pieces arrived at the boutique: a date cell, or text as DD.MM.YYYY.", "02.11.2026"],
+  customs_decl: ["Customs declaration (ГТД) number.", "26001/02.11.2026/0001234"],
+  brand_barcode: ["The barcode printed by the brand on its own tag, if there is one. Not the Colibri barcode: that one is column T.", "8050000123456"],
+  category: ["Type of piece, in one or two words.", "Ring"],
+  subcategory: ["Narrower type, if it helps.", "Engagement ring"],
+  metal: ["Metal and its colour.", "White gold"],
+  metal_purity: ["Fineness of the metal.", "750"],
+  metal_weight_g: ["Metal weight in grams: a number.", "4.35"],
+  stones: ["Stones, separated by commas.", "diamond, sapphire"],
+  certificate_no: ["Certificate number, if the piece has one.", "GIA 1234567890"],
+  name_uz: ["Name of the piece in Uzbek.", "Oq oltin uzuk"],
+  store: ["The store that receives the piece.", "Tashkent"],
+};
+// 0 → A, 25 → Z, 26 → AA: the letter of a column of the file
+function colLetter(i) { let s = ""; for (i += 1; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s; return s; }
+function importGuide(im) {
+  const open = typeof im.guide === "boolean" ? im.guide : !im.res;
+  const first = colLetter(UPLOAD_COLIBRI.length), last = colLetter(UPLOAD_COLIBRI.length + UPLOAD_OURS.length - 1);
+  const li = (text) => el("li", { text });
+  return el("details", { class: "imp-guide", id: "imp-guide", open: open ? true : null,
+      ontoggle: (e) => { if (e.target.open !== open) im.guide = e.target.open; } },
+    el("summary", { text: tr("How to fill the file") }),
+    el("ol", { id: "imp-guide-steps" },
+      li(tr("Download the template and fill one row for each piece. Do not rename, move or delete the headings in row 1.")),
+      li(tr("Every row needs three cells: {h}. The serial number must be the one on the piece, and must not repeat within a brand.", { h: UPLOAD_REQUIRED.join(", ") })),
+      li(tr("Columns A–AK are Colibri's own: fill them exactly as you do for Colibri today. Columns {a}–{b} are ours: the table below says what goes in each.", { a: first, b: last })),
+      li(tr("Load the pieces into Colibri as usual. This file does not add pieces to Stock: a piece appears here once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.", { a: first, b: last })),
+      li(tr("Choose the file here. You first see every row and what it will change; nothing is saved until you press Load."))),
+    el("ul", { id: "imp-guide-rules" },
+      li(tr("Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.")),
+      li(tr("If any row has an error, nothing is loaded from the file. Correct the rows marked as errors and choose the file again.")),
+      li(tr("Supplier, contract, invoice, dates, customs declaration, HS code and ИКПУ never overwrite a value already on file: they fill empty fields only, and a different value is shown as a warning.")),
+      li(tr("Pieces with the same supplier and invoice number go on one arrival document. HS code and ИКПУ are saved for the reference, so they apply to all its pieces."))),
+    el("div", { class: "table-wrap" }, el("table", { class: "tbl", id: "imp-guide-cols" },
+      el("thead", null, el("tr", null, el("th", { scope: "col", text: tr("Column") }), el("th", { scope: "col", text: tr("Heading in the file") }),
+        el("th", { scope: "col", text: tr("What to write") }), el("th", { scope: "col", text: tr("Example") }))),
+      el("tbody", null, UPLOAD_OURS.map(([h, key], i) => el("tr", null,
+        el("td", { class: "mono", text: colLetter(UPLOAD_COLIBRI.length + i) }), el("td", { text: h }),
+        el("td", { text: tr(GUIDE_COLS[key][0]) }), el("td", { class: "mono", text: GUIDE_COLS[key][1] })))))));
+}
+
 function renderImport(main) {
   const im = S.imp || (S.imp = { busy: null, err: null, file: null, rows: null, res: null, done: null, waiting: null });
   const sec = el("section", { class: "screen", id: "screen-import" },
@@ -130,7 +214,8 @@ function renderImport(main) {
         el("button", { type: "button", class: "btn", id: "imp-template", onclick: downloadTemplate, text: tr("Download the template") }),
         el("label", { class: "btn primary", id: "imp-pick-label", for: "imp-file", text: tr("Choose a file") }),
         el("input", { type: "file", id: "imp-file", class: "visually-hidden", accept: ".xlsx", onchange: (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importFile(f); } }))),
-    el("p", { class: "small", id: "imp-help", text: tr("The Colibri upload template (columns A–AK, unchanged) with our columns added from AL. Unknown values: leave empty or write TBD.") }));
+    el("p", { class: "small", id: "imp-help", text: tr("The Colibri upload template (columns A–AK, unchanged) with our columns added from AL. Unknown values: leave empty or write TBD.") }),
+    importGuide(im));
   if (im.waiting > 0 && !im.res) {
     sec.append(el("p", { class: "notice", id: "imp-waiting" }, tr("{n} rows from earlier files are waiting for their pieces.", { n: im.waiting }) + " ",
       el("button", { type: "button", class: "btn", id: "imp-check", onclick: importCheckPending, text: tr("Check now") })));
@@ -148,7 +233,7 @@ async function importFile(file) {
   // each selection gets a number: an answer for an earlier file is dropped, and so is one that arrives after a lock
   const seq = im.seq = (im.seq || 0) + 1;
   const current = () => S.imp === im && im.seq === seq && !S.locked;
-  Object.assign(im, { busy: "Reading the file…", err: null, res: null, rows: null, done: null, file: file.name });
+  Object.assign(im, { busy: "Reading the file…", err: null, res: null, rows: null, done: null, file: file.name, guide: null });
   importRedraw();
   try {
     let sheet;
