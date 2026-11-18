@@ -494,7 +494,8 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
     await settled(page);
     const tags = await page.evaluate(() => Object.keys(STATE_WORDS).map((s) => { const t = stateTag(s); return s + ":" + t.className + ":" + t.textContent; }));
-    check("hooks: STATE_WORDS has the seven states", tags.length === 7, tags.join());
+    check("hooks: STATE_WORDS has the seven states and training's In transfer", tags.length === 8 && tags[7] === "in_transfer:tag info:In transfer", tags.join());
+    tags.pop();
     check("hooks: stateTag gives the G1 tags", tags.join() === [
       "in_stock:tag act:In stock", "reserved:tag line:Reserved", "booked_out:tag line:Booked out", "in_transit:tag info:In transit",
       "damaged:tag alert:Damaged", "not_received:tag alert:Not received", "sold:tag done:Sold"].join(), tags.join());
@@ -1672,6 +1673,216 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       await openId(page, pc.piece_id);
       await snap(page, "s07-piece-portrait", "piece 768");
       check("screens: portrait no script errors", errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    }
+  });
+
+  // ------------------------------------------------------------ training mode
+  const trainOn = async (page) => {
+    await page.click("#train-toggle");
+    await page.waitForFunction(() => S.training && S.list && !S.listBusy && document.querySelector("#train-band") && document.querySelectorAll("#rows tr.prow").length > 0);
+  };
+  const trainId = (n) => "00000000-0000-4000-9000-" + String(n).padStart(12, "0");
+  const callsOf = (name) => mock.calls.filter((c) => c.action === name);
+  const confirmYes = async (page) => { await page.waitForSelector("#confirm-ok"); await page.click("#confirm-ok"); };
+
+  await run("training: switch, list, stores", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    check("training: the header has a Training switch, off", await page.$eval("#train-toggle", (b) => b.textContent.trim() === "Training" && b.getAttribute("aria-pressed") === "false"));
+    check("training: no band and no store filter in real stock", await page.evaluate(() => !document.querySelector("#train-band") && !document.querySelector("#f-store")));
+    check("training: real stock never offers the state In transfer", !(await page.$$eval("#f-state option", (ns) => ns.map((n) => n.value))).includes("in_transfer"));
+    await page.selectOption("#f-brand", "Zz Atelier");
+    await settled(page);
+    const before = mock.calls.length;
+    await trainOn(page);
+    const after = mock.calls.slice(before).map((c) => c.action);
+    check("training: switching on asks train_facets and train_list, nothing real", after.includes("train_facets") && after.includes("train_list") && after.every((a) => /^train_/.test(a)), after.join(","));
+    check("training: the switch is pressed and the band says what this is", await page.evaluate(() =>
+      document.querySelector("#train-toggle").getAttribute("aria-pressed") === "true" && /TRAINING/.test(document.querySelector("#train-band").textContent)
+      && /made-up pieces/i.test(document.querySelector("#train-band").textContent)));
+    check("training: the twelve made-up pieces, filters cleared", (await rowCount(page)) === 12 && (await page.$eval("#f-brand", (n) => n.value)) === "");
+    check("training: every row shows its store", (await page.$$eval("#rows td.store", (ns) => ns.map((n) => n.textContent.trim()))).filter((t) => /^Training store [AB]$/.test(t)).length === 12);
+    check("training: brands are the training brands", (await page.$$eval("#f-brand option", (ns) => ns.map((n) => n.value))).join("|") === "|Training Jeweller|Training Watchmaker");
+    const states = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.value));
+    check("training: states are the five training states", states.join("|") === "|in_stock|reserved|booked_out|damaged|in_transfer", states.join("|"));
+    check("training: only the Pieces tab, no export", await page.evaluate(() => !!document.querySelector("#tab-pieces") && !document.querySelector("#tab-review") && !document.querySelector("#tab-import") && !document.querySelector("#export-btn")));
+    check("training: Reset button for a manager", !!(await page.$("#train-reset")));
+    check("training: one totals card, 12 pieces", norm(await page.textContent("#totals")).includes("12 pieces") && (await page.$$("#totals .tot")).length === 1);
+    await page.selectOption("#f-store", "TRN-B");
+    await page.waitForFunction(() => !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 4);
+    const last = callsOf("train_list").pop();
+    check("training: the store filter is sent as the store's code", last.filters.store === "TRN-B" && (await rowCount(page)) === 4, JSON.stringify(last.filters));
+    await page.evaluate(() => { location.hash = "#/review"; });
+    await page.waitForTimeout(150);
+    check("training: #/review shows the training pieces, not the review queue", await page.evaluate(() => !!document.querySelector("#rows") && !document.querySelector("#rv-host")));
+    check("training: fits 1024 without sideways scroll", await noHScroll(page));
+    await shot(page, "t01-training-list");
+    // off again: back to real stock
+    const b2 = mock.calls.length;
+    await page.click("#train-toggle");
+    await page.waitForFunction(() => !S.training && S.list && !S.listBusy && !document.querySelector("#train-band") && document.querySelectorAll("#rows tr.prow").length === 50);
+    const off = mock.calls.slice(b2).map((c) => c.action);
+    check("training: switching off asks the real facets and list", off.includes("facets") && off.includes("list") && !off.some((a) => /^train_/.test(a)), off.join(","));
+    check("training: off → tabs and export are back, store filter gone", await page.evaluate(() => !!document.querySelector("#tab-review") && !!document.querySelector("#tab-import") && !!document.querySelector("#export-btn") && !document.querySelector("#f-store")));
+    check("training: no real piece was asked to change", callsOf("set_state").length === 0 && callsOf("resolve").length === 0 && callsOf("import").length === 0);
+    check("training: no foreign request, no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join(" | "));
+    await ctx.close();
+  });
+
+  await run("training: transfer, receive, cancel, reserve", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    await settled(page);
+    await trainOn(page);
+    const b0 = mock.calls.length;
+    await openId(page, trainId(1));
+    check("training piece: asked through train_piece, no tabs, no origin or cost", callsOf("train_piece").length === 1 && !(await page.$("#pc-tabs"))
+      && mock.calls.slice(b0).every((c) => c.action === "train_piece"));
+    check("training piece: the Store fact", /Store\s*Training store A/.test(norm(await page.textContent("#pc-facts"))), norm(await page.textContent("#pc-facts")));
+    check("training piece: actions are Reserve, Book out, Damaged, Transfer", (await actionLabels(page)).join("|") === "Reserve|Book out|Damaged|Transfer", (await actionLabels(page)).join("|"));
+    await page.click('#pc-actions button[data-act="transfer"]');
+    const opts = await page.$$eval("#pf-store option", (ns) => ns.map((n) => n.value + ":" + n.textContent.trim()));
+    check("transfer: only the other store can be chosen", opts.join("|") === "TRN-B:Training store B", opts.join("|"));
+    await page.fill("#pf-note", "For the weekend event");
+    await page.click("#pf-submit");
+    await page.waitForSelector("#confirm-ok");
+    check("transfer: the confirmation names the piece and the store", /TRN-0001/.test(await page.textContent("#confirm-dialog")) && /Training store B/.test(await page.textContent("#confirm-dialog")));
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In transfer");
+    const send = callsOf("train_send").pop();
+    check("transfer: train_send with the piece, the store code and the note", send && send.piece_id === trainId(1) && send.to_store === "TRN-B" && send.note === "For the weekend event", JSON.stringify(send));
+    const hold = norm(await page.textContent("#pc-hold"));
+    check("transfer: the panel shows from, to and the note", /From\s*Training store A/.test(hold) && /To\s*Training store B/.test(hold) && /For the weekend event/.test(hold), hold);
+    check("transfer: in transfer → Receive and Cancel transfer", (await actionLabels(page)).join("|") === "Receive|Cancel transfer", (await actionLabels(page)).join("|"));
+    await page.waitForFunction(() => !S.listBusy && [...document.querySelectorAll("#rows tr.prow")].some((r) => /→/.test(r.querySelector("td.store").textContent)));
+    check("transfer: the list row shows where it is going", norm(await page.$eval('#rows tr[data-id="' + trainId(1) + '"] td.store', (n) => n.textContent)) === "Training store A → Training store B");
+    check("transfer: a totals card for In transfer", norm(await page.textContent('#totals .tot[data-state="in_transfer"]')).includes("1 piece"));
+    check("transfer: history says Sent with the stores", /Sent to another store/.test(norm(await page.textContent("#pc-history li"))) && /Training store A → Training store B/.test(norm(await page.textContent("#pc-history li"))), norm(await page.textContent("#pc-history li")));
+    await shot(page, "t02-training-transfer");
+    // receive
+    await page.click('#pc-actions button[data-act="receive"]');
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In stock");
+    check("receive: train_receive, and the piece is in the other store", callsOf("train_receive").length === 1 && /Store\s*Training store B/.test(norm(await page.textContent("#pc-facts"))) && !(await page.$("#pc-hold")));
+    check("receive: history says Received", /Received/.test(norm(await page.textContent("#pc-history li"))));
+    // send it back and call it back
+    await page.click('#pc-actions button[data-act="transfer"]');
+    check("transfer back: now only store A can be chosen", (await page.$$eval("#pf-store option", (ns) => ns.map((n) => n.value))).join("|") === "TRN-A");
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In transfer");
+    await page.click('#pc-actions button[data-act="cancel_transfer"]');
+    await page.fill("#pf-note", "Sent by mistake");
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In stock");
+    const cancel = callsOf("train_cancel").pop();
+    check("cancel: train_cancel with the note, the piece stays where it was", cancel && cancel.note === "Sent by mistake" && /Store\s*Training store B/.test(norm(await page.textContent("#pc-facts"))));
+    // received by the other store behind the page's back: the refusal is shown and the panel catches up
+    await page.click('#pc-actions button[data-act="transfer"]');
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In transfer");
+    mock.trainReceiveNow(trainId(1));
+    await page.click('#pc-actions button[data-act="receive"]');
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#pc-notice") && document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "In stock");
+    check("receive refused: the notice says why and the panel shows the piece as it is", /not in transfer/.test(await page.textContent("#pc-notice")) && !(await page.$("#pc-form")));
+    // the ordinary changes go to the training actions
+    await page.click("#piece-close");
+    await openId(page, trainId(2));
+    await page.click('#pc-actions button[data-act="reserved"]');
+    await page.fill("#pf-client", "DLD-9001");
+    await page.click("#pf-submit");
+    await confirmYes(page);
+    await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "Reserved");
+    check("training reserve: train_set_state, never set_state", callsOf("train_set_state").length === 1 && callsOf("set_state").length === 0 && callsOf("piece").length === 0);
+    check("training reserve: a reserved piece cannot be transferred", (await actionLabels(page)).join("|") === "Back in stock");
+    check("training: the real pieces are as they were", mock.pieces.filter((x) => x.state === "in_stock").length === 30 && mock.pieces.filter((x) => x.state === "reserved").length === 5);
+    // reset
+    await page.$eval("#train-reset", (b) => b.click());      // the panel's scrim covers it for a pointer; a keyboard still reaches it
+    await page.waitForSelector("#confirm-ok");
+    check("reset: asks first, and says it only touches training", /training/i.test(await page.textContent("#confirm-dialog")));
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => !document.querySelector("#piece-panel") && !S.listBusy && document.querySelectorAll('#totals .tot').length === 1);
+    check("reset: train_reset, panel closed, twelve pieces in stock again", callsOf("train_reset").length === 1 && norm(await page.textContent("#totals")).includes("12 pieces")
+      && mock.trainPieces.every((x) => x.state === "in_stock"));
+    check("training actions: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("training: viewer, reload, lock, RU, stale answers", async () => {
+    {
+      const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { pass: "look" });
+      await settled(page);
+      await trainOn(page);
+      check("training viewer: sees the pieces, no Reset", (await rowCount(page)) === 12 && !(await page.$("#train-reset")));
+      await openId(page, trainId(3));
+      check("training viewer: no actions", !(await page.$("#pc-actions")));
+      await page.click("#piece-close");
+      // a reload keeps the mode
+      await page.reload();
+      await page.waitForFunction(() => typeof S !== "undefined" && S.training && S.list && !S.listBusy && document.querySelector("#train-band"));
+      check("training: a reload stays in training", (await rowCount(page)) === 12);
+      // the lock leaves nothing behind, and unlocking comes back to training
+      await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+      await page.waitForSelector("#gate-pass");
+      check("training lock: nothing kept behind the card", await page.evaluate(() => S.list === null && S.facets === null));
+      await login(page, "look");
+      await page.waitForFunction(() => S.training && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 12);
+      check("training: after unlocking it is still training", !!(await page.$("#train-band")) && !!(await page.$("#f-store")));
+      // locked, then reloaded before unlocking: the mode is still Training after the passcode
+      await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+      await page.waitForSelector("#gate-pass");
+      await page.reload();
+      await login(page, "look");
+      await page.waitForFunction(() => typeof S !== "undefined" && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length > 0);
+      check("training: lock, reload, unlock stays in training", await page.evaluate(() => S.training && !!document.querySelector("#train-band") && document.querySelectorAll("#rows tr.prow").length === 12));
+      check("training viewer: no script errors", errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    }
+    {
+      const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 });
+      await settled(page);
+      await page.click('.kit-lang button[lang="ru"]');
+      await settled(page);
+      await trainOn(page);
+      const band = norm(await page.textContent("#train-band"));
+      check("training RU: the band and the switch are in Russian", /ОБУЧЕНИЕ/.test(band) && /вымышленные/i.test(band) && (await page.$eval("#train-toggle", (b) => b.textContent.trim())) === "Обучение", band);
+      await openId(page, trainId(1));
+      await page.click('#pc-actions button[data-act="transfer"]');
+      await page.click("#pf-submit");
+      await confirmYes(page);
+      await page.waitForFunction(() => document.querySelector("#piece-panel .pc-state .tag").textContent.trim() === "В перемещении");
+      check("training RU: actions in Russian", (await actionLabels(page)).join("|") === "Принять|Отменить перемещение", (await actionLabels(page)).join("|"));
+      check("training RU: no tag wraps in the panel", (await wrappedTags(page, "#piece-panel")).length === 0);
+      await page.click("#piece-close");
+      check("training RU 768: no sideways scroll, no tag wraps in the list", (await noHScroll(page)) && (await wrappedTags(page, "#rows")).length === 0);
+      await shot(page, "t03-training-ru-portrait");
+      check("training RU: no script errors", errors.length === 0, errors.join(" | "));
+      await ctx.close();
+    }
+    {
+      // a training list answer that arrives after the switch back must not be drawn over real stock
+      const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+      await settled(page);
+      await trainOn(page);
+      mock.delay.train_list = 500;
+      await page.selectOption("#f-store", "TRN-B");
+      await page.click("#train-toggle");
+      await page.waitForFunction(() => !S.training && S.list && !S.listBusy && document.querySelectorAll("#rows tr.prow").length === 50);
+      await page.waitForTimeout(700);
+      check("training stale: a late training answer is not drawn over real stock", (await rowCount(page)) === 50 && !(await colText(page, 0)).some((t) => /^TRN-/.test(t)));
+      // and a piece panel opened in training closes with the switch
+      delete mock.delay.train_list;
+      await trainOn(page);
+      await openId(page, trainId(4));
+      await page.$eval("#train-toggle", (b) => b.click());
+      await page.waitForFunction(() => !S.training && !document.querySelector("#piece-panel"));
+      check("training: the open piece closes when the mode changes", !(await page.$("#piece-panel")));
+      check("training stale: no script errors", errors.length === 0, errors.join(" | "));
       await ctx.close();
     }
   });

@@ -76,6 +76,21 @@ Object.assign(RU, {
   "Sapphire": "Сапфир",
   "Emerald": "Изумруд",
   "Pearl": "Жемчуг",
+  // training: transfers between stores
+  "Transfer": "Переместить",
+  "Receive": "Принять",
+  "Cancel transfer": "Отменить перемещение",
+  "From": "Откуда",
+  "To": "Куда",
+  "Send to": "Отправить в",
+  "Send": "Отправить",
+  "Send {s} to {t}?": "Отправить {s} в «{t}»?",
+  "Receive {s} in {t}?": "Принять {s} в «{t}»?",
+  "Cancel the transfer of {s}?": "Отменить перемещение {s}?",
+  "It goes back to stock in {t}.": "Изделие вернётся в наличие в «{t}».",
+  "{s} is on its way to {t}.": "{s}: отправлено в «{t}».",
+  "{s} is in stock in {t}.": "{s}: в наличии в «{t}».",
+  "The transfer of {s} is cancelled.": "{s}: перемещение отменено.",
 });
 
 // ops_piece_events.reason → words
@@ -85,6 +100,8 @@ const REASON_WORDS = {
   booked_out: ["Booked out", "Выдано"], returned_from_loan: ["Returned", "Возвращено"], damaged: ["Damaged", "Повреждено"],
   repaired: ["Repaired", "Отремонтировано"], review_resolved: ["Review resolved", "Проверка закрыта"],
   serial_reused: ["Serial reused", "Серийный номер повторно"],
+  transfer_sent: ["Sent to another store", "Отправлено в другой магазин"], transfer_received: ["Received", "Принято"],
+  transfer_cancelled: ["Transfer cancelled", "Перемещение отменено"], training_set: ["Training set", "Учебный набор"],
 };
 // the one table of review-kind words (review.js uses it too)
 const REVIEW_KIND = { missing_from_export: "Missing from the stock export", serial_reused: "Serial number reused", ticket_conflict: "Sale conflicts with stock",
@@ -137,7 +154,7 @@ async function loadPiece(id) {
   const pc = S.pc;
   const seq = ++pcSeq;
   try {
-    const d = await api("piece", { piece_id: id });
+    const d = await api(act("piece"), { piece_id: id });
     if (!stillHere(pc) || seq !== pcSeq) return;
     pc.d = d; pc.err = null;
     if (pc.form && !actionsFor(d.piece.state).includes(pc.form.state)) pc.form = null;   // it moved meanwhile: the notice says why
@@ -154,8 +171,14 @@ function refreshList() {
 
 /* -------------------------------------------------------------- the draw */
 const ACTIONS = { in_stock: ["reserved", "booked_out", "damaged"], reserved: ["in_stock"], booked_out: ["in_stock"], damaged: ["in_stock"] };
-const actionsFor = (state) => ACTIONS[state] || [];
-const ACTION_LABEL = { reserved: "Reserve", booked_out: "Book out", damaged: "Damaged", in_stock: "Back in stock" };
+// Training adds the transfer: send a piece in stock to the other store, then receive it there or call it back.
+const TRAIN_ACTIONS = Object.assign({}, ACTIONS, { in_stock: ACTIONS.in_stock.concat("transfer"), in_transfer: ["receive", "cancel_transfer"] });
+const actionsFor = (state) => (S.training ? TRAIN_ACTIONS : ACTIONS)[state] || [];
+const ACTION_LABEL = { reserved: "Reserve", booked_out: "Book out", damaged: "Damaged", in_stock: "Back in stock",
+  transfer: "Transfer", receive: "Receive", cancel_transfer: "Cancel transfer" };
+const TRANSFER_ACTS = ["transfer", "receive", "cancel_transfer"];
+// the stores a piece can be sent to: every training store but its own
+const otherStores = (p) => ((S.facets && S.facets.stores) || []).filter((x) => x.code !== p.store_code);
 
 function fact(label, value) {
   return el("div", { class: "pc-fact" }, el("dt", { class: "lbl", text: tr(label) }), el("dd", { text: blank(value) ? "—" : value }));
@@ -170,6 +193,11 @@ function holdBlock(d) {
   if (p.state === "damaged") {
     return el("section", { class: "pc-sec", id: "pc-hold" }, el("h3", { class: "lbl", text: tr("Damage") }),
       el("dl", { class: "pc-facts one" }, fact("Note", p.state_note)));
+  }
+  if (p.state === "in_transfer") {
+    return el("section", { class: "pc-sec", id: "pc-hold" }, el("h3", { class: "lbl", text: tr("Transfer") }),
+      el("dl", { class: "pc-facts one" }, fact("From", p.store), fact("To", p.to_store),
+        blank(p.state_note) ? null : fact("Note", p.state_note)));
   }
   if (p.state !== "reserved" && p.state !== "booked_out") return null;
   const who = heldBy(d);
@@ -187,6 +215,8 @@ function historyItem(e) {
     el("span", { class: "ev-when num", text: fmtDate(e.at) + ", " + fmtTime(e.at) }),
     el("span", { class: "ev-move", text: move }),
     blank(e.reason) ? null : el("span", { class: "ev-reason small", text: reasonWord(e.reason) }),
+    /^transfer_/.test(e.reason || "") && !blank(e.from_store) && !blank(e.to_store)
+      ? el("span", { class: "ev-stores small", text: e.from_store + " → " + e.to_store }) : null,
     blank(e.actor) ? null : el("span", { class: "ev-actor small", text: e.actor }),
     blank(e.note) ? null : el("span", { class: "ev-note", text: e.note }),
     !blank(e.ticket_no) && !blank(e.ticket_id)
@@ -225,19 +255,19 @@ function renderPiece() {
       el("h2", { class: "h2", id: "pc-title", text: title }),
       el("div", { class: "pc-state" }, stateTag(p.state), el("span", { class: "since small", text: tr("since {d}", { d: fmtDate(p.state_since) }) })));
     if (pc.notice) body.push(el("p", { class: "notice", role: "alert", id: "pc-notice", text: pc.notice }));
-    body.push(pieceTabs(pc));
-    if (pc.tab && pc.tab !== "overview") body.push(...moreBody(pc));
+    if (!S.training) body.push(pieceTabs(pc));        // a training piece has no Colibri record, origin or cost
+    if (!S.training && pc.tab && pc.tab !== "overview") body.push(...moreBody(pc));
     else {
     body.push(el("dl", { class: "pc-facts", id: "pc-facts" },
       fact("Serial", p.serial), fact("Barcode", p.barcode), fact("Reference", p.article), fact("Collection", p.collection),
       fact("Colour", p.colour), fact("Size", p.size), fact("Category", categoryWord(p.category)),
       fact("Metal", keyWords(d.model && d.model.metal_keys)), fact("Stones", keyWords(d.model && d.model.stone_keys)),
-      fact("Price", fmtMoney(p.price_uzs)), fact("First seen", fmtDate(p.first_seen_at))));
+      fact("Price", fmtMoney(p.price_uzs)), S.training ? fact("Store", p.store) : fact("First seen", fmtDate(p.first_seen_at))));
     body.push(holdBlock(d));
     if (S.rights.manage && actionsFor(p.state).length) {
       if (pc.form) body.push(formBlock(pc, p));
       else body.push(el("div", { class: "pc-actions", id: "pc-actions", role: "group" },
-        actionsFor(p.state).map((a) => el("button", { type: "button", class: "btn" + (a === "in_stock" ? "" : " act"), "data-act": a,
+        actionsFor(p.state).map((a) => el("button", { type: "button", class: "btn" + (a === "in_stock" || a === "cancel_transfer" ? "" : " act"), "data-act": a,
           onclick: () => openForm(a), text: tr(ACTION_LABEL[a]) }))));
     }
     body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("History") }),
@@ -270,9 +300,10 @@ function renderPiece() {
 function openForm(state) {
   const pc = S.pc;
   if (!pc || !pc.d) return;
-  pc.form = { state, v: { client: "", until: "", note: "" }, err: null, busy: false };
+  const stores = state === "transfer" ? otherStores(pc.d.piece) : [];
+  pc.form = { state, v: { client: "", until: "", note: "", store: stores.length ? stores[0].code : "" }, err: null, busy: false };
   renderPiece();
-  const f = $("#pf-client") || $("#pf-note");
+  const f = $("#pf-client") || $("#pf-store") || $("#pf-note");
   if (f && !touchDevice()) f.focus();
 }
 function formBlock(pc, p) {
@@ -285,6 +316,9 @@ function formBlock(pc, p) {
   const noteLabel = st === "booked_out" ? "Who has it and why" : st === "damaged" ? "What is wrong" : "Note";
   const form = el("form", { class: "pc-form", id: "pc-form", novalidate: true, onsubmit: (ev) => { ev.preventDefault(); submitForm(); } },
     el("h3", { class: "lbl", text: tr(ACTION_LABEL[st]) }),
+    st === "transfer" ? field("pf-store", "Send to",
+      el("select", { id: "pf-store", onchange: keep("store") }, otherStores(p).map((x) =>
+        el("option", { value: x.code, selected: x.code === f.v.store ? true : null, text: x.name })))) : null,
     st === "reserved" ? field("pf-client", "Client reference",
       el("input", { type: "text", id: "pf-client", maxlength: "20", autocomplete: "off", spellcheck: "false", placeholder: "DLD-…", value: f.v.client, oninput: keep("client") }), true) : null,
     hold ? field("pf-until", st === "booked_out" ? "Return date" : "Hold until",
@@ -293,7 +327,8 @@ function formBlock(pc, p) {
       el("textarea", { id: "pf-note", maxlength: "500", value: f.v.note, oninput: keep("note"), "aria-required": noteReq ? "true" : null }), !noteReq),
     el("p", { class: "form-err", id: "pf-err", role: "alert", hidden: f.err ? null : true, text: f.err || "" }),
     el("div", { class: "pc-form-foot" },
-      el("button", { type: "submit", class: "btn primary", id: "pf-submit", disabled: f.busy ? true : null, text: tr("Save") }),
+      el("button", { type: "submit", class: "btn primary", id: "pf-submit", disabled: f.busy ? true : null,
+        text: tr(st === "transfer" ? "Send" : st === "receive" ? "Receive" : st === "cancel_transfer" ? "Cancel transfer" : "Save") }),
       el("button", { type: "button", class: "btn", id: "pf-cancel", disabled: f.busy ? true : null, onclick: () => { pc.form = null; renderPiece(); }, text: tr("Cancel") })));
   if (f.err && noteReq && blank(f.v.note)) form.querySelector("#pf-note").setAttribute("aria-invalid", "true");
   return form;
@@ -302,10 +337,49 @@ function formBlock(pc, p) {
 const CONFIRM_TITLE = { reserved: "Reserve {s}?", booked_out: "Book out {s}?", damaged: "Mark {s} as damaged?", in_stock: "Return {s} to stock?" };
 const DONE_TOAST = { reserved: "Reserved {s}.", booked_out: "Booked out {s}.", damaged: "Marked {s} as damaged.", in_stock: "{s} is back in stock." };
 
+// Training only: send, receive or call back a transfer. Same steps as submitForm: confirm, send, redraw from the answer.
+async function submitTransfer() {
+  const pc = S.pc, f = pc.form, st = f.state, p = pc.d.piece;
+  const note = f.v.note.trim();
+  const dest = st === "transfer" ? otherStores(p).find((x) => x.code === f.v.store) : null;
+  if (st === "transfer" && !dest) { f.err = tr("Choose the store to send it to."); renderPiece(); return; }
+  f.err = null;
+  const title = st === "transfer" ? tr("Send {s} to {t}?", { s: p.serial, t: dest.name })
+    : st === "receive" ? tr("Receive {s} in {t}?", { s: p.serial, t: p.to_store }) : tr("Cancel the transfer of {s}?", { s: p.serial });
+  const body = [];
+  if (st === "cancel_transfer") body.push(tr("It goes back to stock in {t}.", { t: p.store }));
+  if (note) body.push(note);
+  f.confirming = true;
+  const ok = await confirmBox({ title, body, ok: tr(ACTION_LABEL[st]), cancel: tr("Cancel") });
+  f.confirming = false;
+  if (!ok || !stillHere(pc) || pc.form !== f || !S.training) return;
+  f.busy = true;
+  renderPiece();
+  const req = { piece_id: p.piece_id };
+  if (note) req.note = note;
+  if (st === "transfer") req.to_store = dest.code;
+  try {
+    const d = await api(st === "transfer" ? "train_send" : st === "receive" ? "train_receive" : "train_cancel", req);
+    if (S.locked || !S.training) return;
+    refreshList();
+    toast(st === "transfer" ? tr("{s} is on its way to {t}.", { s: p.serial, t: dest.name })
+      : st === "receive" ? tr("{s} is in stock in {t}.", { s: p.serial, t: d.piece.store }) : tr("The transfer of {s} is cancelled.", { s: p.serial }));
+    if (stillHere(pc)) { pc.d = d; pc.form = null; pc.notice = null; pc.err = null; renderPiece(); }
+  } catch (e) {
+    if (S.locked || !S.training) return;
+    if (!stillHere(pc)) { toast(e.message, true); refreshList(); return; }
+    f.busy = false; f.err = e.message;
+    if (e.status === 409) { pc.notice = e.message; loadPiece(pc.id); refreshList(); }   // it may have been received or called back meanwhile
+    renderPiece();
+  }
+}
+
 async function submitForm() {
   const pc = S.pc;
   if (!pc || !pc.form || pc.form.busy || pc.form.confirming || S.locked) return;
+  if (TRANSFER_ACTS.includes(pc.form.state)) return submitTransfer();
   const f = pc.form, st = f.state, p = pc.d.piece;
+  const training = S.training;
   const note = f.v.note.trim();
   const hold = st === "reserved" || st === "booked_out";
   if (blank(note) && (st === "booked_out" || st === "damaged")) {
@@ -324,7 +398,7 @@ async function submitForm() {
   f.confirming = true;
   const ok = await confirmBox({ title: tr(CONFIRM_TITLE[st], { s: p.serial }), body, ok: tr(ACTION_LABEL[st]), cancel: tr("Cancel") });
   f.confirming = false;
-  if (!ok || !stillHere(pc) || pc.form !== f) return;
+  if (!ok || !stillHere(pc) || pc.form !== f || training !== S.training) return;
   f.busy = true;
   renderPiece();
   const req = { piece_id: p.piece_id, state: st };
@@ -332,8 +406,8 @@ async function submitForm() {
   if (client) req.client_id = client;
   if (hold && f.v.until) req.until = f.v.until;
   try {
-    const d = await api("set_state", req);
-    if (S.locked) return;                            // locked meanwhile: nothing is drawn
+    const d = await api(training ? "train_set_state" : "set_state", req);   // the mode the form was opened in, never the other one
+    if (S.locked || training !== S.training) return; // locked or switched meanwhile: nothing is drawn
     refreshList();                                   // the change happened, whether or not the panel is still open
     toast(tr(DONE_TOAST[st], { s: p.serial }));
     if (stillHere(pc)) {
@@ -341,7 +415,7 @@ async function submitForm() {
       renderPiece();
     }
   } catch (e) {
-    if (S.locked) return;
+    if (S.locked || training !== S.training) return;
     if (!stillHere(pc)) { toast(e.message, true); refreshList(); return; }
     f.busy = false; f.err = e.message;
     if (e.status === 409) { pc.notice = e.message; loadPiece(pc.id); refreshList(); }   // it may have moved meanwhile (sold, …)
