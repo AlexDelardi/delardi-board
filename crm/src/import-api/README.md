@@ -26,5 +26,11 @@ Result under `missed`.
 `tickets.tickets` must be a list of at most 5 000 entries (else 400 / 413).
 Calls `ops_load_tickets(p, "import:" + source)`. Result under `tickets`.
 
+## Stock enrichment
+`{ "import_key": "...", "source": "...", "stock": { "pieces": [...], "receipts": [...], "costs": [...] } }`
+`stock` is the payload produced by `tools/stock_enrich_parse.py` from the Colibri Stock Report, the Colibri
+arrival-date report and the 1C batch cost files; each list at most 5 000 entries (else 400 / 413).
+Calls `stk_load_enrichment(p, source)`. Result under `stock`.
+
 A request may carry several loads; all are idempotent, so a half-finished
 request can be retried (with a new key).
