@@ -116,7 +116,9 @@ verbatim.
 → the fresh detail, exactly as `piece` returns it (same `client_name` rule).
 
 ### `origin {token, piece_id}` — view
-Where the piece came from and how it is identified. No money. Unknown piece → `404`.
+Where the piece came from and how it is identified. Unknown piece → `404`. Without the `cost` right the
+Colibri record comes without its purchase-price columns (`Цена оригинального инвойса`, `Инв. цена, долл`,
+`Коэф-т 1`, `Коэф-т 2`, `Цена в СФ`).
 →
 ```
 { colibri: { data: { "<Colibri heading>": value, … }, source_file, loaded_at } | null,   // the piece as Colibri has it

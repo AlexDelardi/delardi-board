@@ -710,7 +710,14 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       await t.page.waitForSelector("#pc-origin .pc-fact");
       check("cost: hidden without the cost right (" + pass + ")", !(await t.page.$("#pc-cost")) && !/Landed|margin|6 665 000/i.test(await t.page.textContent("#piece-panel"))
         && (await t.page.$eval("#pc-tab-origin", (n) => n.textContent.trim())) === "Origin");
+      await t.page.click("#pc-tab-colibri");
+      await t.page.waitForSelector("#pc-colibri .pc-fact");
+      const ck = await t.page.$$eval("#pc-colibri .pc-fact dt", (ns) => ns.map((n) => n.textContent.trim()));
+      check("colibri: purchase-price columns are not shown without the cost right (" + pass + ")", !ck.some((k) => /инвойса|Инв\. цена|Коэф|Цена в СФ/.test(k)) && ck.includes("Рек. цена, долл") && ck.includes("Штрих Код")
+        && !/983\.15|875|2\.31/.test(await t.page.textContent("#pc-colibri")), ck.join());
       check("cost: never requested without the cost right (" + pass + ")", calls("cost") === 0 && calls("origin") === 1);
+      const og = mock.handle({ action: "origin", token: mock.handle({ action: "unlock", passcode: pass })[1].token, piece_id: full.piece_id })[1];
+      check("colibri: nor sent by the API (" + pass + ")", !("Инв. цена, долл" in og.colibri.data) && !("Коэф-т 1" in og.colibri.data) && "Цена продажи, долл" in og.colibri.data);
       await t.ctx.close();
     }
     // the mock refuses cost to a login without the right, as the API does

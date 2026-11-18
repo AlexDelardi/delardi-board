@@ -1542,6 +1542,8 @@ const COLIBRI_COLUMNS = ["Бренд", "Линия продукции", "Арт�
   "Цена продажи, долл", "Штрих Код", "Кол-во (док)", "Ед. изм.", "Пол", "ЦП", "Тек. цена", "НДС", "Вес", "СФ номер", "СФ дата",
   "Бух-код", "ЧП", "Цена в СФ", "Отправлять в ККМ", "Полное наименование", "Наименование для чека", "Диаметр", "Механизм",
   "Камни", "Вес, каратность и качество камней", "Описание", "Путь для сайта"];
+// Colibri's purchase-price columns: the API sends them only with the cost right, and without it they are not listed at all.
+const COLIBRI_COST_COLUMNS = ["Цена оригинального инвойса", "Инв. цена, долл", "Коэф-т 1", "Коэф-т 2", "Цена в СФ"];
 const CODE_KIND = { colibri: "Colibri barcode", era: "Era barcode", brand: "Brand barcode", delardi: "Delardi code" };
 const QUALITY_WORD = { exact: "Exact", estimated: "Estimated", tbd: "TBD" };
 
@@ -1608,7 +1610,7 @@ function colibriBody(o) {
   const extra = Object.keys(c.data).filter((k) => !COLIBRI_COLUMNS.includes(k));
   return [
     el("p", { class: "small", id: "pc-colibri-note", text: tr("Colibri data, as Colibri holds it. Read-only.") + (blank(c.source_file) ? "" : " " + tr("File: {f}", { f: c.source_file })) }),
-    el("dl", { class: "pc-facts", id: "pc-colibri" }, COLIBRI_COLUMNS.concat(extra).map((k) => moreFact(k, c.data[k], true)))];
+    el("dl", { class: "pc-facts", id: "pc-colibri" }, COLIBRI_COLUMNS.concat(extra).filter((k) => S.rights.cost || !COLIBRI_COST_COLUMNS.includes(k)).map((k) => moreFact(k, c.data[k], true)))];
 }
 function originBody(o, cost) {
   const r = o.receipt || {};

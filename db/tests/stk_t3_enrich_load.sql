@@ -64,6 +64,29 @@ begin
   assert stk_piece_origin(v_b)->'receipt'->>'arrival_date' = '2026-11-02', 'date filled in';
   assert (stk_piece_list('{"q":"6000000000024"}')->>'count')::int = 2, 'old and shared code still finds both';
 
+  -- a corrected match: with costs_complete, a cost the payload no longer carries is withdrawn; without it, costs stay
+  r := stk_load_enrichment(jsonb_build_object('pieces', jsonb_build_array(jsonb_build_object('brand', 'T3 Jeweller', 'serial', 'ZY.00.80001'))), 't3');
+  assert (r->>'costs_removed')::int = 0 and stk_piece_cost(v_a)->>'match_quality' = 'exact', 'costs kept by default';
+  insert into ops_piece_costs(piece_id, landed_uzs, match_quality) values (v_b, 1, 'estimated');
+  r := stk_load_enrichment(jsonb_build_object('costs_complete', true, 'pieces', jsonb_build_array(jsonb_build_object('brand', 'T3 Jeweller', 'serial', 'ZY.00.80001')),
+        'costs', '[]'::jsonb), 't3');
+  assert (r->>'costs_removed')::int = 1 and stk_piece_cost(v_a)->>'match_quality' = 'tbd' and stk_piece_cost(v_b)->>'match_quality' = 'estimated', 'withdrawn only for the payload''s pieces: ' || r::text;
+
+  -- Codex on #15: a narrower report adds and changes columns but never erases one already on file
+  r := stk_load_enrichment(jsonb_build_object('pieces', jsonb_build_array(jsonb_build_object('brand', 'T3 Jeweller', 'serial', 'ZY.00.80001',
+        'data', jsonb_build_object('НДС', 15, 'Описание', 'new')))), 't3 narrow.xlsx');
+  assert (r->>'colibri_changed')::int = 1, 'narrow load: ' || r::text;
+  r := stk_piece_origin(v_a, true)->'colibri'->'data';
+  assert r->>'Бренд' = 'T3 Jeweller' and r->>'НДС' = '15' and r->>'Описание' = 'new', 'merged, not replaced: ' || r::text;
+
+  -- Codex on #14: purchase-price columns of the Colibri record need the cost right
+  update ops_piece_colibri set data = data || '{"Цена оригинального инвойса": 875, "Инв. цена, долл": 983.15, "Коэф-т 1": 2.31, "Коэф-т 2": 1, "Цена в СФ": 5, "Рек. цена, долл": 2270}' where piece_id = v_a;
+  r := stk_piece_origin(v_a)->'colibri'->'data';
+  assert not (r ?| array['Цена оригинального инвойса', 'Инв. цена, долл', 'Коэф-т 1', 'Коэф-т 2', 'Цена в СФ']) and r->>'Рек. цена, долл' = '2270' and r->>'Бренд' = 'T3 Jeweller', 'no purchase prices without the right: ' || r::text;
+  assert stk_piece_origin(v_a, false)->'colibri'->'data' = r, 'default is without';
+  r := stk_piece_origin(v_a, true)->'colibri'->'data';
+  assert r->>'Цена оригинального инвойса' = '875' and r->>'Коэф-т 1' = '2.31', 'with the right: ' || r::text;
+
   begin perform stk_load_enrichment('{"pieces": 5}', 'x'); assert false, 'bad payload accepted'; exception when raise_exception then null; end;
   assert not has_function_privilege('anon', 'public.stk_load_enrichment(jsonb, text)', 'execute')
      and not has_function_privilege('authenticated', 'public.stk_load_enrichment(jsonb, text)', 'execute'), 'loader is closed';

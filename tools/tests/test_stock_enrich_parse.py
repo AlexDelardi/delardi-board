@@ -61,6 +61,23 @@ class Matching(unittest.TestCase):
         late = m.match_costs([piece("S1AAAA", "ZZ-AT-0100", "9")], docs, {"9": "2027-03-01"})
         near = m.match_costs([piece("S1AAAA", "ZZ-AT-0100", "9")], docs, {"9": "2026-10-20"})
         self.assertEqual((late[("Zz Atelier", "S1AAAA")]["match_quality"], near[("Zz Atelier", "S1AAAA")]["match_quality"]), ("estimated", "exact"))
+    def test_a_longer_serial_or_reference_is_not_a_match(self):   # Codex on #15
+        docs = self.docs([("Кольцо ZZ-AT-01009 zz00900010", 1, 500.0, 6500000.0, 0.0, 0.0)])
+        self.assertEqual(m.match_costs([piece("ZZ.00.90001", "ZZ-AT-0100")], docs), {})
+    def test_glued_names_still_match(self):
+        docs = self.docs([("Кольцо Diamant208515zz08042602Zz atelier", 1, 500.0, 6500000.0, 0.0, 0.0), ("ZzОжерельеЗолото 29194B2  966100", 1, 5.0, 6.0, 0.0, 0.0)])
+        c = m.match_costs([piece("ZZ08042602", "208515"), piece("966100", "29194B2")], docs)
+        self.assertEqual({k[1]: v["match_quality"] for k, v in c.items()}, {"ZZ08042602": "exact", "966100": "exact"})
+    def test_russian_text_glued_to_a_code_and_a_reference_glued_to_its_serial(self):
+        docs = self.docs([("чёрный перламутрZZ-AT-0100 77", 1, 5.0, 6.0, 0.0, 0.0), ("Серьги WG828712Uzz08042679Zz atelier", 1, 7.0, 8.0, 0.0, 0.0),
+                          ("Часы ZZ8.0-TX-01241555", 1, 9.0, 10.0, 0.0, 0.0)])
+        c = m.match_costs([piece("S1AAAA", "ZZ-AT-0100"), piece("zz08042679", "828712U"), piece("241555", "ZZ8.0-TX-01")], docs)
+        self.assertEqual({k[1]: v["invoice_price"] for k, v in c.items()}, {"S1AAAA": 5.0, "zz08042679": 7.0, "241555": 9.0})
+    def test_a_document_dated_long_after_the_arrival_is_an_estimate(self):   # Codex on #15
+        docs = self.docs([("Кольцо ZZ-AT-0100", 1, 500.0, 6500000.0, 0.0, 0.0)])   # document 2026-10-01
+        far = m.match_costs([piece("S1AAAA", "ZZ-AT-0100", "9")], docs, {"9": "2025-06-01"})
+        near = m.match_costs([piece("S1AAAA", "ZZ-AT-0100", "9")], docs, {"9": "2026-04-01"})
+        self.assertEqual((far[("Zz Atelier", "S1AAAA")]["match_quality"], near[("Zz Atelier", "S1AAAA")]["match_quality"]), ("estimated", "exact"))
     def test_no_match_is_no_cost_and_short_codes_never_match(self):
         c = m.match_costs([piece("S1AAAA", "ZZ-AT-0999"), piece("12", "77")], self.docs([("Кольцо 12 77 ZZ-AT-0100", 1, 5.0, 6.0, 0.0, 0.0)]))
         self.assertEqual(c, {})

@@ -17,7 +17,8 @@
 //
 // Cost, purchase price, landed cost and margin leave through one action only,
 // `cost`, which needs the separate view-cost right (board_users.can_view_cost).
-// No other action reads them: the other stk_* functions return none.
+// The one exception is `origin`, whose Colibri record carries Colibri's own purchase-price columns
+// (invoice prices, coefficients): those are included only for a login with the cost right.
 //
 // The source of this function lives in the repository at stock/src/api/index.ts
 // and the contract the page relies on in stock/src/api/README.md. Deploying is
@@ -317,10 +318,12 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return await pieceDetail(sess, uuid(body.piece_id, "piece"));
   }
 
-  // Where the piece came from, its codes and its Colibri record. No money.
+  // Where the piece came from, its codes and its Colibri record. No cost: the database leaves the
+  // record's purchase-price columns out unless the login has the cost right.
   if (action === "origin") {
-    await requireStock(body.token, "view");
-    const doc = await rpc("stk_piece_origin", { p_piece: uuid(body.piece_id, "piece") });
+    const sess = await requireStock(body.token, "view");
+    // The Colibri record's purchase-price columns go only to a login with the cost right.
+    const doc = await rpc("stk_piece_origin", { p_piece: uuid(body.piece_id, "piece"), p_with_cost: sess.rights.cost });
     if (!doc) throw new HttpErr(404, "No piece with that reference.");
     return doc;
   }
