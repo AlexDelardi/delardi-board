@@ -10,8 +10,8 @@
 //   2. Rights (view, manage, cost, and the CRM view right) are re-read from
 //      board_users on every call. Without the CRM view right a login sees a
 //      held piece's client by reference only (no name).
-//   3. Reads are the stk_* database functions. The only writes are
-//      ops_set_state and ops_resolve_review, which check manage_stock
+//   3. Reads are the stk_* database functions. The only writes to real stock are
+//      ops_set_state, ops_resolve_review and stk_import, which check manage_stock
 //      themselves; their refusals (raise exception, SQLSTATE P0001) come back
 //      as 409 with the sentence verbatim, because they are written for the screen.
 //
@@ -19,6 +19,9 @@
 // `cost`, which needs the separate view-cost right (board_users.can_view_cost).
 // The one exception is `origin`, whose Colibri record carries Colibri's own purchase-price columns
 // (invoice prices, coefficients): those are included only for a login with the cost right.
+//
+// Training mode: the train_* actions work on made-up pieces in tables of their own (stk_train_*), so
+// nothing done there can reach a real piece, and no real action returns a training piece.
 //
 // The source of this function lives in the repository at stock/src/api/index.ts
 // and the contract the page relies on in stock/src/api/README.md. Deploying is
@@ -33,6 +36,8 @@ const SESSION_HOURS = 8;
 const MAX_FAILS_PER_HOUR = 10;
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
+// Training mode (stk_train_*): made-up pieces in two made-up stores, with the transfer state.
+const TRAIN_STATES = ["in_stock", "reserved", "booked_out", "damaged", "in_transfer"];
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -206,9 +211,10 @@ async function requireStock(token: unknown, need?: Need): Promise<Session> {
 
 // The filters for stk_piece_list / stk_export, rebuilt with only the keys the
 // database reads. Empty values are left out.
-function filtersIn(v: unknown): Record<string, unknown> {
+function filtersIn(v: unknown, training = false): Record<string, unknown> {
   const f = obj(v, "filters");
   const out: Record<string, unknown> = {};
+  const states = training ? TRAIN_STATES : STATES;
   const text = (k: string, max: number) => {
     const raw = f[k];
     if (raw === null || raw === undefined) return null;
@@ -222,9 +228,13 @@ function filtersIn(v: unknown): Record<string, unknown> {
   if (brand !== null) out.brand = brand;
   const category = text("category", 80);
   if (category !== null) out.category = category;
+  if (training) {
+    const store = text("store", 20);
+    if (store !== null) out.store = store;
+  }
   if (f.states !== null && f.states !== undefined) {
-    if (!Array.isArray(f.states) || f.states.some((s) => typeof s !== "string" || !STATES.includes(s))) {
-      throw new HttpErr(400, `states must be a list of: ${STATES.join(", ")}.`);
+    if (!Array.isArray(f.states) || f.states.some((s) => typeof s !== "string" || !states.includes(s))) {
+      throw new HttpErr(400, `states must be a list of: ${states.join(", ")}.`);
     }
     if (f.states.length > 0) out.states = [...new Set(f.states as string[])];
   }
@@ -249,6 +259,41 @@ async function pieceDetail(sess: Session, id: string) {
   if (!doc) throw new HttpErr(404, "No piece with that reference.");
   if (!sess.rights.crm) delete doc.client_name;
   return doc;
+}
+
+async function trainDetail(sess: Session, id: string) {
+  const doc = await rpc("stk_train_piece", { p_piece: id });
+  if (!doc) throw new HttpErr(404, "No piece with that reference.");
+  if (!sess.rights.crm) delete doc.client_name;
+  return doc;
+}
+
+function noteIn(v: unknown): string | null {
+  const raw = v === null || v === undefined ? "" : String(v);
+  if (raw.trim().length > 500) throw new HttpErr(400, "The note can be at most 500 characters.");
+  return str(raw, 500);
+}
+
+// A state change as the page sends it (set_state and train_set_state): {state, note?, client_id?, until?}.
+async function stateChangeIn(body: Record<string, unknown>) {
+  const state = str(body.state, 40);
+  if (!state || !SETTABLE.includes(state)) throw new HttpErr(400, `state must be one of ${SETTABLE.join(", ")}.`);
+  const note = noteIn(body.note);
+  if (state === "booked_out" && !note) throw new HttpErr(400, "Write who has it and why.");
+  if (state === "damaged" && !note) throw new HttpErr(400, "Write what is wrong.");
+  const rawClient = body.client_id === null || body.client_id === undefined ? "" : String(body.client_id);
+  if (rawClient.trim().length > 20) throw new HttpErr(400, "client_id can be at most 20 characters.");
+  const holds = state === "reserved" || state === "booked_out";
+  let client = holds ? str(rawClient, 20) : null;
+  if (client) {
+    // ops_move_state does not check the client and hold_client_id has a foreign key,
+    // so an unknown reference would surface as a 23503 and a 500. Check it here.
+    client = client.toUpperCase();
+    const found = await select(`crm_clients?client_id=eq.${encodeURIComponent(client)}&select=client_id`);
+    if (!Array.isArray(found) || found.length === 0) throw new HttpErr(409, "No client with that reference.");
+  }
+  const until = holds ? dateOrNull(body.until, "until") : null;
+  return { state, note, client, until };
 }
 
 // ------------------------------------------------------------------ actions
@@ -352,29 +397,59 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "set_state") {
     const sess = await requireStock(body.token, "manage");
     const id = uuid(body.piece_id, "piece");
-    const state = str(body.state, 40);
-    if (!state || !SETTABLE.includes(state)) throw new HttpErr(400, `state must be one of ${SETTABLE.join(", ")}.`);
-    const rawNote = body.note === null || body.note === undefined ? "" : String(body.note);
-    if (rawNote.trim().length > 500) throw new HttpErr(400, "The note can be at most 500 characters.");
-    const note = str(rawNote, 500);
-    if (state === "booked_out" && !note) throw new HttpErr(400, "Write who has it and why.");
-    if (state === "damaged" && !note) throw new HttpErr(400, "Write what is wrong.");
-    const rawClient = body.client_id === null || body.client_id === undefined ? "" : String(body.client_id);
-    if (rawClient.trim().length > 20) throw new HttpErr(400, "client_id can be at most 20 characters.");
-    const holds = state === "reserved" || state === "booked_out";
-    let client = holds ? str(rawClient, 20) : null;
-    if (client) {
-      // ops_move_state does not check the client and hold_client_id has a foreign key,
-      // so an unknown reference would surface as a 23503 and a 500. Check it here.
-      client = client.toUpperCase();
-      const found = await select(`crm_clients?client_id=eq.${encodeURIComponent(client)}&select=client_id`);
-      if (!Array.isArray(found) || found.length === 0) throw new HttpErr(409, "No client with that reference.");
-    }
-    const until = holds ? dateOrNull(body.until, "until") : null;
+    const c = await stateChangeIn(body);
     await rpc("ops_set_state", {
-      p_piece: id, p_state: state, p_actor: sess.name, p_note: note, p_client: client, p_until: until,
+      p_piece: id, p_state: c.state, p_actor: sess.name, p_note: c.note, p_client: c.client, p_until: c.until,
     });
     return await pieceDetail(sess, id);
+  }
+
+  // --------------------------------------------------------------- training
+  // The same screens on made-up pieces in two made-up stores (stk_train_*). No action here reads or
+  // writes a real piece. Reads need the view right, changes the manage right.
+  if (action === "train_facets") {
+    await requireStock(body.token, "view");
+    return await rpc("stk_train_facets", {});
+  }
+
+  if (action === "train_list") {
+    await requireStock(body.token, "view");
+    return await rpc("stk_train_list", { p: filtersIn(body.filters, true) });
+  }
+
+  if (action === "train_piece") {
+    const sess = await requireStock(body.token, "view");
+    return await trainDetail(sess, uuid(body.piece_id, "piece"));
+  }
+
+  if (action === "train_set_state") {
+    const sess = await requireStock(body.token, "manage");
+    const id = uuid(body.piece_id, "piece");
+    const c = await stateChangeIn(body);
+    await rpc("stk_train_set_state", {
+      p_piece: id, p_state: c.state, p_actor: sess.name, p_note: c.note, p_client: c.client, p_until: c.until,
+    });
+    return await trainDetail(sess, id);
+  }
+
+  // Transfer: send a piece in stock to the other store, receive it there, or call it back.
+  if (action === "train_send" || action === "train_receive" || action === "train_cancel") {
+    const sess = await requireStock(body.token, "manage");
+    const id = uuid(body.piece_id, "piece");
+    const note = noteIn(body.note);
+    if (action === "train_send") {
+      const to = str(body.to_store, 20);
+      if (!to) throw new HttpErr(400, "Choose the store to send it to.");
+      await rpc("stk_train_send", { p_piece: id, p_to_store: to, p_actor: sess.name, p_note: note });
+    } else {
+      await rpc(action === "train_receive" ? "stk_train_receive" : "stk_train_cancel", { p_piece: id, p_actor: sess.name, p_note: note });
+    }
+    return await trainDetail(sess, id);
+  }
+
+  if (action === "train_reset") {
+    const sess = await requireStock(body.token, "manage");
+    return await rpc("stk_train_reset", { p_actor: sess.name });
   }
 
   // The upload file for new arrivals: Colibri's template (A–AK) plus our columns. The page sends the rows
