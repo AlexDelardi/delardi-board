@@ -15,6 +15,8 @@ const PASSCODES = {
 };
 const DEFAULT_RIGHTS = JSON.stringify(Object.fromEntries(Object.entries(PASSCODES).map(([k, v]) => [k, v.rights])));
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
+const REAL_STATES = STATES;
+const TRAIN_STATES = ["in_stock", "reserved", "booked_out", "damaged", "in_transfer"];
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
 // ops_resolve_review's answers per kind
 const ANSWERS = { missing_from_export: ["sold", "damaged", "booked_out", "still_in_stock"], serial_reused: ["sold", "damaged", "booked_out", "still_in_stock"],
@@ -31,6 +33,9 @@ const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_trans
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
 let pieces, events, reviews, sessions, calls, nextReview;
+let tPieces, tEvents;   // training (stk_train_*)
+const TRAIN_STORES = [{ code: "TRN-A", name: "Training store A" }, { code: "TRN-B", name: "Training store B" }];
+const storeName = (code) => (TRAIN_STORES.find((x) => x.code === code) || {}).name || null;
 let failNext = null;
 let imported, waitingRows;   // import: pieces already loaded from a file, rows waiting for their piece   // an action name: its next call answers 500 once
 let refundSales = {};
@@ -109,6 +114,7 @@ function reset() {
   calls = [];
   failNext = null;
   imported = new Set(); waitingRows = new Map();
+  trainSeed();
 }
 reset();
 
@@ -135,11 +141,12 @@ function session(token, need) {
   return { name: u.name, rights: Object.assign({}, u.rights) };
 }
 
-function filtersIn(v) {
+function filtersIn(v, training) {
   if (v === null || v === undefined) return {};
   if (typeof v !== "object" || Array.isArray(v)) fail(400, "filters must be an object.");
   const out = {};
-  for (const [k, max] of [["q", 80], ["brand", 80], ["category", 80]]) {
+  const STATES = training ? TRAIN_STATES : REAL_STATES;
+  for (const [k, max] of [["q", 80], ["brand", 80], ["category", 80]].concat(training ? [["store", 20]] : [])) {
     const raw = v[k];
     if (raw === null || raw === undefined) continue;
     if (typeof raw !== "string") fail(400, `${k} must be text.`);
@@ -230,6 +237,140 @@ function move(p, state, actor, note, client, until, reason, refKind, refId) {
     actor, note, ticket_id: null, ticket_no: null });
 }
 
+// ---------------------------------------------------------------- training
+// stk_train_*: twelve made-up pieces in two made-up stores, in memory of their own. No train_* action
+// touches `pieces`, and no real action returns one of these.
+function trainSeed() {
+  const rows = [
+    ["Training Jeweller", "TJ-R-101", "Aurora", "Aurora ring", "WG", "52", "ring", 18500000],
+    ["Training Jeweller", "TJ-R-101", "Aurora", "Aurora ring", "WG", "54", "ring", 18500000],
+    ["Training Jeweller", "TJ-N-205", "Aurora", "Aurora necklace", "YG", null, "necklace", 42000000],
+    ["Training Jeweller", "TJ-E-310", "Meridian", "Meridian earrings", "RG", null, "earrings", 27300000],
+    ["Training Jeweller", "TJ-B-412", "Meridian", "Meridian bracelet", "WG", "17", "bracelet", 61000000],
+    ["Training Watchmaker", "TW-4001", "Navigator", "Navigator 40 mm", null, "40", "watch", 96000000],
+    ["Training Watchmaker", "TW-4001", "Navigator", "Navigator 40 mm", null, "40", "watch", 96000000],
+    ["Training Watchmaker", "TW-3602", "Soirée", "Soirée 36 mm", "RG", "36", "watch", 248000000],
+    ["Training Jeweller", "TJ-R-101", "Aurora", "Aurora ring", "WG", "56", "ring", 18500000],
+    ["Training Jeweller", "TJ-N-205", "Aurora", "Aurora necklace", "YG", null, "necklace", 42000000],
+    ["Training Watchmaker", "TW-4001", "Navigator", "Navigator 40 mm", null, "40", "watch", 96000000],
+    ["Training Watchmaker", "TW-S-01", "Navigator", "Navigator strap", null, null, "strap", 3200000],
+  ];
+  tEvents = {};
+  tPieces = rows.map(([brand, article, collection, model_name, colour, size, category, price_uzs], k) => {
+    const i = k + 1, store = i <= 8 ? "TRN-A" : "TRN-B";
+    const piece_id = "00000000-0000-4000-9000-" + String(i).padStart(12, "0");
+    tEvents[piece_id] = [{ at: iso(0, 3), from_state: null, to_state: "in_stock", reason: "training_set", actor: "system", note: null,
+      from_store: null, to_store: storeName(store) }];
+    return { piece_id, serial: "TRN-" + String(i).padStart(4, "0"), barcode: "29000000" + String(i).padStart(5, "0"), brand, article, collection,
+      model_name, colour, size, category, state: "in_stock", state_since: iso(0, 3), price_uzs, store_code: store, to_code: null,
+      hold_client_id: null, hold_until: null, state_note: null, first_seen_at: iso(0, 3),
+      model: { metal_keys: category === "watch" ? ["steel"] : ["white_gold"], stone_keys: [], gender: null, subcategory: null } };
+  });
+}
+const tRow = (p) => Object.assign(row(p), { store: storeName(p.store_code), store_code: p.store_code, to_store: storeName(p.to_code) });
+function trainList(f) {
+  const words = f.q ? f.q.split(/\s+/).filter(Boolean).map((w) => w.toLowerCase()) : null;
+  const all = tPieces.filter((p) => {
+    if (words && !words.every((w) => ["serial", "barcode", "article", "brand", "collection", "model_name"]
+      .some((k) => p[k] && String(p[k]).toLowerCase().includes(w)))) return false;
+    if (f.brand && p.brand !== f.brand) return false;
+    if (f.category && p.category !== f.category) return false;
+    if (f.store && p.store_code !== f.store.toUpperCase()) return false;
+    if (f.price_min !== undefined && !(p.price_uzs >= f.price_min)) return false;
+    if (f.price_max !== undefined && !(p.price_uzs <= f.price_max)) return false;
+    return true;
+  }).sort((a, b) => cmp(a.brand, b.brand) || cmp(a.article, b.article) || cmp(a.serial, b.serial));
+  const hit = f.states ? all.filter((p) => f.states.includes(p.state)) : all;
+  const page = f.page || 1, totals = {};
+  for (const p of all) {
+    const t = totals[p.state] || (totals[p.state] = { state: p.state, pieces: 0, value: 0, unpriced: 0 });
+    t.pieces++; t.value += p.price_uzs;
+  }
+  return { count: hit.length, page, page_size: 50, rows: hit.slice((page - 1) * 50, page * 50).map(tRow),
+    totals: Object.values(totals).sort((a, b) => cmp(a.state, b.state)) };
+}
+function trainDetail(sess, id) {
+  const p = tPieces.find((x) => x.piece_id === id);
+  if (!p) fail(404, "No piece with that reference.");
+  const out = { piece: Object.assign(tRow(p), { hold_client_id: p.hold_client_id, hold_until: p.hold_until, state_note: p.state_note, first_seen_at: p.first_seen_at }),
+    model: Object.assign({}, p.model), events: tEvents[id].map((e) => Object.assign({}, e)), reviews: [], sales: [] };
+  if (sess.rights.crm) out.client_name = p.hold_client_id ? (CLIENTS[p.hold_client_id] || null) : null;
+  return out;
+}
+function trainPiece(body) {
+  const id = str(body.piece_id, 40) || "";
+  if (!UUID_RE.test(id)) fail(400, "That is not a valid piece reference.");
+  const p = tPieces.find((x) => x.piece_id === id.toLowerCase());
+  if (!p) fail(409, "No piece with that reference.");
+  return p;
+}
+function trainNote(v) {
+  const raw = v === null || v === undefined ? "" : String(v);
+  if (raw.trim().length > 500) fail(400, "The note can be at most 500 characters.");
+  return str(raw, 500);
+}
+function trainEvent(p, from, to, reason, actor, note, fromStore, toStore) {
+  const at = new Date().toISOString();
+  p.state = to; p.state_since = at;
+  tEvents[p.piece_id].unshift({ at, from_state: from, to_state: to, reason, actor, note, from_store: storeName(fromStore), to_store: storeName(toStore) });
+}
+function trainHandle(action, body) {
+  if (action === "train_facets") {
+    session(body.token, "view");
+    return { brands: [...new Set(tPieces.map((p) => p.brand))].sort(), categories: [...new Set(tPieces.map((p) => p.category))].sort(),
+      stores: TRAIN_STORES.map((x) => Object.assign({}, x)) };
+  }
+  if (action === "train_list") { session(body.token, "view"); return trainList(filtersIn(body.filters, true)); }
+  if (action === "train_piece") {
+    const s = session(body.token, "view");
+    const id = str(body.piece_id, 40) || "";
+    if (!UUID_RE.test(id)) fail(400, "That is not a valid piece reference.");
+    return trainDetail(s, id.toLowerCase());
+  }
+  const s = session(body.token, "manage");
+  if (action === "train_reset") { trainSeed(); return { pieces: tPieces.length }; }
+  if (action === "train_set_state") {
+    const state = str(body.state, 40);
+    if (!state || !SETTABLE.includes(state)) fail(400, `state must be one of ${SETTABLE.join(", ")}.`);
+    const note = trainNote(body.note);
+    if (state === "booked_out" && !note) fail(400, "Write who has it and why.");
+    if (state === "damaged" && !note) fail(400, "Write what is wrong.");
+    const holds = state === "reserved" || state === "booked_out";
+    let client = holds ? str(body.client_id, 20) : null;
+    if (client) { client = client.toUpperCase(); if (!CLIENTS[client]) fail(409, "No client with that reference."); }
+    const p = trainPiece(body), from = p.state;
+    if (!((from === "in_stock" && ["reserved", "booked_out", "damaged"].includes(state)) ||
+          (["reserved", "booked_out", "damaged"].includes(from) && state === "in_stock"))) {
+      fail(409, "That change is not possible: the piece has moved meanwhile.");
+    }
+    Object.assign(p, { hold_client_id: holds ? client : null, hold_until: holds ? (str(body.until, 10) || null) : null, state_note: state === "in_stock" ? null : note });
+    trainEvent(p, from, state, state !== "in_stock" ? state : from === "reserved" ? "released" : from === "booked_out" ? "returned_from_loan" : "repaired", s.name, note, null, null);
+    return trainDetail(s, p.piece_id);
+  }
+  const note = trainNote(body.note);
+  if (action === "train_send") {
+    const to = (str(body.to_store, 20) || "").toUpperCase();
+    if (!to) fail(400, "Choose the store to send it to.");
+    const p = trainPiece(body);
+    if (!storeName(to)) fail(409, "No store with that code.");
+    if (p.state !== "in_stock") fail(409, "Only a piece that is in stock can be sent to another store.");
+    if (to === p.store_code) fail(409, "The piece is already in that store.");
+    Object.assign(p, { to_code: to, state_note: note, hold_client_id: null, hold_until: null });
+    trainEvent(p, "in_stock", "in_transfer", "transfer_sent", s.name, note, p.store_code, to);
+    return trainDetail(s, p.piece_id);
+  }
+  if (action === "train_receive" || action === "train_cancel") {
+    const p = trainPiece(body);
+    if (p.state !== "in_transfer") fail(409, "This piece is not in transfer.");
+    const from = p.store_code, to = p.to_code;
+    if (action === "train_receive") p.store_code = to;
+    Object.assign(p, { to_code: null, state_note: null });
+    trainEvent(p, "in_transfer", "in_stock", action === "train_receive" ? "transfer_received" : "transfer_cancelled", s.name, note, from, to);
+    return trainDetail(s, p.piece_id);
+  }
+  fail(400, `Unknown action: ${action}`);
+}
+
 function handle(body) {
   calls.push(body);
   try {
@@ -237,6 +378,7 @@ function handle(body) {
     const action = str(body.action, 40);
     if (failNext && failNext === action) { failNext = null; return [500, { error: "Something went wrong on the server." }]; }
     if (action === "health") return [200, { ok: true }];
+    if (/^train_/.test(action || "")) return [200, trainHandle(action, body)];
     if (action === "unlock") {
       const u = PASSCODES[str(body.passcode, 200) || ""];
       if (!u) fail(401, "That passcode is not right.");
@@ -414,6 +556,9 @@ function handle(body) {
 module.exports = {
   handle, reset, PASSCODES, LONG_NAME, delay,
   get pieces() { return pieces; },
+  get trainPieces() { return tPieces; },
+  // test helper: a training piece is received in the other store behind the page's back
+  trainReceiveNow(id) { const p = tPieces.find((x) => x.piece_id === id); const from = p.store_code; p.store_code = p.to_code; p.to_code = null; trainEvent(p, "in_transfer", "in_stock", "transfer_received", "Other Store", null, from, p.store_code); },
   get reviews() { return reviews; },
   get calls() { return calls; },
   get failNext() { return failNext; }, set failNext(v) { failNext = v; },

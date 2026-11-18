@@ -175,3 +175,37 @@ most 500 characters. Calls `ops_resolve_review(review, resolution, <login name>,
 The rows `list` would return for the same filters, every page and every state
 the filter allows, at most 5 000. More → `409` `too many rows to export (N); narrow the filters`.
 → `{ rows: [ …the list row shape… ] }`
+
+## Training mode (`train_*`)
+
+The same screens on a fixed set of made-up pieces in two made-up stores (`TRN-A`, `TRN-B`), kept in
+tables of their own (`stk_train_*`, migration `20261118_stk_8_training.sql`). No `train_*` action reads or
+writes a real piece, and no other action returns a training piece. Refusals from the database come back as
+`409` with the sentence verbatim.
+
+### `train_facets {token}` — view
+→ `{ brands: [text], categories: [text], stores: [ { code, name } ] }`
+
+### `train_list {token, filters?}` — view
+Filters as `list`, plus `store` (a store code); `states` from `in_stock, reserved, booked_out, damaged,
+in_transfer`. → the shape of `list`; each row also has `store`, `store_code` and `to_store` (set while in
+transfer). A piece in transfer is listed under the store it left until it is received.
+
+### `train_piece {token, piece_id}` — view
+→ the shape of `piece`; `piece` also has `store`, `store_code`, `to_store`; events have `from_store` and
+`to_store` on transfer steps; `reviews` and `sales` are always empty.
+
+### `train_set_state {token, piece_id, state, note?, client_id?, until?}` — manage
+The rules and checks of `set_state`, on a training piece. → the piece as `train_piece`.
+
+### `train_send {token, piece_id, to_store, note?}` — manage
+A piece in stock goes `in_transfer` to another store (`to_store` is its code). → the piece.
+`409`: `Only a piece that is in stock can be sent to another store.` · `The piece is already in that store.` ·
+`No store with that code.`
+
+### `train_receive {token, piece_id, note?}` · `train_cancel {token, piece_id, note?}` — manage
+Receive: the piece is in stock in the store it was sent to. Cancel: in stock again in the store it left.
+→ the piece. `409`: `This piece is not in transfer.`
+
+### `train_reset {token}` — manage
+Every training piece back to how it started (same piece references), history cleared. → `{ pieces }`

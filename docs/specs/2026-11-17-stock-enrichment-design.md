@@ -74,6 +74,7 @@ Stock v1 knows a piece's serial, reference, state and shelf price. Everything el
 - A **Training** switch in Stock, like the till's. It shows a fixed set of made-up pieces in two made-up stores, marked `is_training`.
 - Every action works for real on them: reserve, book out, damaged, back in stock, **transfer** (send from store A → "in transfer" → receive in store B), with history.
 - Training pieces never appear in real lists, totals, exports, the till or the catalogue. A "Reset training data" button restores the set.
+- **As built (18 Nov):** training pieces live in tables of their own (`stk_train_*`), not in `ops_pieces` with an `is_training` mark. Reason: about 140 places read `ops_pieces` (stock sync, till, catalogue, CRM); a separate set cannot leak into any of them and no training action can reach a real piece. Cost: the transfer rule exists for training only. When a second store opens, the "in transfer" state and the send / receive / cancel steps are added to real pieces, reusing the same screens.
 
 ## Slices (each its own PR and go-live)
 1. Data model, cost right, piece-panel tabs.

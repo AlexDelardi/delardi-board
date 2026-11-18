@@ -16,6 +16,7 @@ const LOGO_WORDMARK = "__WORDMARK__";
 const SESSION_KEY = "stock_session";      // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "stock_last_active";   // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
+const TRAIN_KEY = "stock_training";       // sessionStorage: "1" while Training mode is on
 const IDLE_MIN = 15;                      // touch devices only, as the till
 
 /* ---------------------------------------------------------------- language
@@ -62,6 +63,20 @@ const RU = {
   "Yes": "Да",
   "Cancel": "Отмена",
   "Close": "Закрыть",
+  // training mode
+  "TRAINING": "ОБУЧЕНИЕ",
+  "made-up pieces in two made-up stores: nothing here touches real stock": "вымышленные изделия в двух вымышленных магазинах: реальный склад не затрагивается",
+  "Reset training data": "Сбросить учебные данные",
+  "Reset the training data?": "Сбросить учебные данные?",
+  "Every training piece goes back to how it started. Real stock is not touched.": "Все учебные изделия вернутся в исходное состояние. Реальный склад не затрагивается.",
+  "Reset": "Сбросить",
+  "Training data is reset.": "Учебные данные сброшены.",
+  "No store with that code.": "Магазина с таким кодом нет.",
+  "Only a piece that is in stock can be sent to another store.": "Отправить в другой магазин можно только изделие в наличии.",
+  "The piece is already in that store.": "Изделие уже в этом магазине.",
+  "This piece is not in transfer.": "Изделие не находится в перемещении.",
+  "That change is not possible: the piece has moved meanwhile.": "Это изменение невозможно: статус изделия уже изменился.",
+  "Choose the store to send it to.": "Выберите магазин назначения.",
   // review placeholder (used only if review.js is not built in)
   "Open review items come here.": "Здесь будут открытые вопросы на проверку.",
 };
@@ -100,8 +115,11 @@ function setLang(l) {
 }
 
 /* ------------------------------------------------------------------ states
-   The seven piece states, their words and their tags (G1). */
+   The seven piece states, their words and their tags (G1). Training has five: the four a person
+   sets, and "in transfer" between two stores. */
 const STATE_ORDER = ["in_stock", "reserved", "booked_out", "in_transit", "damaged", "not_received", "sold"];
+const TRAIN_STATE_ORDER = ["in_stock", "reserved", "booked_out", "damaged", "in_transfer"];
+const stateOrder = () => (S.training ? TRAIN_STATE_ORDER : STATE_ORDER);
 const STATE_WORDS = {
   in_stock: { en: "In stock", ru: "В наличии" },
   reserved: { en: "Reserved", ru: "Резерв" },
@@ -110,8 +128,9 @@ const STATE_WORDS = {
   damaged: { en: "Damaged", ru: "Повреждено" },
   not_received: { en: "Not received", ru: "Не получено" },
   sold: { en: "Sold", ru: "Продано" },
+  in_transfer: { en: "In transfer", ru: "В перемещении" },
 };
-const STATE_TAG = { in_stock: "act", reserved: "line", booked_out: "line", in_transit: "info", damaged: "alert", not_received: "alert", sold: "done" };
+const STATE_TAG = { in_stock: "act", reserved: "line", booked_out: "line", in_transit: "info", damaged: "alert", not_received: "alert", sold: "done", in_transfer: "info" };
 function stateWord(state) {
   const w = STATE_WORDS[state];
   return w ? w[LANG === "ru" ? "ru" : "en"] : String(state || "—");
@@ -125,8 +144,9 @@ function stateTag(state) {
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, manage: false, crm: false, cost: false },
   locked: true, gateMessage: null,
-  facets: null,                      // { brands, categories }
-  filters: { q: "", state: "", brand: "", category: "", price_min: null, price_max: null },
+  training: false,                   // Training mode: made-up pieces through the train_* actions, nothing real
+  facets: null,                      // { brands, categories } (+ stores in training)
+  filters: { q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null },
   page: 1,
   list: null, listBusy: false, listError: null,
   priceTimers: {},                   // pending price-input debounces, cleared by lockDown
@@ -269,6 +289,9 @@ async function api(action, body) {
   return data;
 }
 
+// The action for the mode the page is in: in Training every read and change goes to its train_* twin.
+function act(name) { return S.training ? "train_" + name : name; }
+
 /* ----------------------------------------------------------------- dialogs
    modal(id, title, body, foot): a sheet over the page (not inside #app, so a
    redraw of the page leaves it open). confirmBox() asks yes / no and resolves
@@ -316,7 +339,7 @@ const ROUTES = {
 };
 function route() {
   const m = /^#\/([a-z]+)(?:\/([^/?#]+))?/.exec(location.hash || "");
-  if (!m || !ROUTES[m[1]]) return { name: "pieces", arg: null };
+  if (!m || !ROUTES[m[1]] || S.training) return { name: "pieces", arg: null };   // Training has the pieces screen only
   return { name: m[1], arg: m[2] ? decodeURIComponent(m[2]) : null };
 }
 function go(r) {
@@ -363,8 +386,54 @@ function renderHeader() {
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Stock") },
       tab("pieces", "Pieces"),
-      tab("review", "Review", S.reviewCount),
-      S.rights.manage ? tab("import", "Import") : null));
+      S.training ? null : tab("review", "Review", S.reviewCount),
+      S.rights.manage && !S.training ? tab("import", "Import") : null,
+      el("span", { class: "kit-spacer" }),
+      // the Training switch sits at the end of the tab row (not tr(): "Training" is also a ticket source word)
+      S.token ? el("button", { class: "btn train-toggle", type: "button", id: "train-toggle", "aria-pressed": S.training ? "true" : "false",
+        onclick: () => setTraining(!S.training), text: LANG === "ru" ? "Обучение" : "Training" }) : null),
+    S.training ? el("div", { class: "band training-band", id: "train-band", role: "note" },
+      el("span", { class: "lbl", text: tr("TRAINING") }),
+      el("span", { class: "tb-text", text: tr("made-up pieces in two made-up stores: nothing here touches real stock") }),
+      S.rights.manage ? el("button", { type: "button", class: "btn", id: "train-reset", onclick: resetTraining, text: tr("Reset training data") }) : null) : null);
+}
+
+/* ----------------------------------------------------------------- training
+   The switch changes which actions the page calls (act()), nothing else. Anything on screen from the
+   other mode is dropped first: filters, the list, the open piece, and any answer still on its way. */
+let modeSeq = 0;
+async function setTraining(on) {
+  if (S.locked || S.training === on) return;
+  const seq = ++modeSeq;
+  if (typeof closePiece === "function") closePiece();
+  document.querySelectorAll(".modal-wrap").forEach((n) => n.remove());
+  clearTimeout(S.qTimer);
+  for (const k of Object.keys(S.priceTimers)) clearTimeout(S.priceTimers[k]);
+  S.priceTimers = {};
+  S.training = on;
+  sstore(TRAIN_KEY, on ? "1" : null);
+  if (route().name !== "pieces" || (location.hash && !/^#\/pieces/.test(location.hash))) history.replaceState(null, "", "#/pieces");   // both modes start on the pieces
+  S.filters = { q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null };
+  S.page = 1; S.list = null; S.listError = null; S.listBusy = false;
+  if (typeof dropListAnswers === "function") dropListAnswers();
+  S.facets = { brands: [], categories: [], stores: [] };
+  renderAll();                                     // the band and the empty list at once; the selects fill when the facets arrive
+  try { await loadFacets(); } catch (e) { return; }   // 401: the gate is up
+  if (seq !== modeSeq || S.locked) return;
+  renderAll();
+}
+async function resetTraining() {
+  if (!S.training || S.locked) return;
+  const ok = await confirmBox({ title: tr("Reset the training data?"),
+    body: tr("Every training piece goes back to how it started. Real stock is not touched."), ok: tr("Reset"), cancel: tr("Cancel") });
+  if (!ok || !S.training || S.locked) return;
+  try {
+    await api("train_reset");
+    if (S.locked || !S.training) return;
+    if (typeof closePiece === "function") closePiece();
+    toast(tr("Training data is reset."));
+    if (typeof loadList === "function") loadList();
+  } catch (e) { if (!S.locked) toast(e.message, true); }
 }
 
 /* -------------------------------------------------------------------- gate */
@@ -466,8 +535,12 @@ window.addEventListener("pageshow", (e) => { if (e.persisted) idleCheck(); });
 
 // Brands and categories for the filter selects (once per unlock).
 async function loadFacets() {
-  try { S.facets = await api("facets"); }
-  catch (e) { if (e.status === 401) throw e; S.facets = { brands: [], categories: [] }; toast(e.message, true); }
+  const training = S.training;
+  try {
+    const f = await api(act("facets"));
+    if (training !== S.training) return;           // the mode changed meanwhile: these are the other mode's
+    S.facets = f;
+  } catch (e) { if (e.status === 401) throw e; S.facets = { brands: [], categories: [], stores: [] }; toast(e.message, true); }
 }
 
 /* -------------------------------------------------------------------- init */
@@ -492,6 +565,7 @@ function restoreSession() {
     const last = Number(sstore(ACTIVE_KEY) || 0);
     if (touchDevice() && last && Date.now() - last >= IDLE_MIN * 60000) { sstore(SESSION_KEY, null); return false; }
     S.token = s.token; S.name = s.name; S.expires_at = s.expires_at; S.rights = s.rights || S.rights;
+    S.training = sstore(TRAIN_KEY) === "1";
     return true;
   } catch (e) { return false; }
 }

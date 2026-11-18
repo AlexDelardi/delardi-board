@@ -67,6 +67,20 @@ main { padding: 24px 24px 96px; }
   .filters .f-min, .filters .f-max { grid-column: span 3; }
 }
 
+/* training: a band under the tabs on every screen, and one more filter (the store) */
+.kit-tabs .kit-spacer { flex: 1 1 auto; }
+.kit-tabs .train-toggle { align-self: center; min-height: 36px; padding: 0 14px; font-size: 13px; }
+.kit-tabs .train-toggle[aria-pressed="true"] { background: var(--navy); color: var(--white); border-color: var(--navy); }
+.band.training-band { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--mist); }
+.band.training-band .tb-text { flex: 1 1 240px; min-width: 0; }
+.band.training-band .lbl { margin: 0; }
+.filters.with-store { grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(110px, 1fr)) repeat(2, minmax(96px, 0.8fr)); }
+@media (max-width: 1100px) { .filters.with-store { grid-template-columns: repeat(6, minmax(0, 1fr)); } .filters.with-store .f-q { grid-column: 1 / -1; } }
+@media (max-width: 900px) {
+  .filters.with-store .f-state, .filters.with-store .f-brand, .filters.with-store .f-cat, .filters.with-store .f-store, .filters.with-store .f-min, .filters.with-store .f-max { grid-column: span 3; }
+}
+.tbl.pieces td.store { white-space: normal; }
+
 /* totals strip: one card per state */
 .totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; margin-bottom: 16px; }
 .tot {
