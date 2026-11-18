@@ -377,6 +377,37 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return await pieceDetail(sess, id);
   }
 
+  // The upload file for new arrivals: Colibri's template (A–AK) plus our columns. The page sends the rows
+  // it read from the workbook; stk_import checks every row and, with apply, loads them (never when a row is in error).
+  if (action === "import") {
+    const sess = await requireStock(body.token, "manage");
+    if (!Array.isArray(body.rows) || body.rows.length === 0) throw new HttpErr(400, "The file has no rows.");
+    if (body.rows.length > 2000) throw new HttpErr(413, "The file has more than 2 000 rows. Split it.");
+    const scalar = (v: unknown) => v === null || ["string", "number", "boolean"].includes(typeof v);
+    const rows = body.rows.map((r) => {
+      const o = obj(r, "row");
+      const colibri = obj(o.colibri, "colibri"), extra = obj(o.extra, "extra");
+      for (const part of [colibri, extra]) {
+        const keys = Object.keys(part);
+        if (keys.length > 80 || keys.some((k) => k.length > 80 || !scalar(part[k]) || String(part[k] ?? "").length > 4000)) {
+          throw new HttpErr(400, "A row of the file has a cell that cannot be read.");
+        }
+      }
+      return { row: typeof o.row === "number" && Number.isSafeInteger(o.row) ? o.row : null, colibri, extra };
+    });
+    return await rpc("stk_import", {
+      p: { file_name: str(body.file_name, 200) ?? "upload.xlsx", rows }, p_actor: sess.name, p_apply: body.apply === true,
+    });
+  }
+
+  // Rows of earlier files that wait for their pieces: how many, and (unless check_only) apply those whose piece has arrived.
+  if (action === "import_pending") {
+    await requireStock(body.token, "manage");
+    const applied = body.check_only === true ? 0 : await rpc("stk_apply_pending", {});
+    const left = await select("ops_upload_pending?select=serial_key");
+    return { applied: applied ?? 0, waiting: Array.isArray(left) ? left.length : 0 };
+  }
+
   if (action === "resolve") {
     const sess = await requireStock(body.token, "manage");
     const review = posInt(body.review_id, "review");

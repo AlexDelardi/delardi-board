@@ -31,7 +31,8 @@ const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_trans
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
 let pieces, events, reviews, sessions, calls, nextReview;
-let failNext = null;   // an action name: its next call answers 500 once
+let failNext = null;
+let imported, waitingRows;   // import: pieces already loaded from a file, rows waiting for their piece   // an action name: its next call answers 500 once
 let refundSales = {};
 const delay = {};   // test hook: delay.<action> = ms the answer is held back
 
@@ -107,6 +108,7 @@ function reset() {
   sessions = {};
   calls = [];
   failNext = null;
+  imported = new Set(); waitingRows = new Map();
 }
 reset();
 
@@ -277,6 +279,7 @@ function handle(body) {
             currency: "EUR", arrival_date: "2026-10-14", customs_decl: null, source_file: "t2 cost.xlsx" },
           codes: [{ code: "6000000000017", kind: "colibri", active: true, added_at: iso(3, 9), retired_at: null },
                   { code: "ERA-OLD-1", kind: "era", active: false, added_at: iso(9, 9), retired_at: iso(2, 9) }],
+          details: { category: "Ring", metal: "White gold", metal_purity: "750", name_uz: "Uzuk" },
           hs_code: "7113190000", ikpu: null }];
       }
       const shelf = p.price_uzs === null || p.price_uzs === undefined ? null : Number(p.price_uzs);
@@ -287,6 +290,48 @@ function handle(body) {
         invoice_uzs: 6500000, customs_vat_uzs: 130000, clearance_uzs: 20000, assay_uzs: 10000, customs_fee_uzs: 5000, other_uzs: 0,
         landed_uzs: landed, shelf_price_uzs: shelf, vat_pct: 12, net_price_uzs: net,
         margin_uzs: net === null ? null : net - landed, margin_pct: net ? Math.round((net - landed) / net * 1000) / 10 : null }];
+    }
+    // The upload file. A reduced stk_import: the same statuses, error codes and all-or-nothing rule.
+    if (action === "import") {
+      session(body.token, "manage");
+      if (!Array.isArray(body.rows) || !body.rows.length) fail(400, "The file has no rows.");
+      const cell = (v) => (v === null || v === undefined || String(v).trim() === "" || String(v).trim().toUpperCase() === "TBD" ? null : String(v).trim());
+      const key = (r) => (cell(r.colibri["Бренд"]) || "").toLowerCase().replace(/[^a-z0-9]/g, "") + "|" + (cell(r.colibri["Серийный номер"]) || "").toUpperCase();
+      const seen = {};
+      for (const r of body.rows) seen[key(r)] = (seen[key(r)] || 0) + 1;
+      const sum = { rows: body.rows.length, update: 0, same: 0, pending: 0, error: 0 };
+      const out = body.rows.map((r) => {
+        const x = r.extra || {}, brand = cell(r.colibri["Бренд"]), serial = cell(r.colibri["Серийный номер"]), article = cell(r.colibri["Артикул"]);
+        const errors = [];
+        if (!brand) errors.push({ code: "no_brand" });
+        if (!serial) errors.push({ code: "no_serial" });
+        if (!article) errors.push({ code: "no_article" });
+        if (cell(x.hs_code) && !/^\d{10}$/.test(cell(x.hs_code))) errors.push({ code: "bad_hs" });
+        if (cell(x.ikpu) && !/^\d{17}$/.test(cell(x.ikpu))) errors.push({ code: "bad_ikpu" });
+        for (const k of ["invoice_date", "arrival_date"]) if (cell(x[k]) && !/^\d{4}-\d{2}-\d{2}$/.test(cell(x[k]))) errors.push({ code: "bad_date", field: k });
+        const p = brand && serial ? pieces.find((q) => q.serial.toUpperCase() === serial.toUpperCase()) : null;
+        if (brand && serial && seen[key(r)] > 1) errors.push({ code: "serial_repeated" });
+        else if (p && article && p.article !== article) errors.push({ code: "serial_other_reference", on_file: p.article });
+        const base = { row: r.row, brand, serial, article };
+        if (errors.length) { sum.error++; return Object.assign(base, { status: "error", errors }); }
+        if (!p) { sum.pending++; return Object.assign(base, { status: "pending" }); }
+        if (imported.has(p.piece_id)) { sum.same++; return Object.assign(base, { status: "same", piece_id: p.piece_id, warnings: [] }); }
+        sum.update++;
+        const details = ["category", "subcategory", "metal", "metal_purity", "metal_weight_g", "stones", "certificate_no", "name_uz", "store"].filter((k) => cell(x[k])).length;
+        return Object.assign(base, { status: "update", piece_id: p.piece_id, warnings: cell(x.contract) ? [] : [{ code: "receipt_differs", field: "supplier", on_file: "Older Supplier" }],
+          changes: { colibri_new: Object.keys(r.colibri).filter((k) => cell(r.colibri[k])).length, colibri_changed: 0, details,
+            receipt: cell(x.supplier) ? "new" : null, brand_code: !!cell(x.brand_barcode), hs_code: !!cell(x.hs_code), ikpu: !!cell(x.ikpu) } });
+      });
+      const apply = body.apply === true;
+      if (apply && sum.error) fail(409, "The file has " + sum.error + " row(s) with errors. Nothing was loaded: fix them and upload again.");
+      if (apply) for (const r of out) { if (r.status === "update") imported.add(r.piece_id); if (r.status === "pending") waitingRows.set(r.serial.toUpperCase(), r); }
+      return [200, { applied: apply, file_name: str(body.file_name, 200) || "upload.xlsx", rows: out, summary: sum, waiting: waitingRows.size }];
+    }
+    if (action === "import_pending") {
+      session(body.token, "manage");
+      let applied = 0;
+      if (body.check_only !== true) for (const [k] of [...waitingRows]) if (pieces.some((q) => q.serial.toUpperCase() === k)) { waitingRows.delete(k); applied++; }
+      return [200, { applied, waiting: waitingRows.size }];
     }
     if (action === "reviews") {
       session(body.token, "view");

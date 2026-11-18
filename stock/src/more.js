@@ -142,6 +142,12 @@ function originBody(o, cost) {
       el("span", { class: "serial", text: c.code }), el("span", { class: "small", text: tr(CODE_KIND[c.kind] || humanKey(c.kind)) }),
       c.active ? null : el("span", { class: "tag done", text: tr("Retired") }))))
       : el("p", { class: "small", id: "pc-codes", text: tr("TBD") })));
+  // what our own columns of the upload file say about the piece (import.js)
+  const det = o.details || {};
+  if (Object.keys(det).length) {
+    out.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Item details") }),
+      el("dl", { class: "pc-facts", id: "pc-details" }, Object.keys(DETAIL_LABEL).filter((k) => !blank(det[k])).map((k) => moreFact(DETAIL_LABEL[k], det[k])))));
+  }
   if (S.rights.cost && cost) {
     const q = QUALITY_WORD[cost.match_quality] || "TBD";
     const margin = moneyOrTbd(cost.margin_uzs);

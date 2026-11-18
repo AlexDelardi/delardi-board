@@ -307,10 +307,11 @@ document.addEventListener("keydown", (e) => {
 }, true);
 
 /* ------------------------------------------------------------------ routes
-   #/pieces (default)  #/review
+   #/pieces (default)  #/review  #/import (manage right)
    Each name maps to a function (main, arg) that fills <main>. */
 const ROUTES = {
   pieces: (main) => renderList(main),                                      // list.js
+  import: (main) => (S.rights.manage ? (importLoadWaiting(), renderImport(main)) : renderList(main)),            // import.js: manage right only
   review: (main) => (typeof renderReview === "function" ? renderReview(main) : renderReviewPlaceholder(main)),   // review.js (Task 5)
 };
 function route() {
@@ -362,7 +363,8 @@ function renderHeader() {
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Stock") },
       tab("pieces", "Pieces"),
-      tab("review", "Review", S.reviewCount)));
+      tab("review", "Review", S.reviewCount),
+      S.rights.manage ? tab("import", "Import") : null));
 }
 
 /* -------------------------------------------------------------------- gate */

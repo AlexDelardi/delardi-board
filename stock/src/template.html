@@ -158,6 +158,20 @@ main { padding: 24px 24px 96px; }
 .pc-body .h2 { margin: 0; overflow-wrap: anywhere; }
 .pc-state { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: -8px; }
 .pc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; padding: 12px 0; border-top: 1px solid var(--mist); border-bottom: 1px solid var(--mist); }
+/* import */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+label.btn { display: inline-flex; align-items: center; cursor: pointer; }
+#imp-file:focus-visible + *, #imp-pick-label:focus-within { outline: 2px solid var(--navy); outline-offset: 2px; }
+.imp-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--card); border: 1px solid var(--card); }
+.imp-card .lbl { margin: 0; color: var(--slate); }
+.imp-card .tc-n { font-size: 20px; font-weight: 700; color: var(--navy-deep); font-variant-numeric: tabular-nums; }
+.imp-card.bad { background: var(--white); border-color: var(--alert); }
+.imp-card.bad .tc-n { color: var(--alert); }
+.imp-actions { margin: 12px 0; }
+.tbl.imp td { vertical-align: top; padding: 8px 10px; }
+.tbl.imp .imp-res .imp-msg { display: block; margin-top: 4px; color: var(--slate); overflow-wrap: anywhere; }
+.tbl.imp tr.imp-error .imp-msg { color: var(--ink); }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); text-decoration: underline; cursor: pointer; }
 .pc-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--mist); }
 .pc-tab { min-height: var(--tap); padding: 0 14px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--slate); font: 700 14px/1.2 var(--sans); cursor: pointer; }
 .pc-tab[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--navy); }

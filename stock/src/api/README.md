@@ -124,6 +124,7 @@ Colibri record comes without its purchase-price columns (`Цена оригин�
 { colibri: { data: { "<Colibri heading>": value, … }, source_file, loaded_at } | null,   // the piece as Colibri has it
   receipt: { supplier, contract, invoice_no, invoice_date, currency, arrival_date, customs_decl, source_file } | null,
   codes: [ { code, kind, active, added_at, retired_at } ],   // kind: colibri | era | brand | delardi; active first
+  details: { category, subcategory, metal, … } | null,       // our own columns of the upload file
   hs_code, ikpu }                                            // per model; null = not known yet
 ```
 
@@ -138,6 +139,27 @@ The only action that returns cost or margin. Without the `cost` right → `403`
   shelf_price_uzs, vat_pct, net_price_uzs,      // shelf price, the VAT share inside it, the price without VAT
   margin_uzs, margin_pct }                      // net price − landed cost; null while either is unknown
 ```
+
+### `import {token, file_name, rows, apply}` — manage
+The upload file for new arrivals. `rows`: `[{ row, colibri: { "<Colibri heading>": value }, extra: { hs_code, ikpu,
+supplier, contract, invoice_no, invoice_date, currency, arrival_date, customs_decl, brand_barcode, category, subcategory,
+metal, metal_purity, metal_weight_g, stones, certificate_no, name_uz, store } }]`, at most 2 000. Empty and `TBD` mean
+"not known"; dates are `YYYY-MM-DD`. Without `apply: true` nothing is written (preview). With it, the rows are loaded —
+unless any row is in error: then `409` and nothing is loaded.
+→
+```
+{ applied, file_name, waiting,                       // waiting: rows on file whose piece is not in stock yet
+  summary: { rows, update, same, pending, error },
+  rows: [ { row, brand, serial, article, status,     // update | same | pending | error
+            piece_id,                                // update, same
+            changes: { colibri_new, colibri_changed, details, receipt: "new" | "fill" | null, brand_code, hs_code, ikpu },
+            warnings: [ { code, field?, on_file? } ],  // hs_differs | ikpu_differs | receipt_differs | no_model: the value on file is kept
+            errors:   [ { code, field?, on_file? } ] } ] }   // no_brand | no_serial | no_article | bad_hs | bad_ikpu | bad_date |
+                                                             // serial_repeated | serial_ambiguous | serial_other_reference
+```
+
+### `import_pending {token, check_only?}` — manage
+Applies waiting rows whose piece has arrived (not with `check_only: true`). → `{ applied, waiting }`
 
 ### `reviews {token}` — view
 Open review items, oldest first.
