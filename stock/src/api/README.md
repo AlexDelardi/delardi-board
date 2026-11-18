@@ -209,3 +209,15 @@ Receive: the piece is in stock in the store it was sent to. Cancel: in stock aga
 
 ### `train_reset {token}` — manage
 Every training piece back to how it started (same piece references), history cleared. → `{ pieces }`
+
+## Table tools: sort and column checklists
+
+`filters` (for `list`, `export`, `train_list`) also takes:
+- `sort`: `"<column>.<asc|desc>"`, column one of `serial, brand, article, state, since, price` (`train_list` also `store`).
+  Left out, the order is brand, reference, serial. Pieces without the sorted value come last either way. Bad value → `400`.
+- `brands`: a list of brands (several at once; the single `brand` still works). `train_list` also `stores`, a list of store codes.
+
+### `facet {token, filters?, column}` — view · `train_facet` likewise
+`column` one of `brand`, `state` (`train_facet` also `store`). The values of that column among the pieces the other
+filters leave (the column's own filter is left out), with a count each.
+→ `{ column, values: [ { value, count, label? } ] }` (`label` for stores: the store's name)

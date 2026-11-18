@@ -58,7 +58,7 @@ function listFilters() {
   if (S.training && f.store) out.store = f.store;
   if (f.price_min !== null) out.price_min = f.price_min;
   if (f.price_max !== null) out.price_max = f.price_max;
-  return out;
+  return listFiltersX(out);                        // listx.js: several values of a column, and the sort
 }
 
 // The mode changed: an answer still on its way belongs to the other mode and is not drawn.
@@ -106,11 +106,11 @@ function renderList(main) {
       S.qTimer = setTimeout(() => { if (q.value !== S.filters.q) { S.filters.q = q.value; filtersChanged(); } }, LIST_DEBOUNCE);
     } });
   const opt = (value, text, cur) => el("option", { value, selected: value === cur ? true : null, text });
-  const state = el("select", { id: "f-state", onchange: () => { S.filters.state = state.value; filtersChanged(); } },
+  const state = el("select", { id: "f-state", onchange: () => { if (singleChosen("state", state.value)) filtersChanged(); } },
     opt("", tr("All states"), f.state), stateOrder().map((s) => opt(s, stateWord(s), f.state)));
-  const store = T ? el("select", { id: "f-store", onchange: () => { S.filters.store = store.value; filtersChanged(); } },
+  const store = T ? el("select", { id: "f-store", onchange: () => { if (singleChosen("store", store.value)) filtersChanged(); } },
     opt("", tr("All stores"), f.store), (facets.stores || []).map((x) => opt(x.code, x.name, f.store))) : null;
-  const brand = el("select", { id: "f-brand", onchange: () => { S.filters.brand = brand.value; filtersChanged(); } },
+  const brand = el("select", { id: "f-brand", onchange: () => { if (singleChosen("brand", brand.value)) filtersChanged(); } },
     opt("", tr("All brands"), f.brand), facets.brands.map((b) => opt(b, b, f.brand)));
   const cat = el("select", { id: "f-cat", onchange: () => { S.filters.category = cat.value; filtersChanged(); } },
     opt("", tr("All categories"), f.category), facets.categories.map((c) => opt(c, categoryWord(c), f.category)));
@@ -132,7 +132,7 @@ function renderList(main) {
   main.append(el("section", { class: "screen" + (T ? " training" : ""), id: "screen-pieces" },
     el("div", { class: "screen-head" },
       el("h1", { class: "sr-only", text: tr("Pieces") }),
-      T ? null : el("div", { class: "aside" }, exportButton())),      // training pieces are never exported
+      el("div", { class: "aside" }, el("span", { id: "f-clear-box" }), T ? null : exportButton())),      // training pieces are never exported
     el("div", { class: "filters" + (T ? " with-store" : ""), role: "search" },
       field("f-q", "Search", q),
       field("f-state", "State", state),
@@ -144,18 +144,12 @@ function renderList(main) {
     el("div", { class: "totals", id: "totals", role: "group", "aria-label": tr("Totals by state") }),
     el("div", { class: "tbl-wrap" },
       el("table", { class: "tbl pieces" },
-        el("thead", {}, el("tr", {},
-          el("th", { scope: "col", text: tr("Serial") }),
-          el("th", { scope: "col", text: tr("Brand") }),
-          el("th", { scope: "col", text: tr("Reference / Model") }),
-          el("th", { scope: "col", text: tr("Size") }),
-          T ? el("th", { scope: "col", text: tr("Store") }) : null,
-          el("th", { scope: "col", text: tr("State") }),
-          el("th", { scope: "col", text: tr("Since") }),
-          el("th", { scope: "col", class: "r", text: tr("Price") }))),
+        el("thead", {}, el("tr", { id: "list-head" })),          // listx.js: headings that sort, and the column checklists
         el("tbody", { id: "rows" }))),
     el("div", { class: "pager", id: "pager" })));
 
+  drawListHead();
+  syncMultiSelects();
   drawResults();
   loadList();
 }
@@ -164,6 +158,8 @@ function renderList(main) {
 function syncFilterControls() {
   const s = $("#f-state");
   if (s && s.value !== S.filters.state) s.value = S.filters.state;
+  syncMultiSelects();                              // "Several (n)" where a checklist has several values
+  drawListHead();                                  // the ▾ of a filtered column is marked; Clear filters comes and goes
 }
 
 function drawResults() {
@@ -213,9 +209,9 @@ function drawTotals(totals) {
   for (const s of stateOrder()) {
     const t = by[s];
     if (!t) continue;
-    const on = S.filters.state === s;
+    const on = S.filters.state === s && !S.filters.multi.state.length;
     box.append(el("button", { type: "button", class: "tot", "data-state": s, "aria-pressed": on ? "true" : "false",
-      onclick: () => { S.filters.state = on ? "" : s; filtersChanged(); } },
+      onclick: () => { singleChosen("state", on ? "" : s); filtersChanged(); } },
       el("span", { class: "lbl", text: stateWord(s) }),
       el("span", { class: "t-n", text: pl(Number(t.pieces), "piece") }),
       el("span", { class: "t-v" }, el("span", { class: "t-amt", text: fmtUZS(t.value) }), " " + tr("so'm")),

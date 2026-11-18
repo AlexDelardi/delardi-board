@@ -16,6 +16,29 @@ const PASSCODES = {
 const DEFAULT_RIGHTS = JSON.stringify(Object.fromEntries(Object.entries(PASSCODES).map(([k, v]) => [k, v.rights])));
 const STATES = ["in_transit", "in_stock", "reserved", "booked_out", "damaged", "sold", "not_received"];
 const REAL_STATES = STATES;
+const SORT_COLS = ["serial", "brand", "article", "state", "since", "price"];
+const STATE_RANK = ["in_stock", "reserved", "booked_out", "in_transit", "in_transfer", "damaged", "not_received", "sold"];
+// stk_piece_list's order: the sorted column (pieces without the value last, either way), then brand, reference, serial.
+function sortRows(rows, sort) {
+  const usual = (a, b) => cmp(a.brand, b.brand) || cmp(a.article, b.article) || cmp(a.serial, b.serial);
+  if (!sort) return rows.sort(usual);
+  const [col, dir] = sort.split(".");
+  const key = (p) => col === "state" ? STATE_RANK.indexOf(p.state) : col === "price" ? p.price_uzs : col === "since" ? Date.parse(p.state_since)
+    : col === "store" ? p.store_code : p[col];
+  return rows.sort((a, b) => {
+    const x = key(a), y = key(b), nx = x === null || x === undefined, ny = y === null || y === undefined;
+    if (nx || ny) return nx && ny ? usual(a, b) : nx ? 1 : -1;
+    const c = typeof x === "number" ? x - y : cmp(x, y);
+    return (dir === "desc" ? -c : c) || usual(a, b);
+  });
+}
+// stk_facet_values: a column's values with counts among `rows` (already without that column's own filter)
+function facetValues(rows, col) {
+  const n = new Map();
+  for (const p of rows) { const v = col === "store" ? p.store_code : p[col]; if (v !== null && v !== undefined) n.set(v, (n.get(v) || 0) + 1); }
+  const out = [...n].map(([value, count]) => (col === "store" ? { value, label: storeName(value), count } : { value, count }));
+  return out.sort((a, b) => (col === "state" ? STATE_RANK.indexOf(a.value) - STATE_RANK.indexOf(b.value) : cmp(a.value, b.value)));
+}
 const TRAIN_STATES = ["in_stock", "reserved", "booked_out", "damaged", "in_transfer"];
 const SETTABLE = ["in_stock", "reserved", "booked_out", "damaged"];
 // ops_resolve_review's answers per kind
@@ -166,6 +189,19 @@ function filtersIn(v, training) {
     if (typeof raw !== "number" || !Number.isSafeInteger(raw) || raw < 0) fail(400, `${k} must be a whole number, zero or more.`);
     out[k] = raw;
   }
+  for (const [k, max] of [["brands", 80]].concat(training ? [["stores", 20]] : [])) {
+    const raw = v[k];
+    if (raw === null || raw === undefined) continue;
+    if (!Array.isArray(raw) || raw.length > 200 || raw.some((x) => typeof x !== "string" || x.trim().length > max)) fail(400, `${k} must be a list of texts.`);
+    const vals = [...new Set(raw.map((x) => str(x, max)).filter((x) => x !== null))];
+    if (vals.length) out[k] = vals;
+  }
+  if (v.sort !== null && v.sort !== undefined) {
+    if (typeof v.sort !== "string") fail(400, "sort must be text.");
+    const [col, dir] = v.sort.trim().split(".");
+    if (!SORT_COLS.concat(training ? ["store"] : []).includes(col) || (dir !== "asc" && dir !== "desc")) fail(400, "sort must be a column and asc or desc.");
+    out.sort = col + "." + dir;
+  }
   if (v.page !== null && v.page !== undefined && v.page !== "") {
     const n = typeof v.page === "string" && /^\d+$/.test(v.page.trim()) ? Number(v.page.trim()) : v.page;
     if (typeof n !== "number" || !Number.isSafeInteger(n) || n < 1) fail(400, "That is not a valid page.");
@@ -178,12 +214,13 @@ const ROW_KEYS = ["piece_id", "serial", "barcode", "brand", "article", "collecti
 const row = (p) => Object.fromEntries(ROW_KEYS.map((k) => [k, p[k]]));
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // stk_base: every word matches somewhere (case-insensitive), brand and category exact, price bounds drop unpriced pieces.
-function base(f) {
+function base(f, skip) {
   const words = f.q ? f.q.split(/\s+/).filter(Boolean).map((w) => w.toLowerCase()) : null;
   return pieces.filter((p) => {
     if (words && !words.every((w) => ["serial", "barcode", "article", "brand", "collection", "model_name"]
       .some((k) => p[k] && String(p[k]).toLowerCase().includes(w)))) return false;
-    if (f.brand && p.brand !== f.brand) return false;
+    if (skip !== "brand" && f.brand && p.brand !== f.brand) return false;
+    if (skip !== "brand" && f.brands && !f.brands.includes(p.brand)) return false;
     if (f.category && p.category !== f.category) return false;
     if (f.price_min !== undefined && !(p.price_uzs !== null && p.price_uzs >= f.price_min)) return false;
     if (f.price_max !== undefined && !(p.price_uzs !== null && p.price_uzs <= f.price_max)) return false;
@@ -192,7 +229,7 @@ function base(f) {
 }
 function list(f) {
   const all = base(f);
-  const hit = f.states ? all.filter((p) => f.states.includes(p.state)) : all;
+  const hit = sortRows(f.states ? all.filter((p) => f.states.includes(p.state)) : all, f.sort);
   const page = f.page || 1;
   const totals = {};
   for (const p of all) {
@@ -268,19 +305,24 @@ function trainSeed() {
   });
 }
 const tRow = (p) => Object.assign(row(p), { store: storeName(p.store_code), store_code: p.store_code, to_store: storeName(p.to_code) });
-function trainList(f) {
+function trainBase(f, skip) {
   const words = f.q ? f.q.split(/\s+/).filter(Boolean).map((w) => w.toLowerCase()) : null;
-  const all = tPieces.filter((p) => {
+  return tPieces.filter((p) => {
     if (words && !words.every((w) => ["serial", "barcode", "article", "brand", "collection", "model_name"]
       .some((k) => p[k] && String(p[k]).toLowerCase().includes(w)))) return false;
-    if (f.brand && p.brand !== f.brand) return false;
+    if (skip !== "brand" && f.brand && p.brand !== f.brand) return false;
+    if (skip !== "brand" && f.brands && !f.brands.includes(p.brand)) return false;
     if (f.category && p.category !== f.category) return false;
-    if (f.store && p.store_code !== f.store.toUpperCase()) return false;
+    if (skip !== "store" && f.store && p.store_code !== f.store.toUpperCase()) return false;
+    if (skip !== "store" && f.stores && !f.stores.map((x) => x.toUpperCase()).includes(p.store_code)) return false;
     if (f.price_min !== undefined && !(p.price_uzs >= f.price_min)) return false;
     if (f.price_max !== undefined && !(p.price_uzs <= f.price_max)) return false;
     return true;
-  }).sort((a, b) => cmp(a.brand, b.brand) || cmp(a.article, b.article) || cmp(a.serial, b.serial));
-  const hit = f.states ? all.filter((p) => f.states.includes(p.state)) : all;
+  });
+}
+function trainList(f) {
+  const all = trainBase(f);
+  const hit = sortRows(f.states ? all.filter((p) => f.states.includes(p.state)) : all, f.sort);
   const page = f.page || 1, totals = {};
   for (const p of all) {
     const t = totals[p.state] || (totals[p.state] = { state: p.state, pieces: 0, value: 0, unpriced: 0 });
@@ -321,6 +363,14 @@ function trainHandle(action, body) {
       stores: TRAIN_STORES.map((x) => Object.assign({}, x)) };
   }
   if (action === "train_list") { session(body.token, "view"); return trainList(filtersIn(body.filters, true)); }
+  if (action === "train_facet") {
+    session(body.token, "view");
+    const column = str(body.column, 20) || "";
+    if (!["brand", "state", "store"].includes(column)) fail(400, "That column has no checklist.");
+    const f = filtersIn(body.filters, true);
+    const rows = trainBase(f, column).filter((p) => column === "state" || !f.states || f.states.includes(p.state));
+    return { column, values: facetValues(rows, column) };
+  }
   if (action === "train_piece") {
     const s = session(body.token, "view");
     const id = str(body.piece_id, 40) || "";
@@ -394,6 +444,14 @@ function handle(body) {
       return [200, { brands: [...new Set(pieces.map((p) => p.brand))].sort(), categories: [...new Set(pieces.map((p) => p.category))].sort() }];
     }
     if (action === "list") { session(body.token, "view"); return [200, list(filtersIn(body.filters))]; }
+    if (action === "facet") {
+      session(body.token, "view");
+      const column = str(body.column, 20) || "";
+      if (!["brand", "state"].includes(column)) fail(400, "That column has no checklist.");
+      const f = filtersIn(body.filters);
+      const rows = base(f, column).filter((p) => column === "state" || !f.states || f.states.includes(p.state));
+      return [200, { column, values: facetValues(rows, column) }];
+    }
     if (action === "piece") {
       const s = session(body.token, "view");
       const id = str(body.piece_id, 40) || "";
@@ -485,7 +543,7 @@ function handle(body) {
     if (action === "export") {
       session(body.token, "view");
       const f = filtersIn(body.filters);
-      const all = base(f).filter((p) => !f.states || f.states.includes(p.state));
+      const all = sortRows(base(f).filter((p) => !f.states || f.states.includes(p.state)), f.sort);
       if (all.length > 5000) fail(409, `too many rows to export (${all.length}); narrow the filters`);
       return [200, { rows: all.map(row) }];
     }

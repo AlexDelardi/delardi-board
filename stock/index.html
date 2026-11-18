@@ -187,6 +187,33 @@ main { padding: 24px 24px 96px; }
   .filters .f-min, .filters .f-max { grid-column: span 3; }
 }
 
+/* table tools: headings that sort, the ▾ of a column checklist, and the checklist itself */
+.tbl.pieces thead th { padding-top: 0; padding-bottom: 0; vertical-align: middle; }
+.th-in { display: inline-flex; align-items: center; gap: 2px; }
+th.r .th-in { justify-content: flex-end; }
+.th-sort { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: normal; text-align: left; }
+.th-sort:hover, th.sorted .th-sort { color: var(--navy); }
+.th-sort .arr { opacity: .4; font-size: 11px; letter-spacing: 0; }
+th.sorted .th-sort .arr { opacity: 1; }
+.th-filter { flex: none; min-width: 28px; min-height: var(--tap); background: none; border: 1px solid transparent; padding: 0 4px; color: var(--slate); cursor: pointer; font-size: 12px; line-height: 1; }
+.th-filter:hover { border-color: var(--sky); color: var(--navy); }
+.th-filter.on { background: var(--navy); color: var(--white); border-color: var(--navy); }
+.facet-pop { position: absolute; z-index: 65; width: 280px; max-width: calc(100vw - 16px); background: var(--white); border: 2px solid var(--navy); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.facet-pop .fp-q { width: 100%; min-height: 36px; }
+.fp-list { display: flex; flex-direction: column; max-height: 264px; overflow-y: auto; }
+.fp-row { display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 6px; cursor: pointer; }
+.fp-row:hover { background: var(--card); }
+.fp-row input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--navy); }
+.fp-row .fp-l { min-width: 0; overflow-wrap: anywhere; }
+.fp-row .fp-n { margin-left: auto; color: var(--slate); font-variant-numeric: tabular-nums; font-size: 13px; }
+.fp-all { border-bottom: 1px solid var(--mist); font-weight: 700; }
+.fp-actions { display: flex; gap: 8px; margin-top: 4px; }
+.fp-actions .btn { flex: 1 1 0; min-height: 40px; padding: 0 10px; }
+.fp-msg { margin: 6px; }
+#f-clear-box:empty { display: none; }
+#screen-pieces .screen-head .aside { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
 /* import: the guide (what to fill and how) */
 .imp-guide { margin: 16px 0 20px; border: 1px solid var(--mist); background: var(--white); }
 .imp-guide > summary { min-height: var(--tap); display: flex; align-items: center; padding: 0 16px; cursor: pointer; font-weight: 700; color: var(--navy); }
@@ -211,6 +238,15 @@ main { padding: 24px 24px 96px; }
   .filters.with-store .f-state, .filters.with-store .f-brand, .filters.with-store .f-cat, .filters.with-store .f-store, .filters.with-store .f-min, .filters.with-store .f-max { grid-column: span 3; }
 }
 .tbl.pieces td.store { white-space: normal; }
+@media (max-width: 900px) {   /* eight columns in portrait: tighter cells, and the sort arrow closer to its heading */
+  .screen.training .tbl.pieces th, .screen.training .tbl.pieces td { padding-left: 6px; padding-right: 6px; }
+  .screen.training .th-sort { gap: 2px; }
+  .screen.training th:not(.sorted) .th-sort .arr { display: none; }   /* the arrow shows on the sorted column only */
+  .screen.training .tbl.pieces thead th { letter-spacing: .04em; }
+  .screen.training .tbl.pieces td.store { max-width: 8.5em; }
+  .screen.training .tbl.pieces td.brand { max-width: 7em; }
+  .screen.training .th-filter { min-width: 22px; padding: 0 2px; }
+}
 
 /* totals strip: one card per state */
 .totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; margin-bottom: 16px; }
@@ -793,7 +829,8 @@ async function setTraining(on) {
   S.training = on;
   sstore(TRAIN_KEY, on ? "1" : null);
   if (route().name !== "pieces" || (location.hash && !/^#\/pieces/.test(location.hash))) history.replaceState(null, "", "#/pieces");   // both modes start on the pieces
-  S.filters = { q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null };
+  S.filters = blankFilters();                      // listx.js: no filter, no sort, no checklist crosses the switch
+  if (typeof closeFacet === "function") closeFacet(true);
   S.page = 1; S.list = null; S.listError = null; S.listBusy = false;
   if (typeof dropListAnswers === "function") dropListAnswers();
   S.facets = { brands: [], categories: [], stores: [] };
@@ -883,6 +920,7 @@ function lockDown(message) {
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
   kitCloseMenus();
+  if (typeof closeFacet === "function") closeFacet(true);      // listx.js: an open column checklist lives on <body> too
   // Panels and dialogs live on <body>, outside the gated #app: close them, so no piece
   // detail stays on screen above the passcode card.
   if (typeof closePiece === "function") closePiece();          // piece.js (Task 4)
@@ -1071,7 +1109,7 @@ function listFilters() {
   if (S.training && f.store) out.store = f.store;
   if (f.price_min !== null) out.price_min = f.price_min;
   if (f.price_max !== null) out.price_max = f.price_max;
-  return out;
+  return listFiltersX(out);                        // listx.js: several values of a column, and the sort
 }
 
 // The mode changed: an answer still on its way belongs to the other mode and is not drawn.
@@ -1119,11 +1157,11 @@ function renderList(main) {
       S.qTimer = setTimeout(() => { if (q.value !== S.filters.q) { S.filters.q = q.value; filtersChanged(); } }, LIST_DEBOUNCE);
     } });
   const opt = (value, text, cur) => el("option", { value, selected: value === cur ? true : null, text });
-  const state = el("select", { id: "f-state", onchange: () => { S.filters.state = state.value; filtersChanged(); } },
+  const state = el("select", { id: "f-state", onchange: () => { if (singleChosen("state", state.value)) filtersChanged(); } },
     opt("", tr("All states"), f.state), stateOrder().map((s) => opt(s, stateWord(s), f.state)));
-  const store = T ? el("select", { id: "f-store", onchange: () => { S.filters.store = store.value; filtersChanged(); } },
+  const store = T ? el("select", { id: "f-store", onchange: () => { if (singleChosen("store", store.value)) filtersChanged(); } },
     opt("", tr("All stores"), f.store), (facets.stores || []).map((x) => opt(x.code, x.name, f.store))) : null;
-  const brand = el("select", { id: "f-brand", onchange: () => { S.filters.brand = brand.value; filtersChanged(); } },
+  const brand = el("select", { id: "f-brand", onchange: () => { if (singleChosen("brand", brand.value)) filtersChanged(); } },
     opt("", tr("All brands"), f.brand), facets.brands.map((b) => opt(b, b, f.brand)));
   const cat = el("select", { id: "f-cat", onchange: () => { S.filters.category = cat.value; filtersChanged(); } },
     opt("", tr("All categories"), f.category), facets.categories.map((c) => opt(c, categoryWord(c), f.category)));
@@ -1145,7 +1183,7 @@ function renderList(main) {
   main.append(el("section", { class: "screen" + (T ? " training" : ""), id: "screen-pieces" },
     el("div", { class: "screen-head" },
       el("h1", { class: "sr-only", text: tr("Pieces") }),
-      T ? null : el("div", { class: "aside" }, exportButton())),      // training pieces are never exported
+      el("div", { class: "aside" }, el("span", { id: "f-clear-box" }), T ? null : exportButton())),      // training pieces are never exported
     el("div", { class: "filters" + (T ? " with-store" : ""), role: "search" },
       field("f-q", "Search", q),
       field("f-state", "State", state),
@@ -1157,18 +1195,12 @@ function renderList(main) {
     el("div", { class: "totals", id: "totals", role: "group", "aria-label": tr("Totals by state") }),
     el("div", { class: "tbl-wrap" },
       el("table", { class: "tbl pieces" },
-        el("thead", {}, el("tr", {},
-          el("th", { scope: "col", text: tr("Serial") }),
-          el("th", { scope: "col", text: tr("Brand") }),
-          el("th", { scope: "col", text: tr("Reference / Model") }),
-          el("th", { scope: "col", text: tr("Size") }),
-          T ? el("th", { scope: "col", text: tr("Store") }) : null,
-          el("th", { scope: "col", text: tr("State") }),
-          el("th", { scope: "col", text: tr("Since") }),
-          el("th", { scope: "col", class: "r", text: tr("Price") }))),
+        el("thead", {}, el("tr", { id: "list-head" })),          // listx.js: headings that sort, and the column checklists
         el("tbody", { id: "rows" }))),
     el("div", { class: "pager", id: "pager" })));
 
+  drawListHead();
+  syncMultiSelects();
   drawResults();
   loadList();
 }
@@ -1177,6 +1209,8 @@ function renderList(main) {
 function syncFilterControls() {
   const s = $("#f-state");
   if (s && s.value !== S.filters.state) s.value = S.filters.state;
+  syncMultiSelects();                              // "Several (n)" where a checklist has several values
+  drawListHead();                                  // the ▾ of a filtered column is marked; Clear filters comes and goes
 }
 
 function drawResults() {
@@ -1226,9 +1260,9 @@ function drawTotals(totals) {
   for (const s of stateOrder()) {
     const t = by[s];
     if (!t) continue;
-    const on = S.filters.state === s;
+    const on = S.filters.state === s && !S.filters.multi.state.length;
     box.append(el("button", { type: "button", class: "tot", "data-state": s, "aria-pressed": on ? "true" : "false",
-      onclick: () => { S.filters.state = on ? "" : s; filtersChanged(); } },
+      onclick: () => { singleChosen("state", on ? "" : s); filtersChanged(); } },
       el("span", { class: "lbl", text: stateWord(s) }),
       el("span", { class: "t-n", text: pl(Number(t.pieces), "piece") }),
       el("span", { class: "t-v" }, el("span", { class: "t-amt", text: fmtUZS(t.value) }), " " + tr("so'm")),
@@ -1251,6 +1285,246 @@ function drawPager(L) {
     el("span", { class: "pg-n", "aria-live": "polite", text: tr("Page {n} of {m}", { n: page, m: pages }) }),
     el("button", { type: "button", class: "btn", id: "pg-next", disabled: page >= pages || !L ? true : null, onclick: () => to(page + 1), text: tr("Next") }));
 }
+
+/* ===========================================================================
+   Table tools, as on the CRM list
+   - Click a column heading to sort by it on the server; click again to reverse.
+     An arrow and aria-sort show the current sort. Price and Since start with
+     the largest; the others with A.
+   - A ▾ beside Brand and State (and Store in Training) opens a checklist of
+     that column's values with a count for each under the other filters, like
+     Excel: search (long lists), Select all, Apply, Clear filter.
+   - Several values at once live in S.filters.multi; the select in the filter
+     bar for the same column then reads "Several (n)". One value is the select's
+     own value; all of them is no filter.
+   - "Clear filters" takes every filter and the sort off.
+   The download carries the same filters and order (listFilters()).
+   ========================================================================= */
+Object.assign(RU, {
+  "Sort by {col}": "Сортировать: {col}",
+  "Filter {col}": "Фильтр: {col}",
+  "Several ({n})": "Несколько ({n})",
+  "Select all": "Выбрать все",
+  "Apply": "Применить",
+  "Clear filter": "Сбросить фильтр",
+  "Clear filters": "Сбросить фильтры",
+  "Search the values": "Поиск по значениям",
+  "Loading the values…": "Загружаю значения…",
+  "No values under these filters.": "При этих фильтрах значений нет.",
+  "Nothing matches.": "Ничего не найдено.",
+});
+
+// [sort key, heading, th class, first direction, checklist column or null]
+const LIST_COLS = [
+  ["serial", "Serial", "", "asc", null],
+  ["brand", "Brand", "", "asc", "brand"],
+  ["article", "Reference / Model", "", "asc", null],
+  [null, "Size", "", null, null],
+  ["store", "Store", "", "asc", "store"],          // Training only
+  ["state", "State", "", "asc", "state"],
+  ["since", "Since", "", "desc", null],
+  ["price", "Price", "r", "desc", null],
+];
+const listCols = () => LIST_COLS.filter((c) => S.training || c[0] !== "store");
+const MULTI_KEYS = ["brand", "state", "store"];    // checklist column = the single filter's key in S.filters
+const blankMulti = () => ({ brand: [], state: [], store: [] });
+const blankFilters = () => ({ q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null, sort: "", multi: blankMulti() });
+S.filters = blankFilters();
+S.facet = null;
+
+function sortState() {
+  const [col, dir] = String(S.filters.sort || "").split(".");
+  return col ? { col, dir: dir === "desc" ? "desc" : "asc" } : { col: null, dir: null };
+}
+function sortBy(col) {
+  const def = LIST_COLS.find((c) => c[0] === col), now = sortState();
+  S.filters.sort = col + "." + (now.col === col ? (now.dir === "asc" ? "desc" : "asc") : def[3]);
+  toolsChanged();
+}
+const anyFilterOn = () => {
+  const f = S.filters;
+  return !!(f.q || f.state || f.brand || f.category || f.store || f.price_min !== null || f.price_max !== null || f.sort
+    || MULTI_KEYS.some((k) => f.multi[k].length));
+};
+function clearFilters() {
+  clearTimeout(S.qTimer);
+  S.filters = blankFilters();
+  S.page = 1;
+  closeFacet(true);
+  renderAll();                                     // every control is redrawn from the blank filters; the list is asked again
+}
+// What the list asks the server for beyond the single values: the lists and the sort.
+function listFiltersX(out) {
+  const f = S.filters, m = f.multi;
+  if (m.state.length) out.states = m.state.slice();
+  if (m.brand.length) out.brands = m.brand.slice();
+  if (S.training && m.store.length) out.stores = m.store.slice();
+  if (f.sort) out.sort = f.sort;
+  return out;
+}
+// The sort or a checklist changed: the heading row and the selects are redrawn, the keyboard stays on the heading.
+function toolsChanged() {
+  const a = document.activeElement;
+  const key = a && a.closest && a.closest("table.pieces thead")
+    ? (a.dataset.sort ? '.th-sort[data-sort="' + a.dataset.sort + '"]' : a.dataset.facet ? '.th-filter[data-facet="' + a.dataset.facet + '"]' : null) : null;
+  S.page = 1;
+  drawListHead();
+  syncFilterControls();
+  if (key) { const b = document.querySelector("table.pieces thead " + key); if (b) b.focus(); }
+  loadList();
+}
+function drawListHead() {
+  const row = $("#list-head");
+  if (!row) return;
+  const { col: sc, dir } = sortState();
+  row.innerHTML = "";
+  for (const [key, label, cls, , facet] of listCols()) {
+    const on = key !== null && sc === key, text = tr(label);
+    const filtered = !!(facet && (S.filters.multi[facet].length || S.filters[facet]));
+    row.append(el("th", { scope: "col", class: [cls, on ? "sorted" : ""].join(" ").trim() || null, "aria-sort": on ? (dir === "asc" ? "ascending" : "descending") : null },
+      key === null ? text : el("div", { class: "th-in" },
+        el("button", { type: "button", class: "th-sort", "data-sort": key, title: tr("Sort by {col}", { col: text }), onclick: () => sortBy(key) },
+          text, el("span", { class: "arr", "aria-hidden": "true", text: on ? (dir === "asc" ? "↑" : "↓") : "↕" })),
+        facet ? el("button", { type: "button", class: "th-filter" + (filtered ? " on" : ""), "data-facet": facet, "aria-haspopup": "dialog",
+          "aria-expanded": S.facet && S.facet.col === facet ? "true" : "false", "aria-label": tr("Filter {col}", { col: text }), title: tr("Filter {col}", { col: text }),
+          onclick: (ev) => { ev.stopPropagation(); if (S.facet && S.facet.col === facet) closeFacet(); else openFacet(facet); } },
+          el("span", { "aria-hidden": "true", text: "▾" })) : null)));
+  }
+  const clear = $("#f-clear-box");
+  if (clear) {
+    clear.innerHTML = "";
+    if (anyFilterOn()) clear.append(el("button", { type: "button", class: "btn", id: "f-clear", onclick: clearFilters, text: tr("Clear filters") }));
+  }
+}
+// A select whose column has several values chosen shows "Several (n)"; choosing a single value there drops the several.
+function syncMultiSelects() {
+  for (const k of MULTI_KEYS) {
+    const s = $("#f-" + k);
+    if (!s) continue;
+    const n = S.filters.multi[k].length;
+    let o = s.querySelector('option[value="__multi"]');
+    if (n && !o) { o = el("option", { value: "__multi" }); s.append(o); }
+    if (!n && o) { o.remove(); o = null; }
+    if (o) o.textContent = tr("Several ({n})", { n });
+    const want = n ? "__multi" : S.filters[k];
+    if (s.value !== want) s.value = want;
+  }
+}
+// A select or a totals card set one value: that column's several go.
+function singleChosen(key, value) {
+  if (value === "__multi") return false;           // the "Several (n)" line itself: nothing changes
+  S.filters[key] = value;
+  S.filters.multi[key] = [];
+  return true;
+}
+
+/* ------------------------------------------------------------- checklists */
+function facetLabel(col, x) { return col === "state" ? stateWord(x.value) : col === "store" ? (x.label || x.value) : x.value; }
+function facetChosen(col, values) {
+  const m = S.filters.multi[col], one = S.filters[col], all = values.map((x) => x.value);
+  if (m.length) return new Set(m);
+  return new Set(one ? all.filter((v) => v === one) : all);
+}
+let facetSeq = 0;
+async function openFacet(col) {
+  closeFacet(true);
+  const f = { col, loading: true, error: null, values: [], chosen: new Set(), q: "", seq: ++facetSeq, training: S.training };
+  S.facet = f;
+  renderFacet();
+  try {
+    const filters = listFilters();
+    delete filters.page; delete filters.sort;
+    const r = await api(act("facet"), { filters, column: col });
+    f.values = (r.values || []).filter((x) => !blank(x.value));
+    f.chosen = facetChosen(col, f.values);
+  } catch (e) { f.error = e.message; }
+  if (S.facet !== f || S.locked || f.training !== S.training) return;   // closed, locked or switched meanwhile: nothing is drawn
+  f.loading = false;
+  renderFacet();
+  const first = $("#facet-pop input[type=search], #facet-pop input[type=checkbox]");
+  if (first) first.focus();
+}
+function closeFacet(quiet) {
+  const f = S.facet;
+  S.facet = null;
+  const pop = $("#facet-pop");
+  if (pop) pop.remove();
+  document.querySelectorAll(".th-filter[aria-expanded=true]").forEach((b) => b.setAttribute("aria-expanded", "false"));
+  if (!quiet && f) { const b = document.querySelector('.th-filter[data-facet="' + f.col + '"]'); if (b) b.focus(); }
+}
+// One value goes to the filter bar's select; several stay a list; all of them is no filter at all.
+function applyFacet(col, chosen, all) {
+  const vals = all.filter((v) => chosen.has(v));
+  S.filters[col] = ""; S.filters.multi[col] = [];
+  if (vals.length && vals.length < all.length) {
+    if (vals.length === 1) S.filters[col] = vals[0]; else S.filters.multi[col] = vals;
+  }
+  closeFacet();
+  toolsChanged();
+}
+function renderFacet() {
+  const f = S.facet;
+  let pop = $("#facet-pop");
+  if (!f) { if (pop) pop.remove(); return; }
+  const def = LIST_COLS.find((c) => c[4] === f.col);
+  if (!pop) { pop = el("div", { id: "facet-pop", class: "facet-pop", role: "dialog" }); document.body.appendChild(pop); }
+  pop.setAttribute("aria-label", tr("Filter {col}", { col: tr(def[1]) }));
+  // redraw in place, keeping the keyboard on the same box
+  const redraw = () => {
+    const a = document.activeElement, row = a && a.closest ? a.closest(".fp-row") : null;
+    const key = !row ? null : row.classList.contains("fp-all") ? ".fp-all input" : '.fp-row[data-value="' + CSS.escape(row.dataset.value || "") + '"] input';
+    renderFacet();
+    if (key) { const n = document.querySelector("#facet-pop " + key); if (n) n.focus(); }
+  };
+  pop.innerHTML = "";
+  if (f.loading) pop.append(el("p", { class: "small fp-msg", role: "status", text: tr("Loading the values…") }));
+  else if (f.error) pop.append(el("p", { class: "notice fp-msg", role: "alert", text: f.error }));
+  else if (!f.values.length) pop.append(el("p", { class: "small fp-msg", text: tr("No values under these filters.") }));
+  else {
+    const q = f.q.trim().toLowerCase();
+    const shown = f.values.filter((x) => !q || facetLabel(f.col, x).toLowerCase().includes(q) || String(x.value).toLowerCase().includes(q));
+    const allOn = shown.length > 0 && shown.every((x) => f.chosen.has(x.value));
+    if (f.values.length > 7) {
+      pop.append(el("input", { type: "search", class: "fp-q", placeholder: tr("Search the values"), "aria-label": tr("Search the values"), value: f.q,
+        oninput: (e) => { f.q = e.target.value; const pos = e.target.selectionStart; renderFacet();
+          const n = document.querySelector("#facet-pop .fp-q"); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { /* not a text field */ } } } }));
+    }
+    pop.append(
+      el("label", { class: "fp-row fp-all" },
+        el("input", { type: "checkbox", checked: allOn ? true : null,
+          onchange: (e) => { shown.forEach((x) => (e.target.checked ? f.chosen.add(x.value) : f.chosen.delete(x.value))); redraw(); } }),
+        el("span", { text: tr("Select all") })),
+      el("div", { class: "fp-list", role: "group", "aria-label": tr(def[1]) },
+        shown.length ? shown.map((x) => el("label", { class: "fp-row", "data-value": x.value },
+          el("input", { type: "checkbox", value: x.value, checked: f.chosen.has(x.value) ? true : null,
+            onchange: (e) => { if (e.target.checked) f.chosen.add(x.value); else f.chosen.delete(x.value); redraw(); } }),
+          el("span", { class: "fp-l", text: facetLabel(f.col, x) }),
+          el("span", { class: "fp-n", text: String(x.count) })))
+          : el("p", { class: "small fp-msg", text: tr("Nothing matches.") })),
+      el("div", { class: "fp-actions" },
+        el("button", { type: "button", class: "btn primary", "data-act": "fp-apply", disabled: f.chosen.size ? null : true,
+          onclick: () => applyFacet(f.col, f.chosen, f.values.map((x) => x.value)), text: tr("Apply") }),
+        el("button", { type: "button", class: "btn", "data-act": "fp-clear",
+          onclick: () => applyFacet(f.col, new Set(), f.values.map((x) => x.value)), text: tr("Clear filter") })));
+  }
+  const btn = document.querySelector('.th-filter[data-facet="' + f.col + '"]');
+  if (btn) {
+    btn.setAttribute("aria-expanded", "true");
+    const r = btn.getBoundingClientRect(), w = 280;
+    pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 8)) + "px";
+    pop.style.top = (r.bottom + window.scrollY + 4) + "px";
+  }
+}
+document.addEventListener("mousedown", (e) => {
+  if (!S.facet) return;
+  const pop = $("#facet-pop");
+  if ((pop && pop.contains(e.target)) || (e.target.closest && e.target.closest(".th-filter"))) return;
+  closeFacet(true);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && S.facet) { e.preventDefault(); e.stopImmediatePropagation(); closeFacet(); }
+}, true);
+window.addEventListener("resize", () => { if (S.facet) closeFacet(true); });
 
 /* ===========================================================================
    Stock — the piece panel (right-hand, as the till's client panel) and the
