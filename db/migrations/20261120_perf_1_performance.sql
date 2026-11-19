@@ -132,7 +132,11 @@ language sql stable security definer set search_path = public, pg_temp as $$
            coalesce(nullif(btrim(k.seller), ''),
                     (select r.seller from perf_seller_rules r where o.note ilike '%' || r.pattern || '%' order by r.rule_id limit 1),
                     o.seller) as seller,
-           coalesce(nullif(btrim(k.client_id), ''), o.client_id) as client_id, o.client_raw, o.note,
+           coalesce(nullif(btrim(k.client_id), ''), o.client_id) as client_id,
+           -- a corrected client is shown under its own name, not the name the ticket came with
+           case when nullif(btrim(k.client_id), '') is null then o.client_raw
+                else (select coalesce(nullif(btrim(c.name_confirmed), ''), nullif(btrim(c.name_colibri), ''), nullif(btrim(c.name_marketing), ''))
+                        from crm_clients c where c.client_id = btrim(k.client_id)) end as client_raw, o.note,
            coalesce(k.basis,
                     (select r.basis from perf_basis_rules r
                       where (r.kind = 'client' and r.pattern = coalesce(nullif(btrim(k.client_id), ''), o.client_id))
@@ -272,17 +276,18 @@ begin
     v_comm := round(greatest(s.net, 0) * v_rate * v_guard);
     v_prog := '[]'::jsonb; v_prog_sum := 0;
     for pr in select * from jsonb_array_elements(coalesce(v_rules->'programmes', '[]'::jsonb)) loop
+      -- piece-based programmes count pieces sold less pieces returned in the month, as the sales figures do
       select case pr->'rule'->>'kind'
         when 'multi_item' then (select count(*) from perf_tickets(v_month, v_to, p_store) t
                                  where t.basis = 'retail' and t.seller = s.seller and t.has_sale and t.units >= 2)
         when 'lifecycle' then (select count(*) from perf_tickets(v_month, v_to, p_store) t
                                 where t.basis = 'retail' and t.seller = s.seller and t.lifecycle = pr->'rule'->>'value')
-        when 'brand' then (select coalesce(sum(coalesce(l.qty, 1)), 0) from perf_tickets(v_month, v_to, p_store) t
-                             join ops_ticket_lines l on l.ticket_id = t.ticket_id and l.kind = 'sale'
+        when 'brand' then (select greatest(coalesce(sum(coalesce(l.qty, 1) * case l.kind when 'refund' then -1 else 1 end), 0), 0) from perf_tickets(v_month, v_to, p_store) t
+                             join ops_ticket_lines l on l.ticket_id = t.ticket_id and l.kind in ('sale', 'refund')
                             where t.basis = 'retail' and t.seller = s.seller
                               and lower(btrim(l.brand_raw)) in (select lower(btrim(b)) from jsonb_array_elements_text(pr->'rule'->'brands') b))
-        when 'category' then (select coalesce(sum(coalesce(l.qty, 1)), 0) from perf_tickets(v_month, v_to, p_store) t
-                                join ops_ticket_lines l on l.ticket_id = t.ticket_id and l.kind = 'sale'
+        when 'category' then (select greatest(coalesce(sum(coalesce(l.qty, 1) * case l.kind when 'refund' then -1 else 1 end), 0), 0) from perf_tickets(v_month, v_to, p_store) t
+                                join ops_ticket_lines l on l.ticket_id = t.ticket_id and l.kind in ('sale', 'refund')
                                 join cat_models m on m.model_id = l.model_id
                                where t.basis = 'retail' and t.seller = s.seller and m.category = pr->'rule'->>'category'
                                  and lower(btrim(coalesce(l.brand_raw, ''))) not in

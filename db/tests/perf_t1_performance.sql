@@ -147,6 +147,17 @@ begin
      and (i->'sellers'->1->>'rate')::numeric = 0 and (i->'sellers'->1->>'commission')::numeric = 0, 'guardrail and bands: ' || i::text;
   assert d->'bridge'->'plan' = 'null'::jsonb and (d->'plan'->>'attainment')::numeric = 0.84, 'a plan without tickets has attainment but no bridge';
   assert perf_incentive('2031-09-01') is null, 'no scheme before its first month';
+  -- a piece sold and returned in the month earns no programme payout, and a count never goes below zero
+  begin
+    insert into ops_tickets(store_id, source, ticket_no, sold_at, status, seller) values (1, 'colibri', 'PF-A8', '2031-10-27', 'posted', 'Zz Bee') returning ticket_id into t;
+    insert into ops_ticket_lines(ticket_id, line_no, kind, item_name, qty, price_current, net, brand_raw, model_id) values
+      (t, 1, 'refund', 'Zz', 1, 1, 1, 'Zz Focus', 'ZZ-PERF-W1'), (t, 2, 'refund', 'Zz', 1, 1, 1, 'Zz Focus', 'ZZ-PERF-W1'), (t, 3, 'refund', 'Zz', 5, 1, 1, 'Zz Brand', 'ZZ-PERF-J1');
+    i := perf_incentive('2031-10-01');
+    assert (select (pg->>'auto')::int from jsonb_array_elements(i->'sellers') sl, jsonb_array_elements(sl->'programmes') pg where sl->>'seller' = 'Zz Bee' and pg->>'key' = 'focus') = 0,
+      'a returned watch is taken off the count, never below zero: ' || (i->'sellers')::text;
+    assert (select (pg->>'auto')::int from jsonb_array_elements(i->'sellers') sl, jsonb_array_elements(sl->'programmes') pg where sl->>'seller' = 'Zz Bee' and pg->>'key' = 'brandx') = 0, 'a returned brand piece is taken off the count';
+    raise exception 'undo';
+  exception when raise_exception then if sqlerrm <> 'undo' then raise; end if; end;
 
   -- corrections by hand: basis, seller, client; and taking them back
   perform perf_mark_ticket(a6, '{"basis":"trade","note":"wholesale"}', 'Alex');
@@ -161,6 +172,7 @@ begin
   d := perf_month('2031-10-01');
   assert (d->'cur'->>'net')::numeric = 210000000 and d->'tickets'->5->>'seller' = 'Zz Bee' and d->'tickets'->5->>'client_id' = 'DLD-9104' and d->'tickets'->5->>'lifecycle' = 'returning'
      and (d->'tickets'->5->>'days_since')::int = 8 and (d->'cur'->'lifecycle'->'no_record'->>'tickets')::int = 0, 'seller and client corrected: ' || (d->'tickets'->5)::text;
+  assert d->'tickets'->5->>'client' = 'Zztest Four', 'a corrected client shows under the corrected name: ' || (d->'tickets'->5)::text;
   begin perform perf_mark_ticket(a6, '{"client_id":"DLD-0000-NOPE"}', 'Alex'); assert false, 'an unknown client'; exception when raise_exception then null; end;
   begin perform perf_mark_ticket(a6, '{"basis":"gift"}', 'Alex'); assert false, 'an unknown basis'; exception when raise_exception then null; end;
   begin perform perf_mark_ticket(gen_random_uuid(), '{"basis":"trade"}', 'Alex'); assert false, 'an unknown ticket'; exception when raise_exception then null; end;
