@@ -5,7 +5,7 @@
    logs every change and answers with the month recomputed.
    ========================================================================= */
 Object.assign(RU, {
-  "Inputs for {m}": "Вводные за {m}",
+  "Inputs for {m}": "Вводные за {m}", "Inputs are always typed in so'm.": "Вводные всегда вводятся в сумах.",
   "Plan, so'm": "План, сум", "Planned tickets": "Плановое число чеков", "of which large tickets": "из них крупных", "Planned value of large tickets, so'm": "Плановая сумма крупных чеков, сум",
   "Visits to the boutique": "Визиты в бутик", "USD rate for the month": "Курс USD на месяц", "Note": "Примечание",
   "empty = 12 000": "пусто = 12 000",
@@ -51,6 +51,7 @@ function renderInputs(main) {
   const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.month ? tr("Inputs for {m}", { m: monthName(S.month) }) : tr("Inputs") }));
   main.append(sec);
   if (monthPending(sec)) return;
+  if (CUR === "usd") sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
   if (!S.form || S.form.month !== S.month) S.form = inputsForm();
   const f = S.form, d = S.doc;
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];

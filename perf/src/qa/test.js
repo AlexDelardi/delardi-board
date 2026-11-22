@@ -314,6 +314,9 @@ async function shot(page, name, full) {
     check("RU: percentages use a comma", /\+10,5%/.test(await page.textContent("#hl-ly")));
     check("RU: tabs and picker", (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Месяц|Мотивация|Вводные" && (await page.$eval("#month-select option", (o) => o.textContent)) === "Октябрь 2031");
     check("RU 768 month: no sideways scroll", await noHScroll(page));
+    // long real names and the longest Russian labels together must still fit
+    await page.evaluate(() => { S.doc.tickets.forEach((x, i) => { x.client = ["Абдусаттаров Рустамбек", "Сайфутдинова Амина", "Мирджалалов Шахзод"][i % 3]; x.seller = "Sayfutdinova"; if (i % 2) { x.basis = "founder"; } }); renderAll(); });
+    check("RU 768 month: long client names wrap instead of pushing the table wide", await noHScroll(page));
     check("portrait: every control is a 44 px target", await page.evaluate(() => [...document.querySelectorAll(".month-picker .btn, #month-select, .kit-tab, .kit-hbtn")].every((n) => n.getBoundingClientRect().height >= 44)));
     await shot(page, "p04-month-ru-portrait", true);
     await page.click("#tab-incentive");
@@ -337,6 +340,42 @@ async function shot(page, name, full) {
     await page.waitForSelector("#gate-pass");
     check("lost session: the page locks and says why", /Сеанс истёк/.test(await page.textContent(".gate-card .err")) && await page.evaluate(() => document.querySelector("#app").children.length === 0));
     check("RU and lock: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("currency", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    const pressed = () => page.$$eval("#cur-switch button", (bs) => bs.map((b) => b.textContent.trim() + ":" + b.getAttribute("aria-pressed")).join("|"));
+    check("currency: the switch starts on so'm", (await pressed()) === "UZS:true|USD:false", await pressed());
+    await page.click('#cur-switch button[data-cur="usd"]');
+    await page.waitForFunction(() => /\$17 500/.test(document.querySelector("#hl-net").textContent));
+    check("currency: USD pressed", (await pressed()) === "UZS:false|USD:true");
+    check("currency: headline in dollars at 12 000, so'm underneath", norm(await page.textContent("#hl-net")) === "Net sales$17 500210 000 000 so'm4 tickets", norm(await page.textContent("#hl-net")));
+    check("currency: plan and gap in dollars", norm(await page.textContent("#hl-plan")) === "Against plan105%plan $16 667gap +833 USD", norm(await page.textContent("#hl-plan")));
+    const kpi = await cells(page, "#kpi tbody tr"); const rowOf = (k) => kpi.find((r) => r[0] === k);
+    check("currency: money rows are converted, counts and ratios are not", rowOf("Net sales")[1] === "17 500" && rowOf("Average ticket (NSPT)")[1] === "4 375" && rowOf("Large tickets, value")[1] === "10 833"
+      && rowOf("Tickets")[1] === "4" && rowOf("Units per ticket (UPT)")[1] === "1.00" && rowOf("Visits")[1] === "16" && rowOf("Net sales")[3] === "+10.5%", JSON.stringify([rowOf("Net sales"), rowOf("Tickets")]));
+    check("currency: lifecycle, trend and ticket amounts in dollars", (await cells(page, "#life tbody tr"))[0].join("|") === "New|1|2 000|11.4%"
+      && (await cells(page, "#trend tbody tr"))[0].slice(0, 5).join("|") === "Oct 2031|17 500|16 667|4|4 375" && (await cells(page, "#tickets tbody tr"))[0][6] === "4 167");
+    const br = (await cells(page, "#bridge-ly .br-row")).map((r) => r[2]);
+    const n = (s) => Number(s.replace(/\s/g, "").replace("−", "-").replace("+", ""));
+    check("currency: the bridge still adds up exactly in dollars", br[0] === "15 833" && br[4] === "17 500" && n(br[0]) + n(br[1]) + n(br[2]) + n(br[3]) === n(br[4]), br.join("|"));
+    check("currency: the chart says its unit", /Net sales by month, USD/.test(await page.textContent("#trend-chart")) && (await page.getAttribute("#trend-chart svg", "aria-label")) === "Net sales by month, USD");
+    await page.hover('#trend-chart g.bar[data-month="2031-10"]');
+    check("currency: the tooltip is in dollars", /Net sales: \$17 500/.test(await page.textContent(".chart-tip")), await page.textContent(".chart-tip"));
+    await page.mouse.move(5, 5);
+    await page.click("#tab-incentive"); await page.waitForSelector("#inc-sellers");
+    check("currency: incentive in dollars", (await cells(page, "#inc-sellers tbody tr"))[0].join("|") === "Zz Ann|13 333|12 500|107%|0.80%|107|17|123|117|−7", (await cells(page, "#inc-sellers tbody tr"))[0].join("|"));
+    check("currency: programme counts stay counts, pay is converted", (await cells(page, '.inc-prog[data-seller="Zz Bee"] tbody tr'))[1].join("|") === "Watch focus|1|1|2|50|50", (await cells(page, '.inc-prog[data-seller="Zz Bee"] tbody tr'))[1].join("|"));
+    await page.click("#tab-inputs"); await page.waitForSelector("#in-plan");
+    check("currency: inputs stay in so'm and say so", (await page.$eval("#in-plan", (x) => x.value)) === "200000000" && /Inputs are always typed in so'm/.test(await page.textContent("#screen-inputs")));
+    await page.reload(); await loaded(page);
+    check("currency: the choice survives a reload", (await pressed()) === "UZS:false|USD:true");
+    await page.click('.kit-lang button[lang="ru"]'); await page.click("#tab-month"); await page.waitForSelector("#hl-net");
+    await page.click('#cur-switch button[data-cur="uzs"]');
+    await page.waitForFunction(() => /210 000 000 сум/.test(document.querySelector("#hl-net").textContent));
+    check("currency: back to so'm, dollars underneath", norm(await page.textContent("#hl-net")).startsWith("Чистые продажи210 000 000 сум$17 500") && (await noHScroll(page)), norm(await page.textContent("#hl-net")));
+    check("currency: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 

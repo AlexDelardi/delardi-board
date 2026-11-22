@@ -39,14 +39,14 @@ function renderIncentive(main) {
     el("thead", {}, el("tr", {}, el("th", { scope: "col", text: tr("Seller") }),
       ["Sales", "Plan", "Attainment", "Rate", "Commission", "Programmes", "Total", "Paid", "Difference"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
     el("tbody", {}, inc.sellers.map((s) => el("tr", { "data-seller": s.seller },
-      el("th", { scope: "row", text: s.seller }), el("td", { class: "r", text: fmtNum(s.net) }),
-      el("td", { class: "r", text: num(s.plan) === null ? tr("no plan") : fmtNum(s.plan) }), el("td", { class: "r", text: fmtPct(s.attainment, 0) }),
-      el("td", { class: "r", text: s.commission_applies ? fmtPct(s.rate, 2) : tr("no commission") }), el("td", { class: "r", text: fmtNum(s.commission) }),
-      el("td", { class: "r", text: fmtNum(s.programmes_total) }), el("td", { class: "r", text: fmtNum(s.total) }),
-      el("td", { class: "r", text: fmtNum(s.paid) }), el("td", { class: "r", text: diff(s) })))),
-    el("tfoot", {}, el("tr", { id: "inc-total" }, el("th", { scope: "row", text: tr("All sellers") }), el("td", { class: "r", text: fmtNum(inc.store.net) }),
-      el("td", {}), el("td", {}), el("td", {}), el("td", { class: "r", text: fmtNum(inc.total.commission) }), el("td", { class: "r", text: fmtNum(inc.total.programmes) }),
-      el("td", { class: "r", text: fmtNum(inc.total.total) }), el("td", { class: "r", text: fmtNum(inc.total.paid) }),
+      el("th", { scope: "row", text: s.seller }), el("td", { class: "r", text: fmtAmt(s.net) }),
+      el("td", { class: "r", text: num(s.plan) === null ? tr("no plan") : fmtAmt(s.plan) }), el("td", { class: "r", text: fmtPct(s.attainment, 0) }),
+      el("td", { class: "r", text: s.commission_applies ? fmtPct(s.rate, 2) : tr("no commission") }), el("td", { class: "r", text: fmtAmt(s.commission) }),
+      el("td", { class: "r", text: fmtAmt(s.programmes_total) }), el("td", { class: "r", text: fmtAmt(s.total) }),
+      el("td", { class: "r", text: fmtAmt(s.paid) }), el("td", { class: "r", text: diff(s) })))),
+    el("tfoot", {}, el("tr", { id: "inc-total" }, el("th", { scope: "row", text: tr("All sellers") }), el("td", { class: "r", text: fmtAmt(inc.store.net) }),
+      el("td", {}), el("td", {}), el("td", {}), el("td", { class: "r", text: fmtAmt(inc.total.commission) }), el("td", { class: "r", text: fmtAmt(inc.total.programmes) }),
+      el("td", { class: "r", text: fmtAmt(inc.total.total) }), el("td", { class: "r", text: fmtAmt(inc.total.paid) }),
       el("td", { class: "r", text: num(inc.total.paid) === null ? "—" : signed(num(inc.total.paid) - num(inc.total.total)) }))))),
     el("p", { class: "small", text: tr("Cost of the scheme: {p} of retail sales.", { p: fmtPct(inc.total.pct_of_sales, 2) })
       + (num(inc.scheme.rules.person_cap) !== null ? " " + tr("Programmes are capped at {v} per person.", { v: fmtMoney(inc.scheme.rules.person_cap) }) : "") }));
@@ -64,8 +64,8 @@ function renderIncentive(main) {
         el("tbody", {}, s.programmes.map((p) => el("tr", { "data-key": p.key },
           el("th", { scope: "row", text: (ru && p.label_ru) || p.label || p.key }), el("td", { class: "r", text: fmtNum(p.auto) }),
           el("td", { class: "r" }, fmtNum(p.count), p.overridden ? el("span", { class: "small", text: " (" + tr("typed in") + ")" }) : null),
-          el("td", { class: "r", text: fmtNum(p.max) }), el("td", { class: "r", text: fmtNum(p.pays) }), el("td", { class: "r", text: fmtNum(p.amount) })))),
+          el("td", { class: "r", text: fmtNum(p.max) }), el("td", { class: "r", text: fmtAmt(p.pays) }), el("td", { class: "r", text: fmtAmt(p.amount) })))),
         el("tfoot", {}, el("tr", {}, el("th", { scope: "row", text: tr("Total") }), el("td", {}), el("td", {}), el("td", {}), el("td", {}),
-          el("td", { class: "r", text: fmtNum(s.programmes_total) + (num(s.programmes_before_cap) > num(s.programmes_total) ? " (" + fmtNum(s.programmes_before_cap) + ")" : "") }))))));
+          el("td", { class: "r", text: fmtAmt(s.programmes_total) + (num(s.programmes_before_cap) > num(s.programmes_total) ? " (" + fmtAmt(s.programmes_before_cap) + ")" : "") }))))));
   }
 }

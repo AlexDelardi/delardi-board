@@ -26,7 +26,7 @@ Object.assign(RU, {
   "Value": "Сумма", "Share": "Доля",
   "Returning: bought again within 250 days. Recaptured: after more than 250 days.": "Постоянные: повторная покупка в течение 250 дней. Возвращённые: спустя более 250 дней.",
   "13 months": "13 месяцев",
-  "Net sales by month, so'm": "Чистые продажи по месяцам, сум",
+  "Net sales by month": "Чистые продажи по месяцам",
   "plan": "план",
   "Bridge": "Разбор отклонения",
   "From last year": "От прошлого года", "From plan": "От плана",
@@ -69,10 +69,10 @@ function renderMonth(main) {
   const card = (id, label, big, lines) => el("div", { class: "hl", id }, el("span", { class: "lbl", text: tr(label) }), el("strong", { class: "hl-big num", text: big }),
     lines.map((t) => (typeof t === "string" ? el("span", { class: "small", text: t }) : t)));
   sec.append(el("div", { class: "hl-row" },
-    card("hl-net", "Net sales", money(c.net), [fmtUSD(c.net, fx), pl(c.tickets, "ticket")]),
-    d.plan ? card("hl-plan", "Against plan", fmtPct(d.plan.attainment, 0), [tr("plan {v}", { v: money(d.plan.plan) }), tr("gap {v}", { v: signed(num(d.plan.gap)) + " " + tr("so'm") })])
+    card("hl-net", "Net sales", money(c.net), [fmtOther(c.net), pl(c.tickets, "ticket")]),
+    d.plan ? card("hl-plan", "Against plan", fmtPct(d.plan.attainment, 0), [tr("plan {v}", { v: money(d.plan.plan) }), tr("gap {v}", { v: signed(num(d.plan.gap)) + " " + curUnit() })])
       : card("hl-plan", "Against plan", "—", [tr("No plan typed in for this month."), el("a", { class: "small", href: "#/inputs", text: tr("Type it in") })]),
-    num(ly.net) ? card("hl-ly", "Against last year", fmtChange(c.net, ly.net), [tr("last year {v}", { v: money(ly.net) }), fmtUSD(ly.net, fx)])
+    num(ly.net) ? card("hl-ly", "Against last year", fmtChange(c.net, ly.net), [tr("last year {v}", { v: money(ly.net) }), fmtOther(ly.net)])
       : card("hl-ly", "Against last year", "—", [tr("No sales in the same month last year.")])));
 
   /* key figures */
@@ -84,16 +84,16 @@ function renderMonth(main) {
       if (opts && opts.curOnly && i !== 0) return el("td", { class: "r", text: "—" });
       return el("td", { class: "r", text: fmt(get(p)) });
     }));
-  const pct = (v) => fmtPct(v), n0 = (v) => fmtNum(v), n2 = (v) => fmtNum(v, 2);
+  const pct = (v) => fmtPct(v), n0 = (v) => fmtNum(v), n2 = (v) => fmtNum(v, 2), m0 = (v) => fmtAmt(v);
   sec.append(el("h2", { class: "sec-title", text: tr("Key figures") }),
     el("div", { class: "table-wrap" }, el("table", { class: "tbl kpi", id: "kpi" },
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), ["This month", "Last year", "Change", "Year to date", "Last year to date"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
       el("tbody", {},
-        row("Net sales", (p) => p.net, n0), row("Gross sales", (p) => p.gross, n0), row("Discount", (p) => p.discount_pct, pct, { noChange: true }),
+        row("Net sales", (p) => p.net, m0), row("Gross sales", (p) => p.gross, m0), row("Discount", (p) => p.discount_pct, pct, { noChange: true }),
         row("Tickets", (p) => p.tickets, n0), row("Units", (p) => p.units, n0), row("Units per ticket (UPT)", (p) => p.upt, n2),
-        row("Average ticket (NSPT)", (p) => p.atv, n0), row("Average item", (p) => p.asp, n0), row("Tickets with 2+ items", (p) => p.multi_item_share, pct, { noChange: true }),
-        row("Large tickets", (p) => p.large.tickets, n0), row("Large tickets, value", (p) => p.large.net, n0),
-        row("Base book, tickets", (p) => p.base.tickets, n0), row("Base book, average", (p) => p.base.avg, n0),
+        row("Average ticket (NSPT)", (p) => p.atv, m0), row("Average item", (p) => p.asp, m0), row("Tickets with 2+ items", (p) => p.multi_item_share, pct, { noChange: true }),
+        row("Large tickets", (p) => p.large.tickets, n0), row("Large tickets, value", (p) => p.large.net, m0),
+        row("Base book, tickets", (p) => p.base.tickets, n0), row("Base book, average", (p) => p.base.avg, m0),
         row("Clients", (p) => p.clients, n0),
         row("Visits", () => d.funnel.visits, n0, { curOnly: true, noChange: true }),
         row("Conversion", () => d.funnel.conversion, pct, { curOnly: true, noChange: true })))),
@@ -106,7 +106,7 @@ function renderMonth(main) {
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), [tr("Tickets"), tr("Value"), tr("Share")].map((h) => el("th", { scope: "col", class: "r", text: h })))),
       el("tbody", {}, Object.keys(LIFE_WORD).map((k) => el("tr", { "data-k": k },
         el("th", { scope: "row", text: tr(LIFE_WORD[k]) }), el("td", { class: "r", text: fmtNum(c.lifecycle[k].tickets) }),
-        el("td", { class: "r", text: fmtNum(c.lifecycle[k].net) }),
+        el("td", { class: "r", text: fmtAmt(c.lifecycle[k].net) }),
         el("td", { class: "r", text: num(c.net) > 0 ? fmtPct(num(c.lifecycle[k].net) / num(c.net)) : "—" })))))),
     el("p", { class: "small", text: tr("Returning: bought again within 250 days. Recaptured: after more than 250 days.") }));
 
@@ -116,8 +116,8 @@ function renderMonth(main) {
       el("thead", {}, el("tr", {}, el("th", { scope: "col", text: tr("Month") }),
         ["Net sales", "Plan", "Tickets", "NSPT", "UPT", "Discount", "Conversion"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
       el("tbody", {}, d.trend.slice().reverse().map((t) => el("tr", {},
-        el("th", { scope: "row", text: monthName(t.month, true) }), el("td", { class: "r", text: fmtNum(t.net) }), el("td", { class: "r", text: fmtNum(t.plan) }),
-        el("td", { class: "r", text: fmtNum(t.tickets) }), el("td", { class: "r", text: fmtNum(t.atv) }), el("td", { class: "r", text: fmtNum(t.upt, 2) }),
+        el("th", { scope: "row", text: monthName(t.month, true) }), el("td", { class: "r", text: fmtAmt(t.net) }), el("td", { class: "r", text: fmtAmt(t.plan) }),
+        el("td", { class: "r", text: fmtNum(t.tickets) }), el("td", { class: "r", text: fmtAmt(t.atv) }), el("td", { class: "r", text: fmtNum(t.upt, 2) }),
         el("td", { class: "r", text: fmtPct(t.discount_pct) }), el("td", { class: "r", text: fmtPct(t.conversion, 0) })))))));
 
   /* bridge */
@@ -131,7 +131,7 @@ function renderMonth(main) {
     d.excluded.length ? el("div", { class: "table-wrap" }, el("table", { class: "tbl", id: "excluded" },
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), el("th", { scope: "col", class: "r", text: tr("Tickets") }), el("th", { scope: "col", class: "r", text: tr("Value") }))),
       el("tbody", {}, d.excluded.map((x) => el("tr", {}, el("th", { scope: "row", text: basisWord(x.basis) }),
-        el("td", { class: "r", text: fmtNum(x.tickets) }), el("td", { class: "r", text: fmtNum(x.net) }))))))
+        el("td", { class: "r", text: fmtNum(x.tickets) }), el("td", { class: "r", text: fmtAmt(x.net) }))))))
       : el("p", { class: "small", id: "excluded-none", text: tr("Nothing was left out this month.") }));
 
   /* tickets */
@@ -147,7 +147,7 @@ function renderMonth(main) {
         el("td", {}, el("span", { class: "tag " + (t.basis === "retail" ? "act" : "done"), text: basisWord(t.basis) }),
           t.marked ? el("span", { class: "small mark-note", title: tr("Corrected by hand"), text: " ✎" }) : null),
         el("td", { title: num(t.days_since) !== null ? tr("{d} days since the last purchase", { d: t.days_since }) : null, text: t.lifecycle ? tr(LIFE_WORD[t.lifecycle]) : "—" }),
-        el("td", { class: "r", text: fmtNum(t.net) }),
+        el("td", { class: "r", text: fmtAmt(t.net) }),
         el("td", { class: "r" }, el("button", { type: "button", class: "btn tk-correct", onclick: () => correctTicket(t), text: tr("Correct") })))))))
       : el("p", { class: "small", id: "tickets-none", text: tr("No tickets this month.") }));
 }
@@ -178,7 +178,7 @@ function trendChart(trend) {
     n.style.top = (window.scrollY + r.top - 8) + "px";
   };
   const hide = () => { const n = $(".chart-tip"); if (n) n.remove(); };
-  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": tr("Net sales by month, so'm"), preserveAspectRatio: "xMidYMid meet" },
+  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": tr("Net sales by month") + ", " + curUnit(), preserveAspectRatio: "xMidYMid meet" },
     [svgEl("line", { x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis" })].concat(trend.map((t, i) => {
       const cx = L + step * i + step / 2, v = num(t.net) || 0, last = i === trend.length - 1;
       const g = svgEl("g", { class: "bar" + (last ? " cur" : ""), tabindex: "0", "data-month": String(t.month).slice(0, 7) }, [
@@ -191,7 +191,7 @@ function trendChart(trend) {
       g.addEventListener("mouseleave", hide); g.addEventListener("blur", hide);
       return g;
     })));
-  wrap.append(el("p", { class: "small chart-title" }, tr("Net sales by month, so'm"),
+  wrap.append(el("p", { class: "small chart-title" }, tr("Net sales by month") + ", " + curUnit(),
     trend.some((t) => num(t.plan) > 0) ? el("span", { class: "plan-key" }, el("span", { class: "plan-mark", "aria-hidden": "true" }), tr("plan")) : null), svg);
   return wrap;
 }
@@ -209,9 +209,12 @@ function bridgeBlock(id, title, fromLabel, b, emptyText) {
     bar === null ? el("span", { class: "br-bar" }) : el("span", { class: "br-bar", "aria-hidden": "true" },
       el("span", { class: "br-fill " + (bar < 0 ? "neg" : "pos"), style: "width:" + (Math.abs(bar) / max * 50).toFixed(1) + "%;" + (bar < 0 ? "right:50%" : "left:50%") })),
     el("span", { class: "br-v num", text: value }));
-  box.append(line(tr(fromLabel), fmtUZS(b.from), "end", null),
-    ...parts.map(([k, label]) => line(tr(label), signed(num(b[k]) || 0), "part", num(b[k]) || 0)),
-    line(tr("Actual"), fmtUZS(b.to), "end", null));
+  // in the currency on screen the last part is taken as the rest, so the lines still add up to the figure shown
+  const shown = { from: inCur(b.from), to: inCur(b.to), tickets: inCur(num(b.tickets) || 0), mix: inCur(num(b.mix) || 0) };
+  shown.size = shown.to - shown.from - shown.tickets - shown.mix;
+  box.append(line(tr(fromLabel), fmtUZS(shown.from), "end", null),
+    ...parts.map(([k, label]) => line(tr(label), signedRaw(shown[k]), "part", num(b[k]) || 0)),
+    line(tr("Actual"), fmtUZS(shown.to), "end", null));
   return box;
 }
 
