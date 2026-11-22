@@ -4,6 +4,7 @@ Inputs (all Colibri / 1C exports, never committed):
   --stock   Colibri "Stock Report" (one row per piece, 42 columns)
   --sf      Colibri "Остатки товара по сф" (arrival document number -> arrival date)   [optional]
   --cost    1C "Расчет себестоимости партии" files, any number                         [optional]
+  --declared  the same kind of file where the values are those declared at customs     [optional]
 Output: one JSON payload { source, pieces, receipts, costs, summary }.
 
 Cost lines carry no serial column; the product name usually contains the serial and/or the reference.
@@ -158,10 +159,11 @@ def parse_cost_file(rows, source_file):
 
 
 def dedupe_docs(docs):
-    """One document per 1C number: the file with the most lines wins (later re-exports are fuller)."""
+    """One document per 1C number and date (numbers start again each year): the file with the most lines wins
+    (later re-exports are fuller)."""
     best = {}
     for d in docs:
-        k = d["doc_no"] or d["source_file"]
+        k = (d["doc_no"], d["doc_date"]) if d["doc_no"] else d["source_file"]
         if k not in best or len(d["items"]) > len(best[k]["items"]):
             best[k] = d
     return sorted(best.values(), key=lambda d: (d["doc_date"] or "", d["source_file"]))
@@ -199,6 +201,9 @@ def days_between(a, b):
     return (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
 
 
+DECLARED_LABEL = "Customs-declared value, not the price paid"
+
+
 def match_costs(pieces, docs, arrival=None):
     """-> {(brand, serial): cost dict}. See the module docstring for what exact / estimated mean.
     arrival: {receipt_no: 'YYYY-MM-DD'}. A reference match whose document and arrival do not fit in time
@@ -207,9 +212,13 @@ def match_costs(pieces, docs, arrival=None):
     lines = [(d, it) for d in docs for it in d["items"]]
     out = {}
     used = set()
-    def cost(d, vals, quality):
+    def cost(d, vals, quality, by="reference"):
         c = {k: vals.get(k) for k in COST_FIELDS}
+        c["_by"] = by
         ref = d["source_file"] + (f' (1C {d["doc_no"]}, {d["doc_date"]})' if d["doc_no"] else "")
+        if d.get("declared"):
+            # the document carries the value declared at customs, not what was paid: never a trusted cost
+            quality, ref = "estimated", DECLARED_LABEL + " · " + ref
         c.update(currency=d["currency"], match_quality=quality, source_file=ref, supplier=d["supplier"],
                  contract=d["contract"], doc_no=d["doc_no"], doc_date=d["doc_date"])
         return c
@@ -225,7 +234,7 @@ def match_costs(pieces, docs, arrival=None):
         if len(hits) > 1 and len(art) >= 4:
             hits = [h for h in hits if has_code(p["article"], h[1]["name"])] or hits
         if len(hits) == 1 or (hits and len({h[1]["landed_uzs"] for h in hits}) == 1):
-            out[(p["brand"], p["serial"])] = cost(hits[-1][0], hits[-1][1], "exact")
+            out[(p["brand"], p["serial"])] = cost(hits[-1][0], hits[-1][1], "exact", "serial")
             used.add(id(hits[-1][1]))
     # 2. the reference is in the product name
     by_art = defaultdict(list)
@@ -255,6 +264,22 @@ def match_costs(pieces, docs, arrival=None):
     return out
 
 
+def match_all(pieces, docs, arrival=None):
+    """Documents with the price paid are matched first, on their own. Customs-declared documents then fill the
+    pieces left without a cost (always 'estimated', labelled). A piece whose serial is on a declared document but
+    whose cost came from the reference on a paid one keeps that price as an estimate: it is another shipment's."""
+    paid = match_costs(pieces, [d for d in docs if not d.get("declared")], arrival)
+    declared = match_costs(pieces, [d for d in docs if d.get("declared")], arrival)
+    for k, c in declared.items():
+        if k not in paid:
+            paid[k] = c
+        elif c["_by"] == "serial" and paid[k]["_by"] != "serial":
+            paid[k]["match_quality"] = "estimated"
+    for c in paid.values():
+        c.pop("_by", None)
+    return paid
+
+
 def receipt_origin(no, pieces, costs):
     """Supplier, contract and currency of an arrival document: what most of its exactly-costed pieces say."""
     from collections import Counter
@@ -266,11 +291,18 @@ def receipt_origin(no, pieces, costs):
     return {"supplier": sup, "contract": con, "currency": cur}
 
 
-def build(stock_path, sf_path=None, cost_paths=()):
+def build(stock_path, sf_path=None, cost_paths=(), declared_paths=()):
+    """declared_paths: cost files whose values are the ones declared at customs. They are matched like any
+    other, after the ordinary files, and their costs are always 'estimated' and labelled."""
     pieces = parse_stock_report(read_sheet(stock_path), stock_path)
     dates = arrival_dates(pieces, parse_sf(read_sheet(sf_path))) if sf_path else {}
-    docs = dedupe_docs([parse_cost_file(read_sheet(p), p) for p in cost_paths])
-    costs = match_costs(pieces, docs, dates)
+    docs = [parse_cost_file(read_sheet(p), p) for p in cost_paths]
+    for p in declared_paths:
+        d = parse_cost_file(read_sheet(p), p)
+        d["declared"] = True
+        docs.append(d)
+    docs = dedupe_docs(docs)
+    costs = match_all(pieces, docs, dates)
     receipts = sorted({p["receipt_no"] for p in pieces if p["receipt_no"]}, key=lambda x: (len(x), x))
     payload = {
         "source": os.path.basename(stock_path),
@@ -278,7 +310,7 @@ def build(stock_path, sf_path=None, cost_paths=()):
         "receipts": [dict({"colibri_no": no, "arrival_date": dates.get(no)}, **receipt_origin(no, pieces, costs)) for no in receipts],
         "costs": [dict(brand=b, serial=s, **c) for (b, s), c in costs.items()],
         # with cost files given, these costs are the whole truth for the pieces: a cost no longer matched is withdrawn
-        "costs_complete": bool(cost_paths),
+        "costs_complete": bool(cost_paths or declared_paths),
         # with the arrival-date report given, its dates are the whole truth too
         "dates_complete": bool(sf_path),
     }
@@ -300,9 +332,10 @@ if __name__ == "__main__":
     ap.add_argument("--stock", required=True)
     ap.add_argument("--sf")
     ap.add_argument("--cost", nargs="*", default=[])
+    ap.add_argument("--declared", nargs="*", default=[], help="cost files that carry customs-declared values")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
-    pl = build(a.stock, a.sf, a.cost)
+    pl = build(a.stock, a.sf, a.cost, a.declared)
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(pl, f, ensure_ascii=False, default=str)
     print(json.dumps(pl["summary"], ensure_ascii=False, indent=1))

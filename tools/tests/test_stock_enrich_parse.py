@@ -39,6 +39,11 @@ class CostFile(unittest.TestCase):
         b = m.parse_cost_file(cost_rows(items=[("A ZZ-AT-0100", 1, 1.0, 1.0, 0.0, 0.0), ("B ZZ-AT-0101", 1, 1.0, 1.0, 0.0, 0.0)]), "b.xlsx")
         self.assertEqual([d["source_file"] for d in m.dedupe_docs([a, b])], ["b.xlsx"])
 
+    def test_the_same_number_in_another_year_is_another_document(self):   # 1C numbers start again each year
+        a = m.parse_cost_file(cost_rows(doc="00000000081", date="29.12.2021", items=[("A ZZ-AT-0100", 1, 1.0, 1.0, 0.0, 0.0)]), "a.xlsx")
+        b = m.parse_cost_file(cost_rows(doc="00000000081", date="04.05.2023", items=[("B ZZ-AT-0101", 1, 1.0, 1.0, 0.0, 0.0), ("C ZZ-AT-0102", 1, 1.0, 1.0, 0.0, 0.0)]), "b.xlsx")
+        self.assertEqual([d["source_file"] for d in m.dedupe_docs([a, b])], ["a.xlsx", "b.xlsx"])
+
 class Matching(unittest.TestCase):
     def docs(self, items, **kw):
         return [m.parse_cost_file(cost_rows(items=items, **kw), "zz.xlsx")]
@@ -47,6 +52,26 @@ class Matching(unittest.TestCase):
         x = c[("Zz Atelier", "ZZ.00.90001")]
         self.assertEqual((x["match_quality"], x["landed_uzs"], x["supplier"], x["currency"]), ("exact", 6640010.0, "ZZ SUPPLIER SPA", "EUR"))
         self.assertIn("1C ZZ0001, 2026-10-01", x["source_file"])
+    def test_a_customs_declared_document_is_only_an_estimate_and_says_so(self):
+        docs = self.docs([("Кольцо ZZ-AT-0100 zz0090001", 1, 500.0, 6500000.0, 130000.0, 10000.0)])
+        docs[0]["declared"] = True
+        x = m.match_all([piece("ZZ.00.90001", "ZZ-AT-0100")], docs)[("Zz Atelier", "ZZ.00.90001")]
+        self.assertEqual(x["match_quality"], "estimated")
+        self.assertTrue(x["source_file"].startswith("Customs-declared value, not the price paid · zz.xlsx"))
+        self.assertNotIn("_by", x)
+    def test_a_price_paid_for_the_reference_beats_a_declared_value_but_is_then_an_estimate(self):
+        paid = m.parse_cost_file(cost_rows(doc="ZZ0002", date="01.10.2026", items=[("Кольцо ZZ-AT-0100", 1, 900.0, 11700000.0, 234000.0, 10000.0)]), "paid.xlsx")
+        decl = m.parse_cost_file(cost_rows(doc="ZZ0001", date="01.10.2022", items=[("Кольцо ZZ-AT-0100 zz0090001", 1, 100.0, 1300000.0, 26000.0, 10000.0)]), "decl.xlsx")
+        decl["declared"] = True
+        x = m.match_all([piece("ZZ.00.90001", "ZZ-AT-0100")], [paid, decl])[("Zz Atelier", "ZZ.00.90001")]
+        self.assertEqual((x["match_quality"], x["invoice_price"]), ("estimated", 900.0))   # the piece came on the declared document
+        self.assertIn("paid.xlsx", x["source_file"])
+    def test_a_declared_document_does_not_weaken_a_match_on_a_paid_one(self):
+        paid = m.parse_cost_file(cost_rows(doc="ZZ0002", date="01.10.2026", items=[("Кольцо ZZ-AT-0100", 1, 900.0, 11700000.0, 234000.0, 10000.0)]), "paid.xlsx")
+        decl = m.parse_cost_file(cost_rows(doc="ZZ0001", date="01.10.2022", items=[("Кольцо ZZ-AT-0100", 1, 100.0, 1300000.0, 26000.0, 10000.0)]), "decl.xlsx")
+        decl["declared"] = True
+        x = m.match_all([piece("S1AAAA", "ZZ-AT-0100")], [paid, decl])[("Zz Atelier", "S1AAAA")]
+        self.assertEqual((x["match_quality"], x["invoice_price"]), ("exact", 900.0))
     def test_reference_with_one_price_is_exact_for_every_piece(self):
         c = m.match_costs([piece("S1AAAA", "ZZ-AT-0100"), piece("S2BBBB", "ZZ-AT-0100")],
                           self.docs([("Кольцо ZZ-AT-0100", 1, 500.0, 6500000.0, 130000.0, 10000.0), ("Кольцо ZZ-AT-0100", 1, 500.0, 6500000.0, 130000.0, 10000.0)]))
