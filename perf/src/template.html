@@ -57,6 +57,11 @@ main { padding: 24px 24px 96px; }
 .tbl th[scope="row"] { text-align: left; font-weight: 400; padding: 12px; border-bottom: 1px solid var(--mist); color: var(--ink); }
 .tbl tfoot th, .tbl tfoot td { padding: 12px; font-weight: 700; border-top: 2px solid var(--navy); }
 .tbl td.r, .tbl th.r { white-space: nowrap; }
+/* so'm or dollars: two buttons side by side, the one in use filled */
+.cur-switch { display: inline-flex; align-items: center; padding: 4px 0; margin-right: 12px; }
+.cur-switch .btn { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.cur-switch .btn + .btn { border-left-width: 0; }
+.cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
 .month-picker { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
 .month-picker .btn { min-height: var(--tap); min-width: var(--tap); padding: 0; font-size: 20px; line-height: 1; }
 .month-picker select { min-height: var(--tap); }
@@ -127,6 +132,8 @@ input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(
   .tbl.tickets .btn { padding: 0 8px; }
   .tbl.tickets .tag { padding-left: 4px; padding-right: 4px; }
   .tbl.tickets th, .tbl.tickets td { font-size: 12px; }
+  /* names give way first: they break where they must, so the figures and the button always fit */
+  .tbl.tickets td:nth-child(3), .tbl.tickets td:nth-child(4) { overflow-wrap: anywhere; }
   /* incentive, ten columns: one block per seller, each figure beside its name */
   #inc-sellers, #inc-sellers tbody, #inc-sellers tfoot, #inc-sellers tr { display: block; }
   #inc-sellers thead { display: none; }

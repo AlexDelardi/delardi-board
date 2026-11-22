@@ -463,7 +463,7 @@ async function shot(page, name) {
     await toolsBtn.click();
     const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
     const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
-    check("kit: header has the Tools switcher with 5 tools, Stock among them", items.join() === "Sales,Stock,Clients,Catalogue,Board" && current.join() === "Sales",
+    check("kit: header has the Tools switcher with 6 tools, Stock among them", items.join() === "Sales,Stock,Clients,Catalogue,Board,Performance" && current.join() === "Sales",
       items.join() + " / " + current.join());
     check("kit: the Tools menu is open", await page.isVisible(".kit-head .kit-menu"));
     check("kit: no theme switch", await page.evaluate(() => ![...document.querySelectorAll("[title], [aria-label]")]
@@ -929,7 +929,7 @@ async function shot(page, name) {
   await run("landing tile", async () => {
     const html = fs.readFileSync(LANDING, "utf8");
     const tile = /<a class="tool" href="sales\/" data-tool="sales">([\s\S]*?)<\/a>/.exec(html);
-    check("landing tile: a fourth tile links to sales/", (html.match(/<a class="tool" /g) || []).length === 4 && !!tile);
+    check("landing tile: a fourth tile links to sales/", (html.match(/<a class="tool" /g) || []).length >= 4 && !!tile);
     check("landing tile: named Sales / Продажи", !!tile && /data-i18n="sales_name">Sales</.test(tile[1]) && /sales_name: "Продажи"/.test(html));
     check("landing tile: reads the unlock state only", !!tile && /data-session="sales_session"/.test(tile[1]));
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { login: false });

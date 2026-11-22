@@ -9,6 +9,8 @@ const LOGO_WORDMARK = "__WORDMARK__";
 const SESSION_KEY = "perf_session";       // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "perf_last_active";    // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
+const CUR_KEY = "perf_currency";          // localStorage: amounts shown in so'm or in US dollars
+const USD_RATE = 12000;                   // the internal rate; the dollar view always uses it
 const MONTH_KEY = "perf_month";           // sessionStorage: the month on screen
 const IDLE_MIN = 15;                      // touch devices only
 
@@ -18,7 +20,7 @@ const IDLE_MIN = 15;                      // touch devices only
 const RU = {
   "Performance": "Показатели",
   "All tools": "Все инструменты",
-  "Language": "Язык",
+  "Language": "Язык", "Currency": "Валюта",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
   "Boutique tools": "Инструменты бутика",
@@ -49,6 +51,16 @@ const RU = {
 const PL = {
   ticket: { en: ["ticket", "tickets"], ru: ["чек", "чека", "чеков"] },
 };
+function initialCur() {
+  try { if (localStorage.getItem(CUR_KEY) === "usd") return "usd"; } catch (e) { /* storage blocked */ }
+  return "uzs";
+}
+let CUR = initialCur();
+function setCur(c) {
+  CUR = c === "usd" ? "usd" : "uzs";
+  try { localStorage.setItem(CUR_KEY, CUR); } catch (e) { /* ignore */ }
+  renderAll();
+}
 function initialLang() {
   try {
     const v = localStorage.getItem(LANG_KEY);
@@ -117,10 +129,24 @@ function fmtUZS(n) {
   const x = Math.round(Number(n));
   return (x < 0 ? "-" : "") + String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
-// "31 500 000 so'm" / "31 500 000 сум"
+// An amount held in so'm, as a whole number in the currency on screen.
+function inCur(n) { return CUR === "usd" ? Math.round(Number(n) / USD_RATE) : Math.round(Number(n)); }
+// The bare figure for a table cell: "31 500 000" in so'm, "2 625" in dollars.
+function fmtAmt(n) {
+  if (n === null || n === undefined || n === "" || isNaN(Number(n))) return "—";
+  return fmtUZS(inCur(n));
+}
+const curUnit = () => (CUR === "usd" ? "USD" : tr("so'm"));
+// "31 500 000 so'm" / "31 500 000 сум" / "$2 625"
 function fmtMoney(n) {
-  const s = fmtUZS(n);
-  return s === "—" ? s : s + " " + tr("so'm");
+  const s = fmtAmt(n);
+  if (s === "—") return s;
+  return CUR === "usd" ? (s.startsWith("-") ? "-$" + s.slice(1) : "$" + s) : s + " " + tr("so'm");
+}
+// The same amount in the other currency, for the small line under a headline.
+function fmtOther(n) {
+  if (n === null || n === undefined || n === "" || isNaN(Number(n))) return "—";
+  return CUR === "usd" ? fmtUZS(n) + " " + tr("so'm") : fmtUSD(n);
 }
 // Typed text → whole so'm. Grouping by spaces, dots or commas is fine; a trailing
 // decimal part is dropped; a minus sign or letters make it invalid.
@@ -248,10 +274,10 @@ function fmtNum(v, digits) {
   if (n === null) return "—";
   return digits ? n.toFixed(digits).replace(".", LANG === "ru" ? "," : ".") : fmtUZS(n);
 }
-// "$79 252" at the month's rate
-function fmtUSD(uzs, fx) {
-  const n = num(uzs), r = num(fx);
-  return n === null || !r ? "—" : (n < 0 ? "-" : "") + "$" + fmtUZS(Math.abs(n) / r);
+// "$79 252" at the internal rate
+function fmtUSD(uzs) {
+  const n = num(uzs);
+  return n === null ? "—" : (n < 0 ? "-" : "") + "$" + fmtUZS(Math.abs(n) / USD_RATE);
 }
 // "+12.4%" / "−8.0%" against a reference; "—" when the reference is zero or missing
 function fmtChange(cur, ref) {
@@ -260,7 +286,9 @@ function fmtChange(cur, ref) {
   const d = (a - b) / Math.abs(b);
   return (d > 0 ? "+" : d < 0 ? "−" : "") + fmtPct(Math.abs(d));
 }
-const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtUZS(Math.abs(n));
+// A signed whole number as it stands, and a signed amount in the currency on screen.
+const signedRaw = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtUZS(Math.abs(n));
+const signed = (n) => signedRaw(inCur(n));
 
 /* --------------------------------------------------------------------- api */
 // 20 s; window.__API_TIMEOUT_MS is a test-only override that can only shorten it.
@@ -384,6 +412,11 @@ function langSwitch() {
     el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+function curSwitch() {
+  if (!S.token) return null;
+  return el("div", { class: "cur-switch", id: "cur-switch", role: "group", "aria-label": tr("Currency") }, [["uzs", "UZS"], ["usd", "USD"]].map(([c, label]) =>
+    el("button", { type: "button", class: "btn", "data-cur": c, "aria-pressed": CUR === c ? "true" : "false", onclick: () => { if (CUR !== c) setCur(c); }, text: label })));
+}
 function monthPicker() {
   if (!S.span || !S.month) return null;
   const months = [];
@@ -413,6 +446,7 @@ function renderHeader() {
     el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
       tab("month", "Month"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
       el("span", { class: "kit-spacer" }),
+      curSwitch(),
       monthPicker()));
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.

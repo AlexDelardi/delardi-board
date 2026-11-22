@@ -248,6 +248,17 @@ footer img { height: 22px; width: auto; opacity: .55; }
         <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </span>
     </a>
+    <a class="tool" href="perf/" data-tool="perf">
+      <span class="tool-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h14"/><path d="M5.5 17v-5M10 17V8M14.5 17V4"/></svg>
+      </span>
+      <span class="tool-name" data-i18n="perf_name">Performance</span>
+      <span class="tool-desc" data-i18n="perf_desc">The month against plan and last year, what explains the gap, and the incentive estimate. For the Retail Director.</span>
+      <span class="tool-foot">
+        <span class="status" data-session="perf_session"><span class="dot" aria-hidden="true"></span><span class="status-text" data-i18n="locked">Passcode needed</span></span>
+        <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </span>
+    </a>
   </nav>
 </main>
 
@@ -281,6 +292,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       sales_desc: "The till: scan a piece, choose the client, take payment and print the receipt; look up any ticket.",
       stock_name: "Stock",
       stock_desc: "Every piece in the boutique: what is in stock, reserved, on approval or in transit, its history, and the items to check.",
+      perf_name: "Performance",
+      perf_desc: "The month against plan and last year, what explains the gap, and the incentive estimate. For the Retail Director.",
       locked: "Passcode needed",
       open_as: function (name, time) { return "Unlocked on this device" + (name ? " · " + name : "") + " · until " + time; },
       open: "Open",
@@ -303,6 +316,8 @@ footer img { height: 22px; width: auto; opacity: .55; }
       sales_desc: "Касса: отсканировать изделие, выбрать клиента, принять оплату и распечатать чек; найти любой чек.",
       stock_name: "Склад",
       stock_desc: "Все изделия бутика: что в наличии, в резерве, у клиента на примерке или в пути, их история и что нужно проверить.",
+      perf_name: "Показатели",
+      perf_desc: "Месяц к плану и к прошлому году, из чего складывается отклонение, и оценка мотивации. Для директора по рознице.",
       locked: "Нужен код доступа",
       open_as: function (name, time) { return "Открыто на этом устройстве" + (name ? " · " + name : "") + " · до " + time; },
       open: "Открыть",

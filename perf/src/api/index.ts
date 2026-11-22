@@ -69,8 +69,8 @@ const select = (path: string) => db(path);
 const insert = (table: string, row: unknown, prefer = "return=representation") =>
   db(table, { method: "POST", body: JSON.stringify(row), headers: { Prefer: prefer } });
 
-// The stk_* and ops_* functions refuse bad requests with a plain `raise exception`
-// (SQLSTATE P0001) and a sentence meant for the person at the till; PostgREST
+// The perf_* functions refuse bad requests with a plain `raise exception`
+// (SQLSTATE P0001) and a sentence meant for the person reading; PostgREST
 // returns it as {code, message, …}, and it goes to the page as 409 with that
 // message verbatim. Anything else is a fault and stays a 500.
 async function rpc(fn: string, args: Record<string, unknown>) {
@@ -108,36 +108,10 @@ function uuid(v: unknown, what: string): string {
   return s.toLowerCase();
 }
 
-function posInt(v: unknown, what: string): number {
-  const n = typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v.trim()) : v;
-  if (typeof n !== "number" || !Number.isSafeInteger(n) || n < 1) throw new HttpErr(400, `That is not a valid ${what}.`);
-  return n;
-}
-
-// A calendar date as YYYY-MM-DD that really exists (2026-02-31 does not).
-function dateOrNull(v: unknown, field: string): string | null {
-  const s = str(v, 10);
-  if (s === null) return null;
-  let ok = false;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const d = new Date(`${s}T00:00:00Z`);
-    // An impossible date (2026-13-45) is an Invalid Date, and toISOString would throw on it.
-    ok = !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
-  }
-  if (!ok) throw new HttpErr(400, `${field} must be a date as YYYY-MM-DD.`);
-  return s;
-}
-
 function obj(v: unknown, field: string): Record<string, unknown> {
   if (v === null || v === undefined) return {};
   if (typeof v !== "object" || Array.isArray(v)) throw new HttpErr(400, `${field} must be an object.`);
   return v as Record<string, unknown>;
-}
-
-function pick(row: Record<string, unknown>, keys: string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const k of keys) if (k in row) out[k] = row[k];
-  return out;
 }
 
 // --------------------------------------------------------------- session mgmt

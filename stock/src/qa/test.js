@@ -145,7 +145,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.click(".kit-head [data-kit-menu] > button");
     const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
     const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
-    check("header: Tools lists 5 tools, Stock current (not a link)", items.join() === "Sales,Stock,Clients,Catalogue,Board" &&
+    check("header: Tools lists 6 tools, Stock current (not a link)", items.join() === "Sales,Stock,Clients,Catalogue,Board,Performance" &&
       current.join() === "Stock" && !(await page.$(".kit-menu a[href='../stock/']")), items.join() + " / " + current.join());
     check("header: EN/RU pair, EN pressed", await page.evaluate(() =>
       [...document.querySelectorAll(".kit-head .kit-lang .kit-hbtn")].map((b) => b.textContent + ":" + b.getAttribute("aria-pressed")).join() === "EN:true,RU:false"));

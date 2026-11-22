@@ -177,6 +177,11 @@ main { padding: 24px 24px 96px; }
 .tbl th[scope="row"] { text-align: left; font-weight: 400; padding: 12px; border-bottom: 1px solid var(--mist); color: var(--ink); }
 .tbl tfoot th, .tbl tfoot td { padding: 12px; font-weight: 700; border-top: 2px solid var(--navy); }
 .tbl td.r, .tbl th.r { white-space: nowrap; }
+/* so'm or dollars: two buttons side by side, the one in use filled */
+.cur-switch { display: inline-flex; align-items: center; padding: 4px 0; margin-right: 12px; }
+.cur-switch .btn { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.cur-switch .btn + .btn { border-left-width: 0; }
+.cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
 .month-picker { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
 .month-picker .btn { min-height: var(--tap); min-width: var(--tap); padding: 0; font-size: 20px; line-height: 1; }
 .month-picker select { min-height: var(--tap); }
@@ -247,6 +252,8 @@ input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(
   .tbl.tickets .btn { padding: 0 8px; }
   .tbl.tickets .tag { padding-left: 4px; padding-right: 4px; }
   .tbl.tickets th, .tbl.tickets td { font-size: 12px; }
+  /* names give way first: they break where they must, so the figures and the button always fit */
+  .tbl.tickets td:nth-child(3), .tbl.tickets td:nth-child(4) { overflow-wrap: anywhere; }
   /* incentive, ten columns: one block per seller, each figure beside its name */
   #inc-sellers, #inc-sellers tbody, #inc-sellers tfoot, #inc-sellers tr { display: block; }
   #inc-sellers thead { display: none; }
@@ -331,6 +338,8 @@ const LOGO_WORDMARK = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy5
 const SESSION_KEY = "perf_session";       // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "perf_last_active";    // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
+const CUR_KEY = "perf_currency";          // localStorage: amounts shown in so'm or in US dollars
+const USD_RATE = 12000;                   // the internal rate; the dollar view always uses it
 const MONTH_KEY = "perf_month";           // sessionStorage: the month on screen
 const IDLE_MIN = 15;                      // touch devices only
 
@@ -340,7 +349,7 @@ const IDLE_MIN = 15;                      // touch devices only
 const RU = {
   "Performance": "Показатели",
   "All tools": "Все инструменты",
-  "Language": "Язык",
+  "Language": "Язык", "Currency": "Валюта",
   "Lock": "Заблокировать",
   "Locked.": "Заблокировано.",
   "Boutique tools": "Инструменты бутика",
@@ -371,6 +380,16 @@ const RU = {
 const PL = {
   ticket: { en: ["ticket", "tickets"], ru: ["чек", "чека", "чеков"] },
 };
+function initialCur() {
+  try { if (localStorage.getItem(CUR_KEY) === "usd") return "usd"; } catch (e) { /* storage blocked */ }
+  return "uzs";
+}
+let CUR = initialCur();
+function setCur(c) {
+  CUR = c === "usd" ? "usd" : "uzs";
+  try { localStorage.setItem(CUR_KEY, CUR); } catch (e) { /* ignore */ }
+  renderAll();
+}
 function initialLang() {
   try {
     const v = localStorage.getItem(LANG_KEY);
@@ -439,10 +458,24 @@ function fmtUZS(n) {
   const x = Math.round(Number(n));
   return (x < 0 ? "-" : "") + String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
-// "31 500 000 so'm" / "31 500 000 сум"
+// An amount held in so'm, as a whole number in the currency on screen.
+function inCur(n) { return CUR === "usd" ? Math.round(Number(n) / USD_RATE) : Math.round(Number(n)); }
+// The bare figure for a table cell: "31 500 000" in so'm, "2 625" in dollars.
+function fmtAmt(n) {
+  if (n === null || n === undefined || n === "" || isNaN(Number(n))) return "—";
+  return fmtUZS(inCur(n));
+}
+const curUnit = () => (CUR === "usd" ? "USD" : tr("so'm"));
+// "31 500 000 so'm" / "31 500 000 сум" / "$2 625"
 function fmtMoney(n) {
-  const s = fmtUZS(n);
-  return s === "—" ? s : s + " " + tr("so'm");
+  const s = fmtAmt(n);
+  if (s === "—") return s;
+  return CUR === "usd" ? (s.startsWith("-") ? "-$" + s.slice(1) : "$" + s) : s + " " + tr("so'm");
+}
+// The same amount in the other currency, for the small line under a headline.
+function fmtOther(n) {
+  if (n === null || n === undefined || n === "" || isNaN(Number(n))) return "—";
+  return CUR === "usd" ? fmtUZS(n) + " " + tr("so'm") : fmtUSD(n);
 }
 // Typed text → whole so'm. Grouping by spaces, dots or commas is fine; a trailing
 // decimal part is dropped; a minus sign or letters make it invalid.
@@ -570,10 +603,10 @@ function fmtNum(v, digits) {
   if (n === null) return "—";
   return digits ? n.toFixed(digits).replace(".", LANG === "ru" ? "," : ".") : fmtUZS(n);
 }
-// "$79 252" at the month's rate
-function fmtUSD(uzs, fx) {
-  const n = num(uzs), r = num(fx);
-  return n === null || !r ? "—" : (n < 0 ? "-" : "") + "$" + fmtUZS(Math.abs(n) / r);
+// "$79 252" at the internal rate
+function fmtUSD(uzs) {
+  const n = num(uzs);
+  return n === null ? "—" : (n < 0 ? "-" : "") + "$" + fmtUZS(Math.abs(n) / USD_RATE);
 }
 // "+12.4%" / "−8.0%" against a reference; "—" when the reference is zero or missing
 function fmtChange(cur, ref) {
@@ -582,7 +615,9 @@ function fmtChange(cur, ref) {
   const d = (a - b) / Math.abs(b);
   return (d > 0 ? "+" : d < 0 ? "−" : "") + fmtPct(Math.abs(d));
 }
-const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtUZS(Math.abs(n));
+// A signed whole number as it stands, and a signed amount in the currency on screen.
+const signedRaw = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtUZS(Math.abs(n));
+const signed = (n) => signedRaw(inCur(n));
 
 /* --------------------------------------------------------------------- api */
 // 20 s; window.__API_TIMEOUT_MS is a test-only override that can only shorten it.
@@ -706,6 +741,11 @@ function langSwitch() {
     el("button", { type: "button", class: "kit-hbtn", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+function curSwitch() {
+  if (!S.token) return null;
+  return el("div", { class: "cur-switch", id: "cur-switch", role: "group", "aria-label": tr("Currency") }, [["uzs", "UZS"], ["usd", "USD"]].map(([c, label]) =>
+    el("button", { type: "button", class: "btn", "data-cur": c, "aria-pressed": CUR === c ? "true" : "false", onclick: () => { if (CUR !== c) setCur(c); }, text: label })));
+}
 function monthPicker() {
   if (!S.span || !S.month) return null;
   const months = [];
@@ -735,6 +775,7 @@ function renderHeader() {
     el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
       tab("month", "Month"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
       el("span", { class: "kit-spacer" }),
+      curSwitch(),
       monthPicker()));
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.
@@ -848,6 +889,7 @@ const KIT_TOOLS = [
   { id: 'crm', href: '../crm/', en: 'Clients', ru: 'Клиенты' },
   { id: 'catalogue', href: '../catalogue/', en: 'Catalogue', ru: 'Каталог' },
   { id: 'board', href: '../board/', en: 'Board', ru: 'Доска' },
+  { id: 'perf', href: '../perf/', en: 'Performance', ru: 'Показатели' },
 ];
 
 // Close functions of the menus that are open right now.
@@ -957,7 +999,7 @@ Object.assign(RU, {
   "Value": "Сумма", "Share": "Доля",
   "Returning: bought again within 250 days. Recaptured: after more than 250 days.": "Постоянные: повторная покупка в течение 250 дней. Возвращённые: спустя более 250 дней.",
   "13 months": "13 месяцев",
-  "Net sales by month, so'm": "Чистые продажи по месяцам, сум",
+  "Net sales by month": "Чистые продажи по месяцам",
   "plan": "план",
   "Bridge": "Разбор отклонения",
   "From last year": "От прошлого года", "From plan": "От плана",
@@ -1000,10 +1042,10 @@ function renderMonth(main) {
   const card = (id, label, big, lines) => el("div", { class: "hl", id }, el("span", { class: "lbl", text: tr(label) }), el("strong", { class: "hl-big num", text: big }),
     lines.map((t) => (typeof t === "string" ? el("span", { class: "small", text: t }) : t)));
   sec.append(el("div", { class: "hl-row" },
-    card("hl-net", "Net sales", money(c.net), [fmtUSD(c.net, fx), pl(c.tickets, "ticket")]),
-    d.plan ? card("hl-plan", "Against plan", fmtPct(d.plan.attainment, 0), [tr("plan {v}", { v: money(d.plan.plan) }), tr("gap {v}", { v: signed(num(d.plan.gap)) + " " + tr("so'm") })])
+    card("hl-net", "Net sales", money(c.net), [fmtOther(c.net), pl(c.tickets, "ticket")]),
+    d.plan ? card("hl-plan", "Against plan", fmtPct(d.plan.attainment, 0), [tr("plan {v}", { v: money(d.plan.plan) }), tr("gap {v}", { v: signed(num(d.plan.gap)) + " " + curUnit() })])
       : card("hl-plan", "Against plan", "—", [tr("No plan typed in for this month."), el("a", { class: "small", href: "#/inputs", text: tr("Type it in") })]),
-    num(ly.net) ? card("hl-ly", "Against last year", fmtChange(c.net, ly.net), [tr("last year {v}", { v: money(ly.net) }), fmtUSD(ly.net, fx)])
+    num(ly.net) ? card("hl-ly", "Against last year", fmtChange(c.net, ly.net), [tr("last year {v}", { v: money(ly.net) }), fmtOther(ly.net)])
       : card("hl-ly", "Against last year", "—", [tr("No sales in the same month last year.")])));
 
   /* key figures */
@@ -1015,16 +1057,16 @@ function renderMonth(main) {
       if (opts && opts.curOnly && i !== 0) return el("td", { class: "r", text: "—" });
       return el("td", { class: "r", text: fmt(get(p)) });
     }));
-  const pct = (v) => fmtPct(v), n0 = (v) => fmtNum(v), n2 = (v) => fmtNum(v, 2);
+  const pct = (v) => fmtPct(v), n0 = (v) => fmtNum(v), n2 = (v) => fmtNum(v, 2), m0 = (v) => fmtAmt(v);
   sec.append(el("h2", { class: "sec-title", text: tr("Key figures") }),
     el("div", { class: "table-wrap" }, el("table", { class: "tbl kpi", id: "kpi" },
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), ["This month", "Last year", "Change", "Year to date", "Last year to date"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
       el("tbody", {},
-        row("Net sales", (p) => p.net, n0), row("Gross sales", (p) => p.gross, n0), row("Discount", (p) => p.discount_pct, pct, { noChange: true }),
+        row("Net sales", (p) => p.net, m0), row("Gross sales", (p) => p.gross, m0), row("Discount", (p) => p.discount_pct, pct, { noChange: true }),
         row("Tickets", (p) => p.tickets, n0), row("Units", (p) => p.units, n0), row("Units per ticket (UPT)", (p) => p.upt, n2),
-        row("Average ticket (NSPT)", (p) => p.atv, n0), row("Average item", (p) => p.asp, n0), row("Tickets with 2+ items", (p) => p.multi_item_share, pct, { noChange: true }),
-        row("Large tickets", (p) => p.large.tickets, n0), row("Large tickets, value", (p) => p.large.net, n0),
-        row("Base book, tickets", (p) => p.base.tickets, n0), row("Base book, average", (p) => p.base.avg, n0),
+        row("Average ticket (NSPT)", (p) => p.atv, m0), row("Average item", (p) => p.asp, m0), row("Tickets with 2+ items", (p) => p.multi_item_share, pct, { noChange: true }),
+        row("Large tickets", (p) => p.large.tickets, n0), row("Large tickets, value", (p) => p.large.net, m0),
+        row("Base book, tickets", (p) => p.base.tickets, n0), row("Base book, average", (p) => p.base.avg, m0),
         row("Clients", (p) => p.clients, n0),
         row("Visits", () => d.funnel.visits, n0, { curOnly: true, noChange: true }),
         row("Conversion", () => d.funnel.conversion, pct, { curOnly: true, noChange: true })))),
@@ -1037,7 +1079,7 @@ function renderMonth(main) {
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), [tr("Tickets"), tr("Value"), tr("Share")].map((h) => el("th", { scope: "col", class: "r", text: h })))),
       el("tbody", {}, Object.keys(LIFE_WORD).map((k) => el("tr", { "data-k": k },
         el("th", { scope: "row", text: tr(LIFE_WORD[k]) }), el("td", { class: "r", text: fmtNum(c.lifecycle[k].tickets) }),
-        el("td", { class: "r", text: fmtNum(c.lifecycle[k].net) }),
+        el("td", { class: "r", text: fmtAmt(c.lifecycle[k].net) }),
         el("td", { class: "r", text: num(c.net) > 0 ? fmtPct(num(c.lifecycle[k].net) / num(c.net)) : "—" })))))),
     el("p", { class: "small", text: tr("Returning: bought again within 250 days. Recaptured: after more than 250 days.") }));
 
@@ -1047,8 +1089,8 @@ function renderMonth(main) {
       el("thead", {}, el("tr", {}, el("th", { scope: "col", text: tr("Month") }),
         ["Net sales", "Plan", "Tickets", "NSPT", "UPT", "Discount", "Conversion"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
       el("tbody", {}, d.trend.slice().reverse().map((t) => el("tr", {},
-        el("th", { scope: "row", text: monthName(t.month, true) }), el("td", { class: "r", text: fmtNum(t.net) }), el("td", { class: "r", text: fmtNum(t.plan) }),
-        el("td", { class: "r", text: fmtNum(t.tickets) }), el("td", { class: "r", text: fmtNum(t.atv) }), el("td", { class: "r", text: fmtNum(t.upt, 2) }),
+        el("th", { scope: "row", text: monthName(t.month, true) }), el("td", { class: "r", text: fmtAmt(t.net) }), el("td", { class: "r", text: fmtAmt(t.plan) }),
+        el("td", { class: "r", text: fmtNum(t.tickets) }), el("td", { class: "r", text: fmtAmt(t.atv) }), el("td", { class: "r", text: fmtNum(t.upt, 2) }),
         el("td", { class: "r", text: fmtPct(t.discount_pct) }), el("td", { class: "r", text: fmtPct(t.conversion, 0) })))))));
 
   /* bridge */
@@ -1062,7 +1104,7 @@ function renderMonth(main) {
     d.excluded.length ? el("div", { class: "table-wrap" }, el("table", { class: "tbl", id: "excluded" },
       el("thead", {}, el("tr", {}, el("th", { scope: "col" }), el("th", { scope: "col", class: "r", text: tr("Tickets") }), el("th", { scope: "col", class: "r", text: tr("Value") }))),
       el("tbody", {}, d.excluded.map((x) => el("tr", {}, el("th", { scope: "row", text: basisWord(x.basis) }),
-        el("td", { class: "r", text: fmtNum(x.tickets) }), el("td", { class: "r", text: fmtNum(x.net) }))))))
+        el("td", { class: "r", text: fmtNum(x.tickets) }), el("td", { class: "r", text: fmtAmt(x.net) }))))))
       : el("p", { class: "small", id: "excluded-none", text: tr("Nothing was left out this month.") }));
 
   /* tickets */
@@ -1078,7 +1120,7 @@ function renderMonth(main) {
         el("td", {}, el("span", { class: "tag " + (t.basis === "retail" ? "act" : "done"), text: basisWord(t.basis) }),
           t.marked ? el("span", { class: "small mark-note", title: tr("Corrected by hand"), text: " ✎" }) : null),
         el("td", { title: num(t.days_since) !== null ? tr("{d} days since the last purchase", { d: t.days_since }) : null, text: t.lifecycle ? tr(LIFE_WORD[t.lifecycle]) : "—" }),
-        el("td", { class: "r", text: fmtNum(t.net) }),
+        el("td", { class: "r", text: fmtAmt(t.net) }),
         el("td", { class: "r" }, el("button", { type: "button", class: "btn tk-correct", onclick: () => correctTicket(t), text: tr("Correct") })))))))
       : el("p", { class: "small", id: "tickets-none", text: tr("No tickets this month.") }));
 }
@@ -1109,7 +1151,7 @@ function trendChart(trend) {
     n.style.top = (window.scrollY + r.top - 8) + "px";
   };
   const hide = () => { const n = $(".chart-tip"); if (n) n.remove(); };
-  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": tr("Net sales by month, so'm"), preserveAspectRatio: "xMidYMid meet" },
+  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": tr("Net sales by month") + ", " + curUnit(), preserveAspectRatio: "xMidYMid meet" },
     [svgEl("line", { x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis" })].concat(trend.map((t, i) => {
       const cx = L + step * i + step / 2, v = num(t.net) || 0, last = i === trend.length - 1;
       const g = svgEl("g", { class: "bar" + (last ? " cur" : ""), tabindex: "0", "data-month": String(t.month).slice(0, 7) }, [
@@ -1122,7 +1164,7 @@ function trendChart(trend) {
       g.addEventListener("mouseleave", hide); g.addEventListener("blur", hide);
       return g;
     })));
-  wrap.append(el("p", { class: "small chart-title" }, tr("Net sales by month, so'm"),
+  wrap.append(el("p", { class: "small chart-title" }, tr("Net sales by month") + ", " + curUnit(),
     trend.some((t) => num(t.plan) > 0) ? el("span", { class: "plan-key" }, el("span", { class: "plan-mark", "aria-hidden": "true" }), tr("plan")) : null), svg);
   return wrap;
 }
@@ -1140,9 +1182,12 @@ function bridgeBlock(id, title, fromLabel, b, emptyText) {
     bar === null ? el("span", { class: "br-bar" }) : el("span", { class: "br-bar", "aria-hidden": "true" },
       el("span", { class: "br-fill " + (bar < 0 ? "neg" : "pos"), style: "width:" + (Math.abs(bar) / max * 50).toFixed(1) + "%;" + (bar < 0 ? "right:50%" : "left:50%") })),
     el("span", { class: "br-v num", text: value }));
-  box.append(line(tr(fromLabel), fmtUZS(b.from), "end", null),
-    ...parts.map(([k, label]) => line(tr(label), signed(num(b[k]) || 0), "part", num(b[k]) || 0)),
-    line(tr("Actual"), fmtUZS(b.to), "end", null));
+  // in the currency on screen the last part is taken as the rest, so the lines still add up to the figure shown
+  const shown = { from: inCur(b.from), to: inCur(b.to), tickets: inCur(num(b.tickets) || 0), mix: inCur(num(b.mix) || 0) };
+  shown.size = shown.to - shown.from - shown.tickets - shown.mix;
+  box.append(line(tr(fromLabel), fmtUZS(shown.from), "end", null),
+    ...parts.map(([k, label]) => line(tr(label), signedRaw(shown[k]), "part", num(b[k]) || 0)),
+    line(tr("Actual"), fmtUZS(shown.to), "end", null));
   return box;
 }
 
@@ -1219,14 +1264,14 @@ function renderIncentive(main) {
     el("thead", {}, el("tr", {}, el("th", { scope: "col", text: tr("Seller") }),
       ["Sales", "Plan", "Attainment", "Rate", "Commission", "Programmes", "Total", "Paid", "Difference"].map((h) => el("th", { scope: "col", class: "r", text: tr(h) })))),
     el("tbody", {}, inc.sellers.map((s) => el("tr", { "data-seller": s.seller },
-      el("th", { scope: "row", text: s.seller }), el("td", { class: "r", text: fmtNum(s.net) }),
-      el("td", { class: "r", text: num(s.plan) === null ? tr("no plan") : fmtNum(s.plan) }), el("td", { class: "r", text: fmtPct(s.attainment, 0) }),
-      el("td", { class: "r", text: s.commission_applies ? fmtPct(s.rate, 2) : tr("no commission") }), el("td", { class: "r", text: fmtNum(s.commission) }),
-      el("td", { class: "r", text: fmtNum(s.programmes_total) }), el("td", { class: "r", text: fmtNum(s.total) }),
-      el("td", { class: "r", text: fmtNum(s.paid) }), el("td", { class: "r", text: diff(s) })))),
-    el("tfoot", {}, el("tr", { id: "inc-total" }, el("th", { scope: "row", text: tr("All sellers") }), el("td", { class: "r", text: fmtNum(inc.store.net) }),
-      el("td", {}), el("td", {}), el("td", {}), el("td", { class: "r", text: fmtNum(inc.total.commission) }), el("td", { class: "r", text: fmtNum(inc.total.programmes) }),
-      el("td", { class: "r", text: fmtNum(inc.total.total) }), el("td", { class: "r", text: fmtNum(inc.total.paid) }),
+      el("th", { scope: "row", text: s.seller }), el("td", { class: "r", text: fmtAmt(s.net) }),
+      el("td", { class: "r", text: num(s.plan) === null ? tr("no plan") : fmtAmt(s.plan) }), el("td", { class: "r", text: fmtPct(s.attainment, 0) }),
+      el("td", { class: "r", text: s.commission_applies ? fmtPct(s.rate, 2) : tr("no commission") }), el("td", { class: "r", text: fmtAmt(s.commission) }),
+      el("td", { class: "r", text: fmtAmt(s.programmes_total) }), el("td", { class: "r", text: fmtAmt(s.total) }),
+      el("td", { class: "r", text: fmtAmt(s.paid) }), el("td", { class: "r", text: diff(s) })))),
+    el("tfoot", {}, el("tr", { id: "inc-total" }, el("th", { scope: "row", text: tr("All sellers") }), el("td", { class: "r", text: fmtAmt(inc.store.net) }),
+      el("td", {}), el("td", {}), el("td", {}), el("td", { class: "r", text: fmtAmt(inc.total.commission) }), el("td", { class: "r", text: fmtAmt(inc.total.programmes) }),
+      el("td", { class: "r", text: fmtAmt(inc.total.total) }), el("td", { class: "r", text: fmtAmt(inc.total.paid) }),
       el("td", { class: "r", text: num(inc.total.paid) === null ? "—" : signed(num(inc.total.paid) - num(inc.total.total)) }))))),
     el("p", { class: "small", text: tr("Cost of the scheme: {p} of retail sales.", { p: fmtPct(inc.total.pct_of_sales, 2) })
       + (num(inc.scheme.rules.person_cap) !== null ? " " + tr("Programmes are capped at {v} per person.", { v: fmtMoney(inc.scheme.rules.person_cap) }) : "") }));
@@ -1244,9 +1289,9 @@ function renderIncentive(main) {
         el("tbody", {}, s.programmes.map((p) => el("tr", { "data-key": p.key },
           el("th", { scope: "row", text: (ru && p.label_ru) || p.label || p.key }), el("td", { class: "r", text: fmtNum(p.auto) }),
           el("td", { class: "r" }, fmtNum(p.count), p.overridden ? el("span", { class: "small", text: " (" + tr("typed in") + ")" }) : null),
-          el("td", { class: "r", text: fmtNum(p.max) }), el("td", { class: "r", text: fmtNum(p.pays) }), el("td", { class: "r", text: fmtNum(p.amount) })))),
+          el("td", { class: "r", text: fmtNum(p.max) }), el("td", { class: "r", text: fmtAmt(p.pays) }), el("td", { class: "r", text: fmtAmt(p.amount) })))),
         el("tfoot", {}, el("tr", {}, el("th", { scope: "row", text: tr("Total") }), el("td", {}), el("td", {}), el("td", {}), el("td", {}),
-          el("td", { class: "r", text: fmtNum(s.programmes_total) + (num(s.programmes_before_cap) > num(s.programmes_total) ? " (" + fmtNum(s.programmes_before_cap) + ")" : "") }))))));
+          el("td", { class: "r", text: fmtAmt(s.programmes_total) + (num(s.programmes_before_cap) > num(s.programmes_total) ? " (" + fmtAmt(s.programmes_before_cap) + ")" : "") }))))));
   }
 }
 
@@ -1257,7 +1302,7 @@ function renderIncentive(main) {
    logs every change and answers with the month recomputed.
    ========================================================================= */
 Object.assign(RU, {
-  "Inputs for {m}": "Вводные за {m}",
+  "Inputs for {m}": "Вводные за {m}", "Inputs are always typed in so'm.": "Вводные всегда вводятся в сумах.",
   "Plan, so'm": "План, сум", "Planned tickets": "Плановое число чеков", "of which large tickets": "из них крупных", "Planned value of large tickets, so'm": "Плановая сумма крупных чеков, сум",
   "Visits to the boutique": "Визиты в бутик", "USD rate for the month": "Курс USD на месяц", "Note": "Примечание",
   "empty = 12 000": "пусто = 12 000",
@@ -1303,6 +1348,7 @@ function renderInputs(main) {
   const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.month ? tr("Inputs for {m}", { m: monthName(S.month) }) : tr("Inputs") }));
   main.append(sec);
   if (monthPending(sec)) return;
+  if (CUR === "usd") sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
   if (!S.form || S.form.month !== S.month) S.form = inputsForm();
   const f = S.form, d = S.doc;
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];
