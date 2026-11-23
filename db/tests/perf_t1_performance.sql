@@ -254,5 +254,13 @@ begin
      and (select (x2->>'incoming_units')::int from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 1, 'on hand leaves out what is on its way: ' || (select x2::text from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand');
   assert (b->'total'->>'incoming_units')::int >= 1
      and (b->'on_hand_by_arrival'->>'unknown')::int + (select coalesce(sum((z->>'units')::int), 0) from jsonb_array_elements(b->'on_hand_by_arrival'->'years') z) = (b->'total'->>'stock_units')::int, 'the arrival-age split adds up to what is on hand';
+
+  -- a line sold under an old spelling of the brand counts with the brand of its catalogue model
+  insert into ops_tickets(store_id, source, ticket_no, sold_at, status, seller) values (1, 'colibri', 'PF-N1', '2031-08-08', 'posted', 'Zz Ann') returning ticket_id into t;
+  insert into ops_ticket_lines(ticket_id, line_no, kind, item_name, qty, price_current, net, brand_raw, model_id) values
+    (t, 1, 'sale', 'Zz', 1, 5000000, 5000000, 'ZZBRND', 'ZZ-PERF-J1'), (t, 2, 'sale', 'Zz', 1, 3000000, 3000000, 'ZZ BRAND', null), (t, 3, 'sale', 'Zz', 1, 2000000, 2000000, 'Zz Loose', null);
+  b := perf_brands('2031-08-01', '2031-09-01');
+  assert (select string_agg((x2->>'brand') || ':' || (x2->>'net'), ',' order by (x2->>'net')::numeric desc) from jsonb_array_elements(b->'brands') x2 where (x2->>'net')::numeric <> 0) = 'Zz Brand:8000000,Zz Loose:2000000',
+    'old spellings are counted with the catalogue brand: ' || (select string_agg((x2->>'brand') || ':' || (x2->>'net'), ',') from jsonb_array_elements(b->'brands') x2 where (x2->>'net')::numeric <> 0);
 end $$;
 rollback;
