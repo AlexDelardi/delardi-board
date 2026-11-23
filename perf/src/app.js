@@ -23,7 +23,7 @@ const RU = {
   "Performance": "Показатели",
   "All tools": "Все инструменты",
   "Language": "Язык", "Currency": "Валюта",
-  "Lock": "Заблокировать",
+  "Lock": "Заблокировать", "Menu": "Меню",
   "Locked.": "Заблокировано.",
   "Boutique tools": "Инструменты бутика",
   "Unlock": "Открыть",
@@ -96,7 +96,7 @@ function setLang(l) {
 /* -------------------------------------------------------------------- state */
 const S = {
   token: null, name: null, expires_at: null,
-  locked: true, gateMessage: null,
+  locked: true, gateMessage: null, menuOpen: false,
   span: null,                        // { first, last }: months that have tickets
   month: null,                       // "YYYY-MM" on screen
   doc: null, busy: false, err: null, // the month's document (perf_month)
@@ -474,7 +474,7 @@ function monthPicker() {
   const months = [];
   for (let m = S.span.last; m >= S.span.first; m = addMonths(m, -1)) months.push(m);
   const sel = el("select", { id: "month-select", "aria-label": tr("Month"), onchange: () => setMonth(sel.value) },
-    months.map((m) => el("option", { value: m, selected: m === S.month ? true : null, text: monthName(m) })));
+    months.map((m) => el("option", { value: m, selected: m === S.month ? true : null, text: monthName(m, isPhone() && route().name === "brands") })));   // beside the period switch a phone has room for the short name
   return el("div", { class: "month-picker" },
     el("button", { type: "button", class: "btn", id: "month-prev", "aria-label": tr("Previous month"), disabled: S.month <= S.span.first ? true : null,
       onclick: () => setMonth(addMonths(S.month, -1)), text: "‹" }),
@@ -482,26 +482,45 @@ function monthPicker() {
     el("button", { type: "button", class: "btn", id: "month-next", "aria-label": tr("Next month"), disabled: S.month >= S.span.last ? true : null,
       onclick: () => setMonth(addMonths(S.month, 1)), text: "›" }));
 }
+// A phone gets a slim header: the navy bar keeps the wordmark, the tool name and a menu button; tools, language,
+// currency and lock sit behind that button; the tabs stay on one row; the period picker moves under them, outside the
+// pinned part. From 600 px up the header is the full one.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; if (!S.locked) renderAll(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } });
+// The drawing width of a chart: a phone's own width, so labels keep their size instead of shrinking with the picture.
+const chartW = (wide) => (isPhone() ? 340 : wide);
 function renderHeader() {
-  const r = route().name;
+  const r = route().name, phone = isPhone();
   const tab = (name, label) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name, "aria-current": r === name ? "page" : null, text: tr(label) });
-  return el("header", { class: "top" },
+  const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
+  const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
+  const cur = r === "inputs" ? null : curSwitch();
+  // each screen shows the picker for the period it is about
+  const period = [r === "brands" && S.token && S.span ? brandModeSwitch() : null,
+    r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()];
+  const open = phone && S.menuOpen;
+  const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("perf", LANG), langSwitch(), cur, lock) : null;
+  // a choice made in the menu closes it; the tools list opens in place
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
+  const nav = el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
+    tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
+    phone ? null : [el("span", { class: "kit-spacer" }), cur, period]);
+  const top = el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
       el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Performance") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("perf", LANG),
-      langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
-      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
-    el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
-      tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
-      el("span", { class: "kit-spacer" }),
-      r === "inputs" ? null : curSwitch(),
-      r === "brands" && S.token && S.span ? brandModeSwitch() : null,
-      // each screen shows the picker for the period it is about
-      r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()));
+      phone ? menuBtn : [kitToolsMenu("perf", LANG), langSwitch(), staff, lock]),
+    menu, nav);
+  const bar = phone && period.some(Boolean) ? el("div", { class: "period-bar", id: "period-bar" }, period) : null;
+  // on a phone the tab in use is brought into view in its row
+  if (phone) requestAnimationFrame(() => { const a = nav.querySelector('[aria-current="page"]'); if (a) nav.scrollLeft = Math.max(0, a.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2); });
+  return [top, bar].filter(Boolean);
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.
 function monthPending(sec) {
@@ -627,7 +646,7 @@ function renderAll() {
   app.innerHTML = "";
   app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false;
   const main = el("main", { id: "main" });
-  app.append(renderHeader(), main);
+  app.append(...renderHeader(), main);
   ROUTES[r.name](main);
 }
 function restoreSession() {

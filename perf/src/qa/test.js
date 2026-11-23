@@ -509,6 +509,66 @@ async function shot(page, name, full) {
     await ctx.close();
   });
 
+  await run("phone", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 390, height: 844 });
+    const vis = (sel) => page.evaluate((q) => { const n = document.querySelector(q); if (!n) return false; const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0; }, sel);
+    const pageFits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+    const box = (sel) => page.$eval(sel, (n) => { const r = n.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height, w: r.width }; });
+    check("phone: a slim header: wordmark, tool name and the menu button; language, lock and currency are behind it",
+      (await vis("#menu-btn")) && (await page.getAttribute("#menu-btn", "aria-expanded")) === "false" && !(await vis(".kit-lang")) && !(await vis("#cur-switch")) && !(await vis("#head-menu"))
+      && (await box(".kit-head")).h <= 57, JSON.stringify(await box(".kit-head")));
+    const tabs = await page.$$eval(".kit-tab", (ts) => ts.map((t) => { const r = t.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }));
+    check("phone: five tabs on one row, each a 44 px target", tabs.length === 5 && new Set(tabs.map((t) => t[0])).size === 1 && tabs.every((t) => t[1] >= 44 && t[2] >= 44), JSON.stringify(tabs));
+    check("phone: the period picker sits under the tabs, outside the pinned header", (await vis("#period-bar #month-select")) && !(await page.$(".top #month-select"))
+      && (await box("#period-bar")).bottom <= 170, JSON.stringify(await box("#period-bar")));
+    check("phone month: the page is no wider than the screen", await pageFits(), String(await page.evaluate(() => document.documentElement.scrollWidth)));
+    check("phone: every control in view is a 44 px target", await page.evaluate(() => [...document.querySelectorAll("button, select, .kit-tab")].filter((n) => n.getBoundingClientRect().width > 0)
+      .every((n) => n.getBoundingClientRect().height >= 44)), await page.evaluate(() => [...document.querySelectorAll("button, select, .kit-tab")].filter((n) => n.getBoundingClientRect().width > 0 && n.getBoundingClientRect().height < 44).map((n) => n.id || n.className).join()));
+    // a wide table scrolls in its own box and keeps its first column in place
+    const first = async () => (await box("#kpi tbody tr th")).left;
+    const l0 = await first();
+    await page.$eval("#kpi", (t) => { t.closest(".table-wrap").scrollLeft = 120; });
+    check("phone: a table scrolled sideways keeps its first column", (await page.$eval("#kpi", (t) => t.closest(".table-wrap").scrollLeft)) > 0 && Math.abs((await first()) - l0) < 1, l0 + " → " + (await first()));
+    // scrolled down: the tabs stay, the navy bar and the picker go
+    await page.evaluate(() => window.scrollTo(0, 900));
+    await page.waitForTimeout(100);
+    const tb = await box(".kit-tabs");
+    check("phone: scrolled down, only the tab row stays pinned", tb.top >= -1 && tb.top <= 1 && (await box(".kit-head")).bottom <= 1 && (await box("#period-bar")).bottom <= 0, JSON.stringify(tb));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    // the menu
+    await page.click("#menu-btn");
+    check("phone: the menu opens with tools, language, currency and lock", (await page.getAttribute("#menu-btn", "aria-expanded")) === "true" && (await vis("#head-menu .kit-lang")) && (await vis("#head-menu #cur-switch"))
+      && (await vis("#head-menu .kit-tool-wrap")) && /Lock/.test(await page.textContent("#head-menu")) && /Demo Director/.test(await page.textContent("#head-menu")));
+    await page.click('#head-menu #cur-switch button[data-cur="usd"]');
+    await page.waitForFunction(() => /\$17 500/.test(document.querySelector("#hl-net .hl-big").textContent));
+    check("phone: choosing the currency applies it and closes the menu", !(await vis("#head-menu")) && (await page.getAttribute("#menu-btn", "aria-expanded")) === "false");
+    await page.click("#menu-btn"); await page.keyboard.press("Escape");
+    check("phone: Escape closes the menu", !(await vis("#head-menu")));
+    await page.click("#menu-btn"); await page.click('#head-menu #cur-switch button[data-cur="uzs"]');
+    // the year: charts drawn for the phone
+    await page.click("#tab-year"); await page.waitForSelector("#yr-months");
+    const ticks = await page.$$eval("#yr-chart-net text.tick", (ts) => ts.map((t) => t.getBoundingClientRect().height));
+    check("phone year: chart labels are drawn at reading size", ticks.length === 12 && Math.min(...ticks) >= 10 && (await pageFits()) && !!(await page.$("#period-bar #year-select")), JSON.stringify(ticks.slice(0, 3)));
+    check("phone year: the cumulative chart too", Math.min(...(await page.$$eval("#yr-chart-cum text.tick", (ts) => ts.map((t) => t.getBoundingClientRect().height)))) >= 10);
+    await shot(page, "p09-year-phone", true);
+    await page.click("#tab-brands"); await page.waitForSelector("#br-table");
+    check("phone brands: fits, with the period switch and picker under the tabs", (await pageFits()) && (await vis("#period-bar #brand-mode")) && (await vis("#period-bar #month-select"))
+      && Math.min(...(await page.$$eval("#br-chart text.tick", (ts) => ts.map((t) => t.getBoundingClientRect().height)))) >= 10);
+    await page.click("#menu-btn"); await page.click('#head-menu .kit-lang button[lang="ru"]');
+    await page.waitForFunction(() => /Бренды/.test(document.querySelector("#screen-brands .title").textContent));
+    const act = await box("#tab-brands");
+    check("phone RU: the tab in use is in view and the header stays slim", act.left >= 0 && act.right <= 391 && (await box(".kit-head")).h <= 57 && (await pageFits()) && (await box("#period-bar")).bottom <= 190, JSON.stringify(act));
+    await shot(page, "p10-brands-ru-phone", true);
+    for (const r of ["incentive", "inputs", "month"]) { await page.evaluate((x) => { location.hash = "#/" + x; }, r); await page.waitForTimeout(300); check("phone RU " + r + ": the page is no wider than the screen", await pageFits()); }
+    await shot(page, "p11-month-ru-phone", true);
+    // turned on its side or opened on a tablet: the full header comes back
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForFunction(() => !document.querySelector("#menu-btn"));
+    check("wider than a phone: the full header returns", (await vis(".kit-head .kit-lang")) && (await vis(".kit-tabs #cur-switch")) && !(await page.$("#period-bar")));
+    check("phone: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
   await browser.close();
   console.log(results.join("\n"));
   console.log("\n" + pass + " passed, " + fail + " failed");

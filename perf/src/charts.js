@@ -28,7 +28,7 @@ function chartLegend(items) {
    v is the filled bar; v2, when given, is the outlined bar beside it (last year). off greys a bar out (a month not
    yet in the period). */
 function barChart(o) {
-  const W = o.width || 960, H = o.height || 240, L = 8, R = 8, T = 14, B = 30, two = o.rows.some((r) => r.v2 !== undefined && r.v2 !== null);
+  const W = chartW(o.width || 960), H = isPhone() ? 200 : o.height || 240, L = 8, R = 8, T = 14, B = 30, two = o.rows.some((r) => r.v2 !== undefined && r.v2 !== null);
   const max = Math.max(1, ...o.rows.map((r) => Math.max(Number(r.v) || 0, Number(r.v2) || 0)));
   const step = (W - L - R) / Math.max(1, o.rows.length), bw = Math.min(two ? 22 : 40, step * (two ? 0.34 : 0.6));   // a half-width chart is drawn on a half-width canvas, so its labels keep their size
   const y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
@@ -53,7 +53,7 @@ function barChart(o) {
 /* lineChart({ id, title, labels: [..], series: [{ cls, name, values: [number|null] }], tip: (i) => [lines] })
    Up to three lines over the same points; a null ends a line (months not reached yet). */
 function lineChart(o) {
-  const W = 960, H = 260, L = 8, R = 8, T = 14, B = 30, n = o.labels.length;
+  const W = chartW(960), H = isPhone() ? 200 : 260, L = 8, R = 8, T = 14, B = 30, n = o.labels.length;
   const max = Math.max(1, ...o.series.flatMap((s) => s.values.map((v) => Number(v) || 0)));
   const step = (W - L - R) / Math.max(1, n), x = (i) => L + step * i + step / 2, y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
   const wrap = el("div", { class: "chart", id: o.id });
