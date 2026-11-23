@@ -653,6 +653,7 @@ async function refreshBehind() {
     renderScoreboard(); renderProgress();
   } catch (e) { /* the list reload below reports trouble */ }
   if (S.view === "insights") loadInsights(); else S.ins = null;
+  if (S.view === "cockpit") loadCockpit(); else S.ck = null;
   if (S.view === "data") loadData(); else S.dh = null;
   loadList();
 }
@@ -1918,7 +1919,7 @@ function lockDown(message) {
   pref(IDLE_KEY, null);
   S.locked = true;
   S.ref = null; S.stats = null; S.rows = skeleton(); S.total = 0;
-  S.ins = null; S.insError = null;
+  S.ins = null; S.insError = null; S.ck = null;
   S.dh = null; S.dhError = null; S.imports = null; S.imp = null; S.impId = null; S.impError = null; S.confirm = null;
   S.recentRows = null;
   if (S.navOpen) closeNav(true);
@@ -1964,6 +1965,10 @@ function renderAll(gateMessage) {
     app.append(header(), el("main", {}, [el("div", { class: "ins", id: "ins-host" })]));
     renderInsights();
     if (!S.ins && !S.insLoading) loadInsights();
+  } else if (S.view === "cockpit" && !S.locked) {
+    app.append(header(), el("main", {}, [el("div", { class: "ins ck", id: "cockpit-host" })]));
+    renderCockpit();
+    if (!S.ck) loadCockpit();
   } else if (S.view === "data" && !S.locked) {
     app.append(header(), el("main", {}, [el("div", { class: "ins dat", id: "data-host" })]));
     renderData();
