@@ -3,14 +3,14 @@
 --   perf_year(year)      the year month by month, to date against the same months last year and against plan
 --   perf_brands(from,to) net sales, units and discount by brand for a period, last year beside it, what is on hand,
 --                        and what arrived
---   perf_arrivals        arrivals by brand and year as Colibri's arrival report gives them (units and retail value in
---                        USD, with what was sold from them and what is left). The report has no dates inside the year.
+--   perf_arrivals        arrivals by brand and month as Colibri's arrival report gives them (units and retail value in
+--                        USD, with what was sold from them to date and what is left)
 --
 -- Same rules as perf_1: security definer, pinned search_path, no execute for public/anon/authenticated; tables RLS on,
 -- no policies.
 
 create table public.perf_arrivals (
-  year        int not null check (year between 2000 and 2100),
+  month       date not null check (extract(day from month) = 1),
   brand       text not null check (btrim(brand) <> ''),
   units       int not null default 0,
   rrp_usd     numeric(16,2) not null default 0,   -- retail value of what arrived, USD
@@ -18,7 +18,7 @@ create table public.perf_arrivals (
   left_units  int not null default 0,
   source      text,
   loaded_at   timestamptz not null default now(),
-  primary key (year, brand)
+  primary key (month, brand)
 );
 alter table public.perf_arrivals enable row level security;
 revoke all on table public.perf_arrivals from public, anon, authenticated;
@@ -31,13 +31,13 @@ begin
   if not ops_has_right(p_actor, 'view_performance') then raise exception 'Your account cannot open Performance.'; end if;
   if jsonb_typeof(p->'rows') <> 'array' or jsonb_array_length(p->'rows') = 0 then raise exception 'No arrival rows were sent.'; end if;
   delete from perf_arrivals where true;
-  insert into perf_arrivals(year, brand, units, rrp_usd, sold_units, left_units, source)
-  -- one line per year and brand, whatever the spelling of the brand in the rows
-  select (r->>'year')::int, max(btrim(r->>'brand')), sum(coalesce((r->>'units')::int, 0)), sum(coalesce((r->>'rrp_usd')::numeric, 0)),
+  insert into perf_arrivals(month, brand, units, rrp_usd, sold_units, left_units, source)
+  -- one line per month and brand, whatever the spelling of the brand in the rows
+  select ((r->>'month') || '-01')::date, max(btrim(r->>'brand')), sum(coalesce((r->>'units')::int, 0)), sum(coalesce((r->>'rrp_usd')::numeric, 0)),
          sum(coalesce((r->>'sold_units')::int, 0)), sum(coalesce((r->>'left_units')::int, 0)), p->>'source'
     from jsonb_array_elements(p->'rows') r
    where btrim(coalesce(r->>'brand', '')) <> ''
-   group by (r->>'year')::int, lower(btrim(r->>'brand'));
+   group by ((r->>'month') || '-01')::date, lower(btrim(r->>'brand'));
   get diagnostics n = row_count;
   insert into perf_input_log(actor, what, ref, new) values (p_actor, 'arrivals', p->>'source', jsonb_build_object('rows', n));
   return n;
@@ -108,7 +108,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
       from ops_pieces o where o.store_id = p_store and o.state not in ('sold', 'not_received') group by 1
   ), ar as (
     select lower(btrim(a.brand)) k, max(a.brand) brand, sum(a.units) units, sum(a.rrp_usd) rrp_usd, sum(a.sold_units) sold_units, sum(a.left_units) left_units
-      from perf_arrivals a where a.year between extract(year from p_from)::int and extract(year from (p_to - 1))::int group by 1
+      from perf_arrivals a where a.month >= p_from and a.month < p_to group by 1
   ), keys as (select k from s union select k from st union select k from ar),
   tot as (select coalesce(sum(net), 0) net from s)
   select jsonb_build_object(
@@ -128,7 +128,11 @@ language sql stable security definer set search_path = public, pg_temp as $$
       from keys left join s on s.k = keys.k left join st on st.k = keys.k left join ar on ar.k = keys.k), '[]'::jsonb),
     -- arrivals by year, all brands together, for the chart
     'arrival_years', coalesce((select jsonb_agg(jsonb_build_object('year', y.year, 'units', y.units, 'rrp_usd', y.rrp_usd, 'sold_units', y.sold_units, 'left_units', y.left_units) order by y.year)
-        from (select year, sum(units) units, sum(rrp_usd) rrp_usd, sum(sold_units) sold_units, sum(left_units) left_units from perf_arrivals group by year) y), '[]'::jsonb),
+        from (select extract(year from month)::int as year, sum(units) units, sum(rrp_usd) rrp_usd, sum(sold_units) sold_units, sum(left_units) left_units from perf_arrivals group by 1) y), '[]'::jsonb),
+    -- arrivals month by month through the year of the period, all brands together
+    'arrival_months', (select jsonb_agg(jsonb_build_object('month', g.m, 'units', coalesce(a.units, 0), 'rrp_usd', coalesce(a.rrp_usd, 0), 'sold_units', coalesce(a.sold_units, 0), 'left_units', coalesce(a.left_units, 0)) order by g.m)
+        from (select (date_trunc('year', p_from) + make_interval(months => i))::date m from generate_series(0, 11) i) g
+        left join (select month, sum(units) units, sum(rrp_usd) rrp_usd, sum(sold_units) sold_units, sum(left_units) left_units from perf_arrivals group by month) a on a.month = g.m),
     -- what is on hand today, by the month it arrived, where the arrival date is known
     'on_hand_by_arrival', jsonb_build_object(
       'unknown', (select count(*) from ops_pieces o left join ops_receipts r on r.receipt_id = o.receipt_id

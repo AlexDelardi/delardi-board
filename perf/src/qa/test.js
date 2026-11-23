@@ -453,13 +453,23 @@ async function shot(page, name, full) {
     await page.hover('#br-chart g.bar[data-key="Zz Brand"]');
     check("brands: tooltip", norm(await page.textContent(".chart-tip")) === "Zz BrandNet sales: 40 000 000 so'mLast year: 190 000 000 so'mShare: 19.1%", norm(await page.textContent(".chart-tip")));
     await page.mouse.move(5, 5);
-    check("arrivals: said to be an estimate, by year, with what sold from them", /best estimate/.test(await page.textContent("#arr-note")) && (await page.$$eval("#arr-chart g.bar", (gs) => gs.map((g) => g.dataset.key))).join() === "2030,2031");
-    check("arrivals: by brand for the year of the period, largest value first", (await cells(page, "#arr-table thead tr"))[0][1] === "Arrived in 2031, units"
+    check("arrivals: by month through the year and by year, with what sold from them", /by date of arrival/.test(await page.textContent("#arr-note")) && (await page.$$eval("#arr-chart g.bar", (gs) => gs.map((g) => g.dataset.key))).join() === "2030,2031"
+      && (await page.$$("#arr-chart-months g.bar")).length === 12 && await page.evaluate(() => !!document.querySelector('#arr-chart-months g.bar[data-key="2031-10"] .mark') && !document.querySelector('#arr-chart-months g.bar[data-key="2031-09"] .mark')));
+    await page.hover('#arr-chart-months g.bar[data-key="2031-10"]');
+    check("arrivals: a month's tooltip", norm(await page.textContent(".chart-tip")) === "October 2031Arrived: 18Sold from them: 4Still on hand from them: 14Arrived, retail value, USD: $168 000", norm(await page.textContent(".chart-tip")));
+    await page.mouse.move(5, 5);
+    check("arrivals: by brand for the period on screen, largest value first", (await cells(page, "#arr-table thead tr"))[0][1] === "Arrived in October 2031, units"
       && (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join(" / ") === "Zz Brand|12|120 000|2|17%|10 / Zz Other|6|48 000|2|33%|4" && (await cells(page, "#arr-total"))[0].slice(0, 3).join("|") === "All brands|18|168 000",
       (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join(" / "));
     check("on hand by year of arrival, with the unknown ones named", (await cells(page, "#onhand-table tbody tr")).map((r) => r.join("|")).join(" / ") === "2030|4 / 2031|14 / Arrival date not known|3");
     check("brands 1024: no sideways scroll", await noHScroll(page));
     await shot(page, "p06-brands", true);
+    // a month with no arrivals says so
+    await page.click("#month-prev");
+    await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "m2031-09");
+    check("arrivals: a month with none says so", /Nothing arrived in this period/.test(await page.textContent("#arr-table")) && /No sales in this period/.test(await page.textContent("#screen-brands")));
+    await page.click("#month-next");
+    await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "m2031-10");
     // the year
     await page.click('#brand-mode button[data-mode="year"]');
     await page.waitForFunction(() => S.brandMode === "year" && S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "y2031");
@@ -472,7 +482,7 @@ async function shot(page, name, full) {
     check("brands: the period choice survives a reload", (await pressed()) === "Month:false|Year:true");
     await page.click('.kit-lang button[lang="ru"]');
     await page.waitForFunction(() => /Бренды, 2030/.test(document.querySelector("#screen-brands .title").textContent));
-    check("brands RU", /Поступления/.test(await page.textContent("#screen-brands")) && /оценка/.test(await page.textContent("#arr-note")) && (await page.$$eval("#brand-mode button", (b) => b.map((x) => x.textContent.trim()))).join() === "Месяц,Год");
+    check("brands RU", /Поступления/.test(await page.textContent("#screen-brands")) && /по дате прихода/.test(await page.textContent("#arr-note")) && (await page.$$eval("#brand-mode button", (b) => b.map((x) => x.textContent.trim()))).join() === "Месяц,Год");
     check("brands: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });

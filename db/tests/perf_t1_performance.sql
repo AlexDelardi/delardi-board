@@ -212,14 +212,17 @@ begin
   assert b->'brands'->0->>'brand' = 'Zz Other' and (select (x2->>'ly_net')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = 190000000, 'largest brand first, last year beside it: ' || (b->'brands'->0)::text;
   assert (select round(sum((x2->>'share')::numeric), 2) from jsonb_array_elements(b->'brands') x2 where (x2->>'net')::numeric <> 0) = 1.00, 'shares add up';
   -- arrivals: loaded whole, summed by brand and year, shown for the year of the period
-  begin perform perf_load_arrivals('{"rows":[{"year":2031,"brand":"Zz Brand","units":1}]}', 'Karina'); assert false, 'not reached';
+  begin perform perf_load_arrivals('{"rows":[{"month":"2031-10","brand":"Zz Brand","units":1}]}', 'Karina'); assert false, 'not reached';
   exception when raise_exception then assert sqlerrm = 'Your account cannot open Performance.', sqlerrm; end;
-  assert perf_load_arrivals('{"source":"zz.xlsx","rows":[{"year":2031,"brand":"Zz Brand","units":3,"rrp_usd":9000,"sold_units":1,"left_units":2},{"year":2031,"brand":"zz brand ","units":2,"rrp_usd":1000,"sold_units":2,"left_units":0},{"year":2030,"brand":"Zz Other","units":4,"rrp_usd":500,"sold_units":0,"left_units":4}]}', 'Alex') = 2, 'rows are summed by year and brand';
+  assert perf_load_arrivals('{"source":"zz.xlsx","rows":[{"month":"2031-10","brand":"Zz Brand","units":3,"rrp_usd":9000,"sold_units":1,"left_units":2},{"month":"2031-10","brand":"zz brand ","units":2,"rrp_usd":1000,"sold_units":2,"left_units":0},{"month":"2031-03","brand":"Zz Focus","units":7,"rrp_usd":700,"sold_units":0,"left_units":7},{"month":"2030-05","brand":"Zz Other","units":4,"rrp_usd":500,"sold_units":0,"left_units":4}]}', 'Alex') = 3, 'rows are summed by month and brand';
   b := perf_brands('2031-10-01', '2031-11-01');
   assert (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = '5'
      and (select (x2->>'arr_rrp_usd')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = 10000
-     and (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Other') is null, 'arrivals of the period''s year, matched to the brand whatever its spelling';
-  assert jsonb_array_length(b->'arrival_years') = 2 and (b->'arrival_years'->0->>'year')::int = 2030 and (b->'total'->>'arr_units')::int = 5, 'arrivals by year';
+     and (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Other') is null
+     and (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Focus') is null, 'arrivals of the month on screen only, matched to the brand whatever its spelling';
+  assert jsonb_array_length(b->'arrival_years') = 2 and (b->'arrival_years'->0->>'year')::int = 2030 and (b->'arrival_years'->1->>'units')::int = 12 and (b->'total'->>'arr_units')::int = 5, 'arrivals by year';
+  assert jsonb_array_length(b->'arrival_months') = 12 and (b->'arrival_months'->2->>'units')::int = 7 and (b->'arrival_months'->9->>'units')::int = 5 and (b->'arrival_months'->0->>'units')::int = 0, 'arrivals month by month through the year';
+  assert (select (x2->>'arr_units')::int from jsonb_array_elements(perf_brands('2031-01-01', '2032-01-01')->'brands') x2 where x2->>'brand' = 'Zz Focus') = 7, 'the year takes every month of it';
   assert (b->'on_hand_by_arrival'->>'unknown') is not null and jsonb_typeof(b->'on_hand_by_arrival'->'years') = 'array', 'what is on hand, by arrival year';
 end $$;
 rollback;

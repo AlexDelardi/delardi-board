@@ -140,7 +140,8 @@ function brandsDoc(body) {
   const B = (brand, n, ly, units, stock, value, arr) => ({ brand, net: n, share: net ? Math.round(n / net * 10000) / 10000 : null, discount_pct: n ? 0.02 : null, units, tickets: units,
     asp: units ? Math.round(n / units) : null, ly_net: ly, ly_units: ly ? 1 : 0, stock_units: stock, stock_value: value,
     arr_units: arr ? arr[0] : null, arr_rrp_usd: arr ? arr[1] : null, arr_sold_units: arr ? arr[2] : null, arr_left_units: arr ? arr[3] : null });
-  const a31 = y === 2031, a30 = y === 2030;
+  // arrivals fall in October 2031 (and in 2030 for the year view): a month other than those has none
+  const a31 = isYear ? y === 2031 : ym === "2031-10", a30 = isYear && y === 2030;
   const brands = on ? [B("Zz Other", net - 60000000, 0, 3, 4, 96000000, a31 ? [6, 48000, 2, 4] : null), B("Zz Brand", 40000000, 190000000, 1, 10, 240000000, a31 ? [12, 120000, 2, 10] : null),
     B("Zz Focus", 20000000, 0, 1, 2, 60000000, null), B("Zz Sleeping House", 0, 0, 0, 5, 300000000, null)]
     : [B("Zz Brand", 0, 0, 0, 10, 240000000, a30 ? [3, 30000, 3, 0] : a31 ? [12, 120000, 2, 10] : null), B("Zz Other", 0, 0, 0, 4, 96000000, a31 ? [6, 48000, 2, 4] : null),
@@ -148,6 +149,8 @@ function brandsDoc(body) {
   const au = brands.reduce((s2, b) => s2 + (b.arr_units || 0), 0), av = brands.reduce((s2, b) => s2 + (b.arr_rrp_usd || 0), 0);
   return { from: isYear ? y + "-01-01" : ym + "-01", to: "x", total: { net, units: on ? 5 : 0, ly_net: on ? 190000000 : 0, stock_units: 21, stock_value: 696000000, arr_units: au, arr_rrp_usd: av },
     brands, arrival_years: [{ year: 2030, units: 3, rrp_usd: 30000, sold_units: 3, left_units: 0 }, { year: 2031, units: 18, rrp_usd: 168000, sold_units: 4, left_units: 14 }],
+    arrival_months: Array.from({ length: 12 }, (_, i) => { const m = y + "-" + String(i + 1).padStart(2, "0"), hit = m === "2031-10" ? [18, 168000, 4, 14] : m === "2030-05" ? [3, 30000, 3, 0] : [0, 0, 0, 0];
+      return { month: m + "-01", units: hit[0], rrp_usd: hit[1], sold_units: hit[2], left_units: hit[3] }; }),
     on_hand_by_arrival: { unknown: 3, years: [{ year: 2030, units: 4 }, { year: 2031, units: 14 }] } };
 }
 const count = (v, f, max) => {

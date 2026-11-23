@@ -1,16 +1,15 @@
 /* Delardi Performance — brands.js
    Brands for the month on screen or for the year: sales, share, last year, what is on hand, and what arrived.
-   Arrivals come from Colibri's arrival report, which gives the year of arrival but no date inside it, so they are
-   shown by year. One document per period (perf_brands). */
+   Arrivals come from Colibri's arrival report, by the date of arrival. One document per period (perf_brands). */
 Object.assign(RU, {
   "Brands": "Бренды", "Brands, {p}": "Бренды, {p}", "Loading the brands…": "Загружаем бренды…", "Period": "Период",
   "Net sales by brand": "Чистые продажи по брендам", "Brand": "Бренд", "Share": "Доля", "Units": "Штук", "Average item": "Средняя цена изделия",
   "On hand, units": "В наличии, шт.", "On hand, retail value": "В наличии, по розничной цене", "No sales in this period.": "За этот период продаж нет.",
-  "All brands": "Все бренды", "Arrivals": "Поступления", "Arrived in {y}, units": "Поступило в {y}, шт.", "Arrived, retail value, USD": "Поступило, по розничной цене, USD",
+  "All brands": "Все бренды", "Arrivals": "Поступления", "Arrived in {p}, units": "Поступило за {p}, шт.", "Arrivals by month, {y}, units": "Поступления по месяцам, {y}, шт.", "Nothing arrived in this period.": "За этот период поступлений не было.", "Arrived, retail value, USD": "Поступило, по розничной цене, USD",
   "Sold from them": "Из них продано", "Still on hand from them": "Из них в наличии", "Sold from them, %": "Продано из них, %",
   "Arrivals by year, units": "Поступления по годам, шт.", "Arrived": "Поступило", "Sold from them, units": "Из них продано, шт.",
-  "Arrivals are a best estimate: Colibri's arrival report gives the year a piece arrived, not the date. Values are retail prices in USD as Colibri holds them.":
-    "Поступления — оценка: отчёт Colibri даёт год поступления, но не дату. Суммы — розничные цены в USD, как в Colibri.",
+  "From Colibri's arrival report, by date of arrival. Values are retail prices in USD as Colibri holds them. Sold from them counts sales up to the day the report was taken.":
+    "По отчёту Colibri о поступлениях, по дате прихода. Суммы — розничные цены в USD, как в Colibri. «Из них продано» — продажи на дату отчёта.",
   "No arrival figures are loaded yet.": "Данные о поступлениях ещё не загружены.",
   "What is on hand today, by year of arrival": "Что в наличии сегодня, по году поступления", "Arrival date not known": "Дата поступления неизвестна", "Year of arrival": "Год поступления",
   "Top brand": "Первый бренд", "{p} of sales": "{p} продаж", "Brands sold": "Брендов с продажами", "of {n} on hand": "из {n} в наличии", "retail value {v}": "по розничной цене: {v}",
@@ -60,16 +59,19 @@ function renderBrands(main) {
   sec.append(el("h2", { class: "section", text: tr("Arrivals") }));
   if (!d.arrival_years.length) { sec.append(el("p", { class: "small", id: "arr-none", text: tr("No arrival figures are loaded yet.") })); }
   else {
-    sec.append(el("p", { class: "small", id: "arr-note", text: tr("Arrivals are a best estimate: Colibri's arrival report gives the year a piece arrived, not the date. Values are retail prices in USD as Colibri holds them.") }),
-      barChart({ id: "arr-chart", title: tr("Arrivals by year, units"), legend: [tr("Arrived"), tr("Sold from them, units")], height: 220,
-        rows: d.arrival_years.map((y) => ({ key: String(y.year), label: String(y.year), v: num(y.units) || 0, v2: num(y.sold_units) || 0,
-          tip: [String(y.year), tr("Arrived") + ": " + fmtNum(y.units), tr("Sold from them") + ": " + fmtNum(y.sold_units), tr("Still on hand from them") + ": " + fmtNum(y.left_units),
-            tr("Arrived, retail value, USD") + ": $" + fmtUZS(y.rrp_usd)] })) }));
+    const tipOf = (name, y) => [name, tr("Arrived") + ": " + fmtNum(y.units), tr("Sold from them") + ": " + fmtNum(y.sold_units), tr("Still on hand from them") + ": " + fmtNum(y.left_units),
+      tr("Arrived, retail value, USD") + ": $" + fmtUZS(y.rrp_usd)];
+    sec.append(el("p", { class: "small", id: "arr-note", text: tr("From Colibri's arrival report, by date of arrival. Values are retail prices in USD as Colibri holds them. Sold from them counts sales up to the day the report was taken.") }),
+      el("div", { class: "chart-pair" },
+        barChart({ id: "arr-chart-months", title: tr("Arrivals by month, {y}, units", { y: year }), legend: [tr("Arrived"), tr("Sold from them, units")], height: 220, width: 480,
+          rows: (d.arrival_months || []).map((m) => ({ key: String(m.month).slice(0, 7), label: monthName(m.month, true).split(" ")[0], v: num(m.units) || 0, v2: num(m.sold_units) || 0, tip: tipOf(monthName(m.month), m) })) }),
+        barChart({ id: "arr-chart", title: tr("Arrivals by year, units"), legend: [tr("Arrived"), tr("Sold from them, units")], height: 220, width: 480,
+          rows: d.arrival_years.map((y) => ({ key: String(y.year), label: String(y.year), v: num(y.units) || 0, v2: num(y.sold_units) || 0, tip: tipOf(String(y.year), y) })) })));
     const arr = d.brands.filter((b) => num(b.arr_units) > 0).sort((a, b) => (num(b.arr_rrp_usd) || 0) - (num(a.arr_rrp_usd) || 0));
     sec.append(el("div", { class: "table-wrap" }, el("table", { class: "tbl trend", id: "arr-table" },
-      el("thead", {}, el("tr", {}, [[tr("Brand"), ""], [tr("Arrived in {y}, units", { y: year }), "r"], [tr("Arrived, retail value, USD"), "r"], [tr("Sold from them"), "r"], [tr("Sold from them, %"), "r"], [tr("Still on hand from them"), "r"]]
+      el("thead", {}, el("tr", {}, [[tr("Brand"), ""], [tr("Arrived in {p}, units", { p: label }), "r"], [tr("Arrived, retail value, USD"), "r"], [tr("Sold from them"), "r"], [tr("Sold from them, %"), "r"], [tr("Still on hand from them"), "r"]]
         .map(([h, c2]) => el("th", { scope: "col", class: c2 || null, text: h })))),
-      el("tbody", {}, arr.map((b) => el("tr", { "data-brand": b.brand }, el("th", { scope: "row", text: b.brand }), cell(fmtNum(b.arr_units)), cell(fmtUZS(b.arr_rrp_usd)),
+      el("tbody", {}, !arr.length ? [el("tr", { id: "arr-empty" }, el("td", { colspan: "6", class: "small", text: tr("Nothing arrived in this period.") }))] : arr.map((b) => el("tr", { "data-brand": b.brand }, el("th", { scope: "row", text: b.brand }), cell(fmtNum(b.arr_units)), cell(fmtUZS(b.arr_rrp_usd)),
         cell(fmtNum(b.arr_sold_units)), cell(fmtPct(num(b.arr_units) ? num(b.arr_sold_units) / num(b.arr_units) : null, 0)), cell(fmtNum(b.arr_left_units))))),
       el("tfoot", {}, el("tr", { id: "arr-total" }, el("th", { scope: "row", text: tr("All brands") }), cell(fmtNum(t.arr_units)), cell(fmtUZS(t.arr_rrp_usd)), cell("—"), cell("—"), cell("—"))))));
   }
