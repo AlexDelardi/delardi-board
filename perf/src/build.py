@@ -36,6 +36,10 @@ js = js.replace(MARK, '\n'.join(parts) + '\n' + MARK)
 TOKENS = {
     '__WORDMARK__': uri('wordmark_white.svg'),   # vector master, DELARDI alone (crisp at header size)
     '__FAVICON__': uri('favicon.png'),
+    # seasonal decorations (brand/christmas, from the Design folder): shown 1 December to 14 January only
+    '__XMAS_SPRIG__': uri('christmas/fir-sprig.png'),
+    '__XMAS_FLAKE__': uri('christmas/geometric-snowflake.png'),
+    '__XMAS_MINI__': uri('christmas/mini-snowflake.png'),
 }
 for k, v in TOKENS.items():
     t = t.replace(k, v)

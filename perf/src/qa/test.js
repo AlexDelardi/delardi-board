@@ -40,7 +40,10 @@ async function setup(browser, viewport, opts = {}) {
     foreign.push(u);
     return r.fulfill({ status: 404, body: "" });
   });
-  await page.goto(PAGE_URL + (opts.hash || ""));
+  // The seasonal decoration follows the calendar. Every test runs with it switched off by the address, so the suite
+  // reads the same all year; the season's own tests set the browser's date (opts.now) and leave the address alone.
+  if (opts.now) await page.clock.setFixedTime(new Date(opts.now));
+  await page.goto(PAGE_URL + (opts.query === undefined ? "?season=off" : opts.query) + (opts.hash || ""));
   if (opts.login !== false) { await login(page, opts.pass || "demo"); await loaded(page); }
   return { ctx, page, errors, foreign };
 }
@@ -566,6 +569,48 @@ async function shot(page, name, full) {
     await page.waitForFunction(() => !document.querySelector("#menu-btn"));
     check("wider than a phone: the full header returns", (await vis(".kit-head .kit-lang")) && (await vis(".kit-tabs #cur-switch")) && !(await page.$("#period-bar")));
     check("phone: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("season", async () => {
+    // off unless it is the season or the preview is asked for
+    let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-11-20T09:00:00" });
+    check("season: nothing is added outside the season", !(await page.$(".season-mark")));
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-12-10T09:00:00" }));
+    check("season: in December it is on by itself", (await page.$$(".season-mark img")).length === 1 && errors.length === 0, errors.join(" | "));
+    check("season: 1 December to 14 January", await page.evaluate(() => seasonFor(new Date(2026, 11, 1)) === "christmas" && seasonFor(new Date(2027, 0, 14)) === "christmas"
+      && seasonFor(new Date(2027, 0, 15)) === null && seasonFor(new Date(2026, 10, 30)) === null && seasonFor(new Date(2026, 11, 31)) === "christmas"));
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "?season=christmas" }));
+    const marks = () => page.$$eval(".season-mark img", (is) => is.map((i) => { const r = i.getBoundingClientRect(); return { k: i.dataset.k, alt: i.getAttribute("alt"), w: Math.round(r.width), h: Math.round(r.height), pe: getComputedStyle(i).pointerEvents }; }));
+    // the decoration touches no text, control or figure
+    const clear = () => page.evaluate(() => { const m = document.querySelector(".season-mark"); if (!m) return true; const a = m.getBoundingClientRect();
+      const hit = (b) => !(b.right <= a.left || b.left >= a.right || b.bottom <= a.top || b.top >= a.bottom);
+      const rng = document.createRange(); rng.selectNodeContents(document.querySelector("main .title"));
+      return !hit(rng.getBoundingClientRect()) && [...document.querySelectorAll("main button, main select, main input, main table, main .hl, main .chart, main p, .top")].every((n) => !hit(n.getBoundingClientRect())); });
+    let m = await marks();
+    check("season month: one fir sprig at its display size, decorative only", m.length === 1 && m[0].k === "sprig" && m[0].w === 128 && m[0].h === 56 && m[0].alt === "" && m[0].pe === "none"
+      && (await page.getAttribute(".season-mark", "aria-hidden")) === "true", JSON.stringify(m));
+    check("season month: clear of the title, controls and figures", await clear());
+    await shot(page, "p12-month-season");
+    for (const r of ["year", "brands", "incentive"]) {
+      await page.click("#tab-" + r); await page.waitForSelector("#screen-" + r); await page.waitForTimeout(150);
+      m = await marks();
+      check("season " + r + ": one small snowflake accent, clear of everything", m.length === 2 && m[0].k === "flake" && m[0].w === 20 && m[1].k === "mini" && m[1].w === 14 && (await clear()), JSON.stringify(m));
+    }
+    await shot(page, "p13-brands-season");
+    await page.click("#tab-inputs"); await page.waitForSelector("#screen-inputs");
+    check("season inputs: a working form carries no decoration", !(await page.$(".season-mark")));
+    // a phone: the sprig steps aside for the small accent
+    await page.setViewportSize({ width: 390, height: 844 }); await page.waitForSelector("#menu-btn");
+    await page.click("#tab-month"); await page.waitForSelector("#screen-month"); await page.waitForTimeout(150);
+    m = await marks();
+    check("season phone: the small accent only, and the page still fits", m.length === 2 && m[0].k === "flake" && (await clear()) && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), JSON.stringify(m));
+    await shot(page, "p14-month-season-phone");
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "?season=off" }));
+    check("season: can be switched off by the address", !(await page.$(".season-mark")) && errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
