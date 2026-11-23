@@ -11,7 +11,7 @@ const LOGO_WORDMARK = "__WORDMARK__";
    only: empty alt text, hidden from screen readers, never clickable, clear of text, controls and figures; on a phone
    the sprig steps aside for the snowflake. The address can force it for a preview (?season=christmas) or switch it
    off (?season=off). */
-const SEASON_ART = { sprig: ["__XMAS_SPRIG__", 96, 42], flake: ["__XMAS_FLAKE__", 20, 20], mini: ["__XMAS_MINI__", 14, 14] };
+const SEASON_ART = { sprig: ["__XMAS_SPRIG__", 128, 56], flake: ["__XMAS_FLAKE__", 20, 20], mini: ["__XMAS_MINI__", 14, 14] };
 function seasonFor(d) { const m = d.getMonth(), day = d.getDate(); return m === 11 || (m === 0 && day <= 14) ? "christmas" : null; }
 const SEASON = (() => { const q = new URLSearchParams(location.search).get("season"); return q === "off" ? null : q === "christmas" ? "christmas" : seasonFor(new Date()); })();
 function seasonMark(routeName) {

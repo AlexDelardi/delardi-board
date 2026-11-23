@@ -584,7 +584,7 @@ async function shot(page, name, full) {
       const rng = document.createRange(); rng.selectNodeContents(document.querySelector("main .title"));
       return !hit(rng.getBoundingClientRect()) && [...document.querySelectorAll("main button, main select, main input, main table, main .hl, main .chart, main p, .top")].every((n) => !hit(n.getBoundingClientRect())); });
     let m = await marks();
-    check("season month: one fir sprig at its display size, decorative only", m.length === 1 && m[0].k === "sprig" && m[0].w === 96 && m[0].h === 42 && m[0].alt === "" && m[0].pe === "none"
+    check("season month: one fir sprig at its display size, decorative only", m.length === 1 && m[0].k === "sprig" && m[0].w === 128 && m[0].h === 56 && m[0].alt === "" && m[0].pe === "none"
       && (await page.getAttribute(".season-mark", "aria-hidden")) === "true", JSON.stringify(m));
     check("season month: clear of the title, controls and figures", await clear());
     await shot(page, "p12-month-season");
