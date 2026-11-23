@@ -56,6 +56,12 @@ begin
        = 'ZZC-1:two_days:3,ZZC-3:two_weeks:16', 'follow-ups by stage; a client approached since the purchase is not listed: ' || (d->'follow_ups')::text;
   assert ((select z from jsonb_array_elements(d->'follow_ups') z where z->>'client_id' = 'ZZC-3')->>'net')::numeric = 25000000, 'the purchase being followed up';
 
+  -- a message on the day of the purchase is the follow-up; the visit in which it was bought is not
+  insert into crm_contacts(client_id, contacted_on, by_name, channel, created_by) values ('ZZC-1', t - 3, 'Zz Ann', 'visit', 'Zz Ann');
+  assert (select count(*) from jsonb_array_elements(crm_cockpit('Zz Ann', t)->'follow_ups') z where z->>'client_id' = 'ZZC-1') = 1, 'the purchase visit itself does not close the follow-up';
+  insert into crm_contacts(client_id, contacted_on, by_name, channel, created_by) values ('ZZC-1', t - 3, 'Zz Ann', 'telegram', 'Zz Ann');
+  assert (select count(*) from jsonb_array_elements(crm_cockpit('Zz Ann', t)->'follow_ups') z where z->>'client_id' = 'ZZC-1') = 0, 'a thank-you sent the same day closes it';
+
   -- open requests of her clients only
   assert jsonb_array_length(d->'missed') = 1 and d->'missed'->0->>'client_id' = 'ZZC-2' and d->'missed'->0->>'excerpt' = 'asked for a ring', 'open requests: ' || (d->'missed')::text;
 

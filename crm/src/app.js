@@ -1797,7 +1797,7 @@ function lockDown(message) {
   pref(IDLE_KEY, null);
   S.locked = true;
   S.ref = null; S.stats = null; S.rows = skeleton(); S.total = 0;
-  S.ins = null; S.insError = null; S.ck = null;
+  S.ins = null; S.insError = null; ckForget();
   S.recentRows = null;
   if (S.navOpen) closeNav(true);
   if (S.cardId) closeCard(true);
