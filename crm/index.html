@@ -1419,6 +1419,10 @@ body.split table.clients td.col-contact { display: none; }
     scroll-behavior: auto !important;
   }
 }
+/* The details table keeps its Edit buttons at every width: the rule that folded the old comparison table's status
+   column away on a phone must not hide them. */
+table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
+table.compare.details td.st .btn { display: inline-flex; margin-top: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
