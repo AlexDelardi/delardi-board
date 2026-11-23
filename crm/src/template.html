@@ -1480,6 +1480,10 @@ table.compare.details th, table.compare.details td { vertical-align: middle; pad
 table.compare.details th.f { width: 34%; text-align: left; }
 table.compare.details td.st { text-align: right; white-space: nowrap; }
 table.compare.details .btn { min-height: var(--tap); }
+/* The details table keeps its Edit buttons at every width: the rule that folded the old comparison table's status
+   column away on a phone must not hide them. */
+table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
+table.compare.details td.st .btn { display: inline-flex; margin-top: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>

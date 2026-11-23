@@ -1480,6 +1480,10 @@ table.compare.details th, table.compare.details td { vertical-align: middle; pad
 table.compare.details th.f { width: 34%; text-align: left; }
 table.compare.details td.st { text-align: right; white-space: nowrap; }
 table.compare.details .btn { min-height: var(--tap); }
+/* The details table keeps its Edit buttons at every width: the rule that folded the old comparison table's status
+   column away on a phone must not hide them. */
+table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
+table.compare.details td.st .btn { display: inline-flex; margin-top: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
@@ -3282,7 +3286,7 @@ function lockDown(message) {
   pref(IDLE_KEY, null);
   S.locked = true;
   S.ref = null; S.stats = null; S.rows = skeleton(); S.total = 0;
-  S.ins = null; S.insError = null; S.ck = null;
+  S.ins = null; S.insError = null; ckForget();
   S.recentRows = null;
   if (S.navOpen) closeNav(true);
   if (S.cardId) closeCard(true);
@@ -4236,6 +4240,8 @@ PL.year = PL.year || { en: ["year", "years"], ru: ["год", "года", "лет
 const CK_KINDS = { birthday: "Birthday", anniversary: "Anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Date" };
 const CK_STAGES = { two_days: "Thank-you", two_weeks: "Check-in", two_months: "Next idea" };
 let ckSeq = 0;
+// Locking drops whatever is still on its way: the next person must never be shown the last one's cockpit.
+function ckForget() { ckSeq++; S.ck = null; }
 function ckIsOwn() { return !!(S.ref && S.ref.my_rep); }
 async function loadCockpit(rep) {
   const seq = ++ckSeq;
@@ -4245,12 +4251,12 @@ async function loadCockpit(rep) {
     const d = await call("cockpit", S.ck.rep ? { rep: S.ck.rep } : {});
     if (seq !== ckSeq) return;
     let mine = null;
-    if (d.rep) mine = await call("clients", { type: "client", client_owner: d.rep, order_by: "spend", dir: "desc", limit: 25, offset: 0 });
-    if (seq !== ckSeq) return;
+    if (d.rep) mine = await call("clients", { record_type: "client", client_owner: d.rep, order_by: "spend", dir: "desc", limit: 25, offset: 0 });
+    if (seq !== ckSeq || S.locked) return;        // locked meanwhile: this answer belongs to the session that left
     S.ck = { loading: false, rep: d.rep, doc: d, mine, error: null };
   } catch (e) {
-    if (seq !== ckSeq) return;
-    S.ck = { loading: false, rep: S.ck.rep, doc: null, error: e.message };
+    if (seq !== ckSeq || S.locked) return;
+    S.ck = { loading: false, rep: S.ck && S.ck.rep, doc: null, error: e.message };
   }
   renderCockpit();
 }

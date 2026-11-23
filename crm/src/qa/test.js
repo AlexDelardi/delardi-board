@@ -613,7 +613,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
       && /Next idea/.test(frows[1]), frows.join(" || "));
     check("cockpit requests: what the client asked for", /Asked for the bracelet in size 17\./.test(await txt("#ck-missed")) && /Zz Brand/.test(await txt("#ck-missed")));
     check("cockpit: the rep's clients, highest spend first, with a way to the full list", (await page.$$("#ck-clients tbody tr")).length > 0
-      && calls.some((c) => c.action === "clients" && c.client_owner === "Dilnoza A." && c.limit === 25) && /Open all \d+ in the list/.test(await txt("#ck-clients-all")));
+      && calls.some((c) => c.action === "clients" && c.client_owner === "Dilnoza A." && c.record_type === "client" && !c.type && c.limit === 25) && /Open all \d+ in the list/.test(await txt("#ck-clients-all")));
     // a row opens the client card
     await page.click("#ck-contact tbody tr:first-child");
     await page.waitForSelector("#drawer[aria-busy='false']");
@@ -670,6 +670,20 @@ const measure = (page, scope) => page.evaluate((scope) => {
     const items = await page.$$eval(".kit-menu li", (ls) => ls.map((l) => l.textContent.trim()).join("|"));
     check("design: the switcher lists the tools, this one marked", /Sales\|Stock\|Clients\|Catalogue\|Board\|Performance/.test(items) && (await page.$('.kit-menu [aria-current="page"]')) !== null, items);
     check("design: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+  {
+    // the details are edited on a phone too
+    const { ctx, page, calls, errors } = await setup(browser, { width: 390, height: 844 }, { touch: true });
+    await page.waitForSelector("#list-host .mrow, #list-host tbody tr, #list-host [data-id]");
+    await page.click("#list-host [data-id]");
+    await page.waitForSelector("#drawer[aria-busy='false']");
+    await cardTab(page, "cleanup");
+    const btn = await page.$('#drawer table.compare button[data-field="name"]');
+    const box = btn ? await btn.boundingBox() : null;
+    check("phone: every detail has its Edit button in view, a 44 px target", !!box && box.width > 0 && box.height >= 44
+      && (await page.$$eval("#drawer table.compare button[data-field]", (bs) => bs.filter((b) => b.getBoundingClientRect().width > 0).length)) === 4, JSON.stringify(box));
+    check("phone details: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }
 

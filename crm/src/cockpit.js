@@ -43,6 +43,8 @@ PL.year = PL.year || { en: ["year", "years"], ru: ["год", "года", "лет
 const CK_KINDS = { birthday: "Birthday", anniversary: "Anniversary", partner_birthday: "Partner's birthday", child_birthday: "Child's birthday", other: "Date" };
 const CK_STAGES = { two_days: "Thank-you", two_weeks: "Check-in", two_months: "Next idea" };
 let ckSeq = 0;
+// Locking drops whatever is still on its way: the next person must never be shown the last one's cockpit.
+function ckForget() { ckSeq++; S.ck = null; }
 function ckIsOwn() { return !!(S.ref && S.ref.my_rep); }
 async function loadCockpit(rep) {
   const seq = ++ckSeq;
@@ -52,12 +54,12 @@ async function loadCockpit(rep) {
     const d = await call("cockpit", S.ck.rep ? { rep: S.ck.rep } : {});
     if (seq !== ckSeq) return;
     let mine = null;
-    if (d.rep) mine = await call("clients", { type: "client", client_owner: d.rep, order_by: "spend", dir: "desc", limit: 25, offset: 0 });
-    if (seq !== ckSeq) return;
+    if (d.rep) mine = await call("clients", { record_type: "client", client_owner: d.rep, order_by: "spend", dir: "desc", limit: 25, offset: 0 });
+    if (seq !== ckSeq || S.locked) return;        // locked meanwhile: this answer belongs to the session that left
     S.ck = { loading: false, rep: d.rep, doc: d, mine, error: null };
   } catch (e) {
-    if (seq !== ckSeq) return;
-    S.ck = { loading: false, rep: S.ck.rep, doc: null, error: e.message };
+    if (seq !== ckSeq || S.locked) return;
+    S.ck = { loading: false, rep: S.ck && S.ck.rep, doc: null, error: e.message };
   }
   renderCockpit();
 }
