@@ -6,6 +6,19 @@
    ========================================================================= */
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/perf-api";
 const LOGO_WORDMARK = "__WORDMARK__";
+/* Seasonal decoration. From 1 December to 14 January a screen carries one small mark beside its title: a fir sprig on
+   the month (the dashboard), a snowflake on the year, the brands and the incentive, nothing on Inputs. Decorative
+   only: empty alt text, hidden from screen readers, never clickable, clear of text, controls and figures; on a phone
+   the sprig steps aside for the snowflake. The address can force it for a preview (?season=christmas) or switch it
+   off (?season=off). */
+const SEASON_ART = { sprig: ["__XMAS_SPRIG__", 96, 42], flake: ["__XMAS_FLAKE__", 20, 20], mini: ["__XMAS_MINI__", 14, 14] };
+function seasonFor(d) { const m = d.getMonth(), day = d.getDate(); return m === 11 || (m === 0 && day <= 14) ? "christmas" : null; }
+const SEASON = (() => { const q = new URLSearchParams(location.search).get("season"); return q === "off" ? null : q === "christmas" ? "christmas" : seasonFor(new Date()); })();
+function seasonMark(routeName) {
+  if (SEASON !== "christmas" || routeName === "inputs") return null;
+  const kinds = routeName === "month" && !window.matchMedia("(max-width: 599px)").matches ? ["sprig"] : ["flake", "mini"];
+  return el("span", { class: "season-mark", "aria-hidden": "true" }, kinds.map((k) => el("img", { src: SEASON_ART[k][0], alt: "", width: SEASON_ART[k][1], height: SEASON_ART[k][2], "data-k": k })));
+}
 const SESSION_KEY = "perf_session";       // sessionStorage: gone when the tab closes
 const ACTIVE_KEY = "perf_last_active";    // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
@@ -648,6 +661,8 @@ function renderAll() {
   const main = el("main", { id: "main" });
   app.append(...renderHeader(), main);
   ROUTES[r.name](main);
+  const sec = main.querySelector(".screen"), mark = sec && seasonMark(r.name);
+  if (mark) { sec.classList.add("in-season"); sec.prepend(mark); }
 }
 function restoreSession() {
   try {
