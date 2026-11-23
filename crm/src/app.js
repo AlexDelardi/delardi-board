@@ -474,7 +474,7 @@ const S = {
   edit: null,          // the one inline form open on the card, if any
   busy: false,         // a write is in flight
   formError: null,
-  view: "clients",     // "clients" | "insights" | "data"
+  view: "clients",     // "clients" | "cockpit" | "insights"
   ins: null, insBasis: "retail", insLoading: false, insError: null,
   dh: null, dhLoading: false, dhError: null,          // data health
   imports: null, imp: null, impId: null, impError: null, confirm: null,   // Colibri refresh
@@ -654,7 +654,6 @@ async function refreshBehind() {
   } catch (e) { /* the list reload below reports trouble */ }
   if (S.view === "insights") loadInsights(); else S.ins = null;
   if (S.view === "cockpit") loadCockpit(); else S.ck = null;
-  if (S.view === "data") loadData(); else S.dh = null;
   loadList();
 }
 function setFilter(patch) {
@@ -1920,7 +1919,6 @@ function lockDown(message) {
   S.locked = true;
   S.ref = null; S.stats = null; S.rows = skeleton(); S.total = 0;
   S.ins = null; S.insError = null; S.ck = null;
-  S.dh = null; S.dhError = null; S.imports = null; S.imp = null; S.impId = null; S.impError = null; S.confirm = null;
   S.recentRows = null;
   if (S.navOpen) closeNav(true);
   if (S.cardId) closeCard(true);
@@ -1969,10 +1967,6 @@ function renderAll(gateMessage) {
     app.append(header(), el("main", {}, [el("div", { class: "ins ck", id: "cockpit-host" })]));
     renderCockpit();
     if (!S.ck) loadCockpit();
-  } else if (S.view === "data" && !S.locked) {
-    app.append(header(), el("main", {}, [el("div", { class: "ins dat", id: "data-host" })]));
-    renderData();
-    if (!S.dh && !S.dhLoading) loadData();
   } else if (phone) {
     app.append(
       header(),

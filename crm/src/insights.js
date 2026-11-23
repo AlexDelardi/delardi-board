@@ -191,7 +191,7 @@ const BRAND_BUCKETS = [["0", "Only unidentified brands"], ["1", "1 brand"], ["2"
 const UNASSIGNED = "Unassigned";
 
 /* ------------------------------------------------------------ view switch */
-const VIEWS = ["clients", "cockpit", "insights", "data"];
+const VIEWS = ["clients", "cockpit", "insights"];
 function viewFromUrl() {
   try { const v = new URLSearchParams(location.search).get("view"); return VIEWS.includes(v) ? v : "clients"; }
   catch (e) { return "clients"; }
@@ -215,7 +215,7 @@ function renderViews() {
   const tab = (v, label) => el("button", { class: "view-tab", type: "button", "data-view": v,
     "aria-current": S.view === v ? "page" : null, onclick: () => setView(v), text: label });
   return el("nav", { class: "views", "aria-label": tr("Views") },
-    [tab("clients", tr("All clients")), tab("cockpit", tr(S.ref && S.ref.my_rep ? "My clients" : "Cockpit")), tab("insights", tr("Insights")), tab("data", tr("Data"))]);
+    [tab("clients", tr("All clients")), tab("cockpit", tr(S.ref && S.ref.my_rep ? "My clients" : "Cockpit")), tab("insights", tr("Insights"))]);
 }
 
 /* -------------------------------------------------------------- drill-down */
