@@ -40,7 +40,10 @@ async function setup(browser, viewport, opts = {}) {
     foreign.push(u);
     return r.fulfill({ status: 404, body: "" });
   });
-  await page.goto(PAGE_URL + (opts.query || "") + (opts.hash || ""));
+  // The seasonal decoration follows the calendar. Every test runs with it switched off by the address, so the suite
+  // reads the same all year; the season's own tests set the browser's date (opts.now) and leave the address alone.
+  if (opts.now) await page.clock.setFixedTime(new Date(opts.now));
+  await page.goto(PAGE_URL + (opts.query === undefined ? "?season=off" : opts.query) + (opts.hash || ""));
   if (opts.login !== false) { await login(page, opts.pass || "demo"); await loaded(page); }
   return { ctx, page, errors, foreign };
 }
@@ -571,8 +574,11 @@ async function shot(page, name, full) {
 
   await run("season", async () => {
     // off unless it is the season or the preview is asked for
-    let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 });
+    let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-11-20T09:00:00" });
     check("season: nothing is added outside the season", !(await page.$(".season-mark")));
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-12-10T09:00:00" }));
+    check("season: in December it is on by itself", (await page.$$(".season-mark img")).length === 1 && errors.length === 0, errors.join(" | "));
     check("season: 1 December to 14 January", await page.evaluate(() => seasonFor(new Date(2026, 11, 1)) === "christmas" && seasonFor(new Date(2027, 0, 14)) === "christmas"
       && seasonFor(new Date(2027, 0, 15)) === null && seasonFor(new Date(2026, 10, 30)) === null && seasonFor(new Date(2026, 11, 31)) === "christmas"));
     await ctx.close();
