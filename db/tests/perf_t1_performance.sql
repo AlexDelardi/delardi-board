@@ -224,5 +224,35 @@ begin
   assert jsonb_array_length(b->'arrival_months') = 12 and (b->'arrival_months'->2->>'units')::int = 7 and (b->'arrival_months'->9->>'units')::int = 5 and (b->'arrival_months'->0->>'units')::int = 0, 'arrivals month by month through the year';
   assert (select (x2->>'arr_units')::int from jsonb_array_elements(perf_brands('2031-01-01', '2032-01-01')->'brands') x2 where x2->>'brand' = 'Zz Focus') = 7, 'the year takes every month of it';
   assert (b->'on_hand_by_arrival'->>'unknown') is not null and jsonb_typeof(b->'on_hand_by_arrival'->'years') = 'array', 'what is on hand, by arrival year';
+
+  -- last year beside this year covers the same months: 2031 has sales to October, so December 2030 stays out
+  insert into ops_tickets(store_id, source, ticket_no, sold_at, status, seller) values (1, 'colibri', 'PF-L3', '2030-12-12', 'posted', 'Zz Ann') returning ticket_id into t;
+  insert into ops_ticket_lines(ticket_id, line_no, kind, item_name, qty, price_current, net, brand_raw) values (t, 1, 'sale', 'Zz', 1, 70000000, 70000000, 'Zz Brand');
+  b := perf_brands('2031-01-01', '2032-01-01');
+  assert b->>'through' = '2031-10-01' and (b->'total'->>'ly_net')::numeric = 200000000
+     and (select (x2->>'ly_net')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = 200000000, 'a year to date is set against the same months of last year: ' || (b->'total')::text;
+  b := perf_brands('2030-01-01', '2031-01-01');
+  assert b->>'through' = '2030-12-01' and (b->'total'->>'net')::numeric = 270000000, 'a whole year keeps every month: ' || (b->'total')::text;
+  b := perf_brands('2031-12-01', '2032-01-01');
+  assert b->>'through' = '2031-12-01' and (b->'total'->>'ly_net')::numeric = 70000000, 'a month without sales still shows its last year: ' || (b->'total')::text;
+  assert (select (x2->>'ly_net')::numeric from jsonb_array_elements(perf_brands('2031-10-01', '2031-11-01')->'brands') x2 where x2->>'brand' = 'Zz Brand') = 190000000, 'a month is set against the same month';
+
+  -- a load without rows is refused and leaves what was loaded
+  begin perform perf_load_arrivals('{"source":"zz.xlsx"}', 'Alex'); assert false, 'not reached';
+  exception when raise_exception then assert sqlerrm = 'No arrival rows were sent.', sqlerrm; end;
+  begin perform perf_load_arrivals('{"source":"zz.xlsx","rows":null}', 'Alex'); assert false, 'not reached';
+  exception when raise_exception then assert sqlerrm = 'No arrival rows were sent.', sqlerrm; end;
+  assert (select count(*) from perf_arrivals) = 3, 'the arrivals are still there';
+
+  -- on hand: pieces still on their way are not counted, and a piece is valued by its own variant
+  insert into cat_variants(variant_id, model_id) values ('ZZ-PERF-VA', 'ZZ-PERF-J1'), ('ZZ-PERF-VB', 'ZZ-PERF-J1');
+  insert into cat_pieces(serial, variant_id, price_uzs) values ('ZZPF-0001', 'ZZ-PERF-VB', 11000000), ('ZZPF-0001', 'ZZ-PERF-VA', 50000000), ('ZZPF-0002', 'ZZ-PERF-VA', 30000000);
+  insert into ops_pieces(store_id, brand, serial, state, variant_id) values (1, 'Zz Hand', 'ZZPF-0001', 'in_stock', 'ZZ-PERF-VA'), (1, 'Zz Hand', 'ZZPF-0002', 'in_transit', 'ZZ-PERF-VA');
+  b := perf_brands('2031-10-01', '2031-11-01');
+  assert (select (x2->>'stock_units')::int from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 1
+     and (select (x2->>'stock_value')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 50000000
+     and (select (x2->>'incoming_units')::int from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 1, 'on hand leaves out what is on its way: ' || (select x2::text from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand');
+  assert (b->'total'->>'incoming_units')::int >= 1
+     and (b->'on_hand_by_arrival'->>'unknown')::int + (select coalesce(sum((z->>'units')::int), 0) from jsonb_array_elements(b->'on_hand_by_arrival'->'years') z) = (b->'total'->>'stock_units')::int, 'the arrival-age split adds up to what is on hand';
 end $$;
 rollback;

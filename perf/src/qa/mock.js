@@ -147,7 +147,8 @@ function brandsDoc(body) {
     : [B("Zz Brand", 0, 0, 0, 10, 240000000, a30 ? [3, 30000, 3, 0] : a31 ? [12, 120000, 2, 10] : null), B("Zz Other", 0, 0, 0, 4, 96000000, a31 ? [6, 48000, 2, 4] : null),
       B("Zz Focus", 0, 0, 0, 2, 60000000, null), B("Zz Sleeping House", 0, 0, 0, 5, 300000000, null)];
   const au = brands.reduce((s2, b) => s2 + (b.arr_units || 0), 0), av = brands.reduce((s2, b) => s2 + (b.arr_rrp_usd || 0), 0);
-  return { from: isYear ? y + "-01-01" : ym + "-01", to: "x", total: { net, units: on ? 5 : 0, ly_net: on ? 190000000 : 0, stock_units: 21, stock_value: 696000000, arr_units: au, arr_rrp_usd: av },
+  return { from: isYear ? y + "-01-01" : ym + "-01", to: "x", through: isYear ? (y === 2031 ? "2031-10-01" : y + "-12-01") : ym + "-01",
+    total: { net, units: on ? 5 : 0, ly_net: on ? 190000000 : 0, stock_units: 21, stock_value: 696000000, incoming_units: 2, arr_units: au, arr_rrp_usd: av },
     brands, arrival_years: [{ year: 2030, units: 3, rrp_usd: 30000, sold_units: 3, left_units: 0 }, { year: 2031, units: 18, rrp_usd: 168000, sold_units: 4, left_units: 14 }],
     arrival_months: Array.from({ length: 12 }, (_, i) => { const m = y + "-" + String(i + 1).padStart(2, "0"), hit = m === "2031-10" ? [18, 168000, 4, 14] : m === "2030-05" ? [3, 30000, 3, 0] : [0, 0, 0, 0];
       return { month: m + "-01", units: hit[0], rrp_usd: hit[1], sold_units: hit[2], left_units: hit[3] }; }),

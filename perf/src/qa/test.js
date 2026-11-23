@@ -444,7 +444,7 @@ async function shot(page, name, full) {
     check("brands: opens on the month, with the period switch and the month picker", (await page.textContent("#screen-brands .title")).trim() === "Brands, October 2031" && (await pressed()) === "Month:true|Year:false"
       && !!(await page.$("#month-select")) && callsOf("brands").pop().month === "2031-10");
     check("brands: headline: top brand, brands sold, on hand", norm(await page.textContent("#br-top")) === "Top brandZz Other150 000 000 so'm71% of sales" && norm(await page.textContent("#br-count")) === "Brands sold3of 4 on hand"
-      && norm(await page.textContent("#br-stock")) === "On hand today21 piecesretail value 696 000 000 so'm", norm(await page.textContent("#br-top")) + " / " + norm(await page.textContent("#br-count")));
+      && norm(await page.textContent("#br-stock")) === "On hand today21 piecesretail value 696 000 000 so'mand 2 on the way" && !(await page.$("#brand-period")), norm(await page.textContent("#br-stock")) + " / " + norm(await page.textContent("#br-top")) + " / " + norm(await page.textContent("#br-count")));
     const rows = await cells(page, "#br-table tbody tr");
     check("brands: every brand with sales, share, last year, units, discount and stock", rows.length === 4 && rows[0].join("|") === "Zz Other|150 000 000|71.4%|0|—|3|50 000 000|2.0%|4|96 000 000"
       && rows[1].slice(0, 5).join("|") === "Zz Brand|40 000 000|19.1%|190 000 000|−78.9%" && rows[3].slice(0, 3).join("|") === "Zz Sleeping House|0|0.0%", rows[0].join("|") + " // " + rows[1].join("|") + " // " + rows[3].join("|"));
@@ -474,8 +474,10 @@ async function shot(page, name, full) {
     await page.click('#brand-mode button[data-mode="year"]');
     await page.waitForFunction(() => S.brandMode === "year" && S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "y2031");
     check("brands: the year, with the year picker", (await page.textContent("#screen-brands .title")).trim() === "Brands, 2031" && !!(await page.$("#year-select")) && !(await page.$("#month-select")) && callsOf("brands").pop().year === 2031 && (await pressed()) === "Month:false|Year:true");
+    check("brands: a year still running says last year is the same months", norm(await page.textContent("#brand-period")) === "January to October 2031; last year is the same months.", await page.textContent("#brand-period").catch(() => "none"));
     await page.click("#year-prev");
     await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "y2030");
+    check("brands: a whole year carries no such note", !(await page.$("#brand-period")));
     check("brands: a year with no sales says so and still shows stock and arrivals", /No sales in this period/.test(await page.textContent("#screen-brands")) && !(await page.$("#br-chart"))
       && (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join() === "Zz Brand|3|30 000|3|100%|0");
     await page.reload(); await loaded(page); await page.waitForSelector("#br-table");
