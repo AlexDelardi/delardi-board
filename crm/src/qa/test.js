@@ -188,13 +188,13 @@ const measure = (page, scope) => page.evaluate((scope) => {
     // two filters, set the way the page sets them
     await setColumnFilter(page, "abc", ["A", "B"]);
     await settled(page);
-    await page.evaluate(() => setFilter({ status: "confirm" }));
+    await page.evaluate(() => setFilter({ status: "lead" }));
     await settled(page);
     check("bar: the button counts what is on", (await page.textContent(".filters-toggle")).includes("(2)"),
       await page.textContent(".filters-toggle"));
     const pills = await page.$$eval("#fpills .fpill", (ns) => ns.map((n) => n.textContent.replace(/×$/, "").trim()));
     check("bar: a pill for each, saying what it is", pills.length === 2
-      && pills.some((p) => /^Status\s*Needs confirming$/.test(p)) && pills.some((p) => /^ABC\s*A, B$/.test(p)), pills.join(" | "));
+      && pills.some((p) => /^Status\s*Telegram leads$/.test(p)) && pills.some((p) => /^ABC\s*A, B$/.test(p)), pills.join(" | "));
     const narrowed = Number((await page.textContent(".listbar")).match(/of\s+(\d+)/)[1]);
     check("bar: and the list is actually narrowed", narrowed < 48, String(narrowed));
     check("bar: the list bar no longer repeats them on a desktop", !(await page.$(".listbar .scope")));
@@ -225,16 +225,12 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("bar: Escape closes the panel", !(await page.$(".toolbar.open")));
 
     // the figures
-    check("tiles: three to start", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 3);
-    await page.click(".tiles-more");
-    await page.waitForTimeout(150);
-    check("tiles: six when asked", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 6);
-    await page.reload();
-    await page.waitForSelector("#list-host[aria-busy='false']");
-    check("tiles: the choice is remembered", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 6);
-    await page.click(".tiles-more");
-    await page.waitForTimeout(150);
-    check("tiles: and folds back", (await page.$$(".scoreboard .stat:not(.tiles-more)")).length === 3);
+    const tiles = await page.$$eval(".scoreboard .stat", (ts) => ts.map((t) => t.querySelector(".label").textContent.trim()));
+    check("tiles: three reference figures, and none of the clean-up ones", tiles.length === 3 && tiles[0] === "Retail clients" && tiles[2] === "Related parties"
+      && !(await page.$(".tiles-more")) && !/Needs a decision|Needs confirming|Done|Set aside/.test(tiles.join("|")), tiles.join("|"));
+    check("tiles: the clean-up progress bar is gone", !(await page.isVisible("#progress")));
+    check("list: no clean-up status or source on a row", !/differ|to confirm|Colibri only|Questionnaire only|Colibri \+ questionnaire/.test(await page.textContent("#list-host")));
+    check("views: no Data tab", !(await page.$('.view-tab[data-view="data"]')));
 
     // the clients opened recently, in the search box
     for (const id of ["DLD-0003", "DLD-0007"]) {
@@ -280,7 +276,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("ipad: the bar is one row", await page.$eval(".toolbar", (n) => n.getBoundingClientRect().height < 70),
       String(await page.$eval(".toolbar", (n) => Math.round(n.getBoundingClientRect().height))));
     check("ipad: no sideways scroll", await noHScroll(page));
-    await page.evaluate(() => setFilter({ status: "confirm" }));
+    await page.evaluate(() => setFilter({ status: "lead" }));
     await settled(page);
     check("ipad: the pill is there and can be taken off", !!(await page.$("#fpills .fpill .x")));
     await openPanel(page);
@@ -534,10 +530,10 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("ru: the form", ["Добавить клиента", "Номер телефона", "Как познакомились", "Пришёл(ла) в бутик", "Ответственный"].every((x) => t.includes(x)), t.slice(0, 200));
     await page.keyboard.press("Escape");
     check("ru: Escape closes it", !(await page.$("#addwrap")));
-    const ruPills = await page.evaluate(async () => { setFilter({ status: "confirm" }); return true; });
+    const ruPills = await page.evaluate(async () => { setFilter({ status: "lead" }); return true; });
     await page.waitForSelector("#list-host[aria-busy='false']");
     const ruPill = await page.textContent("#fpills .fpill");
-    check("ru: the pill", ruPills && /Статус/.test(ruPill) && /Нужно подтвердить/.test(ruPill), ruPill);
+    check("ru: the pill", ruPills && /Статус/.test(ruPill) && /Лиды из Telegram/.test(ruPill), ruPill);
     check("ru: the filters button counts in Russian", (await page.textContent(".filters-toggle")).includes("Фильтры (1)"),
       await page.textContent(".filters-toggle"));
     await page.click(".filters-toggle");

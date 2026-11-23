@@ -125,7 +125,7 @@ const RU = {
   "All records": "Все записи",
   "All clients": "Все клиенты",
   "Prospects": "Потенциальные клиенты",
-  "Related parties": "Связанные лица",
+  "Related parties": "Связанные лица", "kept out of the retail figures": "не входят в розничные показатели",
   "ABC": "ABC",
   "Any class": "Любой класс",
   "Lifecycle": "Жизненный цикл",
@@ -438,9 +438,9 @@ const TYPES = [
   ["prospect", "Prospects"], ["related", "Related parties"],
 ];
 const STATUS_OPTIONS = [
-  ["", "Any status"], ["decision", "Needs a decision"], ["confirm", "Needs confirming"],
-  ["done", "Done"], ["checked", "Checked"], ["clean", "Clean"],
-  ["set_aside", "Set aside"], ["deleted", "Deleted"], ["merged", "Merged"], ["lead", "Telegram leads"],
+  // The clean-up statuses (to decide, to confirm, done, set aside) were retired on 24 Nov 2026. What is left says what
+  // kind of record it is, where that matters.
+  ["", "Any status"], ["lead", "Telegram leads"], ["merged", "Merged"], ["deleted", "Deleted"],
 ];
 // The store's shared list. The API labels it "Shared (store)"; older responses
 // said "Unassigned", so both are recognised.
@@ -766,79 +766,33 @@ function renderScoreboard() {
   const host = $("#scoreboard");
   if (!host) return;
   host.innerHTML = "";
-  const t = S.ref && S.ref.totals, st = S.stats;
-  const locked = S.locked || !t || !st;
-  const f = S.f;
-  const more = moreTilesOpen();
-  host.classList.toggle("more-open", more);
-  const toggle = (status) => () => setFilter({ status: f.status === status ? "" : status });
+  host.classList.remove("more-open");
+  const st = S.stats, f = S.f;
+  const locked = S.locked || !st;
+  // Reference figures only. The clean-up counts (to decide, to confirm, done, set aside) were retired on 24 Nov 2026:
+  // the CRM is the client record now, not a list of records to work through.
+  const retailOn = f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner);
   host.append(
-    tile({ label: tr("Needs a decision"), tone: "serious",
-      val: locked ? "—" : String(t.decision),
-      sub: locked ? "——" : tr("{n} where the sources differ", { n: pl(t.conflict_fields, "field") }),
-      pressed: f.status === "decision", onclick: locked ? null : toggle("decision") }),
-    tile({ label: tr("Needs confirming"), tone: "warning",
-      val: locked ? "—" : String(t.confirm),
-      sub: locked ? "——" : tr("{n} from one source only", { n: pl(t.gap_fields, "field") }),
-      pressed: f.status === "confirm", onclick: locked ? null : toggle("confirm") }),
-    tile({ label: tr("Done"), tone: "good",
-      val: locked ? "—" : String(t.done),
-      sub: locked ? "——" : tr("{checked} checked · {clean} matched", { checked: t.checked, clean: t.clean }),
-      pressed: f.status === "done", onclick: locked ? null : toggle("done") }),
+    tile({ label: tr("Retail clients"),
+      val: locked ? "—" : String(st.clients),
+      sub: locked ? "——" : tr("{spend} lifetime spend", { spend: fmtUZS(st.total_spend) }),
+      subTitle: locked ? "" : fullUZS(st.total_spend),
+      pressed: retailOn,
+      onclick: locked ? null : () => setFilter({ type: retailOn ? "" : "retail", owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
+    ownerTile(st, f, locked),
+    tile({ label: tr("Related parties"),
+      val: locked ? "—" : String(st.related_party ? st.related_party.clients : 0),
+      sub: locked ? "——" : tr("kept out of the retail figures") }),
   );
-  if (more) {
-    host.append(
-      tile({ label: tr("Set aside"),
-        val: locked ? "—" : String(t.set_aside),
-        sub: locked ? "——" : tr("waiting on the client or a check"),
-        pressed: f.status === "set_aside", onclick: locked ? null : toggle("set_aside") }),
-      ownerTile(st, f, locked),
-      tile({ label: tr("Retail clients"),
-        val: locked ? "—" : String(st.clients),
-        sub: locked ? "——" : tr("{spend} lifetime · {n} related excluded",
-          { spend: fmtUZS(st.total_spend), n: st.related_party ? st.related_party.clients : 0 }),
-        subTitle: locked ? "" : fullUZS(st.total_spend),
-        pressed: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner),
-        onclick: locked ? null : () => setFilter({ type: f.type === "retail" && !OWNER_TILE_KEYS.includes(f.owner) ? "" : "retail",
-          owner: OWNER_TILE_KEYS.includes(f.owner) ? "" : f.owner }) }),
-    );
-  }
-  host.append(el("button", { class: "stat tiles-more", type: "button", "aria-expanded": more ? "true" : "false",
-    onclick: () => { pref(MORE_TILES_KEY, more ? null : "1"); renderScoreboard(); syncSticky(); },
-    title: more ? tr("Show fewer figures") : tr("Show the other figures") }, [
-    el("span", { class: "tm-chev", "aria-hidden": "true", text: more ? "‹" : "›" }),
-    el("span", { class: "tm-l", text: more ? tr("Fewer") : tr("3 more") }),
-  ]));
 }
-// The clean-up at a glance: done, set aside, still to do.
+// The clean-up progress bar was retired with the clean-up; the host stays empty.
 function renderProgress() {
   const host = $("#progress");
   if (!host) return;
   host.innerHTML = "";
-  const t = S.ref && S.ref.totals;
-  if (S.locked || !t) { host.appendChild(el("div", { class: "progress-bar skel" })); return; }
-  const total = t.records || 1, done = t.done, aside = t.set_aside, togo = t.decision + t.confirm;
-  const pct = (n) => Math.round((n / total) * 1000) / 10 + "%";
-  const week = S.ref.activity ? S.ref.activity.week : 0;
-  host.append(
-    el("div", { class: "progress-head" }, [
-      el("span", { class: "progress-title", text: tr("Clean-up progress") }),
-      // v14: two facts here, the rest on the bar itself. Five of them read as a
-      // paragraph in a toolbar and nobody reads a paragraph in a toolbar.
-      el("span", { class: "progress-text",
-        title: tr("{n} set aside", { n: aside }) + " · " + tr("{n} worked on this week", { n: pl(week, "record") }) +
-          (t.leads ? " · " + tr("{n} Telegram leads outside the clean-up", { n: t.leads }) : "") }, [
-        el("b", { text: tr("{done} of {total} records done", { done, total: t.records }) }),
-        " · " + tr("{n} to go", { n: togo }),
-      ]),
-    ]),
-    el("div", { class: "progress-bar", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(t.records),
-      "aria-valuenow": String(done), "aria-label": tr("Clean-up progress") }, [
-      el("span", { class: "seg done", style: "width:" + pct(done) }),
-      el("span", { class: "seg aside", style: "width:" + pct(aside) }),
-    ]),
-  );
+  host.hidden = true;
 }
+
 
 /* ---------------------------------------------------------------- toolbar */
 function ownerOptions() {
@@ -957,19 +911,15 @@ function sourceLine(r) {
   if (r.added_by_hand) return tr("Added by the team") + (blank(r.how_met) ? "" : " · " + tr(r.how_met));
   const tg = sourceLineTg(r);
   if (tg) return tg;
-  if (r.in_colibri && r.in_marketing) return tr("Colibri + questionnaire");
-  if (r.in_colibri) return tr("Colibri only");
-  if (r.in_marketing) return tr("Questionnaire only");
-  return "—";
+  return "";                                      // where a record first came from no longer matters on the list
 }
 function statusChip(r) {
   const key = r.review_status || (r.queue_class === "conflict" ? "decision" : r.queue_class === "gap" ? "confirm" : "clean");
-  const def = STATUS[key] || STATUS.clean;
+  // only a lead, a merged record and a deleted one carry a mark; an ordinary client record carries none
+  if (!["lead", "merged", "deleted"].includes(key)) return el("span", { class: "muted", "aria-hidden": "true", text: "—" });
+  const def = STATUS[key];
   let text = tr(def.label);
-  if (key === "decision") {
-    text = tr("{n} differ", { n: r.conflict_fields }) + (r.gap_fields ? " · " + tr("{n} to confirm", { n: r.gap_fields }) : "");
-  } else if (key === "confirm") text = tr("{n} to confirm", { n: r.gap_fields });
-  else if (key === "merged" && r.merged_into) text = tr("Merged") + " " + tr("into {id}", { id: r.merged_into });
+  if (key === "merged" && r.merged_into) text = tr("Merged") + " " + tr("into {id}", { id: r.merged_into });
   return chip(def, text);
 }
 function ownerCell(r) {
