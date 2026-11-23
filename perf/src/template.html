@@ -84,6 +84,34 @@ main { padding: 24px 24px 96px; }
 .chart .bar:focus .hit { stroke: var(--navy); stroke-width: 2; }
 .chart .plan { stroke: var(--ink); stroke-width: 2; }
 .chart .tick { fill: var(--slate); font: 11px var(--sans); }
+/* year and brand charts: last year as an outline beside this year; lines for the cumulative view */
+.chart .bar .mark2 { fill: var(--white); stroke: var(--slate); stroke-width: 1.5; }
+.chart .bar.off .mark { fill: var(--mist); }
+.chart .line { stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .line.s-cur { stroke: var(--navy); } .chart .dot.s-cur { fill: var(--navy); }
+.chart .line.s-ly { stroke: var(--slate); } .chart .dot.s-ly { fill: var(--slate); }
+.chart .line.s-plan { stroke: var(--ink); stroke-dasharray: 6 5; } .chart .dot.s-plan { fill: var(--ink); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 4px 0 8px; }
+.chart-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.lg-key { display: inline-block; width: 14px; height: 12px; }
+.lg-key.k-mark { background: var(--sky); } .lg-key.k-mark2 { border: 1.5px solid var(--slate); background: var(--white); }
+.lg-key.k-line { height: 0; width: 20px; border-top: 2px solid var(--navy); }
+.lg-key.k-line.s-ly { border-top-color: var(--slate); } .lg-key.k-line.s-plan { border-top: 2px dashed var(--ink); }
+.chart-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tbl.trend tr.off td, .tbl.trend tr.off th { color: var(--slate); }
+#brand-mode { margin-right: 12px; }
+/* the wide tables of the Year and Brands screens: headers wrap and cells are tight, so ten columns fit an iPad */
+#yr-months th, #yr-months td, #br-table th, #br-table td, #arr-table th, #arr-table td { padding-left: 6px; padding-right: 6px; font-size: 13px; }
+#yr-months thead th, #br-table thead th, #arr-table thead th { white-space: normal; vertical-align: bottom; }
+#yr-months td, #br-table td, #arr-table td { white-space: nowrap; }
+@media (max-width: 900px) {
+  .chart-pair { grid-template-columns: 1fr; }
+  /* portrait: the tab row may take two lines, and the least-used columns step aside */
+  .kit-tabs { flex-wrap: wrap; row-gap: 0; }
+  #yr-months th:nth-child(8), #yr-months td:nth-child(8), #yr-months th:nth-child(9), #yr-months td:nth-child(9), #yr-months th:nth-child(10), #yr-months td:nth-child(10),
+  #br-table th:nth-child(7), #br-table td:nth-child(7), #br-table th:nth-child(8), #br-table td:nth-child(8), #br-table th:nth-child(10), #br-table td:nth-child(10) { display: none; }
+  #yr-months th, #yr-months td, #br-table th, #br-table td, #arr-table th, #arr-table td { padding-left: 4px; padding-right: 4px; font-size: 12px; }
+}
 .plan-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .plan-mark { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--ink); }
 .chart-tip { position: absolute; z-index: 60; width: 200px; transform: translateY(-100%); background: var(--navy-deep); color: var(--white); padding: 8px 10px; font: 13px/1.45 var(--sans);

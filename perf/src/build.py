@@ -20,7 +20,7 @@ t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # In this order, before the init marker. piece.js (Task 4), review.js (Task 5)
 # and export.js (Task 6) arrive later; whatever is not there yet is skipped.
 # ui/xlsx.js (the kit's workbook writer) goes in just before export.js.
-MODULES = ['../../ui/tools.js', 'month.js', 'incentive.js', 'inputs.js']
+MODULES = ['../../ui/tools.js', 'charts.js', 'month.js', 'year.js', 'brands.js', 'incentive.js', 'inputs.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()

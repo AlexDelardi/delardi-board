@@ -146,6 +146,11 @@ function monthIn(v: unknown): string {
   return `${m[1]}-${m[2]}-01`;
 }
 
+function yearIn(v: unknown): number {
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 2000 || v > 2100) throw new HttpErr(400, "year must be a year, as a number.");
+  return v;
+}
+
 // A whole number, zero or more, or null when left empty.
 function countIn(v: unknown, field: string, max: number): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -201,6 +206,25 @@ async function handle(req: Request, body: Record<string, unknown>) {
   if (action === "month") {
     await requirePerf(body.token);
     return await rpc("perf_month", { p_month: monthIn(body.month) });
+  }
+
+  // The year month by month, to date against last year and plan.
+  if (action === "year") {
+    await requirePerf(body.token);
+    return await rpc("perf_year", { p_year: yearIn(body.year) });
+  }
+
+  // Sales, stock and arrivals by brand, for one month or one year.
+  if (action === "brands") {
+    await requirePerf(body.token);
+    if (body.month !== undefined && body.month !== null) {
+      const from = monthIn(body.month);
+      const d = new Date(from + "T00:00:00Z");
+      d.setUTCMonth(d.getUTCMonth() + 1);
+      return await rpc("perf_brands", { p_from: from, p_to: d.toISOString().slice(0, 10) });
+    }
+    const y = yearIn(body.year);
+    return await rpc("perf_brands", { p_from: `${y}-01-01`, p_to: `${y + 1}-01-01` });
   }
 
   // The month's inputs: what is sent replaces what was there. → the month, recomputed.

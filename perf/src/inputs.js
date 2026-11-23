@@ -28,14 +28,14 @@ Object.assign(RU, {
 
 // The form is built once per month from the document and then lives in S.form, so a redraw (language) keeps what was typed.
 function inputsForm() {
-  const d = S.doc, i = d.inputs, txt = (v) => (num(v) === null ? "" : String(Math.round(num(v))));
+  const d = S.inDoc.doc, i = d.inputs, txt = (v) => (num(v) === null ? "" : String(Math.round(num(v))));
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];
   // every seller with a plan row or with sales this month
   const names = new Set(i.sellers.map((s) => s.seller));
   if (d.incentive) d.incentive.sellers.forEach((s) => names.add(s.seller));
   d.tickets.forEach((t) => { if (t.basis === "retail" && !blank(t.seller)) names.add(t.seller); });
   return {
-    month: S.month, busy: false, err: null,
+    month: S.inMonth, busy: false, err: null,
     v: { plan_uzs: txt(i.plan_uzs), plan_tickets: txt(i.plan_tickets), plan_large_tickets: txt(i.plan_large_tickets), plan_large_uzs: txt(i.plan_large_uzs),
       visits: txt(i.visits), visits_appointment: txt(i.visits_appointment), fx: num(i.fx) === null ? "" : String(num(i.fx)), note: i.note || "" },
     sellers: [...names].sort().map((n) => {
@@ -48,12 +48,14 @@ function inputsForm() {
 }
 
 function renderInputs(main) {
-  const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.month ? tr("Inputs for {m}", { m: monthName(S.month) }) : tr("Inputs") }));
+  const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.inMonth ? tr("Inputs for {m}", { m: monthName(S.inMonth) }) : tr("Inputs") }));
   main.append(sec);
-  if (monthPending(sec)) return;
-  if (CUR === "usd") sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
-  if (!S.form || S.form.month !== S.month) S.form = inputsForm();
-  const f = S.form, d = S.doc;
+  if (!S.inMonth) return;
+  const st = need("inDoc", "month", { month: S.inMonth }, S.inMonth);
+  if (pending(sec, st, "Loading the month…")) return;
+  sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
+  if (!S.form || S.form.month !== S.inMonth) S.form = inputsForm();
+  const f = S.form, d = st.doc;
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];
   const ru = LANG === "ru";
   const keep = (obj, key) => (e) => { obj[key] = e.target.type === "checkbox" ? e.target.checked : e.target.value; };
@@ -126,9 +128,12 @@ async function saveInputs() {
   renderAll();
   try {
     const d = await api("save_month", { month, inputs });
-    if (S.locked || S.month !== month) return;
-    takeDoc(d);
-    S.form = null;                                 // rebuilt from what the server now holds
+    if (S.locked || S.inMonth !== month) return;
+    S.inDoc = { key: month, doc: d, err: null };
+    // the plan feeds the month, the year and the incentive: what is on those screens is asked for again
+    S.yearDoc = null; S.brandDoc = null;
+    S.form = null;
+    if (S.month === month) takeDoc(d); else { loadMonth(); return; }   // the month on the other screens carries plans in its trend                                 // rebuilt from what the server now holds
     renderAll();
     toast(tr("Saved."));
   } catch (e) {

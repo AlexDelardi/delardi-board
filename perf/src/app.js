@@ -12,6 +12,8 @@ const LANG_KEY = "delardi_lang";          // shared with the landing page
 const CUR_KEY = "perf_currency";          // localStorage: amounts shown in so'm or in US dollars
 const USD_RATE = 12000;                   // the internal rate; the dollar view always uses it
 const MONTH_KEY = "perf_month";           // sessionStorage: the month on screen
+const YEAR_KEY = "perf_year";             // sessionStorage: the year on the Year screen
+const BRAND_MODE_KEY = "perf_brand_mode"; // sessionStorage: Brands shows the month or the year
 const IDLE_MIN = 15;                      // touch devices only
 
 /* ---------------------------------------------------------------- language
@@ -44,7 +46,7 @@ const RU = {
   "so'm": "сум",
   "Yes": "Да", "Cancel": "Отмена", "Close": "Закрыть",
   "Month": "Месяц", "Incentive": "Мотивация", "Inputs": "Вводные",
-  "Previous month": "Предыдущий месяц", "Next month": "Следующий месяц",
+  "Previous month": "Предыдущий месяц", "Next month": "Следующий месяц", "Previous year": "Предыдущий год", "Next year": "Следующий год",
   "Loading the month…": "Загружаю месяц…",
   "Try again": "Повторить",
 };
@@ -99,6 +101,10 @@ const S = {
   month: null,                       // "YYYY-MM" on screen
   doc: null, busy: false, err: null, // the month's document (perf_month)
   form: null,                        // inputs.js: the form being edited
+  year: null,                        // the year on the Year screen
+  brandMode: "month",                // Brands: "month" or "year"
+  inMonth: null,                     // Inputs has its own month: it opens on the month ahead
+  yearDoc: null, brandDoc: null, inDoc: null,   // { key, doc, err }: one document per screen, see need()
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -365,11 +371,13 @@ document.addEventListener("keydown", (e) => {
 }, true);
 
 /* ------------------------------------------------------------------ routes
-   #/month (default)  #/incentive  #/inputs */
+   #/month (default)  #/year  #/brands  #/incentive  #/inputs */
 const ROUTES = {
   month: (main) => renderMonth(main),              // month.js
   incentive: (main) => renderIncentive(main),      // incentive.js
   inputs: (main) => renderInputs(main),            // inputs.js
+  year: (main) => renderYear(main),                // year.js
+  brands: (main) => renderBrands(main),            // brands.js
 };
 function route() {
   const m = /^#\/([a-z]+)/.exec(location.hash || "");
@@ -399,12 +407,56 @@ async function loadMonth() {
 function setMonth(m) {
   if (!m || m === S.month || S.locked) return;
   if (S.span && (m < S.span.first || m > S.span.last)) return;
-  S.month = m; S.doc = null; S.form = null;
+  S.month = m; S.doc = null;
   sstore(MONTH_KEY, m);
   loadMonth();
 }
-// After a save or a correction the server answers with the month recomputed.
-function takeDoc(d) { monthSeq++; S.doc = d; S.busy = false; S.err = null; }
+// After a save or a correction the server answers with the month recomputed. The year and the brands were
+// computed from the same tickets and plans, so they are asked for again when next shown.
+function takeDoc(d) { monthSeq++; S.doc = d; S.busy = false; S.err = null; S.yearDoc = null; S.brandDoc = null; }
+
+/* ------------------------------------------------- one document per screen
+   need(slot, action, params, key) → { key, doc, err }. The Year, Brands and Inputs screens each hold one document;
+   when the key on screen changes, the document is asked for again and an answer for an old key is dropped. */
+function need(slot, action, params, key) {
+  const cur = S[slot];
+  if (cur && cur.key === key) return cur;
+  const st = S[slot] = { key, doc: null, err: null };
+  api(action, params).then((d) => { if (S[slot] === st && !S.locked) { st.doc = d; renderAll(); } },
+    (e) => { if (S[slot] === st && !S.locked) { st.err = e.message; renderAll(); } });
+  return st;
+}
+// What such a screen shows while its document is loading or could not be loaded. → true when it should stop there.
+function pending(sec, st, loadingText) {
+  if (st.err) {
+    sec.append(el("p", { class: "notice", role: "alert", id: "doc-err" }, st.err + " ",
+      el("button", { type: "button", class: "btn", onclick: () => { for (const k of ["yearDoc", "brandDoc", "inDoc"]) if (S[k] === st) S[k] = null; renderAll(); }, text: tr("Try again") })));
+    return true;
+  }
+  if (!st.doc) { sec.append(el("p", { class: "small", role: "status", id: "doc-loading", text: tr(loadingText) })); return true; }
+  return false;
+}
+// Inputs run one month ahead of the sales: the month after the last one with tickets, or next calendar month if later.
+function inputsLast() {
+  const t = tashkentDay(new Date().toISOString());
+  const nextCal = addMonths(t.y + "-" + String(t.m).padStart(2, "0"), 1), afterSales = addMonths(S.span.last, 1);
+  return nextCal > afterSales ? nextCal : afterSales;
+}
+function setInMonth(m) {
+  if (!S.span || S.locked || m === S.inMonth || m < S.span.first || m > inputsLast()) return;
+  S.inMonth = m; S.form = null; renderAll();
+}
+function inMonthPicker() {
+  if (!S.span || !S.inMonth) return null;
+  const months = [], last = inputsLast();
+  for (let m = last; m >= S.span.first; m = addMonths(m, -1)) months.push(m);
+  const sel = el("select", { id: "in-month-select", "aria-label": tr("Month"), onchange: () => setInMonth(sel.value) },
+    months.map((m) => el("option", { value: m, selected: m === S.inMonth ? true : null, text: monthName(m) })));
+  return el("div", { class: "month-picker" },
+    el("button", { type: "button", class: "btn", id: "in-month-prev", "aria-label": tr("Previous month"), disabled: S.inMonth <= S.span.first ? true : null, onclick: () => setInMonth(addMonths(S.inMonth, -1)), text: "‹" }),
+    sel,
+    el("button", { type: "button", class: "btn", id: "in-month-next", "aria-label": tr("Next month"), disabled: S.inMonth >= last ? true : null, onclick: () => setInMonth(addMonths(S.inMonth, 1)), text: "›" }));
+}
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
@@ -444,10 +496,12 @@ function renderHeader() {
       S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
-      tab("month", "Month"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
+      tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
       el("span", { class: "kit-spacer" }),
-      curSwitch(),
-      monthPicker()));
+      r === "inputs" ? null : curSwitch(),
+      r === "brands" && S.token && S.span ? brandModeSwitch() : null,
+      // each screen shows the picker for the period it is about
+      r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()));
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.
 function monthPending(sec) {
@@ -468,6 +522,13 @@ async function afterUnlock() {
   S.span = sp && sp.first ? { first: ym(sp.first), last: ym(sp.last) } : null;
   const saved = sstore(MONTH_KEY);
   S.month = S.span ? (saved && saved >= S.span.first && saved <= S.span.last ? saved : S.span.last) : null;
+  if (S.span) {
+    const y0 = Number(S.span.first.slice(0, 4)), y1 = Number(S.span.last.slice(0, 4)), sy = Number(sstore(YEAR_KEY));
+    S.year = sy >= y0 && sy <= y1 ? sy : y1;
+    S.brandMode = sstore(BRAND_MODE_KEY) === "year" ? "year" : "month";
+    S.inMonth = inputsLast();
+  }
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
   if (S.month) loadMonth(); else renderAll();
 }
 function renderGate() {
@@ -524,6 +585,7 @@ function lockDown(message) {
   S.gateMessage = message || null;
   monthSeq++;
   S.doc = null; S.span = null; S.form = null; S.busy = false; S.err = null;
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
   kitCloseMenus();
   document.querySelectorAll(".modal-wrap, .chart-tip").forEach((n) => n.remove());
   $("#app").innerHTML = "";

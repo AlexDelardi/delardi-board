@@ -112,6 +112,48 @@ function monthDoc(ym) {
     trend, bridge: { ly: bridge(ly.tickets, ly.net, "ly"), plan: inp.plan_uzs && inp.plan_tickets ? bridge(inp.plan_tickets, inp.plan_uzs, "plan") : null },
     excluded: Object.values(by).sort((a, b) => (a.basis < b.basis ? -1 : 1)), tickets, incentive };
 }
+// The year: 2031 has June (20m) and October (the scenario); 2030 has October (190m).
+function yearDoc(y) {
+  const months = [];
+  let net = 0, tickets = 0, lyNet = 0, lyTk = 0, planTd = 0, planNet = 0, anyPlan = false;
+  const through = y === 2031 ? 10 : y === 2030 ? 10 : 12;
+  for (let i = 1; i <= 12; i++) {
+    const ym = y + "-" + String(i).padStart(2, "0"), d = monthDoc(ym), prev = (y - 1) + "-" + String(i).padStart(2, "0");
+    const june = ym === "2031-06", n = june ? 20000000 : d.cur.net, tk = june ? 1 : d.cur.tickets;
+    const ln = prev === "2030-10" ? 190000000 : prev === "2031-06" ? 20000000 : 0, lt = prev === "2030-10" ? 2 : prev === "2031-06" ? 1 : 0;
+    const im = inputs[ym] || {}, inP = i <= through;
+    months.push({ month: ym + "-01", in_period: inP, net: n, tickets: tk, units: tk, atv: tk ? Math.round(n / tk) : null, upt: tk ? 1 : null, discount_pct: n ? 0.0233 : null,
+      large_net: june ? 0 : d.cur.large.net, large_tickets: june ? 0 : d.cur.large.tickets, base_net: june ? n : d.cur.base.net,
+      ly_net: ln, ly_tickets: lt, ly_atv: lt ? Math.round(ln / lt) : null, plan: im.plan_uzs || null, visits: im.visits || null, conversion: im.visits ? Math.round(tk / im.visits * 10000) / 10000 : null });
+    if (inP) { net += n; tickets += tk; lyNet += ln; lyTk += lt; if (im.plan_uzs) { planTd += im.plan_uzs; planNet += n; anyPlan = true; } }
+  }
+  const P = (n, t) => Object.assign(PERIOD(n, n, t, t, 0, 0, LIFE0), { large: { tickets: n >= 130000000 ? 1 : 0, net: n >= 130000000 ? 130000000 : 0 } });
+  const tkPart = lyTk ? Math.round((tickets - lyTk) * lyNet / lyTk) : 0;
+  return { year: y, store_id: 1, through: y + "-" + String(through).padStart(2, "0") + "-01", complete: through === 12, months, cur: P(net, tickets), ly: P(lyNet, lyTk), ly_full: P(lyNet, lyTk),
+    plan: { to_date: anyPlan ? planTd : null, full: anyPlan ? planTd : null, net_planned_months: anyPlan ? planNet : null, attainment: anyPlan ? Math.round(planNet / planTd * 10000) / 10000 : null },
+    bridge: { ly: lyTk ? { from: lyNet, to: net, tickets: tkPart, mix: 0, size: net - lyNet - tkPart } : null } };
+}
+// Brands: October 2031 (or the year 2031) has three brands sold; arrivals are loaded for 2030 and 2031.
+function brandsDoc(body) {
+  const isYear = typeof body.year === "number", ym = isYear ? null : monthIn(body.month), y = isYear ? body.year : Number(ym.slice(0, 4));
+  const on = isYear ? y === 2031 : ym === "2031-10", net = on ? monthDoc("2031-10").cur.net : 0;
+  const B = (brand, n, ly, units, stock, value, arr) => ({ brand, net: n, share: net ? Math.round(n / net * 10000) / 10000 : null, discount_pct: n ? 0.02 : null, units, tickets: units,
+    asp: units ? Math.round(n / units) : null, ly_net: ly, ly_units: ly ? 1 : 0, stock_units: stock, stock_value: value,
+    arr_units: arr ? arr[0] : null, arr_rrp_usd: arr ? arr[1] : null, arr_sold_units: arr ? arr[2] : null, arr_left_units: arr ? arr[3] : null });
+  // arrivals fall in October 2031 (and in 2030 for the year view): a month other than those has none
+  const a31 = isYear ? y === 2031 : ym === "2031-10", a30 = isYear && y === 2030;
+  const brands = on ? [B("Zz Other", net - 60000000, 0, 3, 4, 96000000, a31 ? [6, 48000, 2, 4] : null), B("Zz Brand", 40000000, 190000000, 1, 10, 240000000, a31 ? [12, 120000, 2, 10] : null),
+    B("Zz Focus", 20000000, 0, 1, 2, 60000000, null), B("Zz Sleeping House", 0, 0, 0, 5, 300000000, null)]
+    : [B("Zz Brand", 0, 0, 0, 10, 240000000, a30 ? [3, 30000, 3, 0] : a31 ? [12, 120000, 2, 10] : null), B("Zz Other", 0, 0, 0, 4, 96000000, a31 ? [6, 48000, 2, 4] : null),
+      B("Zz Focus", 0, 0, 0, 2, 60000000, null), B("Zz Sleeping House", 0, 0, 0, 5, 300000000, null)];
+  const au = brands.reduce((s2, b) => s2 + (b.arr_units || 0), 0), av = brands.reduce((s2, b) => s2 + (b.arr_rrp_usd || 0), 0);
+  return { from: isYear ? y + "-01-01" : ym + "-01", to: "x", through: isYear ? (y === 2031 ? "2031-10-01" : y + "-12-01") : ym + "-01",
+    total: { net, units: on ? 5 : 0, ly_net: on ? 190000000 : 0, stock_units: 21, stock_value: 696000000, incoming_units: 2, arr_units: au, arr_rrp_usd: av },
+    brands, arrival_years: [{ year: 2030, units: 3, rrp_usd: 30000, sold_units: 3, left_units: 0 }, { year: 2031, units: 18, rrp_usd: 168000, sold_units: 4, left_units: 14 }],
+    arrival_months: Array.from({ length: 12 }, (_, i) => { const m = y + "-" + String(i + 1).padStart(2, "0"), hit = m === "2031-10" ? [18, 168000, 4, 14] : m === "2030-05" ? [3, 30000, 3, 0] : [0, 0, 0, 0];
+      return { month: m + "-01", units: hit[0], rrp_usd: hit[1], sold_units: hit[2], left_units: hit[3] }; }),
+    on_hand_by_arrival: { unknown: 3, years: [{ year: 2030, units: 4 }, { year: 2031, units: 14 }] } };
+}
 const count = (v, f, max) => {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v !== "number" || !Number.isSafeInteger(v) || v < 0 || v > max) fail(400, `${f} must be a whole number, zero or more.`);
@@ -135,6 +177,11 @@ function handle(body) {
     if (action === "ping") return [200, { ok: true, name: s.name }];
     if (action === "span") return [200, { first: "2030-10-01", last: "2031-10-01" }];
     if (action === "month") return [200, monthDoc(monthIn(body.month))];
+    if (action === "year") {
+      if (typeof body.year !== "number") fail(400, "year must be a year, as a number.");
+      return [200, yearDoc(body.year)];
+    }
+    if (action === "brands") return [200, brandsDoc(body)];
     if (action === "save_month") {
       const ym = monthIn(body.month), i = body.inputs;
       if (!i || typeof i !== "object" || Array.isArray(i)) fail(400, "inputs must be an object.");

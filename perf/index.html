@@ -204,6 +204,34 @@ main { padding: 24px 24px 96px; }
 .chart .bar:focus .hit { stroke: var(--navy); stroke-width: 2; }
 .chart .plan { stroke: var(--ink); stroke-width: 2; }
 .chart .tick { fill: var(--slate); font: 11px var(--sans); }
+/* year and brand charts: last year as an outline beside this year; lines for the cumulative view */
+.chart .bar .mark2 { fill: var(--white); stroke: var(--slate); stroke-width: 1.5; }
+.chart .bar.off .mark { fill: var(--mist); }
+.chart .line { stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .line.s-cur { stroke: var(--navy); } .chart .dot.s-cur { fill: var(--navy); }
+.chart .line.s-ly { stroke: var(--slate); } .chart .dot.s-ly { fill: var(--slate); }
+.chart .line.s-plan { stroke: var(--ink); stroke-dasharray: 6 5; } .chart .dot.s-plan { fill: var(--ink); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 4px 0 8px; }
+.chart-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.lg-key { display: inline-block; width: 14px; height: 12px; }
+.lg-key.k-mark { background: var(--sky); } .lg-key.k-mark2 { border: 1.5px solid var(--slate); background: var(--white); }
+.lg-key.k-line { height: 0; width: 20px; border-top: 2px solid var(--navy); }
+.lg-key.k-line.s-ly { border-top-color: var(--slate); } .lg-key.k-line.s-plan { border-top: 2px dashed var(--ink); }
+.chart-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tbl.trend tr.off td, .tbl.trend tr.off th { color: var(--slate); }
+#brand-mode { margin-right: 12px; }
+/* the wide tables of the Year and Brands screens: headers wrap and cells are tight, so ten columns fit an iPad */
+#yr-months th, #yr-months td, #br-table th, #br-table td, #arr-table th, #arr-table td { padding-left: 6px; padding-right: 6px; font-size: 13px; }
+#yr-months thead th, #br-table thead th, #arr-table thead th { white-space: normal; vertical-align: bottom; }
+#yr-months td, #br-table td, #arr-table td { white-space: nowrap; }
+@media (max-width: 900px) {
+  .chart-pair { grid-template-columns: 1fr; }
+  /* portrait: the tab row may take two lines, and the least-used columns step aside */
+  .kit-tabs { flex-wrap: wrap; row-gap: 0; }
+  #yr-months th:nth-child(8), #yr-months td:nth-child(8), #yr-months th:nth-child(9), #yr-months td:nth-child(9), #yr-months th:nth-child(10), #yr-months td:nth-child(10),
+  #br-table th:nth-child(7), #br-table td:nth-child(7), #br-table th:nth-child(8), #br-table td:nth-child(8), #br-table th:nth-child(10), #br-table td:nth-child(10) { display: none; }
+  #yr-months th, #yr-months td, #br-table th, #br-table td, #arr-table th, #arr-table td { padding-left: 4px; padding-right: 4px; font-size: 12px; }
+}
 .plan-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .plan-mark { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--ink); }
 .chart-tip { position: absolute; z-index: 60; width: 200px; transform: translateY(-100%); background: var(--navy-deep); color: var(--white); padding: 8px 10px; font: 13px/1.45 var(--sans);
@@ -341,6 +369,8 @@ const LANG_KEY = "delardi_lang";          // shared with the landing page
 const CUR_KEY = "perf_currency";          // localStorage: amounts shown in so'm or in US dollars
 const USD_RATE = 12000;                   // the internal rate; the dollar view always uses it
 const MONTH_KEY = "perf_month";           // sessionStorage: the month on screen
+const YEAR_KEY = "perf_year";             // sessionStorage: the year on the Year screen
+const BRAND_MODE_KEY = "perf_brand_mode"; // sessionStorage: Brands shows the month or the year
 const IDLE_MIN = 15;                      // touch devices only
 
 /* ---------------------------------------------------------------- language
@@ -373,7 +403,7 @@ const RU = {
   "so'm": "сум",
   "Yes": "Да", "Cancel": "Отмена", "Close": "Закрыть",
   "Month": "Месяц", "Incentive": "Мотивация", "Inputs": "Вводные",
-  "Previous month": "Предыдущий месяц", "Next month": "Следующий месяц",
+  "Previous month": "Предыдущий месяц", "Next month": "Следующий месяц", "Previous year": "Предыдущий год", "Next year": "Следующий год",
   "Loading the month…": "Загружаю месяц…",
   "Try again": "Повторить",
 };
@@ -428,6 +458,10 @@ const S = {
   month: null,                       // "YYYY-MM" on screen
   doc: null, busy: false, err: null, // the month's document (perf_month)
   form: null,                        // inputs.js: the form being edited
+  year: null,                        // the year on the Year screen
+  brandMode: "month",                // Brands: "month" or "year"
+  inMonth: null,                     // Inputs has its own month: it opens on the month ahead
+  yearDoc: null, brandDoc: null, inDoc: null,   // { key, doc, err }: one document per screen, see need()
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -694,11 +728,13 @@ document.addEventListener("keydown", (e) => {
 }, true);
 
 /* ------------------------------------------------------------------ routes
-   #/month (default)  #/incentive  #/inputs */
+   #/month (default)  #/year  #/brands  #/incentive  #/inputs */
 const ROUTES = {
   month: (main) => renderMonth(main),              // month.js
   incentive: (main) => renderIncentive(main),      // incentive.js
   inputs: (main) => renderInputs(main),            // inputs.js
+  year: (main) => renderYear(main),                // year.js
+  brands: (main) => renderBrands(main),            // brands.js
 };
 function route() {
   const m = /^#\/([a-z]+)/.exec(location.hash || "");
@@ -728,12 +764,56 @@ async function loadMonth() {
 function setMonth(m) {
   if (!m || m === S.month || S.locked) return;
   if (S.span && (m < S.span.first || m > S.span.last)) return;
-  S.month = m; S.doc = null; S.form = null;
+  S.month = m; S.doc = null;
   sstore(MONTH_KEY, m);
   loadMonth();
 }
-// After a save or a correction the server answers with the month recomputed.
-function takeDoc(d) { monthSeq++; S.doc = d; S.busy = false; S.err = null; }
+// After a save or a correction the server answers with the month recomputed. The year and the brands were
+// computed from the same tickets and plans, so they are asked for again when next shown.
+function takeDoc(d) { monthSeq++; S.doc = d; S.busy = false; S.err = null; S.yearDoc = null; S.brandDoc = null; }
+
+/* ------------------------------------------------- one document per screen
+   need(slot, action, params, key) → { key, doc, err }. The Year, Brands and Inputs screens each hold one document;
+   when the key on screen changes, the document is asked for again and an answer for an old key is dropped. */
+function need(slot, action, params, key) {
+  const cur = S[slot];
+  if (cur && cur.key === key) return cur;
+  const st = S[slot] = { key, doc: null, err: null };
+  api(action, params).then((d) => { if (S[slot] === st && !S.locked) { st.doc = d; renderAll(); } },
+    (e) => { if (S[slot] === st && !S.locked) { st.err = e.message; renderAll(); } });
+  return st;
+}
+// What such a screen shows while its document is loading or could not be loaded. → true when it should stop there.
+function pending(sec, st, loadingText) {
+  if (st.err) {
+    sec.append(el("p", { class: "notice", role: "alert", id: "doc-err" }, st.err + " ",
+      el("button", { type: "button", class: "btn", onclick: () => { for (const k of ["yearDoc", "brandDoc", "inDoc"]) if (S[k] === st) S[k] = null; renderAll(); }, text: tr("Try again") })));
+    return true;
+  }
+  if (!st.doc) { sec.append(el("p", { class: "small", role: "status", id: "doc-loading", text: tr(loadingText) })); return true; }
+  return false;
+}
+// Inputs run one month ahead of the sales: the month after the last one with tickets, or next calendar month if later.
+function inputsLast() {
+  const t = tashkentDay(new Date().toISOString());
+  const nextCal = addMonths(t.y + "-" + String(t.m).padStart(2, "0"), 1), afterSales = addMonths(S.span.last, 1);
+  return nextCal > afterSales ? nextCal : afterSales;
+}
+function setInMonth(m) {
+  if (!S.span || S.locked || m === S.inMonth || m < S.span.first || m > inputsLast()) return;
+  S.inMonth = m; S.form = null; renderAll();
+}
+function inMonthPicker() {
+  if (!S.span || !S.inMonth) return null;
+  const months = [], last = inputsLast();
+  for (let m = last; m >= S.span.first; m = addMonths(m, -1)) months.push(m);
+  const sel = el("select", { id: "in-month-select", "aria-label": tr("Month"), onchange: () => setInMonth(sel.value) },
+    months.map((m) => el("option", { value: m, selected: m === S.inMonth ? true : null, text: monthName(m) })));
+  return el("div", { class: "month-picker" },
+    el("button", { type: "button", class: "btn", id: "in-month-prev", "aria-label": tr("Previous month"), disabled: S.inMonth <= S.span.first ? true : null, onclick: () => setInMonth(addMonths(S.inMonth, -1)), text: "‹" }),
+    sel,
+    el("button", { type: "button", class: "btn", id: "in-month-next", "aria-label": tr("Next month"), disabled: S.inMonth >= last ? true : null, onclick: () => setInMonth(addMonths(S.inMonth, 1)), text: "›" }));
+}
 
 /* ------------------------------------------------------------------ header */
 function langSwitch() {
@@ -773,10 +853,12 @@ function renderHeader() {
       S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
       S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
     el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
-      tab("month", "Month"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
+      tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
       el("span", { class: "kit-spacer" }),
-      curSwitch(),
-      monthPicker()));
+      r === "inputs" ? null : curSwitch(),
+      r === "brands" && S.token && S.span ? brandModeSwitch() : null,
+      // each screen shows the picker for the period it is about
+      r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()));
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.
 function monthPending(sec) {
@@ -797,6 +879,13 @@ async function afterUnlock() {
   S.span = sp && sp.first ? { first: ym(sp.first), last: ym(sp.last) } : null;
   const saved = sstore(MONTH_KEY);
   S.month = S.span ? (saved && saved >= S.span.first && saved <= S.span.last ? saved : S.span.last) : null;
+  if (S.span) {
+    const y0 = Number(S.span.first.slice(0, 4)), y1 = Number(S.span.last.slice(0, 4)), sy = Number(sstore(YEAR_KEY));
+    S.year = sy >= y0 && sy <= y1 ? sy : y1;
+    S.brandMode = sstore(BRAND_MODE_KEY) === "year" ? "year" : "month";
+    S.inMonth = inputsLast();
+  }
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
   if (S.month) loadMonth(); else renderAll();
 }
 function renderGate() {
@@ -853,6 +942,7 @@ function lockDown(message) {
   S.gateMessage = message || null;
   monthSeq++;
   S.doc = null; S.span = null; S.form = null; S.busy = false; S.err = null;
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
   kitCloseMenus();
   document.querySelectorAll(".modal-wrap, .chart-tip").forEach((n) => n.remove());
   $("#app").innerHTML = "";
@@ -968,6 +1058,85 @@ function kitToolsMenu(currentId, lang, opts) {
   });
   wrap.appendChild(btn);
   wrap.appendChild(list);
+  return wrap;
+}
+
+/* Delardi Performance — charts.js
+   Two small chart builders used by the Year and Brands screens. Same rules as the month's trend chart: one axis
+   from zero, marks in the house navy, last year as an outline beside it, text in ink colours, a tooltip on hover and
+   on keyboard focus, and the same figures in a table under every chart. */
+Object.assign(RU, {
+  "This year": "Этот год", "Last year": "Прошлый год", "Plan (cumulative)": "План (накопительно)",
+});
+function svgNode(tag, attrs, kids) {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  (kids || []).forEach((k) => k && n.appendChild(typeof k === "string" ? document.createTextNode(k) : k));
+  return n;
+}
+function chartTip(ev, lines) {
+  let n = $(".chart-tip");
+  if (!n) { n = el("div", { class: "chart-tip", role: "status" }); document.body.appendChild(n); }
+  n.innerHTML = "";
+  lines.forEach((t, i) => n.append(el(i ? "span" : "strong", { text: t })));
+  const r = ev.currentTarget.getBoundingClientRect();
+  n.style.left = Math.max(8, Math.min(window.scrollX + r.left + r.width / 2 - 100, window.scrollX + document.documentElement.clientWidth - 208)) + "px";
+  n.style.top = (window.scrollY + r.top - 8) + "px";
+}
+function chartTipHide() { const n = $(".chart-tip"); if (n) n.remove(); }
+function chartLegend(items) {
+  return el("p", { class: "chart-legend small" }, items.map(([cls, label]) => el("span", { class: "lg" }, el("span", { class: "lg-key " + cls, "aria-hidden": "true" }), label)));
+}
+/* barChart({ id, title, rows: [{ key, label, v, v2, off, tip: [lines] }], legend: [this, other] })
+   v is the filled bar; v2, when given, is the outlined bar beside it (last year). off greys a bar out (a month not
+   yet in the period). */
+function barChart(o) {
+  const W = o.width || 960, H = o.height || 240, L = 8, R = 8, T = 14, B = 30, two = o.rows.some((r) => r.v2 !== undefined && r.v2 !== null);
+  const max = Math.max(1, ...o.rows.map((r) => Math.max(Number(r.v) || 0, Number(r.v2) || 0)));
+  const step = (W - L - R) / Math.max(1, o.rows.length), bw = Math.min(two ? 22 : 40, step * (two ? 0.34 : 0.6));   // a half-width chart is drawn on a half-width canvas, so its labels keep their size
+  const y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
+  const wrap = el("div", { class: "chart", id: o.id });
+  const svg = svgNode("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": o.title, preserveAspectRatio: "xMidYMid meet" },
+    [svgNode("line", { x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis" })].concat(o.rows.map((r, i) => {
+      const cx = L + step * i + step / 2, v = Number(r.v) || 0, v2 = Number(r.v2) || 0;
+      const x1 = two ? cx - bw - 1 : cx - bw / 2;
+      const g = svgNode("g", { class: "bar" + (r.off ? " off" : ""), tabindex: "0", "data-key": r.key }, [
+        svgNode("rect", { x: cx - step / 2, y: T, width: step, height: H - T - B, class: "hit" }),
+        two && v2 > 0 ? svgNode("rect", { x: cx + 1, y: y(v2), width: bw, height: Math.max(1, H - B - y(v2)), class: "mark2" }) : null,
+        v > 0 ? svgNode("rect", { x: x1, y: y(v), width: bw, height: Math.max(1, H - B - y(v)), class: "mark" }) : null,
+        svgNode("text", { x: cx, y: H - 10, class: "tick", "text-anchor": "middle" }, [r.label]),
+      ]);
+      g.addEventListener("mouseenter", (ev) => chartTip(ev, r.tip)); g.addEventListener("focus", (ev) => chartTip(ev, r.tip));
+      g.addEventListener("mouseleave", chartTipHide); g.addEventListener("blur", chartTipHide);
+      return g;
+    })));
+  wrap.append(el("p", { class: "chart-title small", text: o.title }), svg, two && o.legend ? chartLegend([["k-mark", o.legend[0]], ["k-mark2", o.legend[1]]]) : null);
+  return wrap;
+}
+/* lineChart({ id, title, labels: [..], series: [{ cls, name, values: [number|null] }], tip: (i) => [lines] })
+   Up to three lines over the same points; a null ends a line (months not reached yet). */
+function lineChart(o) {
+  const W = 960, H = 260, L = 8, R = 8, T = 14, B = 30, n = o.labels.length;
+  const max = Math.max(1, ...o.series.flatMap((s) => s.values.map((v) => Number(v) || 0)));
+  const step = (W - L - R) / Math.max(1, n), x = (i) => L + step * i + step / 2, y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
+  const wrap = el("div", { class: "chart", id: o.id });
+  const kids = [svgNode("line", { x1: L, x2: W - R, y1: H - B, y2: H - B, class: "axis" })];
+  for (const s of o.series) {
+    const pts = s.values.map((v, i) => (v === null || v === undefined ? null : [x(i), y(Number(v))])).filter(Boolean);
+    if (pts.length > 1) kids.push(svgNode("polyline", { points: pts.map((p) => p.join(",")).join(" "), class: "line " + s.cls, fill: "none" }));
+    if (pts.length) { const p = pts[pts.length - 1]; kids.push(svgNode("circle", { cx: p[0], cy: p[1], r: 4, class: "dot " + s.cls })); }
+  }
+  o.labels.forEach((lab, i) => {
+    const g = svgNode("g", { class: "bar", tabindex: "0", "data-key": String(i) }, [
+      svgNode("rect", { x: x(i) - step / 2, y: T, width: step, height: H - T - B, class: "hit" }),
+      svgNode("text", { x: x(i), y: H - 10, class: "tick", "text-anchor": "middle" }, [lab]),
+    ]);
+    g.addEventListener("mouseenter", (ev) => chartTip(ev, o.tip(i))); g.addEventListener("focus", (ev) => chartTip(ev, o.tip(i)));
+    g.addEventListener("mouseleave", chartTipHide); g.addEventListener("blur", chartTipHide);
+    kids.push(g);
+  });
+  wrap.append(el("p", { class: "chart-title small", text: o.title }), svgNode("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": o.title, preserveAspectRatio: "xMidYMid meet" }, kids),
+    chartLegend(o.series.map((s) => ["k-line " + s.cls, s.name])));
   return wrap;
 }
 
@@ -1223,6 +1392,186 @@ function correctTicket(t) {
   save.setAttribute("form", "tk-form");
 }
 
+/* Delardi Performance — year.js
+   The year: to date against the same months last year and against the plans typed in, four charts, and the months
+   in a table. One document per year (perf_year). */
+Object.assign(RU, {
+  "Year": "Год", "Loading the year…": "Загружаем год…", "Year to date, January to {m}": "С начала года, январь – {m}", "The whole year": "Год целиком",
+  "Net sales, year to date": "Чистые продажи с начала года", "Net sales, the year": "Чистые продажи за год", "{n} tickets": "чеков: {n}",
+  "Against the same months last year": "К тем же месяцам прошлого года", "Against last year, whole": "К прошлому году целиком",
+  "same months last year {v}": "те же месяцы прошлого года: {v}", "last year in full {v}": "прошлый год целиком: {v}",
+  "Against plan, planned months": "К плану, месяцы с планом", "plan to date {v}": "план на сегодня: {v}", "sales of those months {v}": "продажи этих месяцев: {v}",
+  "No plan typed in for this year.": "На этот год план не введён.", "No sales in the same months last year.": "В те же месяцы прошлого года продаж не было.",
+  "Net sales by month, this year and last": "Чистые продажи по месяцам, этот год и прошлый", "Cumulative net sales": "Чистые продажи накопительно",
+  "Tickets by month": "Чеки по месяцам", "Average ticket by month": "Средний чек по месяцам",
+  "Month by month": "По месяцам", "Bridge from last year": "Разбор отклонения к прошлому году",
+  "Large tickets, value": "Крупные чеки, сумма", "Base book": "Базовый поток", "vs last year": "к прошлому году", "Total to date": "Итого с начала года",
+});
+function yearPicker() {
+  if (!S.span) return null;
+  const first = Number(S.span.first.slice(0, 4)), last = Number(S.span.last.slice(0, 4)), ys = [];
+  for (let y = last; y >= first; y--) ys.push(y);
+  const sel = el("select", { id: "year-select", "aria-label": tr("Year"), onchange: () => setYear(Number(sel.value)) },
+    ys.map((y) => el("option", { value: y, selected: y === S.year ? true : null, text: String(y) })));
+  return el("div", { class: "month-picker" },
+    el("button", { type: "button", class: "btn", id: "year-prev", "aria-label": tr("Previous year"), disabled: S.year <= first ? true : null, onclick: () => setYear(S.year - 1), text: "‹" }),
+    sel,
+    el("button", { type: "button", class: "btn", id: "year-next", "aria-label": tr("Next year"), disabled: S.year >= last ? true : null, onclick: () => setYear(S.year + 1), text: "›" }));
+}
+function setYear(y) {
+  if (!S.span || S.locked || y === S.year) return;
+  if (y < Number(S.span.first.slice(0, 4)) || y > Number(S.span.last.slice(0, 4))) return;
+  S.year = y; sstore(YEAR_KEY, String(y)); renderAll();
+}
+function renderYear(main) {
+  const sec = el("section", { class: "screen", id: "screen-year" }, el("h1", { class: "title", text: S.year ? String(S.year) : tr("Year") }));
+  main.append(sec);
+  const st = need("yearDoc", "year", { year: S.year }, String(S.year));
+  if (pending(sec, st, "Loading the year…")) return;
+  const d = st.doc, c = d.cur, ly = d.ly, ms = d.months, mlab = (m) => monthName(m.month, true).split(" ")[0];
+  sec.append(el("p", { class: "small", id: "year-period", text: d.complete ? tr("The whole year") : tr("Year to date, January to {m}", { m: monthName(d.through) }) }));
+  const card = (id, label, big, lines) => el("div", { class: "hl", id }, el("span", { class: "lbl", text: tr(label) }), el("strong", { class: "hl-big num", text: big }),
+    lines.map((t) => el("span", { class: "small", text: t })));
+  sec.append(el("div", { class: "hl-row" },
+    card("yr-net", d.complete ? "Net sales, the year" : "Net sales, year to date", fmtMoney(c.net), [fmtOther(c.net), tr("{n} tickets", { n: fmtNum(c.tickets) })]),
+    num(d.plan.to_date) ? card("yr-plan", "Against plan, planned months", fmtPct(d.plan.attainment, 0),
+        [tr("plan to date {v}", { v: fmtMoney(d.plan.to_date) }), tr("sales of those months {v}", { v: fmtMoney(d.plan.net_planned_months) })])
+      : card("yr-plan", "Against plan, planned months", "—", [tr("No plan typed in for this year.")]),
+    num(ly.net) ? card("yr-ly", "Against the same months last year", fmtChange(c.net, ly.net),
+        [tr("same months last year {v}", { v: fmtMoney(ly.net) }), tr("last year in full {v}", { v: fmtMoney(d.ly_full.net) })])
+      : card("yr-ly", "Against the same months last year", "—", [tr("No sales in the same months last year.")])));
+
+  // charts: sales against last year, cumulative, tickets, average ticket
+  let cum = 0, cumLy = 0, cumPlan = 0, anyPlan = false;
+  const cumRows = ms.map((m) => {
+    cumLy += num(m.ly_net) || 0;
+    if (m.in_period) cum += num(m.net) || 0;
+    if (num(m.plan) !== null) { cumPlan += num(m.plan); anyPlan = true; }
+    return { cur: m.in_period ? cum : null, ly: cumLy, plan: anyPlan ? cumPlan : null };
+  });
+  const unit = ", " + curUnit();
+  sec.append(el("h2", { class: "section", text: tr("Net sales by month, this year and last") }),
+    barChart({ id: "yr-chart-net", title: tr("Net sales by month, this year and last") + unit, legend: [tr("This year"), tr("Last year")],
+      rows: ms.map((m) => ({ key: String(m.month).slice(0, 7), label: mlab(m), v: num(m.net) || 0, v2: num(m.ly_net) || 0, off: !m.in_period,
+        tip: [monthName(m.month), tr("Net sales") + ": " + fmtMoney(m.net), tr("Last year") + ": " + fmtMoney(m.ly_net), num(m.plan) !== null ? tr("Plan") + ": " + fmtMoney(m.plan) : null].filter(Boolean) })) }),
+    el("h2", { class: "section", text: tr("Cumulative net sales") }),
+    lineChart({ id: "yr-chart-cum", title: tr("Cumulative net sales") + unit, labels: ms.map(mlab),
+      series: [{ cls: "s-ly", name: tr("Last year"), values: cumRows.map((r) => r.ly) }].concat(anyPlan ? [{ cls: "s-plan", name: tr("Plan (cumulative)"), values: cumRows.map((r) => r.plan) }] : [],
+        [{ cls: "s-cur", name: tr("This year"), values: cumRows.map((r) => r.cur) }]),
+      tip: (i) => [monthName(ms[i].month), tr("This year") + ": " + (cumRows[i].cur === null ? "—" : fmtMoney(cumRows[i].cur)), tr("Last year") + ": " + fmtMoney(cumRows[i].ly),
+        cumRows[i].plan === null ? null : tr("Plan (cumulative)") + ": " + fmtMoney(cumRows[i].plan)].filter(Boolean) }),
+    el("div", { class: "chart-pair" },
+      barChart({ id: "yr-chart-tickets", title: tr("Tickets by month"), legend: [tr("This year"), tr("Last year")], height: 220, width: 480,
+        rows: ms.map((m) => ({ key: String(m.month).slice(0, 7), label: mlab(m), v: num(m.tickets) || 0, v2: num(m.ly_tickets) || 0, off: !m.in_period,
+          tip: [monthName(m.month), tr("Tickets") + ": " + fmtNum(m.tickets), tr("Last year") + ": " + fmtNum(m.ly_tickets)] })) }),
+      barChart({ id: "yr-chart-atv", title: tr("Average ticket by month") + unit, legend: [tr("This year"), tr("Last year")], height: 220, width: 480,
+        rows: ms.map((m) => ({ key: String(m.month).slice(0, 7), label: mlab(m), v: num(m.atv) || 0, v2: num(m.ly_atv) || 0, off: !m.in_period,
+          tip: [monthName(m.month), tr("Average ticket (NSPT)") + ": " + fmtMoney(m.atv), tr("Last year") + ": " + fmtMoney(m.ly_atv)] })) })));
+
+  // the bridge and the months
+  sec.append(el("h2", { class: "section", text: tr("Bridge from last year") }),
+    el("div", { class: "bridges" }, bridgeBlock("yr-bridge", "From last year", "Last year", d.bridge.ly, tr("No sales in the same months last year."))));
+  const cell = (t) => el("td", { class: "r", text: t });
+  sec.append(el("h2", { class: "section", text: tr("Month by month") }),
+    el("div", { class: "table-wrap" }, el("table", { class: "tbl trend", id: "yr-months" },
+      el("thead", {}, el("tr", {}, [["Month", ""], ["Net sales", "r"], ["Last year", "r"], ["Change", "r"], ["Plan", "r"], ["Tickets", "r"], ["NSPT", "r"], ["UPT", "r"], ["Discount", "r"], ["Large tickets, value", "r"], ["Conversion", "r"]]
+        .map(([h, c2]) => el("th", { scope: "col", class: c2 || null, text: tr(h) })))),
+      el("tbody", {}, ms.map((m) => el("tr", { class: m.in_period ? null : "off", "data-month": String(m.month).slice(0, 7) },
+        el("th", { scope: "row" }, el("a", { href: "#/month", onclick: () => { setMonth(String(m.month).slice(0, 7)); }, text: monthName(m.month, true) })),
+        cell(fmtAmt(m.net)), cell(fmtAmt(m.ly_net)), cell(num(m.ly_net) ? fmtChange(m.net, m.ly_net) : "—"), cell(fmtAmt(m.plan)), cell(fmtNum(m.tickets)),
+        cell(fmtAmt(m.atv)), cell(fmtNum(m.upt, 2)), cell(fmtPct(m.discount_pct)), cell(fmtAmt(m.large_net)), cell(fmtPct(m.conversion, 0))))),
+      el("tfoot", {}, el("tr", { id: "yr-total" }, el("th", { scope: "row", text: tr("Total to date") }), cell(fmtAmt(c.net)), cell(fmtAmt(ly.net)), cell(num(ly.net) ? fmtChange(c.net, ly.net) : "—"),
+        cell(fmtAmt(d.plan.to_date)), cell(fmtNum(c.tickets)), cell(fmtAmt(c.atv)), cell(fmtNum(c.upt, 2)), cell(fmtPct(c.discount_pct)), cell(fmtAmt(c.large.net)), cell("—"))))));
+}
+
+/* Delardi Performance — brands.js
+   Brands for the month on screen or for the year: sales, share, last year, what is on hand, and what arrived.
+   Arrivals come from Colibri's arrival report, by the date of arrival. One document per period (perf_brands). */
+Object.assign(RU, {
+  "Brands": "Бренды", "Brands, {p}": "Бренды, {p}", "Loading the brands…": "Загружаем бренды…", "Period": "Период",
+  "Net sales by brand": "Чистые продажи по брендам", "Brand": "Бренд", "Share": "Доля", "Units": "Штук", "Average item": "Средняя цена изделия",
+  "On hand, units": "В наличии, шт.", "On hand, retail value": "В наличии, по розничной цене", "No sales in this period.": "За этот период продаж нет.",
+  "All brands": "Все бренды", "Arrivals": "Поступления", "Arrived in {p}, units": "Поступило за {p}, шт.", "Arrivals by month, {y}, units": "Поступления по месяцам, {y}, шт.", "Nothing arrived in this period.": "За этот период поступлений не было.", "Arrived, retail value, USD": "Поступило, по розничной цене, USD",
+  "Sold from them": "Из них продано", "Still on hand from them": "Из них в наличии", "Sold from them, %": "Продано из них, %",
+  "Arrivals by year, units": "Поступления по годам, шт.", "Arrived": "Поступило", "Sold from them, units": "Из них продано, шт.",
+  "From Colibri's arrival report, by date of arrival. Values are retail prices in USD as Colibri holds them. Sold from them counts sales up to the day the report was taken.":
+    "По отчёту Colibri о поступлениях, по дате прихода. Суммы — розничные цены в USD, как в Colibri. «Из них продано» — продажи на дату отчёта.",
+  "No arrival figures are loaded yet.": "Данные о поступлениях ещё не загружены.",
+  "What is on hand today, by year of arrival": "Что в наличии сегодня, по году поступления", "Arrival date not known": "Дата поступления неизвестна", "Year of arrival": "Год поступления",
+  "Top brand": "Первый бренд", "{p} of sales": "{p} продаж", "Brands sold": "Брендов с продажами", "of {n} on hand": "из {n} в наличии", "retail value {v}": "по розничной цене: {v}",
+  "On hand today": "В наличии сегодня", "and {n} on the way": "и ещё в пути: {n}",
+  "January to {m}; last year is the same months.": "Январь – {m}; прошлый год — те же месяцы.", "{n} pieces": "изделий: {n}",
+});
+function brandPeriod() { return S.brandMode === "year" ? { year: S.year } : { month: S.month }; }
+function brandModeSwitch() {
+  return el("div", { class: "cur-switch", id: "brand-mode", role: "group", "aria-label": tr("Period") }, [["month", "Month"], ["year", "Year"]].map(([m, label]) =>
+    el("button", { type: "button", class: "btn", "data-mode": m, "aria-pressed": S.brandMode === m ? "true" : "false",
+      onclick: () => { if (S.brandMode !== m) { S.brandMode = m; sstore(BRAND_MODE_KEY, m); renderAll(); } }, text: tr(label) })));
+}
+function renderBrands(main) {
+  const byYear = S.brandMode === "year", label = byYear ? String(S.year) : monthName(S.month);
+  const sec = el("section", { class: "screen", id: "screen-brands" }, el("h1", { class: "title", text: tr("Brands, {p}", { p: label }) }));
+  main.append(sec);
+  const st = need("brandDoc", "brands", brandPeriod(), (byYear ? "y" : "m") + (byYear ? S.year : S.month));
+  if (pending(sec, st, "Loading the brands…")) return;
+  const d = st.doc, t = d.total, sold = d.brands.filter((b) => num(b.net) !== 0 || num(b.ly_net) !== 0), top = d.brands.find((b) => num(b.net) > 0);
+  const year = Number(String(d.from).slice(0, 4));
+  // a year still running is set against the same months of last year: say which
+  if (byYear && d.through && String(d.through).slice(5, 7) !== "12") sec.append(el("p", { class: "small", id: "brand-period", text: tr("January to {m}; last year is the same months.", { m: monthName(d.through) }) }));
+  const card = (id, lab, big, lines) => el("div", { class: "hl", id }, el("span", { class: "lbl", text: tr(lab) }), el("strong", { class: "hl-big num", text: big }),
+    lines.map((x) => el("span", { class: "small", text: x })));
+  sec.append(el("div", { class: "hl-row" },
+    card("br-top", "Top brand", top ? top.brand : "—", top ? [fmtMoney(top.net), tr("{p} of sales", { p: fmtPct(top.share, 0) })] : [tr("No sales in this period.")]),
+    card("br-count", "Brands sold", fmtNum(d.brands.filter((b) => num(b.net) > 0).length), [tr("of {n} on hand", { n: fmtNum(d.brands.filter((b) => num(b.stock_units) > 0).length) })]),
+    card("br-stock", "On hand today", tr("{n} pieces", { n: fmtNum(t.stock_units) }), [tr("retail value {v}", { v: fmtMoney(t.stock_value) })].concat(num(t.incoming_units) > 0 ? [tr("and {n} on the way", { n: fmtNum(t.incoming_units) })] : []))));
+
+  // sales by brand
+  sec.append(el("h2", { class: "section", text: tr("Net sales by brand") }));
+  if (!sold.length) sec.append(el("p", { class: "small", id: "br-none", text: tr("No sales in this period.") }));
+  else {
+    const short = (s) => (s.length > 11 ? s.slice(0, 10) + "…" : s);
+    sec.append(barChart({ id: "br-chart", title: tr("Net sales by brand") + ", " + curUnit(), legend: [byYear ? tr("This year") : monthName(S.month), tr("Last year")],
+      rows: sold.slice(0, 14).map((b) => ({ key: b.brand, label: short(b.brand), v: Math.max(0, num(b.net) || 0), v2: Math.max(0, num(b.ly_net) || 0),
+        tip: [b.brand, tr("Net sales") + ": " + fmtMoney(b.net), tr("Last year") + ": " + fmtMoney(b.ly_net), tr("Share") + ": " + fmtPct(b.share)] })) }));
+  }
+  const cell = (x, cls) => el("td", { class: "r" + (cls ? " " + cls : ""), text: x });
+  sec.append(el("div", { class: "table-wrap" }, el("table", { class: "tbl trend", id: "br-table" },
+    el("thead", {}, el("tr", {}, [["Brand", ""], ["Net sales", "r"], ["Share", "r"], ["Last year", "r"], ["Change", "r"], ["Units", "r"], ["Average item", "r"], ["Discount", "r"], ["On hand, units", "r"], ["On hand, retail value", "r"]]
+      .map(([h, c2]) => el("th", { scope: "col", class: c2 || null, text: tr(h) })))),
+    el("tbody", {}, d.brands.map((b) => el("tr", { "data-brand": b.brand, class: num(b.net) ? null : "off" },
+      el("th", { scope: "row", text: b.brand }), cell(fmtAmt(b.net)), cell(fmtPct(b.share)), cell(fmtAmt(b.ly_net)), cell(num(b.ly_net) ? fmtChange(b.net, b.ly_net) : "—"),
+      cell(fmtNum(b.units)), cell(fmtAmt(b.asp)), cell(fmtPct(b.discount_pct)), cell(fmtNum(b.stock_units)), cell(fmtAmt(b.stock_value))))),
+    el("tfoot", {}, el("tr", { id: "br-total" }, el("th", { scope: "row", text: tr("All brands") }), cell(fmtAmt(t.net)), cell(num(t.net) ? fmtPct(1) : "—"), cell(fmtAmt(t.ly_net)),
+      cell(num(t.ly_net) ? fmtChange(t.net, t.ly_net) : "—"), cell(fmtNum(t.units)), cell("—"), cell("—"), cell(fmtNum(t.stock_units)), cell(fmtAmt(t.stock_value)))))));
+
+  // arrivals
+  sec.append(el("h2", { class: "section", text: tr("Arrivals") }));
+  if (!d.arrival_years.length) { sec.append(el("p", { class: "small", id: "arr-none", text: tr("No arrival figures are loaded yet.") })); }
+  else {
+    const tipOf = (name, y) => [name, tr("Arrived") + ": " + fmtNum(y.units), tr("Sold from them") + ": " + fmtNum(y.sold_units), tr("Still on hand from them") + ": " + fmtNum(y.left_units),
+      tr("Arrived, retail value, USD") + ": $" + fmtUZS(y.rrp_usd)];
+    sec.append(el("p", { class: "small", id: "arr-note", text: tr("From Colibri's arrival report, by date of arrival. Values are retail prices in USD as Colibri holds them. Sold from them counts sales up to the day the report was taken.") }),
+      el("div", { class: "chart-pair" },
+        barChart({ id: "arr-chart-months", title: tr("Arrivals by month, {y}, units", { y: year }), legend: [tr("Arrived"), tr("Sold from them, units")], height: 220, width: 480,
+          rows: (d.arrival_months || []).map((m) => ({ key: String(m.month).slice(0, 7), label: monthName(m.month, true).split(" ")[0], v: num(m.units) || 0, v2: num(m.sold_units) || 0, tip: tipOf(monthName(m.month), m) })) }),
+        barChart({ id: "arr-chart", title: tr("Arrivals by year, units"), legend: [tr("Arrived"), tr("Sold from them, units")], height: 220, width: 480,
+          rows: d.arrival_years.map((y) => ({ key: String(y.year), label: String(y.year), v: num(y.units) || 0, v2: num(y.sold_units) || 0, tip: tipOf(String(y.year), y) })) })));
+    const arr = d.brands.filter((b) => num(b.arr_units) > 0).sort((a, b) => (num(b.arr_rrp_usd) || 0) - (num(a.arr_rrp_usd) || 0));
+    sec.append(el("div", { class: "table-wrap" }, el("table", { class: "tbl trend", id: "arr-table" },
+      el("thead", {}, el("tr", {}, [[tr("Brand"), ""], [tr("Arrived in {p}, units", { p: label }), "r"], [tr("Arrived, retail value, USD"), "r"], [tr("Sold from them"), "r"], [tr("Sold from them, %"), "r"], [tr("Still on hand from them"), "r"]]
+        .map(([h, c2]) => el("th", { scope: "col", class: c2 || null, text: h })))),
+      el("tbody", {}, !arr.length ? [el("tr", { id: "arr-empty" }, el("td", { colspan: "6", class: "small", text: tr("Nothing arrived in this period.") }))] : arr.map((b) => el("tr", { "data-brand": b.brand }, el("th", { scope: "row", text: b.brand }), cell(fmtNum(b.arr_units)), cell(fmtUZS(b.arr_rrp_usd)),
+        cell(fmtNum(b.arr_sold_units)), cell(fmtPct(num(b.arr_units) ? num(b.arr_sold_units) / num(b.arr_units) : null, 0)), cell(fmtNum(b.arr_left_units))))),
+      el("tfoot", {}, el("tr", { id: "arr-total" }, el("th", { scope: "row", text: tr("All brands") }), cell(fmtNum(t.arr_units)), cell(fmtUZS(t.arr_rrp_usd)), cell("—"), cell("—"), cell("—"))))));
+  }
+  const oh = d.on_hand_by_arrival;
+  sec.append(el("h2", { class: "section", text: tr("What is on hand today, by year of arrival") }),
+    el("div", { class: "table-wrap" }, el("table", { class: "tbl trend", id: "onhand-table" },
+      el("thead", {}, el("tr", {}, el("th", { scope: "col", text: tr("Year of arrival") }), el("th", { scope: "col", class: "r", text: tr("Units") }))),
+      el("tbody", {}, oh.years.map((y) => el("tr", {}, el("th", { scope: "row", text: String(y.year) }), cell(fmtNum(y.units)))),
+        el("tr", { id: "onhand-unknown" }, el("th", { scope: "row", text: tr("Arrival date not known") }), cell(fmtNum(oh.unknown)))))));
+}
+
 /* ===========================================================================
    The incentive estimate: the scheme in force applied to each seller's retail
    sales of the month (perf_incentive). An estimate for checking the payout
@@ -1325,14 +1674,14 @@ Object.assign(RU, {
 
 // The form is built once per month from the document and then lives in S.form, so a redraw (language) keeps what was typed.
 function inputsForm() {
-  const d = S.doc, i = d.inputs, txt = (v) => (num(v) === null ? "" : String(Math.round(num(v))));
+  const d = S.inDoc.doc, i = d.inputs, txt = (v) => (num(v) === null ? "" : String(Math.round(num(v))));
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];
   // every seller with a plan row or with sales this month
   const names = new Set(i.sellers.map((s) => s.seller));
   if (d.incentive) d.incentive.sellers.forEach((s) => names.add(s.seller));
   d.tickets.forEach((t) => { if (t.basis === "retail" && !blank(t.seller)) names.add(t.seller); });
   return {
-    month: S.month, busy: false, err: null,
+    month: S.inMonth, busy: false, err: null,
     v: { plan_uzs: txt(i.plan_uzs), plan_tickets: txt(i.plan_tickets), plan_large_tickets: txt(i.plan_large_tickets), plan_large_uzs: txt(i.plan_large_uzs),
       visits: txt(i.visits), visits_appointment: txt(i.visits_appointment), fx: num(i.fx) === null ? "" : String(num(i.fx)), note: i.note || "" },
     sellers: [...names].sort().map((n) => {
@@ -1345,12 +1694,14 @@ function inputsForm() {
 }
 
 function renderInputs(main) {
-  const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.month ? tr("Inputs for {m}", { m: monthName(S.month) }) : tr("Inputs") }));
+  const sec = el("section", { class: "screen", id: "screen-inputs" }, el("h1", { class: "title", text: S.inMonth ? tr("Inputs for {m}", { m: monthName(S.inMonth) }) : tr("Inputs") }));
   main.append(sec);
-  if (monthPending(sec)) return;
-  if (CUR === "usd") sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
-  if (!S.form || S.form.month !== S.month) S.form = inputsForm();
-  const f = S.form, d = S.doc;
+  if (!S.inMonth) return;
+  const st = need("inDoc", "month", { month: S.inMonth }, S.inMonth);
+  if (pending(sec, st, "Loading the month…")) return;
+  sec.append(el("p", { class: "small", id: "inputs-cur", text: tr("Inputs are always typed in so'm.") }));
+  if (!S.form || S.form.month !== S.inMonth) S.form = inputsForm();
+  const f = S.form, d = st.doc;
   const progs = d.incentive ? d.incentive.scheme.rules.programmes || [] : [];
   const ru = LANG === "ru";
   const keep = (obj, key) => (e) => { obj[key] = e.target.type === "checkbox" ? e.target.checked : e.target.value; };
@@ -1423,9 +1774,12 @@ async function saveInputs() {
   renderAll();
   try {
     const d = await api("save_month", { month, inputs });
-    if (S.locked || S.month !== month) return;
-    takeDoc(d);
-    S.form = null;                                 // rebuilt from what the server now holds
+    if (S.locked || S.inMonth !== month) return;
+    S.inDoc = { key: month, doc: d, err: null };
+    // the plan feeds the month, the year and the incentive: what is on those screens is asked for again
+    S.yearDoc = null; S.brandDoc = null;
+    S.form = null;
+    if (S.month === month) takeDoc(d); else { loadMonth(); return; }   // the month on the other screens carries plans in its trend                                 // rebuilt from what the server now holds
     renderAll();
     toast(tr("Saved."));
   } catch (e) {

@@ -83,7 +83,7 @@ async function shot(page, name, full) {
     await loaded(page);
     check("gate: opens on the last month with tickets", (await page.textContent("#screen-month .title")).trim() === "October 2031" && callsOf("month").pop().month === "2031-10");
     check("gate: asks span then the month, nothing else", mock.calls.filter((c) => !["unlock"].includes(c.action)).map((c) => c.action).join() === "span,month");
-    check("header: tool name, tabs, picker, who is in", norm(await page.textContent(".kit-head")).includes("Performance") && (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Month|Incentive|Inputs"
+    check("header: tool name, tabs, picker, who is in", norm(await page.textContent(".kit-head")).includes("Performance") && (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Month|Year|Brands|Incentive|Inputs"
       && norm(await page.textContent(".kit-staff")) === "Demo Director" && !!(await page.$("#month-select")));
     check("gate: no foreign request, no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join(" | "));
     await ctx.close();
@@ -251,6 +251,14 @@ async function shot(page, name, full) {
   await run("inputs", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/inputs" });
     const val = (sel) => page.$eval(sel, (n) => n.value);
+    await page.waitForSelector("#in-plan");
+    check("inputs: opens on the month after the last month with sales, with its own picker", (await page.textContent("#screen-inputs .title")).trim() === "Inputs for November 2031"
+      && (await page.$eval("#in-month-select", (n2) => n2.value)) === "2031-11" && await page.$eval("#in-month-next", (b) => b.disabled) && !(await page.$("#month-select")) && !(await page.$("#cur-switch"))
+      && (await val("#in-plan")) === "" && callsOf("month").map((c) => c.month).sort().join() === "2031-10,2031-11");
+    check("inputs: the month ahead already offers the scheme's programmes", (await page.$$("#in-sellers thead th")).length >= 4);
+    await page.click("#in-month-prev");
+    await page.waitForFunction(() => S.inMonth === "2031-10" && S.inDoc && S.inDoc.doc && document.querySelector("#in-plan") && document.querySelector("#in-plan").value !== "");
+    const loads = () => callsOf("month").length, loads0 = loads();
     check("inputs: the form opens with what is on file", (await val("#in-plan")) === "200000000" && (await val("#in-plan-tickets")) === "5" && (await val("#in-visits")) === "16" && (await val("#in-fx")) === ""
       && (await val("#in-note")) === "first plan" && /Last saved by Demo Director/.test(await page.textContent("#inputs-saved")));
     check("inputs: a row per seller with plan, commission, programme counts and paid", (await page.$$("#in-sellers tbody tr")).length === 2
@@ -275,11 +283,11 @@ async function shot(page, name, full) {
       && c.inputs.sellers.length === 3 && JSON.stringify(c.inputs.sellers[1]) === '{"seller":"Zz Bee","plan_uzs":50000000,"commission":false,"programme_counts":{"focus":0},"paid_uzs":null}'
       && c.inputs.sellers[2].plan_uzs === 30000000, JSON.stringify(c.inputs));
     check("inputs: saved, and the form is rebuilt from the answer", (await val("#in-plan")) === "250000000" && (await val("#in-fx")) === "12500.5"
-      && (await page.$eval('#in-sellers tbody tr:nth-child(2) .in-s-count[data-key="focus"]', (n) => n.value)) === "0" && callsOf("month").length === 1);
+      && (await page.$eval('#in-sellers tbody tr:nth-child(2) .in-s-count[data-key="focus"]', (n) => n.value)) === "0" && loads() === loads0);
     // the other screens follow without another request
     await page.click("#tab-month");
     await page.waitForSelector("#hl-plan");
-    check("inputs: the month screen shows the new plan", norm(await page.textContent("#hl-plan")).includes("plan 250 000 000 so'm") && callsOf("month").length === 1);
+    check("inputs: the month screen shows the new plan", norm(await page.textContent("#hl-plan")).includes("plan 250 000 000 so'm") && loads() === loads0);
     await page.click("#tab-incentive");
     await page.waitForSelector("#inc-sellers");
     check("inputs: the typed count is marked on the incentive screen", /0 \(typed in\)/.test(norm(await page.textContent('.inc-prog[data-seller="Zz Bee"] tr[data-key="focus"]'))));
@@ -312,7 +320,7 @@ async function shot(page, name, full) {
     const t = norm(await page.textContent("#screen-month"));
     check("RU: the month screen is in Russian", /Чистые продажи/.test(t) && /К плану/.test(t) && /4 чека/.test(t) && /Разбор отклонения/.test(t) && /Не входит в розничную базу/.test(t) && /Учредитель/.test(t) && /Возвращённые/.test(t), t.slice(0, 200));
     check("RU: percentages use a comma", /\+10,5%/.test(await page.textContent("#hl-ly")));
-    check("RU: tabs and picker", (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Месяц|Мотивация|Вводные" && (await page.$eval("#month-select option", (o) => o.textContent)) === "Октябрь 2031");
+    check("RU: tabs and picker", (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Месяц|Год|Бренды|Мотивация|Вводные" && (await page.$eval("#month-select option", (o) => o.textContent)) === "Октябрь 2031");
     check("RU 768 month: no sideways scroll", await noHScroll(page));
     // long real names and the longest Russian labels together must still fit
     await page.evaluate(() => { S.doc.tickets.forEach((x, i) => { x.client = ["Абдусаттаров Рустамбек", "Сайфутдинова Амина", "Мирджалалов Шахзод"][i % 3]; x.seller = "Sayfutdinova"; if (i % 2) { x.basis = "founder"; } }); renderAll(); });
@@ -368,7 +376,11 @@ async function shot(page, name, full) {
     check("currency: incentive in dollars", (await cells(page, "#inc-sellers tbody tr"))[0].join("|") === "Zz Ann|13 333|12 500|107%|0.80%|107|17|123|117|−7", (await cells(page, "#inc-sellers tbody tr"))[0].join("|"));
     check("currency: programme counts stay counts, pay is converted", (await cells(page, '.inc-prog[data-seller="Zz Bee"] tbody tr'))[1].join("|") === "Watch focus|1|1|2|50|50", (await cells(page, '.inc-prog[data-seller="Zz Bee"] tbody tr'))[1].join("|"));
     await page.click("#tab-inputs"); await page.waitForSelector("#in-plan");
-    check("currency: inputs stay in so'm and say so", (await page.$eval("#in-plan", (x) => x.value)) === "200000000" && /Inputs are always typed in so'm/.test(await page.textContent("#screen-inputs")));
+    check("currency: inputs stay in so'm, say so, and carry no currency switch", /Inputs are always typed in so'm/.test(await page.textContent("#screen-inputs")) && !(await page.$("#cur-switch")));
+    await page.click("#tab-year"); await page.waitForSelector("#yr-net");
+    check("currency: the year in dollars", norm(await page.textContent("#yr-net")).startsWith("Net sales, year to date$19 167") && (await cells(page, "#yr-months tbody tr"))[9][1] === "17 500", norm(await page.textContent("#yr-net")));
+    await page.click("#tab-brands"); await page.waitForSelector("#br-table");
+    check("currency: brands in dollars, arrival values stay in USD as loaded", (await cells(page, "#br-table tbody tr"))[0].slice(0, 2).join("|") === "Zz Other|12 500" && (await cells(page, "#arr-table tbody tr"))[0][2] === "120 000");
     await page.reload(); await loaded(page);
     check("currency: the choice survives a reload", (await pressed()) === "UZS:false|USD:true");
     await page.click('.kit-lang button[lang="ru"]'); await page.click("#tab-month"); await page.waitForSelector("#hl-net");
@@ -376,6 +388,124 @@ async function shot(page, name, full) {
     await page.waitForFunction(() => /210 000 000 сум/.test(document.querySelector("#hl-net").textContent));
     check("currency: back to so'm, dollars underneath", norm(await page.textContent("#hl-net")).startsWith("Чистые продажи210 000 000 сум$17 500") && (await noHScroll(page)), norm(await page.textContent("#hl-net")));
     check("currency: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("year", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/year" });
+    await page.waitForSelector("#yr-net");
+    check("year: opens on the latest year with its own picker", (await page.textContent("#screen-year .title")).trim() === "2031" && (await page.$$eval("#year-select option", (o) => o.map((x) => x.value))).join() === "2031,2030"
+      && await page.$eval("#year-next", (b) => b.disabled) && !(await page.$("#month-select")) && callsOf("year").map((c) => c.year).join() === "2031");
+    check("year: says which months are compared", (await page.textContent("#year-period")).trim() === "Year to date, January to October 2031");
+    const hl = async (id) => norm(await page.textContent(id));
+    check("year: net sales to date", (await hl("#yr-net")) === "Net sales, year to date230 000 000 so'm$19 1675 tickets", await hl("#yr-net"));
+    check("year: against plan counts only the months that have a plan", (await hl("#yr-plan")) === "Against plan, planned months105%plan to date 200 000 000 so'msales of those months 210 000 000 so'm", await hl("#yr-plan"));
+    check("year: against the same months last year", (await hl("#yr-ly")) === "Against the same months last year+21.1%same months last year 190 000 000 so'mlast year in full 190 000 000 so'm", await hl("#yr-ly"));
+    check("year: four charts, twelve points each", await page.evaluate(() => ["yr-chart-net", "yr-chart-cum", "yr-chart-tickets", "yr-chart-atv"].every((id) => document.querySelectorAll("#" + id + " g.bar").length === 12)));
+    check("year: this year filled, last year outlined, months not reached greyed, with a legend", await page.evaluate(() => { const g = (k) => document.querySelector('#yr-chart-net g.bar[data-key="' + k + '"]');
+      return !!g("2031-10").querySelector(".mark") && !!g("2031-10").querySelector(".mark2") && !g("2031-03").querySelector(".mark") && g("2031-11").classList.contains("off") && !g("2031-10").classList.contains("off")
+        && document.querySelector("#yr-chart-net .chart-legend").textContent.includes("This year") && document.querySelector("#yr-chart-net .chart-legend").textContent.includes("Last year"); }));
+    check("year: the cumulative chart has this year, last year and plan, and this year stops at October", await page.evaluate(() => {
+      const c = document.querySelector("#yr-chart-cum"); return c.querySelectorAll("polyline.line").length === 3 && c.querySelector("polyline.s-cur").getAttribute("points").split(" ").length === 10
+        && c.querySelector("polyline.s-ly").getAttribute("points").split(" ").length === 12 && /Plan \(cumulative\)/.test(c.querySelector(".chart-legend").textContent); }));
+    await page.hover('#yr-chart-net g.bar[data-key="2031-10"]');
+    check("year: a bar's tooltip gives the month, this year, last year and plan", norm(await page.textContent(".chart-tip")) === "October 2031Net sales: 210 000 000 so'mLast year: 190 000 000 so'mPlan: 200 000 000 so'm", norm(await page.textContent(".chart-tip")));
+    await page.mouse.move(5, 5);
+    await page.focus('#yr-chart-cum g.bar[data-key="5"]');
+    check("year: the cumulative tooltip, by keyboard", norm(await page.textContent(".chart-tip")) === "June 2031This year: 20 000 000 so'mLast year: 0 so'm", norm(await page.textContent(".chart-tip")));
+    await page.evaluate(() => document.activeElement.blur());
+    const rows = await cells(page, "#yr-months tbody tr");
+    check("year: twelve months in the table with last year, plan and conversion", rows.length === 12 && rows[9].join("|") === "Oct 2031|210 000 000|190 000 000|+10.5%|200 000 000|4|52 500 000|1.00|2.3%|130 000 000|25%" && rows[5].slice(0, 4).join("|") === "Jun 2031|20 000 000|0|—", rows[9].join("|"));
+    check("year: the total line and the bridge", (await cells(page, "#yr-total"))[0].slice(0, 6).join("|") === "Total to date|230 000 000|190 000 000|+21.1%|200 000 000|5"
+      && (await cells(page, "#yr-bridge .br-row")).map((r) => r[2]).join("|") === "190 000 000|+285 000 000|0|−245 000 000|230 000 000", (await cells(page, "#yr-bridge .br-row")).map((r) => r[2]).join("|"));
+    check("year 1024: no sideways scroll", await noHScroll(page));
+    await shot(page, "p05-year", true);
+    // another year, then a month from the table
+    await page.click("#year-prev");
+    await page.waitForFunction(() => S.year === 2030 && S.yearDoc && S.yearDoc.doc && S.yearDoc.key === "2030");
+    check("year: the previous year is asked and drawn", (await page.textContent("#screen-year .title")).trim() === "2030" && callsOf("year").pop().year === 2030 && /No plan typed in for this year/.test(await page.textContent("#yr-plan")));
+    await page.click('#yr-months tr[data-month="2030-10"] a');
+    await page.waitForFunction(() => S.month === "2030-10" && S.doc && !S.busy && document.querySelector("#screen-month"));
+    check("year: a month in the table opens that month", (await page.textContent("#screen-month .title")).trim() === "October 2030");
+    // a failed load can be retried; a correction makes the year load again
+    mock.failNext = "year";
+    await page.evaluate(() => { S.yearDoc = null; });
+    await page.click("#tab-year"); await page.waitForSelector("#doc-err");
+    await page.click("#doc-err button"); await page.waitForSelector("#yr-net");
+    check("year: Try again loads it", (await page.textContent("#screen-year .title")).trim() === "2030");
+    check("year: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("brands", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { hash: "#/brands" });
+    await page.waitForSelector("#br-table");
+    const pressed = () => page.$$eval("#brand-mode button", (bs) => bs.map((b) => b.textContent.trim() + ":" + b.getAttribute("aria-pressed")).join("|"));
+    check("brands: opens on the month, with the period switch and the month picker", (await page.textContent("#screen-brands .title")).trim() === "Brands, October 2031" && (await pressed()) === "Month:true|Year:false"
+      && !!(await page.$("#month-select")) && callsOf("brands").pop().month === "2031-10");
+    check("brands: headline: top brand, brands sold, on hand", norm(await page.textContent("#br-top")) === "Top brandZz Other150 000 000 so'm71% of sales" && norm(await page.textContent("#br-count")) === "Brands sold3of 4 on hand"
+      && norm(await page.textContent("#br-stock")) === "On hand today21 piecesretail value 696 000 000 so'mand 2 on the way" && !(await page.$("#brand-period")), norm(await page.textContent("#br-stock")) + " / " + norm(await page.textContent("#br-top")) + " / " + norm(await page.textContent("#br-count")));
+    const rows = await cells(page, "#br-table tbody tr");
+    check("brands: every brand with sales, share, last year, units, discount and stock", rows.length === 4 && rows[0].join("|") === "Zz Other|150 000 000|71.4%|0|—|3|50 000 000|2.0%|4|96 000 000"
+      && rows[1].slice(0, 5).join("|") === "Zz Brand|40 000 000|19.1%|190 000 000|−78.9%" && rows[3].slice(0, 3).join("|") === "Zz Sleeping House|0|0.0%", rows[0].join("|") + " // " + rows[1].join("|") + " // " + rows[3].join("|"));
+    check("brands: the total line", (await cells(page, "#br-total"))[0].join("|") === "All brands|210 000 000|100.0%|190 000 000|+10.5%|5|—|—|21|696 000 000", (await cells(page, "#br-total"))[0].join("|"));
+    check("brands: the chart shows brands that sold now or last year, largest first", (await page.$$eval("#br-chart g.bar", (gs) => gs.map((g) => g.dataset.key))).join() === "Zz Other,Zz Brand,Zz Focus");
+    await page.hover('#br-chart g.bar[data-key="Zz Brand"]');
+    check("brands: tooltip", norm(await page.textContent(".chart-tip")) === "Zz BrandNet sales: 40 000 000 so'mLast year: 190 000 000 so'mShare: 19.1%", norm(await page.textContent(".chart-tip")));
+    await page.mouse.move(5, 5);
+    check("arrivals: by month through the year and by year, with what sold from them", /by date of arrival/.test(await page.textContent("#arr-note")) && (await page.$$eval("#arr-chart g.bar", (gs) => gs.map((g) => g.dataset.key))).join() === "2030,2031"
+      && (await page.$$("#arr-chart-months g.bar")).length === 12 && await page.evaluate(() => !!document.querySelector('#arr-chart-months g.bar[data-key="2031-10"] .mark') && !document.querySelector('#arr-chart-months g.bar[data-key="2031-09"] .mark')));
+    await page.hover('#arr-chart-months g.bar[data-key="2031-10"]');
+    check("arrivals: a month's tooltip", norm(await page.textContent(".chart-tip")) === "October 2031Arrived: 18Sold from them: 4Still on hand from them: 14Arrived, retail value, USD: $168 000", norm(await page.textContent(".chart-tip")));
+    await page.mouse.move(5, 5);
+    check("arrivals: by brand for the period on screen, largest value first", (await cells(page, "#arr-table thead tr"))[0][1] === "Arrived in October 2031, units"
+      && (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join(" / ") === "Zz Brand|12|120 000|2|17%|10 / Zz Other|6|48 000|2|33%|4" && (await cells(page, "#arr-total"))[0].slice(0, 3).join("|") === "All brands|18|168 000",
+      (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join(" / "));
+    check("on hand by year of arrival, with the unknown ones named", (await cells(page, "#onhand-table tbody tr")).map((r) => r.join("|")).join(" / ") === "2030|4 / 2031|14 / Arrival date not known|3");
+    check("brands 1024: no sideways scroll", await noHScroll(page));
+    await shot(page, "p06-brands", true);
+    // a month with no arrivals says so
+    await page.click("#month-prev");
+    await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "m2031-09");
+    check("arrivals: a month with none says so", /Nothing arrived in this period/.test(await page.textContent("#arr-table")) && /No sales in this period/.test(await page.textContent("#screen-brands")));
+    await page.click("#month-next");
+    await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "m2031-10");
+    // the year
+    await page.click('#brand-mode button[data-mode="year"]');
+    await page.waitForFunction(() => S.brandMode === "year" && S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "y2031");
+    check("brands: the year, with the year picker", (await page.textContent("#screen-brands .title")).trim() === "Brands, 2031" && !!(await page.$("#year-select")) && !(await page.$("#month-select")) && callsOf("brands").pop().year === 2031 && (await pressed()) === "Month:false|Year:true");
+    check("brands: a year still running says last year is the same months", norm(await page.textContent("#brand-period")) === "January to October 2031; last year is the same months.", await page.textContent("#brand-period").catch(() => "none"));
+    await page.click("#year-prev");
+    await page.waitForFunction(() => S.brandDoc && S.brandDoc.doc && S.brandDoc.key === "y2030");
+    check("brands: a whole year carries no such note", !(await page.$("#brand-period")));
+    check("brands: a year with no sales says so and still shows stock and arrivals", /No sales in this period/.test(await page.textContent("#screen-brands")) && !(await page.$("#br-chart"))
+      && (await cells(page, "#arr-table tbody tr")).map((r) => r.join("|")).join() === "Zz Brand|3|30 000|3|100%|0");
+    await page.reload(); await loaded(page); await page.waitForSelector("#br-table");
+    check("brands: the period choice survives a reload", (await pressed()) === "Month:false|Year:true");
+    await page.click('.kit-lang button[lang="ru"]');
+    await page.waitForFunction(() => /Бренды, 2030/.test(document.querySelector("#screen-brands .title").textContent));
+    check("brands RU", /Поступления/.test(await page.textContent("#screen-brands")) && /по дате прихода/.test(await page.textContent("#arr-note")) && (await page.$$eval("#brand-mode button", (b) => b.map((x) => x.textContent.trim()))).join() === "Месяц,Год");
+    check("brands: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("new screens portrait", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 768, height: 1024 }, { hash: "#/year" });
+    await page.waitForSelector("#yr-net");
+    await page.click('.kit-lang button[lang="ru"]');
+    await page.waitForFunction(() => /С начала года/.test(document.querySelector("#year-period").textContent));
+    check("RU 768 year: Russian, no sideways scroll, 44 px targets", /К тем же месяцам прошлого года/.test(await page.textContent("#yr-ly")) && (await noHScroll(page))
+      && await page.evaluate(() => [...document.querySelectorAll(".month-picker .btn, #year-select, .kit-tab, .cur-switch .btn")].every((n) => n.getBoundingClientRect().height >= 44)));
+    await shot(page, "p07-year-ru-portrait", true);
+    await page.click("#tab-brands"); await page.waitForSelector("#br-table");
+    check("RU 768 brands: no sideways scroll", await noHScroll(page));
+    await shot(page, "p08-brands-ru-portrait", true);
+    await page.click("#tab-inputs"); await page.waitForSelector("#in-plan");
+    check("RU 768 inputs, a month ahead: no sideways scroll", /Вводные за Ноябрь 2031/.test(await page.textContent("#screen-inputs .title")) && (await noHScroll(page)));
+    await page.$eval(".kit-head > button.kit-hbtn", (b) => b.click());
+    await page.waitForSelector("#gate-pass");
+    check("lock: the year, the brands and the inputs are gone from memory", await page.evaluate(() => S.yearDoc === null && S.brandDoc === null && S.inDoc === null && document.querySelector("#app").children.length === 0));
+    check("new screens portrait: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
