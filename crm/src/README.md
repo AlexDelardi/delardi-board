@@ -18,7 +18,8 @@ just before the `/* ---- init */` marker in `app.js`:
 |---|---|
 | `app.js` | the shell: session, state, the client list, the card and its forms, the dictionary, and the init block at the end |
 | `insights.js` | the Insights tab |
-| `data.js` | the Data tab and the monthly Colibri refresh |
+| `cockpit.js` | the cockpit: a rep's own cabinet (dates, who to contact, follow-ups, requests, clients by value) |
+| `refresh-words.js` | Russian wording for the history lines the monthly Colibri refresh left on cards (the Data tab and the refresh screen were retired on 24 Nov 2026) |
 | `floor.js` | the phone and iPad layer: menu, overlays and the back button, the card at a glance |
 | `mobile.js` | the forms that open as panels from the bottom |
 | `telegram.js` | chats, leads and missed requests |

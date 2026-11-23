@@ -225,7 +225,7 @@ function renderHeaderPhone() {
       "aria-expanded": S.navOpen ? "true" : "false", "aria-controls": "nav", onclick: () => openNav() }, [menuIcon()]) : null,
     el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
       el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
-    el("div", { class: "title-m", text: unlocked ? tr(VIEW_TITLES[S.view] || "Clients") : tr("Client Instrument") }),
+    el("div", { class: "title-m", text: unlocked ? tr(VIEW_TITLES[S.view] || "Clients") : tr("CRM") }),
     el("div", { class: "spacer" }),
     unlocked ? discreetBtn() : langSwitch(),
     unlocked ? el("button", { class: "btn subtle icon-btn lock-m", type: "button", onclick: lockNow, "aria-label": tr("Lock"), title: tr("Lock") }, [
@@ -454,11 +454,11 @@ function renderCounts() {
 }
 
 /* ----------------------------------------------------------- the card tabs */
-const CARD_TABS = [["overview", "Overview"], ["purchases", "Purchases"], ["cleanup", "Clean-up"], ["history", "History"]];
+const CARD_TABS = [["overview", "Overview"], ["purchases", "Purchases"], ["cleanup", "Details"], ["history", "History"]];   // "cleanup" keeps its key: remembered tabs still open
 function defaultCardTab() {
   const t = pref("crm_card_tab");
   if (CARD_TABS.some((x) => x[0] === t)) return t;
-  return isPhone() || isTouch() ? "overview" : "cleanup";
+  return "overview";
 }
 function setCardTab(t, focus) {
   if (S.cardTab === t) return;
@@ -471,13 +471,10 @@ function setCardTab(t, focus) {
 }
 function cardTabs(data) {
   const c = data && data.client;
-  const flags = c ? [c.name_flag, c.phone_flag, c.gender_flag, c.dob_flag] : [];
-  const open = c && !recordClosed(c) && c.record_state === "open";
-  const todo = open ? flags.filter((f) => f === "conflict" || f === "gap").length : 0;
   const lines = data ? (data.transactions || []).length : 0;
   return el("div", { class: "card-tabs", role: "tablist", "aria-label": tr("Card sections") }, CARD_TABS.map(([k, label]) => {
     const on = S.cardTab === k;
-    const badge = k === "cleanup" && todo ? todo : k === "purchases" && lines ? lines : null;
+    const badge = k === "purchases" && lines ? lines : null;
     return el("button", { type: "button", role: "tab", class: "card-tab", "data-tab": k, "aria-selected": on ? "true" : "false",
       tabindex: on ? "0" : "-1", "aria-controls": "card-panel",
       onclick: () => setCardTab(k),

@@ -137,7 +137,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
 
   // ------------------------------------------------ the page still works
   {
-    const { ctx, page, errors } = await setup(browser, { width: 1440, height: 900 });
+    const { ctx, page, calls, errors } = await setup(browser, { width: 1440, height: 900 });
     await settled(page);
     check("list: rows and the count", (await page.$$("table.clients tbody tr")).length > 5 && /of 48/.test(await page.textContent(".listbar")));
     check("list: nine column headings", (await page.$$("table.clients thead th")).length === 9);
@@ -166,8 +166,22 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("purchases: a line the catalogue cannot name keeps Colibri's text", (await page.textContent("#drawer .lines li:nth-child(2) .item")).includes("SERPENTI"));
     check("purchases: a line not in the catalogue has no link", links.length === (await page.$$eval("#drawer .lines li", (ns) => ns.length)) - 1, links.length);
     await cardTab(page, "cleanup");
-    check("card: the clean-up table reads Questionnaire for a Colibri record",
-      (await page.textContent("#drawer table.compare thead")).includes("Questionnaire"));
+    const det = (await page.textContent("#drawer table.compare")).replace(/\s+/g, " ");
+    check("card: details hold one value for each field, with no sources beside them",
+      (await page.$$eval("#drawer table.compare tbody tr", (rs) => rs.map((r) => r.dataset.row).join(","))) === "name,phone,gender,dob"
+      && !(await page.$("#drawer table.compare thead")) && !/Colibri|Questionnaire|differ|to confirm/.test(det), det);
+    check("card: the tab is Details and the clean-up steps are gone", (await page.textContent('#drawer .card-tab[data-tab="cleanup"]')).trim() === "Details"
+      && !/Mark as checked|Set aside|Accept single-source|Possible duplicate|Different people/.test(await page.textContent("#drawer")));
+    await page.click('#drawer table.compare button[data-field="name"]');
+    await page.waitForSelector("#fe-other");
+    check("card: a field is edited in place, starting from what is there", (await page.inputValue("#fe-other")).length > 0 && !(await page.$('input[name="fe-src"]'))
+      && /How do you know\?/.test(await page.textContent("#drawer form.editor")));
+    await page.fill("#fe-other", "Zz Corrected Name");
+    await page.click('input[name="fe-basis"][value="client"]');
+    await page.click("#drawer form.editor button[type=submit]");
+    await page.waitForFunction(() => !document.querySelector("#fe-other"));
+    check("card: saving sends the one value", calls.some((c) => c.action === "resolve_field" && c.field === "name" && c.source === "value" && c.value === "Zz Corrected Name" && c.basis === "client"));
+    check("card: merging is offered as a deliberate step", /Merge with another record/.test(await page.textContent("#drawer .dups")));
     await page.keyboard.press("Escape");
     check("no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -347,10 +361,8 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("add: the card shows what was typed", c2.includes("Новый Клиент Тестовый") && c2.includes("+998 93 555 11 22") && c2.includes("Malika B."), c2.slice(0, 200));
     check("add: the card says the team put it on file", c2.includes("Added by the team") && c2.includes("Walk-in"), c2.slice(0, 200));
     await cardTab(page, "cleanup");
-    check("add: the record goes through the clean-up", (await page.textContent("#drawer .review")).includes("confirm"),
-      await page.textContent("#drawer .review"));
-    check("add: the clean-up table names the team as the source",
-      (await page.textContent("#drawer table.compare thead")).includes("Entered by the team"));
+    check("add: a record added by hand has no clean-up step after it", !/confirm|checked|Set aside/i.test(await page.textContent("#drawer .review"))
+      && (await page.textContent("#drawer table.compare")).includes("Новый Клиент Тестовый"), await page.textContent("#drawer .review"));
     await cardTab(page, "history");
     check("add: the history says it was added by hand", (await page.textContent("#drawer .events")).includes("Added to the file by hand"));
     await page.keyboard.press("Escape");

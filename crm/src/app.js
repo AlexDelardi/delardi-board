@@ -26,7 +26,7 @@ const PAGE = 50;
 const RU = {
   // header, gate, landing
   "Client Instrument": "Клиентская база",
-  "CRM spring clean": "Генеральная уборка базы",
+  "CRM spring clean": "Генеральная уборка базы", "CRM": "CRM", "Client records": "Клиентская база",
   "Weekly board": "Еженедельная доска",
   "All tools": "Все инструменты",
   "All Delardi tools": "Все инструменты Delardi",
@@ -125,7 +125,9 @@ const RU = {
   "All records": "Все записи",
   "All clients": "Все клиенты",
   "Prospects": "Потенциальные клиенты",
-  "Related parties": "Связанные лица", "kept out of the retail figures": "не входят в розничные показатели",
+  "Related parties": "Связанные лица", "Record": "Запись", "Details": "Данные клиента", "Edit": "Изменить", "Merge": "Объединение",
+  "Enter a value.": "Введите значение.", "Which number is the main one?": "Какой номер основной?",
+  "A Telegram lead. If it is someone already in the file, merge it with their record; if it is not a client, delete it.": "Лид из Telegram. Если этот человек уже есть в базе — объедините записи; если это не клиент — удалите запись.", "kept out of the retail figures": "не входят в розничные показатели",
   "ABC": "ABC",
   "Any class": "Любой класс",
   "Lifecycle": "Жизненный цикл",
@@ -710,8 +712,8 @@ function renderHeader() {
         el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
       el("span", { class: "rule", "aria-hidden": "true" }),
       el("div", {}, [
-        el("div", { class: "title", text: tr("Client Instrument") }),
-        el("div", { class: "sub", text: tr("CRM spring clean") }),
+        el("div", { class: "title", text: tr("CRM") }),
+        el("div", { class: "sub", text: tr("Client records") }),
       ]),
     ]),
     el("div", { class: "spacer" }),
@@ -1145,12 +1147,7 @@ function radio(name, value, checked, label, onpick, extra) {
 /* ------------------------------------------------------------ card: status */
 function sectionReview(data) {
   const c = data.client, q = data.queue || {};
-  const status = q.review_status;
   const kids = [];
-  const flags = [c.name_flag, c.phone_flag, c.gender_flag, c.dob_flag];
-  const nConf = flags.filter((f) => f === "conflict").length;
-  const nGap = flags.filter((f) => f === "gap").length;
-
   if (c.record_state === "merged") {
     kids.push(el("div", { class: "banner" }, [
       el("span", { text: tr("This record was merged into {id}.", { id: c.merged_into }) + " " }),
@@ -1169,51 +1166,18 @@ function sectionReview(data) {
     kids.push(formError());
     return el("section", { class: "drawer-section review" }, kids);
   }
-
-  const line = status === "lead"
-    ? tr("A Telegram lead, outside the identity review. If it is someone already in the file, merge it with their record; if it is not a client, delete it.")
-    : nConf || nGap
-    ? [nConf ? tr(nConf === 1 ? "{n} field needs a decision" : "{n} fields need a decision", { n: nConf }) : "",
-       nConf && nGap ? " · " : "",
-       nGap ? tr(nGap === 1 ? "{n} field needs confirming" : "{n} fields need confirming", { n: nGap }) : ""].join("")
-    : tr("Every field is settled.");
-  kids.push(el("div", { class: "review-head" }, [
-    el("h3", { text: tr("Review") }),
-    status ? statusChip(q) : null,
-  ]));
-  kids.push(el("p", { class: "summary-line" + (nConf || nGap || status === "lead" ? "" : " ok"), text: line }));
-  if (c.record_state === "confirmed") {
-    kids.push(el("p", { class: "meta-line", text: tr("Checked by {by}, {d}", { by: who(c.reviewed_by || c.state_by) || "—", d: fmtDate(c.reviewed_at || c.state_at) }) }));
-  }
-  if (c.record_state === "parked") {
-    kids.push(el("div", { class: "banner" }, [
-      el("b", { text: tr("Set aside by {by}, {d}", { by: who(c.state_by) || "—", d: fmtDate(c.state_at) }) }),
-      c.state_reason ? el("span", { text: " — " + c.state_reason }) : null,
-    ]));
-  }
-
+  // A live record. The clean-up steps (accept one source, mark as checked, set aside) were retired on 24 Nov 2026;
+  // what is left is the one thing that changes the record as a whole: deleting it.
+  kids.push(el("div", { class: "review-head" }, [el("h3", { text: tr("Record") })]));
+  if (q.review_status === "lead") kids.push(el("p", { class: "summary-line", text:
+    tr("A Telegram lead. If it is someone already in the file, merge it with their record; if it is not a client, delete it.") }));
   if (!canEdit()) {
     kids.push(el("p", { class: "readonly-note", text: tr("View only. Ask Alex if you need to change records.") }));
     return el("section", { class: "drawer-section review" }, kids);
   }
-
-  const b = (label, onclick, opts = {}) => el("button", { class: "btn" + (opts.cls ? " " + opts.cls : ""), type: "button",
-    disabled: S.busy || opts.disabled ? true : null, title: opts.title || null, onclick, text: label });
-  const actions = [];
-  if (nGap) actions.push(b(tr("Accept single-source values ({n})", { n: nGap }),
-    () => act("accept_single_source", {}, tr("Saved.")),
-    { title: tr("Takes each value held by only one source as it is. You can change any of them afterwards.") }));
-  if (c.record_state === "open") {
-    actions.push(b(tr("Mark as checked"), () => act("set_state", { state: "confirmed" }, tr("Marked as checked.")),
-      { cls: "primary", disabled: nConf > 0, title: nConf ? tr("Settle the fields where the sources differ first.") : null }));
-    actions.push(b(tr("Set aside…"), () => startEdit({ kind: "park", reason: "" }), { cls: "subtle" }));
-  } else {
-    actions.push(b(tr("Reopen"), () => act("set_state", { state: "open" }, tr("Reopened.")), { cls: "subtle" }));
-  }
-  actions.push(b(tr("Delete…"), () => startEdit({ kind: "delete", reason: "" }), { cls: "subtle danger-text" }));
-  kids.push(el("div", { class: "actions" }, actions));
-
-  if (S.edit && (S.edit.kind === "park" || S.edit.kind === "delete")) {
+  kids.push(el("div", { class: "actions" }, [el("button", { class: "btn subtle danger-text", type: "button", disabled: S.busy ? true : null,
+    onclick: () => startEdit({ kind: "delete", reason: "" }), text: tr("Delete…") })]));
+  if (S.edit && S.edit.kind === "delete") {
     if (!sheetMode()) kids.push(stateForm(c));      // on a phone it opens as a panel instead
   } else if (!S.edit) {
     kids.push(formError());
@@ -1253,17 +1217,25 @@ function confirmedValue(c, field) {
   if (field === "phone") return fmtPhone(c.phone_confirmed);
   return "";
 }
+// What a field holds: the value someone settled, else what sales (Colibri) has, else what the questionnaire gave.
+function shownValue(c, field) {
+  if (field === "phone") return confirmedValue(c, "phone") || fmtPhone(c.phone_colibri || c.phone_marketing || c.phone_telegram);
+  const [a, b] = fieldValues(c, field);
+  return confirmedValue(c, field) || a || b || "";
+}
+function rawValue(c, field) {
+  if (field === "name") return c.name_confirmed || c.name_colibri || c.name_marketing || "";
+  if (field === "gender") return c.gender_confirmed || c.gender_colibri || c.gender_marketing || "";
+  if (field === "dob") return String(c.dob_confirmed || c.dob_colibri || c.dob_marketing || "").slice(0, 10);
+  return "";
+}
 function fieldAction(c, field, flag) {
   if (!editable(c)) return null;
   if (S.edit && S.edit.kind === "field" && S.edit.field === field) return null;
-  const hasCol = !blank(fieldValues(c, field)[0]);
-  const hasMkt = !blank(fieldValues(c, field)[1]);
-  const label = flag === "conflict" ? tr("Decide") : flag === "gap" ? tr("Confirm") : flag === "none" ? tr("Add") : tr("Change");
-  const preset = field === "phone" ? (flag === "gap" || flag === "none" ? phonePreset(c, flag) : "")
-    : flag === "gap" ? (hasCol ? "colibri" : hasMkt ? "marketing" : "") : "";
-  return el("button", { class: "btn sm" + (flag === "conflict" || flag === "gap" ? "" : " subtle"), type: "button",
-    disabled: S.busy ? true : null, "data-field": field,
-    onclick: () => startEdit({ kind: "field", field, source: flag === "none" && field !== "phone" ? "value" : preset, value: "", basis: "" }), text: label });
+  const has = !blank(shownValue(c, field));
+  const preset = field === "phone" ? (flag === "gap" || flag === "none" ? phonePreset(c, flag) : "") : "value";
+  return el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null, "data-field": field,
+    onclick: () => startEdit({ kind: "field", field, source: preset, value: field === "phone" ? "" : rawValue(c, field), basis: "" }), text: tr(has ? "Edit" : "Add") });
 }
 // dd.mm.yyyy on screen, ISO to the server.
 function maskDmy(v) {
@@ -1287,17 +1259,16 @@ function fieldEditor(c, field, flag, meta) {
 }
 function fieldForm(c, field, flag, meta) {
   const e = S.edit;
-  const [col, mkt] = fieldValues(c, field);
   const opts = [];
   const pick = (v) => { e.source = v; const other = $("#fe-other"); if (other) other.disabled = v !== "value"; };
   if (field === "phone") {
     opts.push(...phoneOptions(c, e, pick));
   } else {
-    if (!blank(col)) opts.push(radio("fe-src", "colibri", e.source === "colibri", tr("From Colibri") + ": ", pick, el("b", { text: col })));
-    if (!blank(mkt)) opts.push(radio("fe-src", "marketing", e.source === "marketing", tr("From the questionnaire") + ": ", pick, el("b", { text: mkt })));
+    // one value, typed or corrected in place; where it first came from is not asked any more
+    e.source = "value";
     let other;
     if (field === "gender") {
-      other = el("select", { id: "fe-other", disabled: e.source !== "value" ? true : null, onchange: (ev) => { e.value = ev.target.value; } }, [
+      other = el("select", { id: "fe-other", "aria-label": tr(FIELD_LABEL[field]), onchange: (ev) => { e.value = ev.target.value; } }, [
         el("option", { value: "", text: "—" }), el("option", { value: "F", text: tr("Female") }), el("option", { value: "M", text: tr("Male") })]);
       other.value = e.value || "";
     } else if (field === "dob") {
@@ -1305,34 +1276,30 @@ function fieldForm(c, field, flag, meta) {
       // shows mm/dd/yyyy on an English browser, and opens a year-by-year wheel.
       other = el("input", { id: "fe-other", type: "text", inputmode: "numeric", autocomplete: "off", maxlength: "10",
         placeholder: tr("dd.mm.yyyy"), "aria-label": tr("Date of birth, dd.mm.yyyy"),
-        value: e.text != null ? e.text : isoToDmy(e.value), disabled: e.source !== "value" ? true : null,
+        value: e.text != null ? e.text : isoToDmy(e.value),
         oninput: (ev) => { const t = maskDmy(ev.target.value); if (t !== ev.target.value) ev.target.value = t;
           e.text = t; e.value = dmyToIso(t) || ""; } });
     } else {
-      other = el("input", { id: "fe-other", type: "text", maxlength: "120", value: e.value || "", disabled: e.source !== "value" ? true : null,
+      other = el("input", { id: "fe-other", type: "text", maxlength: "120", value: e.value || "", "aria-label": tr(FIELD_LABEL[field]),
         oninput: (ev) => { e.value = ev.target.value; } });
     }
-    opts.push(el("div", { class: "opt other" }, [
-      radio("fe-src", "value", e.source === "value", tr("Something else"), pick), other]));
+    opts.push(el("div", { class: "opt other" }, [other]));
   }
   const bases = [
     radio("fe-basis", "client", e.basis === "client", tr("The client confirmed it"), (v) => { e.basis = v; }),
     radio("fe-basis", "delardi", e.basis === "delardi", tr("From our own records"), (v) => { e.basis = v; }),
   ];
-  const settled = HUMAN_FLAGS.includes(flag);
   const submit = (ev) => {
     ev.preventDefault();
     if (field === "dob" && e.source === "value" && !blank(e.text) && !e.value) { S.formError = tr("Enter the date as dd.mm.yyyy, for example 14.03.1988."); renderDrawer(); return; }
-    if (!e.source || (e.source === "value" && blank(e.value))) { S.formError = tr("Choose a value."); renderDrawer(); return; }
+    if (!e.source || (e.source === "value" && blank(e.value))) { S.formError = tr(field === "phone" ? "Choose a value." : "Enter a value."); renderDrawer(); return; }
     if (field === "phone" && phoneTypedError(e)) { S.formError = phoneTypedError(e); renderDrawer(); return; }
     if (!e.basis) { S.formError = tr("Say how you know."); renderDrawer(); return; }
     act("resolve_field", { field, source: e.source, value: e.source === "value" ? e.value : null, basis: e.basis }, tr("Saved."));
   };
   return el("form", { class: "editor", onsubmit: submit }, [
-    el("fieldset", {}, [el("legend", { text: tr("Which value is right?") }), ...opts]),
+    el("fieldset", {}, [el("legend", { text: tr(field === "phone" ? "Which number is the main one?" : FIELD_LABEL[field]) }), ...opts]),
     el("fieldset", {}, [el("legend", { text: tr("How do you know?") }), ...bases]),
-    settled ? el("button", { class: "btn subtle sm reset-field", type: "button", disabled: S.busy ? true : null,
-      onclick: () => act("reset_field", { field }, tr("Saved.")), text: tr("Back to the automatic comparison") }) : null,
     formError(),
     formButtons(tr("Save")),
   ]);
@@ -1341,48 +1308,25 @@ function metaLine(meta) {
   if (!meta) return null;
   return el("span", { class: "by", text: tr("{by}, {d}", { by: who(meta.by) || "—", d: fmtDate(meta.at) }) });
 }
+// The client's details: one value for each field, edited in place. The side-by-side comparison of Colibri and the
+// questionnaire was retired on 24 Nov 2026; both sources stay in the record and its history.
 function sectionCompare(data) {
   const c = data.client, meta = data.field_meta || {};
-  const fieldCell = (field, label, flag) => el("td", { class: "f" }, [
-    el("span", { class: "fl", text: label }), el("span", { class: "st-inline" }, [
-      flagChip(flag),
-      HUMAN_FLAGS.includes(flag) ? metaLine(meta[field]) : null,
-      fieldAction(c, field, flag),
-    ])]);
-  const statusCell = (field, flag) => el("td", { class: "st" }, [
-    flagChip(flag),
-    HUMAN_FLAGS.includes(flag) ? metaLine(meta[field]) : null,
-    fieldAction(c, field, flag),
-  ]);
   const rows = [];
-  const add = (field) => {
-    const flag = c[field + "_flag"] || "none";
-    const settled = HUMAN_FLAGS.includes(flag);
-    let cells;
-    if (field === "phone") {
-      cells = phoneCells(c);
-    } else {
-      const [a, b] = fieldValues(c, field);
-      cells = [el("td", { text: blank(a) ? "—" : a }), el("td", { text: blank(b) ? "—" : b })];
+  for (const field of ["name", "phone", "gender", "dob"]) {
+    const flag = c[field + "_flag"] || "none", v = shownValue(c, field);
+    rows.push(el("tr", { "data-row": field }, [
+      el("th", { scope: "row", class: "f", text: tr(FIELD_LABEL[field]) }),
+      el("td", { class: "v" }, [blank(v) ? el("span", { class: "muted", text: "—" }) : el("b", { text: v }),
+        HUMAN_FLAGS.includes(flag) && meta[field] ? el("div", { class: "muted" }, [metaLine(meta[field])]) : null]),
+      el("td", { class: "st" }, [fieldAction(c, field, flag)])]));
+    if (S.edit && S.edit.kind === "field" && S.edit.field === field && !sheetMode()) {
+      rows.push(el("tr", { class: "editor-row" }, [el("td", { colspan: "3" }, [fieldForm(c, field, flag, meta[field])])]));
     }
-    rows.push(el("tr", { class: flag === "conflict" ? "diff" : null, "data-row": field }, [
-      fieldCell(field, tr(FIELD_LABEL[field]), flag), ...cells, statusCell(field, flag)]));
-    if (settled && !blank(confirmedValue(c, field))) {
-      rows.push(el("tr", { class: "confirmed-row" }, [el("td", { colspan: spanAll() }, [
-        el("span", { class: "muted", text: "→ " }), el("b", { text: confirmedValue(c, field) })])]));
-    }
-    if (S.edit && S.edit.kind === "field" && S.edit.field === field && !sheetMode()) rows.push(fieldEditor(c, field, flag, meta[field]));
-  };
-  ["name", "phone", "gender", "dob"].forEach(add);
+  }
   return el("section", { class: "drawer-section" }, [
-    el("h3", {}, [tr(c.added_by_hand ? "Identity — Colibri against what the team typed" : "Identity — Colibri against the questionnaire")]),
-    el("table", { class: "compare" }, [
-      el("thead", {}, [el("tr", {}, [
-        el("th", { scope: "col", text: tr("Field") }), el("th", { scope: "col", text: "Colibri" }),
-        el("th", { scope: "col", text: tr(c.added_by_hand ? "Entered by the team" : "Questionnaire") }),
-        el("th", { scope: "col", class: "st", text: tr("Status") })])]),
-      el("tbody", {}, rows),
-    ]),
+    el("h3", { text: tr("Details") }),
+    el("table", { class: "compare details" }, [el("tbody", {}, rows)]),
   ]);
 }
 
@@ -1427,37 +1371,22 @@ function dupCard(d) {
       d.client_owner ? who(d.client_owner) : null].filter(Boolean).join(" · ") }),
   ]);
 }
+// Merging two records is a deliberate step for a real duplicate. The queue of suggested duplicates ("same phone
+// number") was retired on 24 Nov 2026.
 function sectionDuplicates(data) {
-  const c = data.client, dups = data.duplicates || [];
-  if (!editable(c) && !dups.length) return null;
-  const kids = [el("h3", { text: tr("Possible duplicate") })];
-  for (const d of dups) {
-    kids.push(el("div", { class: "dup" }, [
-      el("p", { class: "hint", text: tr("Same phone number as this record. Check whether they are one person.") }),
-      dupCard(d),
-      editable(c) && !(S.edit && S.edit.kind === "merge" && S.edit.other === d.client_id)
-        ? el("div", { class: "actions" }, [
-            el("button", { class: "btn sm", type: "button", disabled: S.busy ? true : null,
-              onclick: () => startEdit({ kind: "merge", other: d.client_id, peek: d, keep: "", reason: "" }), text: tr("Same person — merge…") }),
-            el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
-              onclick: () => act("clear_duplicate", { other: d.client_id }, tr("Saved.")), text: tr("Different people") }),
-          ]) : null,
-      S.edit && S.edit.kind === "merge" && S.edit.other === d.client_id && !S.edit.looked && !sheetMode() ? mergeForm(c, d) : null,
-    ]));
+  const c = data.client;
+  if (!editable(c)) return null;
+  const kids = [el("h3", { text: tr("Merge") })];
+  const e = S.edit;
+  if (e && e.kind === "lookup") {
+    if (!sheetMode()) kids.push(lookupForm(c, e));
+  } else if (e && e.kind === "merge") {
+    if (!sheetMode()) kids.push(el("div", { class: "dup" }, [dupCard(e.peek), mergeForm(c, e.peek)]));
+  } else {
+    kids.push(el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
+      onclick: () => startEdit({ kind: "lookup", ref: "" }), text: tr("Merge with another record…") }));
   }
-  if (editable(c)) {
-    const e = S.edit;
-    if (e && e.kind === "lookup") {
-      if (!sheetMode()) kids.push(lookupForm(c, e));
-    } else if (e && e.kind === "merge" && e.looked) {
-      if (!sheetMode()) kids.push(el("div", { class: "dup" }, [dupCard(e.peek), mergeForm(c, e.peek)]));
-    } else if (!(e && e.kind === "merge")) {
-      kids.push(el("button", { class: "btn sm subtle", type: "button", disabled: S.busy ? true : null,
-        onclick: () => startEdit({ kind: "lookup", ref: "" }), text: tr("Merge with another record…") }));
-    }
-  }
-  if (kids.length === 1) return null;
-  return el("section", { class: "drawer-section dups" + (dups.length ? " flagged" : "") }, kids);
+  return el("section", { class: "drawer-section dups" }, kids);
 }
 
 function lookupForm(c, e) {
@@ -1849,7 +1778,7 @@ function renderGate(message) {
       el("img", { src: LOGO_WORDMARK, alt: "Delardi" }),
       el("div", { class: "gate-tools" }, [langSwitch(), el("a", { class: "gate-home", href: "../", text: tr("All tools") })]),
     ]),
-    el("h2", { text: tr("Client Instrument") }),
+    el("h2", { text: tr("CRM") }),
     el("p", { class: "lead", text: tr("Client records are private. Enter your personal passcode to open them.") }),
     err,
     el("label", { for: "gate-pass" }, [el("span", { text: tr("Your passcode") }), pass]),
@@ -1902,7 +1831,7 @@ function renderAll(gateMessage) {
   if (S.exp) renderExport();                       // and so does the download dialog
   const app = $("#app");
   document.documentElement.lang = LANG;
-  document.title = "Delardi " + tr("Client Instrument");
+  document.title = "Delardi CRM";
   app.innerHTML = "";
   app.className = S.locked ? "gated" : "";
   app.setAttribute("aria-hidden", S.locked ? "true" : "false");
