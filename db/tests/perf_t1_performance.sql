@@ -7,7 +7,8 @@ declare
   a1 uuid; a2 uuid; a3 uuid; a4 uuid; a5 uuid; a6 uuid; a7 uuid; t uuid;
   function_list text[] := array['perf_fx(smallint,date)', 'perf_tickets(date,date,smallint)', 'perf_period(date,date,smallint)',
     'perf_bridge(numeric,numeric,numeric,numeric,numeric,numeric,numeric,numeric)', 'perf_incentive(date,smallint)', 'perf_month(date,smallint)',
-    'perf_span(smallint)', 'perf_save_month(jsonb,text)', 'perf_mark_ticket(uuid,jsonb,text)'];
+    'perf_span(smallint)', 'perf_save_month(jsonb,text)', 'perf_mark_ticket(uuid,jsonb,text)', 'perf_year(integer,smallint)', 'perf_brands(date,date,smallint)',
+    'perf_load_arrivals(jsonb,text)'];
 begin
   -- rights: Alex only
   assert (select can_view_performance from board_users where name = 'Alex') and (select count(*) from board_users where can_view_performance) = 1, 'only Alex opens Performance';
@@ -190,5 +191,35 @@ begin
     assert not has_table_privilege('anon', 'public.' || f, 'select') and not has_table_privilege('authenticated', 'public.' || f, 'select'), f || ' is readable';
   end loop;
   raise notice 'perf_t1 ok';
+
+  -- ---- the year
+  d := perf_year(2031);
+  assert jsonb_array_length(d->'months') = 12 and d->>'through' = '2031-10-01' and not (d->>'complete')::boolean, 'twelve months, to date through October: ' || (d - 'months')::text;
+  assert (d->'cur'->>'net')::numeric = (perf_period('2031-01-01', '2031-11-01')->>'net')::numeric
+     and (d->'ly'->>'net')::numeric = (perf_period('2030-01-01', '2030-11-01')->>'net')::numeric, 'year to date and the same months last year';
+  assert (d->'months'->9->>'net')::numeric = (perf_period('2031-10-01', '2031-11-01')->>'net')::numeric and (d->'months'->9->>'ly_net')::numeric = 190000000
+     and (d->'months'->9->>'in_period')::boolean and not (d->'months'->10->>'in_period')::boolean and (d->'months'->5->>'net')::numeric = 20000000, 'months carry their own figures and last year''s: ' || (d->'months'->9)::text;
+  assert (d->'plan'->>'to_date')::numeric = (select sum(plan_uzs) from perf_months where month >= '2031-01-01' and month < '2031-11-01')
+     and (d->'plan'->>'net_planned_months')::numeric = (select sum((perf_period(month, (month + interval '1 month')::date)->>'net')::numeric) from perf_months where plan_uzs is not null and month >= '2031-01-01' and month < '2031-11-01'),
+     'plan to date, and sales of the planned months only: ' || (d->'plan')::text;
+  assert ((d->'bridge'->'ly'->>'tickets')::numeric + (d->'bridge'->'ly'->>'mix')::numeric + (d->'bridge'->'ly'->>'size')::numeric) = (d->'cur'->>'net')::numeric - (d->'ly'->>'net')::numeric, 'the year bridge adds up';
+  assert (perf_year(2030)->>'through') = '2030-10-01' and (perf_year(2029)->'cur'->>'net')::numeric = 0 and (perf_year(2029)->>'complete')::boolean, 'a year with no tickets is empty and whole';
+
+  -- ---- brands
+  b := perf_brands('2031-10-01', '2031-11-01');
+  assert (b->'total'->>'net')::numeric = (perf_period('2031-10-01', '2031-11-01')->>'net')::numeric
+     and (select sum((x2->>'net')::numeric) from jsonb_array_elements(b->'brands') x2) = (b->'total'->>'net')::numeric, 'brands add up to the month: ' || (b->'total')::text;
+  assert b->'brands'->0->>'brand' = 'Zz Other' and (select (x2->>'ly_net')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = 190000000, 'largest brand first, last year beside it: ' || (b->'brands'->0)::text;
+  assert (select round(sum((x2->>'share')::numeric), 2) from jsonb_array_elements(b->'brands') x2 where (x2->>'net')::numeric <> 0) = 1.00, 'shares add up';
+  -- arrivals: loaded whole, summed by brand and year, shown for the year of the period
+  begin perform perf_load_arrivals('{"rows":[{"year":2031,"brand":"Zz Brand","units":1}]}', 'Karina'); assert false, 'not reached';
+  exception when raise_exception then assert sqlerrm = 'Your account cannot open Performance.', sqlerrm; end;
+  assert perf_load_arrivals('{"source":"zz.xlsx","rows":[{"year":2031,"brand":"Zz Brand","units":3,"rrp_usd":9000,"sold_units":1,"left_units":2},{"year":2031,"brand":"zz brand ","units":2,"rrp_usd":1000,"sold_units":2,"left_units":0},{"year":2030,"brand":"Zz Other","units":4,"rrp_usd":500,"sold_units":0,"left_units":4}]}', 'Alex') = 2, 'rows are summed by year and brand';
+  b := perf_brands('2031-10-01', '2031-11-01');
+  assert (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = '5'
+     and (select (x2->>'arr_rrp_usd')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Brand') = 10000
+     and (select x2->>'arr_units' from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Other') is null, 'arrivals of the period''s year, matched to the brand whatever its spelling';
+  assert jsonb_array_length(b->'arrival_years') = 2 and (b->'arrival_years'->0->>'year')::int = 2030 and (b->'total'->>'arr_units')::int = 5, 'arrivals by year';
+  assert (b->'on_hand_by_arrival'->>'unknown') is not null and jsonb_typeof(b->'on_hand_by_arrival'->'years') = 'array', 'what is on hand, by arrival year';
 end $$;
 rollback;

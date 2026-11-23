@@ -27,3 +27,12 @@ lifecycle{new,returning,recaptured,no_record → {tickets,net}}, excluded{ticket
 days_since, net, units, large, marked`), `incentive|null` (`scheme, store, sellers[], total`).
 
 All money is whole so'm. No cost or margin.
+
+## Added 23 Nov 2026
+
+| Action | Body | Answer |
+|---|---|---|
+| `year` | `token`, `year` (number) | `perf_year`: twelve months, the year to date against the same months last year, plan, bridge |
+| `brands` | `token`, and `month` ("YYYY-MM") or `year` (number) | `perf_brands`: per brand net, share, units, discount, last year, stock on hand, arrivals of the year; arrivals by year; what is on hand by arrival year |
+
+Arrivals are loaded by hand with `perf_load_arrivals` from Colibri's arrival report; there is no action for it.
