@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
@@ -650,7 +650,6 @@ table.bdays .w { white-space: nowrap; }
 .ck-table th.num { text-align: right; }
 .ck-more { margin: 8px 0 0; }
 .scoreboard.ck-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#ck-contact td:nth-child(2) { min-width: 168px; }
 @media (max-width: 900px) { .scoreboard.ck-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 #ck-clients-all { margin-top: 12px; min-height: 44px; }
 @media (max-width: 900px) { .ck-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -1419,6 +1418,68 @@ body.split table.clients td.col-contact { display: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ====================================================================== guideline v2 (24 Nov 2026)
+   The CRM on the shared design: the kit's header, the guideline's palette, square corners, no shadows, one look.
+   The rules below sit last on purpose, so they settle what the older rules above left open. */
+:root, :root[data-theme] {
+  --navy: #082966; --navy-2: #082966; --navy-deep: #001A4A; --slate: #5B6478; --sky: #8FA8CC; --mist: #D3DCE9; --card: #EEF1F7; --white: #FFFFFF; --alert: #8C2F2F;
+  --tap: 44px; --radius: 0;
+  --page: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF1F7; --ink: #001A4A; --ink-2: #5B6478; --muted: #5B6478;
+  --grid: #D3DCE9; --line: #D3DCE9; --border: #D3DCE9; --shadow: none; --row-hover: #EEF1F7; --focus: #082966;
+  --header-bg: #001A4A; --header-ink: #FFFFFF; --header-ink-2: #8FA8CC; --header-line: #8FA8CC;
+  /* status by the blue scale and words; one muted red for errors only (G1) */
+  --good: #082966; --good-ink: #082966; --warning: #5B6478; --serious: #082966; --critical: #8C2F2F;
+}
+*, *::before, *::after { border-radius: 0 !important; box-shadow: none !important; }
+.lock-state .dot, .stat .tone { border-radius: 0 !important; }
+body { background: #FFFFFF; }
+/* Header bar */
+.kit-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 24px; background: var(--navy-deep); color: var(--white); position: relative; z-index: 50; }
+.kit-brand { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--white); text-decoration: none; font: 13px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
+.kit-brand img, .kit-brand svg { display: block; height: 18px; width: auto; }
+.kit-rule { width: 1px; align-self: stretch; margin: 12px 0; background: var(--sky); }
+.kit-staff { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
+.kit-tool { font: normal 19px/1.2 var(--serif); color: var(--white); }
+.kit-spacer { flex: 1 1 auto; }
+.kit-head a { color: var(--white); }
+.kit-hbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); min-width: var(--tap); padding: 0 16px; background: transparent; color: var(--white); border: 1px solid rgba(143, 168, 204, .45); font: 15px/1 var(--sans); cursor: pointer; text-decoration: none; }
+.kit-hbtn:hover { border-color: var(--sky); }
+.kit-lang { display: inline-flex; }
+.kit-lang .kit-hbtn { padding: 0 12px; min-width: var(--tap); }
+.kit-lang .kit-hbtn + .kit-hbtn { border-left-width: 0; }
+.kit-lang .kit-hbtn[aria-pressed="true"], .kit-lang .kit-hbtn.on { background: var(--navy); border-color: var(--sky); font-weight: 700; }
+.kit-tool-wrap, [data-kit-menu] { position: relative; }
+.kit-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; min-width: 200px; margin: 0; padding: 0; list-style: none; background: var(--white); color: var(--navy-deep); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: var(--tap); padding: 0 16px; color: var(--navy-deep); text-decoration: none; font: 15px/1.5 var(--sans); }
+.kit-menu a:hover { background: var(--card); }
+.kit-menu [aria-current="page"] { font-weight: 700; color: var(--navy); background: var(--card); }
+
+
+.top-row.kit-head { flex-wrap: wrap; }
+.top-row.kit-head .spacer { flex: 1 1 auto; }
+.top-row.kit-head .kit-brand .mark { height: 26px; }
+.top-row.kit-head .lang { border: 0; }
+.top-row.kit-head .lang button { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; background: transparent; color: var(--white); border: 1px solid rgba(143, 168, 204, .45); font: 14px/1 var(--sans); }
+.top-row.kit-head .lang button + button { border-left-width: 0; }
+.top-row.kit-head .lang button[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); font-weight: 700; }
+.top-row.kit-head .lock-state { display: inline-flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 0; color: var(--white); }
+.top-row.kit-head .lock-state .role { color: var(--sky); }
+.top-row.kit-head .discreet { min-height: var(--tap); min-width: var(--tap); color: var(--white); background: transparent; border: 1px solid rgba(143, 168, 204, .45); }
+.top-row.kit-head .discreet[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
+/* tabs as in every tool: text, navy underline for the one in use */
+.views { gap: 28px; padding: 0 24px; background: var(--white); border-bottom: 1px solid var(--mist); }
+.view-tab { min-height: 48px; padding: 0; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--slate); font: 15px/1.5 var(--sans); }
+.view-tab:hover { color: var(--navy); background: transparent; }
+.view-tab[aria-current="page"] { color: var(--navy); font-weight: 700; border-bottom-color: var(--navy); }
+/* separation without shadows: a rule, and a navy top rule on what opens over the page */
+.drawer { border-left: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.icard, .stat, .toolbar, .list-wrap { border-color: var(--mist); }
+h1, h2, h3, .ins-h2, #drawer-title { font-family: var(--serif); font-weight: 400; color: var(--navy); }
+table.compare.details th, table.compare.details td { vertical-align: middle; padding: 10px 8px; border-bottom: 1px solid var(--mist); }
+table.compare.details th.f { width: 34%; text-align: left; }
+table.compare.details td.st { text-align: right; white-space: nowrap; }
+table.compare.details .btn { min-height: var(--tap); }
 </style>
 </head>
 <body>

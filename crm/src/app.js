@@ -690,32 +690,24 @@ function langSwitch() {
     el("button", { type: "button", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+// The shared header of every Delardi tool (guideline v2): wordmark, tool name, the tool switcher, language, the person
+// and Lock on a navy-deep bar. No theme switch: the tools have no dark mode (G2).
 function renderHeader() {
   if (isPhone()) return renderHeaderPhone();
-  const right = [];
-  right.push(el("a", { class: "btn subtle hide-sm", href: "../board/", text: tr("Weekly board") }));
-  right.push(langSwitch());
-  if (S.session && !S.locked) right.push(discreetBtn());
-  right.push(el("button", { class: "btn subtle", type: "button", "aria-label": tr("Switch between light and dark"),
-    title: tr("Switch between light and dark"), onclick: toggleTheme }, [themeIcon()]));
+  const right = [kitToolsMenu("crm", LANG), langSwitch()];
   if (S.session && !S.locked) {
+    right.push(discreetBtn());
     right.push(el("span", { class: "lock-state" }, [
-      el("span", { class: "dot", "aria-hidden": "true" }),
       el("span", { class: "who", text: S.session.name }),
       el("span", { class: "role", text: "· " + (canEdit() ? tr("can edit") : tr("view only")) }),
-      el("button", { class: "btn subtle sm", type: "button", onclick: lockNow, text: tr("Lock") }),
+      el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }),
     ]));
   }
-  return el("div", { class: "top-row" }, [
-    el("div", { class: "brand" }, [
-      el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
-        el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
-      el("span", { class: "rule", "aria-hidden": "true" }),
-      el("div", {}, [
-        el("div", { class: "title", text: tr("CRM") }),
-        el("div", { class: "sub", text: tr("Client records") }),
-      ]),
-    ]),
+  return el("div", { class: "top-row kit-head" }, [
+    el("a", { class: "kit-brand home", href: "../", title: tr("All Delardi tools") }, [
+      el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
+    el("span", { class: "kit-rule", "aria-hidden": "true" }),
+    el("span", { class: "kit-tool title", text: tr("CRM") }),
     el("div", { class: "spacer" }),
     ...right,
   ]);
@@ -1675,7 +1667,7 @@ function renderDrawer() {
       el("div", { class: "eyebrow", text: eyebrowText(c) }),
       el("h2", { id: "drawer-title", tabindex: "-1", text: c ? bestName(c) : (S.cardError ? tr("Could not open this record") : tr("Loading…")) }),
       c ? el("div", { class: "chips" }, [
-        q ? statusChip(q) : null,
+        q && ["lead", "merged", "deleted"].includes(q.review_status) ? statusChip(q) : null,
         c.abc_class ? chip({ glyph: "▪", tone: "" }, tr("Class {c}", { c: c.abc_class })) : null,
         c.lifecycle_status ? chip({ glyph: "•", tone: "" }, tr(c.lifecycle_status)) : null,
         c.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related party"), "dashed") : null,
@@ -1809,11 +1801,9 @@ function lockNow() { lockDown(); toast(tr("Locked.")); }
 
 /* ------------------------------------------------------------------- theme */
 function applyTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("sysdark",
-    mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // one look, no dark mode (guideline G2); a theme remembered from before is ignored
+  document.documentElement.setAttribute("data-theme", "light");
+  document.documentElement.classList.remove("sysdark");
 }
 function toggleTheme() {
   let mode;

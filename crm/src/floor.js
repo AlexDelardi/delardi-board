@@ -225,7 +225,7 @@ function renderHeaderPhone() {
       "aria-expanded": S.navOpen ? "true" : "false", "aria-controls": "nav", onclick: () => openNav() }, [menuIcon()]) : null,
     el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
       el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
-    el("div", { class: "title-m", text: unlocked ? tr(VIEW_TITLES[S.view] || "Clients") : tr("CRM") }),
+    el("div", { class: "title-m", text: unlocked ? tr(S.view === "cockpit" && S.ref && S.ref.my_rep ? "My clients" : VIEW_TITLES[S.view] || "Clients") : tr("CRM") }),
     el("div", { class: "spacer" }),
     unlocked ? discreetBtn() : langSwitch(),
     unlocked ? el("button", { class: "btn subtle icon-btn lock-m", type: "button", onclick: lockNow, "aria-label": tr("Lock"), title: tr("Lock") }, [
@@ -298,16 +298,13 @@ function renderNav() {
       ]),
     ]));
   }
-  let themeNow = "auto";
-  try { themeNow = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* ignore */ }
-  const dark = themeNow === "dark" || (themeNow === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   if (!S.navFacet) sections.push(el("div", { class: "nav-section", "data-section": "settings" }, [
     el("h3", { text: tr("Settings") }),
     el("div", { class: "nav-list" }, [
       el("div", { class: "nav-row static" }, [el("span", { text: tr("Language") }), langSwitch()]),
-      navRow(tr("Theme"), false, () => { toggleTheme(); renderNav(); }, el("span", { class: "nav-val", text: tr(dark ? "Dark" : "Light") })),
       navRow(tr(S.discreet ? "Show amounts" : "Hide amounts"), false, toggleDiscreet, eyeIcon(S.discreet)),
-      el("a", { class: "nav-row", href: "../board/" }, [el("span", { text: tr("Weekly board") })]),
+      // the other tools, as the tool switcher lists them on a wider screen
+      ...KIT_TOOLS.filter((t) => t.id !== "crm").map((t) => el("a", { class: "nav-row", href: t.href }, [el("span", { text: LANG === "ru" ? t.ru : t.en })])),
       el("a", { class: "nav-row", href: "../" }, [el("span", { text: tr("All tools") })]),
     ]),
   ]));
