@@ -605,7 +605,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
       && /Next idea/.test(frows[1]), frows.join(" || "));
     check("cockpit requests: what the client asked for", /Asked for the bracelet in size 17\./.test(await txt("#ck-missed")) && /Zz Brand/.test(await txt("#ck-missed")));
     check("cockpit: the rep's clients, highest spend first, with a way to the full list", (await page.$$("#ck-clients tbody tr")).length > 0
-      && calls.some((c) => c.action === "clients" && c.client_owner === "Dilnoza A." && c.limit === 25) && /Open all \d+ in the list/.test(await txt("#ck-clients-all")));
+      && calls.some((c) => c.action === "clients" && c.client_owner === "Dilnoza A." && c.record_type === "client" && !c.type && c.limit === 25) && /Open all \d+ in the list/.test(await txt("#ck-clients-all")));
     // a row opens the client card
     await page.click("#ck-contact tbody tr:first-child");
     await page.waitForSelector("#drawer[aria-busy='false']");
