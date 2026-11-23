@@ -155,7 +155,7 @@ function renderMonth(main) {
 /* ------------------------------------------------------------------- trend
    One series (net sales), one axis from zero, the month's plan as a tick across its bar. */
 function trendChart(trend) {
-  const W = 960, H = 260, L = 8, R = 8, T = 16, B = 34;
+  const W = chartW(960), H = isPhone() ? 200 : 260, L = 8, R = 8, T = 16, B = 34;
   const max = Math.max(1, ...trend.map((t) => Math.max(num(t.net) || 0, num(t.plan) || 0)));
   const step = (W - L - R) / trend.length, bw = Math.min(40, step * 0.6);
   const y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
@@ -185,7 +185,7 @@ function trendChart(trend) {
         svgEl("rect", { x: cx - step / 2, y: T, width: step, height: H - T - B, class: "hit" }),
         v > 0 ? svgEl("rect", { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(1, H - B - y(v)), class: "mark" }) : null,
         num(t.plan) > 0 ? svgEl("line", { x1: cx - bw / 2 - 5, x2: cx + bw / 2 + 5, y1: y(num(t.plan)), y2: y(num(t.plan)), class: "plan" }) : null,
-        svgEl("text", { x: cx, y: H - 12, class: "tick", "text-anchor": "middle" }, [/-01/.test(String(t.month).slice(4, 7)) || i === 0 ? monthName(t.month, true) : monthName(t.month, true).split(" ")[0]]),
+        svgEl("text", { x: cx, y: H - 12, class: "tick", "text-anchor": "middle" }, [!isPhone() && (/-01/.test(String(t.month).slice(4, 7)) || i === 0) ? monthName(t.month, true) : monthName(t.month, true).split(" ")[0]]),
       ]);
       g.addEventListener("mouseenter", (ev) => tip(ev, t)); g.addEventListener("focus", (ev) => tip(ev, t));
       g.addEventListener("mouseleave", hide); g.addEventListener("blur", hide);

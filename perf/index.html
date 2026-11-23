@@ -173,7 +173,7 @@ main { padding: 24px 24px 96px; }
 /* ---------------------------------------------------------------- performance */
 .screen > .title { margin: 0 0 16px; color: var(--navy); }
 .sec-title { margin: 32px 0 12px; color: var(--navy); font: 400 22px/1.3 var(--serif); }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; position: relative; }   /* relative: a screen-reader-only label inside a scrolled table must not widen the page */
 .tbl th[scope="row"] { text-align: left; font-weight: 400; padding: 12px; border-bottom: 1px solid var(--mist); color: var(--ink); }
 .tbl tfoot th, .tbl tfoot td { padding: 12px; font-weight: 700; border-top: 2px solid var(--navy); }
 .tbl td.r, .tbl th.r { white-space: nowrap; }
@@ -349,6 +349,48 @@ input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(
   .modal, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
   .hide-sm { display: none !important; }
 }
+/* ------------------------------------------------------------ phone (up to 599 px)
+   One slim navy row with a menu button; the tabs on one row that swipes sideways and stays pinned; the period picker
+   under them, scrolling away with the page; tables keep their first column; charts are drawn at the phone's width. */
+.menu-btn { padding: 0; }
+.menu-bars, .menu-bars::before, .menu-bars::after { display: block; width: 20px; height: 2px; background: var(--white); }
+.menu-bars { position: relative; }
+.menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
+.menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
+.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px 16px; background: var(--navy-deep); color: var(--white); }
+.head-menu .kit-staff { flex: 1 0 100%; max-width: none; }
+.head-menu .cur-switch { margin: 0; padding: 0; }
+.head-menu .cur-switch .btn { background: transparent; color: var(--white); border-color: rgba(143, 168, 204, .45); }
+.head-menu .cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
+.head-menu :focus-visible { outline-color: #8FA8CC; }
+.head-menu .kit-menu { left: 0; right: auto; }
+.head-menu .kit-menu :focus-visible { outline-color: #082966; }
+.period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 16px; border-bottom: 1px solid var(--mist); background: var(--white); }
+.period-bar .cur-switch { margin-right: 0; flex: 0 0 auto; }
+.period-bar .cur-switch .btn { padding: 0 10px; }
+.period-bar .month-picker { flex: 1 1 212px; min-width: 0; }   /* beside the period switch when there is room for the month, under it when not */
+.period-bar .month-picker select { flex: 1 1 0; min-width: 0; width: 100%; max-width: 220px; padding-left: 8px; padding-right: 4px; }
+.top.phone { top: -56px; }                       /* the navy row scrolls away; the tabs stay */
+.top.phone.open { top: 0; }
+.top.phone .kit-head { flex-wrap: nowrap; height: 56px; min-height: 56px; padding: 0 8px 0 16px; gap: 10px; }
+.top.phone .kit-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.top.phone .kit-tabs { flex-wrap: nowrap; gap: 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+.top.phone .kit-tabs::-webkit-scrollbar { display: none; }
+.top.phone .kit-tab { padding: 0 10px; min-width: var(--tap); justify-content: center; flex: 0 0 auto; }
+@media (max-width: 599px) {
+  main { padding: 12px 16px 96px; }
+  main, .screen, .screen > * { min-width: 0; }
+  .screen { max-width: 100%; }
+  .title { font-size: 24px; }
+  .facts, .in-grid { grid-template-columns: minmax(0, 1fr); }
+  .tbl.tickets .btn { min-height: var(--tap); }
+  /* a wide table scrolls inside its own box and its first column stays put */
+  .table-wrap { max-width: 100%; }
+  .table-wrap .tbl th:first-child, .table-wrap .tbl td:first-child { position: sticky; left: 0; z-index: 1; background: var(--white); min-width: 104px; max-width: 132px; white-space: normal; overflow-wrap: break-word; }
+  .table-wrap .tbl thead th:first-child { background: var(--card); }
+  .chart { padding: 10px 8px 4px; }
+  .chart-tip { width: 180px; }
+}
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 </head>
@@ -380,7 +422,7 @@ const RU = {
   "Performance": "Показатели",
   "All tools": "Все инструменты",
   "Language": "Язык", "Currency": "Валюта",
-  "Lock": "Заблокировать",
+  "Lock": "Заблокировать", "Menu": "Меню",
   "Locked.": "Заблокировано.",
   "Boutique tools": "Инструменты бутика",
   "Unlock": "Открыть",
@@ -453,7 +495,7 @@ function setLang(l) {
 /* -------------------------------------------------------------------- state */
 const S = {
   token: null, name: null, expires_at: null,
-  locked: true, gateMessage: null,
+  locked: true, gateMessage: null, menuOpen: false,
   span: null,                        // { first, last }: months that have tickets
   month: null,                       // "YYYY-MM" on screen
   doc: null, busy: false, err: null, // the month's document (perf_month)
@@ -831,7 +873,7 @@ function monthPicker() {
   const months = [];
   for (let m = S.span.last; m >= S.span.first; m = addMonths(m, -1)) months.push(m);
   const sel = el("select", { id: "month-select", "aria-label": tr("Month"), onchange: () => setMonth(sel.value) },
-    months.map((m) => el("option", { value: m, selected: m === S.month ? true : null, text: monthName(m) })));
+    months.map((m) => el("option", { value: m, selected: m === S.month ? true : null, text: monthName(m, isPhone() && route().name === "brands") })));   // beside the period switch a phone has room for the short name
   return el("div", { class: "month-picker" },
     el("button", { type: "button", class: "btn", id: "month-prev", "aria-label": tr("Previous month"), disabled: S.month <= S.span.first ? true : null,
       onclick: () => setMonth(addMonths(S.month, -1)), text: "‹" }),
@@ -839,26 +881,45 @@ function monthPicker() {
     el("button", { type: "button", class: "btn", id: "month-next", "aria-label": tr("Next month"), disabled: S.month >= S.span.last ? true : null,
       onclick: () => setMonth(addMonths(S.month, 1)), text: "›" }));
 }
+// A phone gets a slim header: the navy bar keeps the wordmark, the tool name and a menu button; tools, language,
+// currency and lock sit behind that button; the tabs stay on one row; the period picker moves under them, outside the
+// pinned part. From 600 px up the header is the full one.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; if (!S.locked) renderAll(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } });
+// The drawing width of a chart: a phone's own width, so labels keep their size instead of shrinking with the picture.
+const chartW = (wide) => (isPhone() ? 340 : wide);
 function renderHeader() {
-  const r = route().name;
+  const r = route().name, phone = isPhone();
   const tab = (name, label) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name, "aria-current": r === name ? "page" : null, text: tr(label) });
-  return el("header", { class: "top" },
+  const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
+  const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
+  const cur = r === "inputs" ? null : curSwitch();
+  // each screen shows the picker for the period it is about
+  const period = [r === "brands" && S.token && S.span ? brandModeSwitch() : null,
+    r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()];
+  const open = phone && S.menuOpen;
+  const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("perf", LANG), langSwitch(), cur, lock) : null;
+  // a choice made in the menu closes it; the tools list opens in place
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
+  const nav = el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
+    tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
+    phone ? null : [el("span", { class: "kit-spacer" }), cur, period]);
+  const top = el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
       el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Performance") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("perf", LANG),
-      langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
-      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
-    el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
-      tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
-      el("span", { class: "kit-spacer" }),
-      r === "inputs" ? null : curSwitch(),
-      r === "brands" && S.token && S.span ? brandModeSwitch() : null,
-      // each screen shows the picker for the period it is about
-      r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()));
+      phone ? menuBtn : [kitToolsMenu("perf", LANG), langSwitch(), staff, lock]),
+    menu, nav);
+  const bar = phone && period.some(Boolean) ? el("div", { class: "period-bar", id: "period-bar" }, period) : null;
+  // on a phone the tab in use is brought into view in its row
+  if (phone) requestAnimationFrame(() => { const a = nav.querySelector('[aria-current="page"]'); if (a) nav.scrollLeft = Math.max(0, a.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2); });
+  return [top, bar].filter(Boolean);
 }
 // What every screen shows while the month is loading or could not be loaded. → true when the screen should stop there.
 function monthPending(sec) {
@@ -1091,7 +1152,7 @@ function chartLegend(items) {
    v is the filled bar; v2, when given, is the outlined bar beside it (last year). off greys a bar out (a month not
    yet in the period). */
 function barChart(o) {
-  const W = o.width || 960, H = o.height || 240, L = 8, R = 8, T = 14, B = 30, two = o.rows.some((r) => r.v2 !== undefined && r.v2 !== null);
+  const W = chartW(o.width || 960), H = isPhone() ? 200 : o.height || 240, L = 8, R = 8, T = 14, B = 30, two = o.rows.some((r) => r.v2 !== undefined && r.v2 !== null);
   const max = Math.max(1, ...o.rows.map((r) => Math.max(Number(r.v) || 0, Number(r.v2) || 0)));
   const step = (W - L - R) / Math.max(1, o.rows.length), bw = Math.min(two ? 22 : 40, step * (two ? 0.34 : 0.6));   // a half-width chart is drawn on a half-width canvas, so its labels keep their size
   const y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
@@ -1116,7 +1177,7 @@ function barChart(o) {
 /* lineChart({ id, title, labels: [..], series: [{ cls, name, values: [number|null] }], tip: (i) => [lines] })
    Up to three lines over the same points; a null ends a line (months not reached yet). */
 function lineChart(o) {
-  const W = 960, H = 260, L = 8, R = 8, T = 14, B = 30, n = o.labels.length;
+  const W = chartW(960), H = isPhone() ? 200 : 260, L = 8, R = 8, T = 14, B = 30, n = o.labels.length;
   const max = Math.max(1, ...o.series.flatMap((s) => s.values.map((v) => Number(v) || 0)));
   const step = (W - L - R) / Math.max(1, n), x = (i) => L + step * i + step / 2, y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
   const wrap = el("div", { class: "chart", id: o.id });
@@ -1297,7 +1358,7 @@ function renderMonth(main) {
 /* ------------------------------------------------------------------- trend
    One series (net sales), one axis from zero, the month's plan as a tick across its bar. */
 function trendChart(trend) {
-  const W = 960, H = 260, L = 8, R = 8, T = 16, B = 34;
+  const W = chartW(960), H = isPhone() ? 200 : 260, L = 8, R = 8, T = 16, B = 34;
   const max = Math.max(1, ...trend.map((t) => Math.max(num(t.net) || 0, num(t.plan) || 0)));
   const step = (W - L - R) / trend.length, bw = Math.min(40, step * 0.6);
   const y = (v) => T + (H - T - B) * (1 - Math.max(0, v) / max);
@@ -1327,7 +1388,7 @@ function trendChart(trend) {
         svgEl("rect", { x: cx - step / 2, y: T, width: step, height: H - T - B, class: "hit" }),
         v > 0 ? svgEl("rect", { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(1, H - B - y(v)), class: "mark" }) : null,
         num(t.plan) > 0 ? svgEl("line", { x1: cx - bw / 2 - 5, x2: cx + bw / 2 + 5, y1: y(num(t.plan)), y2: y(num(t.plan)), class: "plan" }) : null,
-        svgEl("text", { x: cx, y: H - 12, class: "tick", "text-anchor": "middle" }, [/-01/.test(String(t.month).slice(4, 7)) || i === 0 ? monthName(t.month, true) : monthName(t.month, true).split(" ")[0]]),
+        svgEl("text", { x: cx, y: H - 12, class: "tick", "text-anchor": "middle" }, [!isPhone() && (/-01/.test(String(t.month).slice(4, 7)) || i === 0) ? monthName(t.month, true) : monthName(t.month, true).split(" ")[0]]),
       ]);
       g.addEventListener("mouseenter", (ev) => tip(ev, t)); g.addEventListener("focus", (ev) => tip(ev, t));
       g.addEventListener("mouseleave", hide); g.addEventListener("blur", hide);
@@ -1529,9 +1590,10 @@ function renderBrands(main) {
   sec.append(el("h2", { class: "section", text: tr("Net sales by brand") }));
   if (!sold.length) sec.append(el("p", { class: "small", id: "br-none", text: tr("No sales in this period.") }));
   else {
-    const short = (s) => (s.length > 11 ? s.slice(0, 10) + "…" : s);
+    // a phone has room for six brands by name; every brand is in the table under the chart
+    const few = isPhone(), short = (s) => (s.length > (few ? 8 : 11) ? s.slice(0, few ? 7 : 10) + "…" : s);
     sec.append(barChart({ id: "br-chart", title: tr("Net sales by brand") + ", " + curUnit(), legend: [byYear ? tr("This year") : monthName(S.month), tr("Last year")],
-      rows: sold.slice(0, 14).map((b) => ({ key: b.brand, label: short(b.brand), v: Math.max(0, num(b.net) || 0), v2: Math.max(0, num(b.ly_net) || 0),
+      rows: sold.slice(0, few ? 6 : 14).map((b) => ({ key: b.brand, label: short(b.brand), v: Math.max(0, num(b.net) || 0), v2: Math.max(0, num(b.ly_net) || 0),
         tip: [b.brand, tr("Net sales") + ": " + fmtMoney(b.net), tr("Last year") + ": " + fmtMoney(b.ly_net), tr("Share") + ": " + fmtPct(b.share)] })) }));
   }
   const cell = (x, cls) => el("td", { class: "r" + (cls ? " " + cls : ""), text: x });
@@ -1801,7 +1863,7 @@ function renderAll() {
   app.innerHTML = "";
   app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false;
   const main = el("main", { id: "main" });
-  app.append(renderHeader(), main);
+  app.append(...renderHeader(), main);
   ROUTES[r.name](main);
 }
 function restoreSession() {

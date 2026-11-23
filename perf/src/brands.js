@@ -43,9 +43,10 @@ function renderBrands(main) {
   sec.append(el("h2", { class: "section", text: tr("Net sales by brand") }));
   if (!sold.length) sec.append(el("p", { class: "small", id: "br-none", text: tr("No sales in this period.") }));
   else {
-    const short = (s) => (s.length > 11 ? s.slice(0, 10) + "…" : s);
+    // a phone has room for six brands by name; every brand is in the table under the chart
+    const few = isPhone(), short = (s) => (s.length > (few ? 8 : 11) ? s.slice(0, few ? 7 : 10) + "…" : s);
     sec.append(barChart({ id: "br-chart", title: tr("Net sales by brand") + ", " + curUnit(), legend: [byYear ? tr("This year") : monthName(S.month), tr("Last year")],
-      rows: sold.slice(0, 14).map((b) => ({ key: b.brand, label: short(b.brand), v: Math.max(0, num(b.net) || 0), v2: Math.max(0, num(b.ly_net) || 0),
+      rows: sold.slice(0, few ? 6 : 14).map((b) => ({ key: b.brand, label: short(b.brand), v: Math.max(0, num(b.net) || 0), v2: Math.max(0, num(b.ly_net) || 0),
         tip: [b.brand, tr("Net sales") + ": " + fmtMoney(b.net), tr("Last year") + ": " + fmtMoney(b.ly_net), tr("Share") + ": " + fmtPct(b.share)] })) }));
   }
   const cell = (x, cls) => el("td", { class: "r" + (cls ? " " + cls : ""), text: x });
