@@ -94,10 +94,16 @@ async function setup(browser, viewport, opts = {}) {
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
   await page.route(PAGE_URL + "**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: HTML }));
   await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>landing</p>" }));
-  await page.route(API, async (route) => {
+  // crm-api serves everything but the cockpit, which has a function of its own; an action sent to the wrong one
+  // gets what the real functions would answer
+  await page.route("https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/**", async (route) => {
     const req = route.request();
     if (req.method() === "OPTIONS") return route.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "*" }, body: "ok" });
     const body = JSON.parse(req.postData() || "{}");
+    const fn = req.url().split("/").pop();
+    if ((body.action === "cockpit") !== (fn === "crm-cockpit") || !["crm-api", "crm-cockpit"].includes(fn)) {
+      return route.fulfill({ status: 400, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "Unknown action." }) });
+    }
     calls.push(body);
     const [status, data] = mock.handle(body);
     await new Promise((r) => setTimeout(r, 10));
