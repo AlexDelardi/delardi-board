@@ -1250,6 +1250,24 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return await importDetail(id);
   }
 
+  // The cockpit: one rep's dates, people to contact, purchases to follow up and
+  // open requests. A login that is a rep gets its own; a login that is not a rep
+  // (the director, marketing) names the rep to look at, and with no name gets the
+  // list of reps to choose from. Everyone here can already see every client, so
+  // looking at a colleague's cockpit shows nothing new.
+  if (action === "cockpit") {
+    const sess = await requireSession(body.token);
+    const reps = await repMap();
+    const active = [...reps.active].map((src) => reps.toLabel.get(src)).filter((x): x is string => !!x && x !== "Unassigned").sort();
+    const rep = str(body.rep, 40) ?? sess.repLabel;
+    if (!rep) return { rep: null, own: null, reps: active };
+    if (!reps.toSource.has(rep.toLowerCase())) throw new HttpErr(404, "No sales rep with that name.");
+    // "today" is the shop's day, not the server's: Tashkent is five hours ahead of UTC
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
+    const doc = await rpc("crm_cockpit", { p_rep: rep, p_today: today });
+    return { ...doc, own: sess.repLabel, reps: active };
+  }
+
   // The store-facing numbers. Computed here rather than in the page so the
   // figures cannot drift between screens.
   if (action === "stats") {

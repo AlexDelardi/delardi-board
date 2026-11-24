@@ -217,7 +217,7 @@ function menuIcon() {
 }
 
 /* ------------------------------------------------------- header on a phone */
-const VIEW_TITLES = { clients: "Clients", insights: "Insights", data: "Data" };
+const VIEW_TITLES = { clients: "All clients", cockpit: "Cockpit", insights: "Insights", data: "Data" };
 function renderHeaderPhone() {
   const unlocked = S.session && !S.locked;
   return el("div", { class: "top-row m" }, [
@@ -273,8 +273,8 @@ function renderNav() {
   const sections = [
     el("div", { class: "nav-section", "data-section": "views" }, [
       el("h3", { text: tr("Views") }),
-      el("div", { class: "nav-list" }, ["clients", "insights", "data"].map((v) =>
-        navRow(tr(VIEW_TITLES[v]), S.view === v, () => go(v)))
+      el("div", { class: "nav-list" }, ["clients", "cockpit", "insights", "data"].map((v) =>
+        navRow(tr(v === "cockpit" && S.ref && S.ref.my_rep ? "My clients" : VIEW_TITLES[v]), S.view === v, () => go(v)))
         .concat(canAdd() ? [navRow("+ " + tr("Add a client"), false, () => closeNav(false, openAddClient))] : [])
         .concat(canExport() ? [navRow("⤓ " + tr("Download .xlsx"), false, () => closeNav(false, () => openExport()))] : [])),
     ]),

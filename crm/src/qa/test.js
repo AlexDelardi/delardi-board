@@ -579,6 +579,71 @@ const measure = (page, scope) => page.evaluate((scope) => {
     await ctx.close();
   }
 
+  {
+    // the cockpit: a rep's own cabinet beside the list of all clients
+    const { ctx, page, calls, errors } = await setup(browser, { width: 1180, height: 820 }, { pass: "rep" });
+    await settled(page);
+    const tabs = await page.$$eval(".view-tab", (ts) => ts.map((t) => t.textContent.trim()));
+    check("cockpit: a rep has All clients and My clients side by side", tabs[0] === "All clients" && tabs[1] === "My clients", tabs.join("|"));
+    await page.click('.view-tab[data-view="cockpit"]');
+    await page.waitForSelector("#ck-dates");
+    const txt = async (sel) => (await page.textContent(sel)).replace(/\s+/g, " ").trim();
+    check("cockpit: opens on the rep's own cabinet, with no rep picker", (await txt("#ck-title")) === "Dilnoza A. · my clients" && !(await page.$("#ck-rep"))
+      && calls.some((c) => c.action === "cockpit" && !c.rep), await txt("#ck-title"));
+    check("cockpit: the headline figures", /My clients\s*\d+/.test(await txt("#ck-kpi-clients")) && /To contact\s*4/.test(await txt("#ck-kpi-contact"))
+      && /3 never approached · 1 not for 230 days/.test(await txt("#ck-kpi-contact")) && /Dates, next 30 days\s*2/.test(await txt("#ck-kpi-dates")) && /Contacted, last 30 days\s*2/.test(await txt("#ck-kpi-touched")),
+      await txt("#ck-kpis"));
+    const drows = await page.$$eval("#ck-dates tbody tr", (rs) => rs.map((r) => r.textContent.replace(/\s+/g, " ").trim()));
+    check("cockpit dates: missed, today, ahead, in that order, with what each is", drows.length === 4 && /3 days ago/.test(drows[0]) && /Child's birthday/.test(drows[0])
+      && /today/.test(drows[1]) && /Birthday · turns 40/.test(drows[1]) && /in 11 days/.test(drows[2]) && /Wedding · 12 years/.test(drows[2]) && /do not contact/.test(drows[2])
+      && /date to confirm/.test(drows[3]), drows.join(" || "));
+    const crows = await page.$$eval("#ck-contact tbody tr", (rs) => rs.map((r) => r.textContent.replace(/\s+/g, " ").trim()));
+    check("cockpit to contact: why each is listed, and the value behind them", crows.length === 4 && /not approached for 301 days/.test(crows[0]) && /412/.test(crows[0])
+      && /never approached/.test(crows[1]) && /Prospect/.test(crows[2]), crows.join(" || "));
+    const frows = await page.$$eval("#ck-follow tbody tr", (rs) => rs.map((r) => r.textContent.replace(/\s+/g, " ").trim()));
+    check("cockpit follow-ups: thank-you after two days, next idea after two months", frows.length === 2 && /Thank-you/.test(frows[0]) && /3 days ago/.test(frows[0])
+      && /Next idea/.test(frows[1]), frows.join(" || "));
+    check("cockpit requests: what the client asked for", /Asked for the bracelet in size 17\./.test(await txt("#ck-missed")) && /Zz Brand/.test(await txt("#ck-missed")));
+    check("cockpit: the rep's clients, highest spend first, with a way to the full list", (await page.$$("#ck-clients tbody tr")).length > 0
+      && calls.some((c) => c.action === "clients" && c.client_owner === "Dilnoza A." && c.record_type === "client" && !c.type && c.limit === 25) && /Open all \d+ in the list/.test(await txt("#ck-clients-all")));
+    // a row opens the client card
+    await page.click("#ck-contact tbody tr:first-child");
+    await page.waitForSelector("#drawer[aria-busy='false']");
+    check("cockpit: a row opens the client's card", calls.some((c) => c.action === "client"));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#drawer.open"));
+    await page.click("#ck-clients-all");
+    await settled(page);
+    check("cockpit: the full list opens filtered to the rep", (await page.getAttribute('.view-tab[data-view="clients"]', "aria-current")) === "page"
+      && calls.filter((c) => c.action === "clients").pop().client_owner === "Dilnoza A.");
+    check("cockpit: no sideways scroll and no errors", await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1) && errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+  {
+    // someone who is not a rep chooses whose cockpit to look at
+    const { ctx, page, calls, errors } = await setup(browser, { width: 1180, height: 820 }, { view: "cockpit" });
+    await page.waitForSelector("#ck-rep");
+    const tabs = await page.$$eval(".view-tab", (ts) => ts.map((t) => t.textContent.trim()));
+    check("cockpit: without a book of their own the tab is called Cockpit and asks whose", tabs[1] === "Cockpit" && !(await page.$("#ck-dates"))
+      && (await page.$$eval("#ck-rep option", (os) => os.map((o) => o.textContent.trim()).join("|"))) === "Choose a sales rep|Dilnoza A.|Malika B.");
+    await page.selectOption("#ck-rep", "Malika B.");
+    await page.waitForSelector("#ck-dates");
+    check("cockpit: the chosen rep's cabinet loads", (await page.textContent("#ck-title")).trim() === "Malika B. · clients" && calls.some((c) => c.action === "cockpit" && c.rep === "Malika B."));
+    await page.click('.kit-lang button[lang="ru"], .lang button[lang="ru"], button[data-lang="ru"]').catch(() => {});
+    check("cockpit: no errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+  {
+    // phone
+    const { ctx, page, errors } = await setup(browser, { width: 390, height: 844 }, { pass: "rep", view: "cockpit", touch: true });
+    await page.waitForSelector("#ck-dates");
+    check("cockpit phone: fits the screen, every row a 44 px target", await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1
+      && [...document.querySelectorAll("#cockpit-host tbody tr, #cockpit-host button, #cockpit-host select")].every((n) => n.getBoundingClientRect().height >= 44)),
+      await page.evaluate(() => document.documentElement.scrollWidth + " / " + [...document.querySelectorAll("#cockpit-host tbody tr, #cockpit-host button, #cockpit-host select")].filter((n) => n.getBoundingClientRect().height < 44).map((n) => n.id || n.className || n.tagName).join(",")));
+    check("cockpit phone: no errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
   await browser.close();
   console.log(results.join("\n"));
   console.log("\n" + pass + " passed, " + fail + " failed");

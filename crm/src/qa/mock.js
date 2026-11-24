@@ -352,6 +352,30 @@ function handle(body) {
   }
   // v13: enough of an Insights payload to render the page, so the birthdays
   // block (and the month download in it) can be checked like anything else.
+  if (a === "cockpit") {
+    const own = body.token === TOKEN_REP ? REP_A : null, rep = body.rep || own, reps = [REP_A, REP_B];
+    if (!rep) return [200, { rep: null, own: null, reps }];
+    if (!reps.includes(rep)) return [404, { error: "No sales rep with that name." }];
+    const mine = DB.map(queueRow).filter((r) => r.client_owner === rep && !["merged", "deleted"].includes(r.review_status));
+    const id = (i) => (mine[i] || mine[0]).client_id, nm = (i) => (mine[i] || mine[0]).display_name;
+    return [200, { rep, own, reps, as_of: "2026-10-16", days: 230,
+      summary: { clients: mine.length, spend: mine.reduce((t, r) => t + (r.lifetime_spend_uzs || 0), 0), contacted_30d: 2, never_contacted: 3, overdue: 1, dates_next_30: 2, follow_ups: 2, missed_open: 1 },
+      dates: [
+        { client_id: id(1), name: nm(1), kind: "child_birthday", label: null, on: "2026-10-13", in_days: -3, confirmed: true, years: null, do_not_contact: false },
+        { client_id: id(0), name: nm(0), kind: "birthday", label: null, on: "2026-10-16", in_days: 0, confirmed: true, years: 40, do_not_contact: false },
+        { client_id: id(2), name: nm(2), kind: "anniversary", label: "Wedding", on: "2026-10-27", in_days: 11, confirmed: true, years: 12, do_not_contact: true },
+        { client_id: id(3), name: nm(3), kind: "birthday", label: null, on: "2026-11-02", in_days: 17, confirmed: false, years: null, do_not_contact: false }],
+      to_contact_total: 4,
+      to_contact: [
+        { client_id: id(0), name: nm(0), reason: "overdue", days_since: 301, last_contact_on: "2025-12-19", last_purchase_at: "2026-03-02", spend: 412000000, lifecycle: "At risk", abc: "A", record_type: "client" },
+        { client_id: id(1), name: nm(1), reason: "never", days_since: null, last_contact_on: null, last_purchase_at: "2025-06-11", spend: 96000000, lifecycle: "Lapsed", abc: "B", record_type: "client" },
+        { client_id: id(2), name: nm(2), reason: "never", days_since: null, last_contact_on: null, last_purchase_at: null, spend: 0, lifecycle: null, abc: null, record_type: "prospect" },
+        { client_id: id(3), name: nm(3), reason: "never", days_since: null, last_contact_on: null, last_purchase_at: "2024-01-20", spend: 12000000, lifecycle: "Dormant", abc: "C", record_type: "client" }],
+      follow_ups: [
+        { client_id: id(1), name: nm(1), sold_at: "2026-10-13", days_since: 3, stage: "two_days", items: 1, net: 31500000 },
+        { client_id: id(0), name: nm(0), sold_at: "2026-08-10", days_since: 67, stage: "two_months", items: 2, net: 88000000 }],
+      missed: [{ id: 7, client_id: id(2), name: nm(2), asked_at: "2026-10-10T09:00:00Z", kind: "not_in_stock", brand: "Zz Brand", excerpt: "Asked for the bracelet in size 17." }] }];
+  }
   if (a === "insights") {
     const live = DB.filter((c) => !["merged", "deleted"].includes(queueRow(c).review_status));
     const dated = live.filter((c) => c.dob_confirmed || c.dob_colibri || c.dob_marketing);

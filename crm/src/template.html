@@ -639,6 +639,21 @@ table.books tr.left th, table.books tr.left td { color: var(--critical); }
 .cell:hover { background: var(--surface-2); text-decoration-color: currentColor; }
 .cell.name { font-weight: 600; text-decoration: none; }
 table.bdays .w { white-space: nowrap; }
+/* cockpit */
+.ck-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.ck-pick { display: inline-flex; align-items: center; gap: 8px; }
+.ck-pick select { min-height: 44px; }
+.ck-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+.ck-grid .ck-wide { grid-column: 1 / -1; }
+.ck-table tbody tr { height: 44px; }
+.ck-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ck-table th.num { text-align: right; }
+.ck-more { margin: 8px 0 0; }
+.scoreboard.ck-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#ck-contact td:nth-child(2) { min-width: 168px; }
+@media (max-width: 900px) { .scoreboard.ck-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+#ck-clients-all { margin-top: 12px; min-height: 44px; }
+@media (max-width: 900px) { .ck-grid { grid-template-columns: minmax(0, 1fr); } }
 table.bdays .bd { font-weight: 600; color: var(--ink); }
 table.bdays tr.soon .bd::before { content: "●"; color: var(--viz-1); margin-right: 6px; font-size: 9px; vertical-align: 2px; }
 table.bdays .nm { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
