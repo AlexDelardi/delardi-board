@@ -547,6 +547,12 @@ async function shot(page, name, full) {
     check("phone: choosing the currency applies it and closes the menu", !(await vis("#head-menu")) && (await page.getAttribute("#menu-btn", "aria-expanded")) === "false");
     await page.click("#menu-btn"); await page.keyboard.press("Escape");
     check("phone: Escape closes the menu", !(await vis("#head-menu")));
+    await page.click("#menu-btn");
+    await page.waitForFunction(() => Math.round(document.querySelector("#head-menu .head-panel").getBoundingClientRect().right) === window.innerWidth);
+    check("phone: the menu is a panel from the right edge and the header keeps its height", await page.$eval("#head-menu .head-panel", (m) => { const r = m.getBoundingClientRect(); return r.left >= window.innerWidth * 0.1 && r.top === 0 && Math.round(r.bottom) === window.innerHeight; })
+      && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
+    await page.mouse.click(10, 400);
+    check("phone: a tap beside the panel closes it", !(await vis("#head-menu")));
     await page.click("#menu-btn"); await page.click('#head-menu #cur-switch button[data-cur="uzs"]');
     // the year: charts drawn for the phone
     await page.click("#tab-year"); await page.waitForSelector("#yr-months");

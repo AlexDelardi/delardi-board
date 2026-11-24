@@ -783,8 +783,8 @@ function renderHeader() {
   const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
   const open = phone && S.menuOpen;
   const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
-    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
-  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("tasks", LANG), langSwitch(), lock) : null;
+    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b && !S.menuOpen) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? kitPhoneMenu([staff, kitToolsMenu("tasks", LANG), langSwitch(), lock], LANG, () => { S.menuOpen = false; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); }) : null;
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const mineOpen = S.doc ? tasksHere().filter((t) => t.status !== "done" && (t.owner === S.name || t.helper === S.name)).length : 0;
   const sw = ribbonSwitch();

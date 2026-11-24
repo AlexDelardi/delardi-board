@@ -1524,6 +1524,21 @@ async function shot(page, name) {
       await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
       check(L + ": the menu holds the person, the tools, the language and the lock", !!(await page.$("#head-menu .kit-tool-wrap")) && !!(await page.$("#head-menu .kit-lang")) && /Till Manager/.test(await page.textContent("#head-menu")) && /Lock/.test(await page.textContent("#head-menu")));
       check(L + ": the open menu is marked on its button", (await page.getAttribute("#menu-btn", "aria-expanded")) === "true");
+      // the menu is a panel from the side: the page under it does not move
+      await page.waitForFunction(() => Math.round(document.querySelector("#head-menu .head-panel").getBoundingClientRect().right) === window.innerWidth);   // slid in
+      const dr = await page.evaluate(() => { const p = document.querySelector("#head-menu .head-panel").getBoundingClientRect(); return { l: Math.round(p.left), r: Math.round(p.right), t: Math.round(p.top), b: Math.round(p.bottom), w: window.innerWidth, h: window.innerHeight,
+        head: Math.round(document.querySelector(".kit-head").getBoundingClientRect().height), tabs: Math.round(document.querySelector(".kit-tabs").getBoundingClientRect().top), scrim: !!document.querySelector("#head-menu .head-scrim") }; });
+      check(L + ": the menu is a panel on the right edge, the full height of the screen", dr.r === dr.w && dr.t === 0 && dr.b === dr.h && dr.l >= dr.w * 0.1 && dr.scrim, JSON.stringify(dr));
+      check(L + ": the header and the tabs stay where they were under it", dr.head === 56 && dr.tabs === 56 + (await page.evaluate(() => Math.round(document.querySelector("header.top").getBoundingClientRect().top))), JSON.stringify(dr));
+      check(L + ": the tools are listed straight away, this one marked", JSON.stringify(await page.$$eval("#head-menu .kit-menu li", (ls) => ls.filter((l) => l.getBoundingClientRect().height >= 44).map((l) => l.textContent.trim()))) === JSON.stringify(["Sales", "Stock", "Clients", "Catalogue", "Tasks", "Performance"])
+        && (await page.textContent('#head-menu .kit-menu [aria-current="page"]')).trim() === "Sales" && !(await page.isVisible("#head-menu .kit-tool-wrap > button")));
+      check(L + ": focus moves into the menu", await page.evaluate(() => !!document.activeElement.closest("#head-menu")));
+      await page.click("#head-close");
+      check(L + ": its close button closes it", !(await page.$("#head-menu")) && await page.evaluate(() => document.activeElement.id === "menu-btn"));
+      await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
+      await page.mouse.click(12, Math.round(dr.h / 2));
+      check(L + ": a tap beside the panel closes it", !(await page.$("#head-menu")) && (await page.$$("#lines .line")).length === 1 && (await page.inputValue("#q")) === "ZZ.00.2");
+      await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
       check(L + ": opening the menu keeps the sale and what is being typed", (await page.$$("#lines .line")).length === 1 && (await page.inputValue("#q")) === "ZZ.00.2");
       check(L + ": everything in the menu is 44 px", (await small("#head-menu button, #head-menu a")).length === 0, (await small("#head-menu button, #head-menu a")).join());
       await page.keyboard.press("Escape");

@@ -241,9 +241,10 @@ input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(
 /* ------------------------------------------------------------ phone (up to 599 px)
    One slim navy row with a menu button; the tabs on one row that swipes sideways and stays pinned; the period picker
    under them, scrolling away with the page; tables keep their first column; charts are drawn at the phone's width. */
-.head-menu .cur-switch { margin: 0; padding: 0; }
-.head-menu .cur-switch .btn { background: transparent; color: var(--white); border-color: rgba(143, 168, 204, .45); }
-.head-menu .cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
+.head-panel .cur-switch { margin: 0; padding: 0; display: flex; }
+.head-panel .cur-switch .btn { flex: 1 1 0; }
+.head-panel .cur-switch .btn { background: transparent; color: var(--white); border-color: rgba(143, 168, 204, .45); }
+.head-panel .cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
 .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 16px; border-bottom: 1px solid var(--mist); background: var(--white); }
 .period-bar .cur-switch { margin-right: 0; flex: 0 0 auto; }
 .period-bar .cur-switch .btn { padding: 0 10px; }

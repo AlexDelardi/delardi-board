@@ -384,8 +384,8 @@ function renderHeader() {
   const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
   const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
   const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
-    onclick: () => { S.menuOpen = !S.menuOpen; redrawHeader(true); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
-  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), lock) : null;
+    onclick: () => { S.menuOpen = !S.menuOpen; redrawHeader(!S.menuOpen); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? kitPhoneMenu([staff, kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), lock], LANG, () => { S.menuOpen = false; redrawHeader(true); }) : null;
   // a choice in the menu closes it (the Tools button only opens its own list)
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const tab = (name, href, label, show) => show ? el("a", { class: "kit-tab", href,

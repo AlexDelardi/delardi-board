@@ -3408,6 +3408,43 @@ function kitToolsMenu(currentId, lang, opts) {
   return wrap;
 }
 
+// The phone menu: a panel that slides in from the right over a dimmed page, so the header and the tabs under it do not
+// move. items: the tool's own controls, in order (the person, kitToolsMenu(...), the language switch, Lock ...).
+// onClose: called for the close button and for a tap beside the panel; the tool closes the menu and redraws its header.
+function kitPhoneMenu(items, lang, onClose) {
+  const ru = lang === 'ru';
+  const wrap = document.createElement('div');
+  wrap.className = 'head-menu';
+  wrap.id = 'head-menu';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-label', ru ? 'Меню' : 'Menu');
+  const scrim = document.createElement('div');
+  scrim.className = 'head-scrim';
+  scrim.addEventListener('click', () => onClose());
+  const panel = document.createElement('div');
+  panel.className = 'head-panel';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'kit-hbtn head-close';
+  close.id = 'head-close';
+  close.setAttribute('aria-label', ru ? 'Закрыть меню' : 'Close the menu');
+  close.textContent = '\u00D7';
+  close.addEventListener('click', e => { e.stopPropagation(); onClose(); });
+  panel.appendChild(close);
+  const add = kid => {
+    if (kid === null || kid === undefined || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(add); return; }
+    panel.appendChild(kid);
+  };
+  add(items);
+  wrap.appendChild(scrim);
+  wrap.appendChild(panel);
+  // once it is in the page, focus goes into it
+  requestAnimationFrame(() => { if (close.isConnected) close.focus(); });
+  return wrap;
+}
+
 /* Delardi tools — the Christmas season, shared by every tool (see brand/christmas/README.md).
    From 20 November to 14 January, by itself:
      · a band of snowflakes across the top of every page of every tool;

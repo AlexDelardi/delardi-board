@@ -81,6 +81,8 @@ ok(Array.isArray(sandbox.__T) && sandbox.__T.length === 6, 'KIT_TOOLS has 6 entr
 ok(sandbox.__T.map(t => t.id).join() === 'sales,stock,crm,catalogue,tasks,perf', 'KIT_TOOLS ids: the retired Board is not offered');
 ok(sandbox.__T.every(t => t.href && t.en && t.ru), 'KIT_TOOLS fields');
 ok(sandbox.__F === 'function', 'kitToolsMenu is a function');
+ok(/\nfunction kitPhoneMenu\(items, lang, onClose\) \{/.test(read('ui/tools.js')), 'kitPhoneMenu(items, lang, onClose) is in the kit');
+ok(/\.head-panel \{[^}]*right: 0;[^}]*\}/.test(read('ui/kit.css')) && !/\.top\.phone\.open/.test(read('ui/kit.css')), 'the phone menu is a panel on the right edge; the header does not move when it opens');
 ok(sandbox.__C === 'function', 'kitCloseMenus is a function');
 ok(sandbox.__G === 'function', 'kitGuardLink is a function');
 if (!process.env.KIT_ONLY) {

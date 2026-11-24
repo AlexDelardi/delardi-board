@@ -120,20 +120,34 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 .gate-card > .gate-mast + * { margin-top: 24px; }
 
 /* ---- phone header (up to 599 px; guideline v2 section 4) ----
-   A tool adds .phone to its header.top and draws a .menu-btn in place of the bar's controls; .head-menu is the navy
-   panel behind that button. The navy row scrolls away and the tabs stay pinned on one row that swipes sideways. */
+   A tool adds .phone to its header.top and draws a .menu-btn in place of the bar's controls; kitPhoneMenu() (ui/tools.js)
+   builds .head-menu, the navy panel that slides in from the right over a scrim. The navy row scrolls away and the tabs stay pinned on one row that swipes sideways. */
 .menu-btn { padding: 0; }
 .menu-bars, .menu-bars::before, .menu-bars::after { display: block; width: 20px; height: 2px; background: var(--white); }
 .menu-bars { position: relative; }
 .menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
 .menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
-.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px 16px; background: var(--navy-deep); color: var(--white); }
-.head-menu .kit-staff { flex: 1 0 100%; max-width: none; }
-.head-menu :focus-visible { outline-color: #8FA8CC; }
-.head-menu .kit-menu { left: 0; right: auto; }
-.head-menu .kit-menu :focus-visible { outline-color: #082966; }
+.head-menu { position: fixed; inset: 0; z-index: 90; }
+.head-scrim { position: absolute; inset: 0; background: rgba(0, 26, 74, .4); }
+.head-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 76px 16px 24px; overflow-y: auto; background: #001A4A; color: #FFFFFF; border-left: 1px solid rgba(143, 168, 204, .45); animation: head-panel-in .16s ease-out; }
+@keyframes head-panel-in { from { transform: translateX(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .head-panel { animation: none; } }
+.head-panel :focus-visible { outline: 2px solid #8FA8CC; outline-offset: 2px; }
+.head-panel .head-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; min-height: 44px; padding: 0; font-size: 24px; line-height: 1; }
+.head-panel .kit-staff { position: absolute; top: 16px; left: 16px; right: 72px; max-width: none; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; white-space: normal; }
+/* the tools are a plain list here: no second tap */
+.head-panel .kit-tool-wrap { display: block; position: static; }
+.head-panel .kit-tool-wrap > button { display: none; }
+.head-panel .kit-menu, .head-panel .kit-menu[hidden] { display: block; position: static; min-width: 0; margin: 0; background: transparent; color: #FFFFFF; border: 0; border-top: 1px solid rgba(143, 168, 204, .45); }
+.head-panel .kit-menu li { border-bottom: 1px solid rgba(143, 168, 204, .45); }
+.head-panel .kit-menu a, .head-panel .kit-menu span { min-height: 48px; padding: 0 4px; color: #FFFFFF; background: transparent; }
+.head-panel .kit-menu a:hover { background: #082966; }
+.head-panel .kit-menu [aria-current="page"] { color: #8FA8CC; background: transparent; font-weight: 700; }
+.head-panel .kit-menu :focus-visible { outline-color: #8FA8CC; }
+.head-panel > .kit-hbtn:not(.head-close), .head-panel > .hbtn { width: 100%; justify-content: center; }
+.head-panel .kit-lang { display: flex; }
+.head-panel .kit-lang .kit-hbtn { flex: 1 1 0; }
 .top.phone { top: -56px; }
-.top.phone.open { top: 0; }
 .top.phone .kit-head { flex-wrap: nowrap; height: 56px; min-height: 56px; padding: 0 8px 0 16px; gap: 10px; }
 .top.phone .kit-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .top.phone .kit-tabs { flex-wrap: nowrap; gap: 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }

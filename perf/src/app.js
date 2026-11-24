@@ -508,8 +508,8 @@ function renderHeader() {
     r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()];
   const open = phone && S.menuOpen;
   const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
-    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
-  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("perf", LANG), langSwitch(), cur, lock) : null;
+    onclick: () => { S.menuOpen = !S.menuOpen; renderAll(); const b = $("#menu-btn"); if (b && !S.menuOpen) b.focus(); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? kitPhoneMenu([staff, kitToolsMenu("perf", LANG), langSwitch(), cur, lock], LANG, () => { S.menuOpen = false; renderAll(); const b = $("#menu-btn"); if (b) b.focus(); }) : null;
   // a choice made in the menu closes it; the tools list opens in place
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const nav = el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },

@@ -2148,6 +2148,9 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
       check(L + ": the menu holds the person, the tools, the language and the lock", !!(await page.$("#head-menu .kit-tool-wrap")) && !!(await page.$("#head-menu .kit-lang")) && /Stock Manager/.test(await page.textContent("#head-menu")) && /Lock/.test(await page.textContent("#head-menu")));
       check(L + ": opening the menu keeps the search", (await page.inputValue("#f-q")) === "ZZ");
+      await page.waitForFunction(() => Math.round(document.querySelector("#head-menu .head-panel").getBoundingClientRect().right) === window.innerWidth);
+      check(L + ": the menu is a panel from the right edge and the header keeps its height", await page.$eval("#head-menu .head-panel", (m) => { const r = m.getBoundingClientRect(); return r.left >= window.innerWidth * 0.1 && r.top === 0 && Math.round(r.bottom) === window.innerHeight; })
+        && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
       check(L + ": everything in the menu is 44 px", (await small("#head-menu button, #head-menu a")).length === 0, (await small("#head-menu button, #head-menu a")).join());
       await page.keyboard.press("Escape");
       check(L + ": Escape closes the menu and returns to its button", !(await page.$("#head-menu")) && await page.evaluate(() => document.activeElement.id === "menu-btn"));
@@ -2157,10 +2160,11 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       check(L + ": scrolled, only the tab row stays pinned", pin[2] > 0 && pin[0] >= 44 && pin[0] <= pin[1] * 0.15 && pin[3] <= 1, pin.join());
       // a piece
       await page.click("#rows tr.prow td.ref"); await page.waitForSelector(".pc-head");
-      await page.waitForFunction(() => { const r = document.querySelector(".panel").getBoundingClientRect(); return r.left <= 1 && r.width >= window.innerWidth - 1; }).catch(() => {});   // let it slide in
-      const pc = await page.$eval(".panel", (n) => { const r = n.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), window.innerWidth, n.scrollWidth, n.clientWidth, document.documentElement.scrollWidth]; });
+      await page.waitForFunction(() => { const n = document.querySelector("#piece-panel .panel"); if (!n) return false; const r = n.getBoundingClientRect(); return r.left <= 1 && r.width >= window.innerWidth - 1; }).catch(() => {});   // drawn at its size
+      // one step, with its own lookup: the card is redrawn when the piece's details arrive, and a handle taken a moment earlier would be measured detached
+      const pc = await page.evaluate(() => { const n = document.querySelector("#piece-panel .panel"); const r = n.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), window.innerWidth, n.scrollWidth, n.clientWidth, document.documentElement.scrollWidth]; });
       check(L + ": the piece card fills the screen and does not scroll sideways", pc[0] <= 1 && pc[1] >= pc[2] - 1 && pc[3] <= pc[4] + 1 && pc[5] <= pc[2] + 1, pc.join());
-      check(L + ": everything to tap on the piece card is 44 px", (await small(".panel button, .panel a.kit-tab, .panel [role=tab]")).length === 0, (await small(".panel button, .panel a.kit-tab, .panel [role=tab]")).join());
+      check(L + ": everything to tap on the piece card is 44 px", (await small("#piece-panel .panel button, #piece-panel .panel [role=tab]")).length === 0, (await small("#piece-panel .panel button, #piece-panel .panel [role=tab]")).join());
       await shot(page, "p02-piece-" + w);
       await page.keyboard.press("Escape"); await page.waitForTimeout(150);
       for (const [hash, name] of [["#/review", "Review"], ["#/import", "Import"]]) {
