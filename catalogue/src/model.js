@@ -329,7 +329,7 @@ function renderModel() {
       el("div", { class: "mp-price" + (v.in_stock ? "" : " out"), text: price || (transit.length && !v.in_stock ? tr("Price when it arrives") : "") }),
       stock,
       facts,
-      el("div", { class: "mp-actions" }, [reportButton()]),
+      el("div", { class: "mp-actions" }, [cartPageButton(m, v), reportButton()]),
     ]),
   ]);
 

@@ -55,7 +55,8 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await page.evaluate(() => !!localStorage.getItem("cat_session")), "the session is kept on the device");
 
     // --------------------------------------------------------------- start
-    ok(await count(page, ".entry a") === 4, "four ways in on the start screen");
+    ok(await count(page, ".entry a") === 4 && await count(page, ".entry a[href='#/types']") === 0 && await count(page, ".entry a[href='#/selection']") === 1,
+      "the start screen offers brands, category, collections and the selection; Retail category is gone");
     await page.waitForSelector(".cards .card");
     ok(await count(page, ".cards .card") === 8, "eight new arrivals");
     ok((await page.textContent(".hero p")).includes(String(inStock)), "the start screen counts the pieces in stock");
@@ -63,7 +64,8 @@ const settle = (page) => page.waitForTimeout(150);
 
     // -------------------------------------------------------------- brands
     await page.click(".entry a[href='#/brands']"); await settle(page);
-    ok(await count(page, ".tile") === 5, "one tile per brand");
+    ok(await count(page, ".tile") === new Set(MODELS.filter((m) => m.in_stock).map((m) => m.brand)).size, "one tile per brand with something in stock");
+    ok(await count(page, ".tile.dim") === 0, "no dimmed tiles: a brand with nothing in stock has no tile");
     await page.click(".tile:has-text('Aurelle')"); await page.waitForSelector(".cards .card");
     ok((await page.textContent("h1.page")) === "Aurelle", "a brand tile opens that brand's list");
     ok((await page.textContent(".count-line")).includes(String(MODELS.filter((m) => m.brand === "Aurelle").length)), "the count matches the brand");
@@ -73,8 +75,8 @@ const settle = (page) => page.waitForTimeout(150);
     await page.goto(PAGE + "#/categories"); await settle(page);
     ok(await count(page, ".tile") === 3, "three categories");
     await page.goto(PAGE + "#/types"); await settle(page);
-    ok(await count(page, "h2.group-h") === 3, "retail categories are grouped by category");
-    await page.click(".tile:has-text('Watches')"); await page.waitForSelector(".cards .card");
+    ok(await count(page, "h2.group-h") === 0 && (await page.textContent("h1.page")) === "Category", "the old Retail category address opens Category");
+    await page.goto(PAGE + "#/list?type=watch"); await page.waitForSelector(".cards .card");
     ok(log.at(-1).retail_categories && log.at(-1).retail_categories[0] === "watch", "a type tile filters on that type", log.at(-1));
 
     // --------------------------------------------------------- collections
@@ -345,7 +347,7 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".top .lang button:has-text('RU')"); await settle(page);
     ok((await page.textContent(".brand .title")) === "Каталог", "the page follows the language switch");
     ok((await page.textContent(".entry a >> nth=0")).includes("Бренды"), "the start screen is in Russian");
-    await page.goto(PAGE + "#/types"); await settle(page);
+    await page.goto(PAGE + "#/cat/jewellery"); await settle(page);
     ok(await page.isVisible(".tile:has-text('Кольца')"), "types are named in Russian");
     await page.goto(PAGE + "#/list?type=ring"); await page.waitForSelector(".cards .card");
     ok((await page.textContent(".card .stock")).match(/наличии|Нет/), "stock badges are in Russian");
@@ -531,9 +533,10 @@ const settle = (page) => page.waitForTimeout(150);
     const { ctx, page } = await open(browser);
     await page.evaluate(() => localStorage.setItem("board_theme", "dark"));
     await page.reload(); await unlock(page);
-    ok(await page.evaluate(() => document.documentElement.getAttribute("data-theme")) === "dark", "the theme is shared with the other tools");
+    ok(await page.evaluate(() => document.documentElement.getAttribute("data-theme")) === "light", "an old dark choice is ignored: the catalogue is light");
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    ok(bg === "rgb(0, 13, 34)", "dark page background", bg);
+    ok(bg === "rgb(243, 241, 236)", "light page background", bg);
+    ok(await count(page, "header.top [aria-label='Switch between light and dark']") === 0, "no theme switch in the header");
     await ctx.close();
   }
 
@@ -594,15 +597,206 @@ const settle = (page) => page.waitForTimeout(150);
     setV2(false);
   }
 
-  // -------------------------------------------------- the tool switcher on a phone
+  // ------------------------------------------------- the phone header (guideline v2)
   for (const w of [390, 360]) {
     const { ctx, page, errors } = await open(browser, { viewport: { width: w, height: 740 }, touch: true, mobile: true });
     await unlock(page);
-    const row = await page.$$eval(".top-row > *", (xs) => xs.filter((x) => x.getBoundingClientRect().width > 0).map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; }));
-    const langWhole = await page.$eval(".top-row .lang", (l) => l.lastElementChild.getBoundingClientRect().right <= l.getBoundingClientRect().right + 1);
-    ok(row.every((r, i) => r[1] <= w && (i === 0 || r[0] >= row[i - 1][1])) && langWhole, "phone " + w + ": the header keeps one row with nothing cut or overlapping", row);
-    await page.click(".top .kit-tool-wrap > button");
-    ok(await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }) && errors.length === 0, "phone " + w + ": the tools list opens inside the screen", errors);
+    const row = await page.$$eval(".top-row > *", (xs) => xs.filter((x) => x.getBoundingClientRect().width > 0).map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }));
+    ok(row.every((r, i) => r[1] <= w && (i === 0 || r[0] >= row[i - 1][1])), "phone " + w + ": the header is one row with nothing cut or overlapping", row);
+    ok(await count(page, ".top-row .lang") === 0 && await count(page, "#menu-btn") === 1 && await count(page, ".top-row #sel-btn") === 1, "phone " + w + ": the row holds the mark, the selection and the menu button");
+    ok(await page.isVisible(".brand .title"), "phone " + w + ": the tool's name stays in the header");
+    ok(await count(page, "#head-menu") === 0, "phone " + w + ": the menu starts closed");
+    await page.click("#menu-btn");
+    ok(await page.getAttribute("#menu-btn", "aria-expanded") === "true" && await count(page, "#head-menu .lang") === 1 && await count(page, "#head-menu .kit-tool-wrap") === 1, "phone " + w + ": the menu holds the language and the other tools");
+    const small = await page.$$eval("#head-menu button, #head-menu a, .top-row .hbtn", (xs) => xs.filter((x) => x.getBoundingClientRect().width > 0 && x.getBoundingClientRect().height < 44).map((x) => x.textContent || x.className));
+    ok(small.length === 0, "phone " + w + ": everything in the header is at least 44 px tall", small);
+    await page.click("#head-menu .kit-tool-wrap > button");
+    ok(await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }), "phone " + w + ": the tools list opens inside the screen");
+    await page.keyboard.press("Escape");
+    await page.click("#menu-btn"); if (await count(page, "#head-menu") === 0) await page.click("#menu-btn");
+    await page.click("#head-menu .lang button:has-text('RU')"); await settle(page);
+    ok(await count(page, "#head-menu") === 0 && (await page.textContent(".brand .title")) === "Каталог", "phone " + w + ": a choice in the menu applies and closes it");
+    ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "phone " + w + ": nothing scrolls sideways");
+    ok(errors.length === 0, "phone " + w + ": no script errors", errors);
+    await ctx.close();
+  }
+
+  // ------------------------------------------- owner-only tools, and tiles with nothing in stock
+  {
+    const { ctx, page } = await open(browser);
+    await page.fill("#gate-pass", "5678"); await page.click("#gate button[type=submit]"); await page.waitForSelector("#gate", { state: "detached" });
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    ok(!(await page.$$eval("select.btn option", (os) => os.map((o) => o.value))).includes("completeness"), "a floor login has no 'least complete first' sort");
+    await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet");
+    ok(await count(page, ".sheet label.check") === 0, "a floor login has no 'details still TBC' filter");
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await open(browser);
+    await unlock(page);
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    ok((await page.$$eval("select.btn option", (os) => os.map((o) => o.value))).includes("completeness"), "the catalogue owner keeps the 'least complete first' sort");
+    await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet");
+    ok(await count(page, ".sheet label.check") === 1, "the catalogue owner keeps the 'details still TBC' filter");
+    // a reference where one brand, one kind and one collection have nothing in stock
+    await page.evaluate(() => {
+      S.ref.brands[0].in_stock = 0;
+      const ring = S.ref.categories.find((c) => c.retail_category === "ring"); ring.in_stock = 0;
+      S.ref.collections[0].in_stock = 0;
+      closeAllLayers();
+    });
+    const nb = await page.evaluate(() => S.ref.brands.length), gone = await page.evaluate(() => S.ref.brands[0].brand);
+    await page.evaluate(() => { location.hash = "#/brands"; }); await settle(page);
+    ok(await count(page, ".tile") === nb - 1 && await count(page, `.tile:has-text('${gone}')`) === 0, "a brand with nothing in stock has no tile");
+    await page.evaluate(() => { location.hash = "#/cat/jewellery"; }); await settle(page);
+    ok(await count(page, ".tile .name:text-is('Rings')") === 0 && await count(page, ".tile") > 0, "a kind of piece with nothing in stock has no tile");
+    const nc = await page.evaluate(() => S.ref.collections.length);
+    await page.evaluate(() => { location.hash = "#/collections"; }); await settle(page);
+    ok(await count(page, ".tile") === nc - 1, "a collection with nothing in stock has no tile");
+    await page.evaluate(() => { for (const b of S.ref.brands) b.in_stock = 0; location.hash = "#/"; }); await settle(page);
+    await page.evaluate(() => { location.hash = "#/brands"; }); await settle(page);
+    ok(await count(page, ".tile") === 0 && (await page.textContent(".empty")).includes("Nothing in stock"), "with nothing in stock the screen says so, and offers every model");
+    await ctx.close();
+  }
+
+  // ----------------------------------------------- filter options with nothing behind them
+  {
+    setV2(true);
+    const { ctx, page, errors } = await open(browser);
+    await unlock(page);
+    await page.goto(PAGE + "#/list?type=ring"); await page.waitForSelector(".cards .card");
+    await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet .grp .chip .cnt");
+    const zeros = await page.$$eval(".sheet .chip .cnt", (ns) => ns.filter((n) => n.textContent.trim() === "0").map((n) => n.parentElement.textContent));
+    ok(zeros.length === 0, "no filter option is offered with 0 behind it", zeros);
+    ok(await count(page, ".sheet .chip[aria-disabled='true']") === 0, "nothing greyed out in the sheet");
+    // one option falls to 0, then its whole group
+    const before = await page.evaluate(() => ({ chips: document.querySelectorAll(".sheet .grp:has(.lbl) .chip").length, brands: [...document.querySelectorAll(".sheet .grp")].filter((g) => g.querySelector(".lbl") && g.querySelector(".lbl").textContent === "Brands").length }));
+    await page.evaluate(() => { const f = S.sheetF.facets.find((x) => x.key === "brands"); f.options[0].count = 0; f.options[0].disabled = true; renderSheetV2(); });
+    const gone1 = await page.evaluate(() => S.sheetF.facets.find((x) => x.key === "brands").options[0].value);
+    ok(before.brands === 1 && await count(page, `.sheet .chip:has-text('${gone1}')`) === 0, "an option that falls to 0 leaves the sheet");
+    await page.evaluate(() => { const f = S.sheetF.facets.find((x) => x.key === "brands"); for (const o of f.options) { o.count = 0; o.disabled = true; } renderSheetV2(); });
+    ok(await page.evaluate(() => [...document.querySelectorAll(".sheet .grp .lbl")].every((l) => l.textContent !== "Brands")), "a group left with no options is not shown");
+    // a chosen option that falls to 0 stays, so it can be taken off
+    await page.evaluate(() => {
+      const f = S.sheetF.facets.find((x) => x.key === "materials"); const op = f.options.find((o) => o.count > 0);
+      S.sheet.materials = [op.value]; op.count = 0; op.disabled = false; renderSheetV2();
+    });
+    const kept = await page.$$eval(".sheet .chip[aria-pressed='true'] .cnt", (ns) => ns.map((n) => n.textContent.trim()));
+    ok(kept.includes("0"), "a chosen option stays on screen at 0 so it can be taken off", kept);
+    ok(errors.length === 0, "zeros: no script errors", errors);
+    await ctx.close();
+    setV2(false);
+  }
+
+  // ------------------------------------------------------------ the selection
+  {
+    const { ctx, page, log, errors } = await open(browser);
+    await ctx.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+    await unlock(page);
+    await page.goto(PAGE + "#/selection"); await settle(page);
+    ok((await page.textContent(".sel-empty")).includes("empty") && await count(page, "#sel-btn .badge") === 0, "an empty selection says so, and the header shows no count");
+    await page.goto(PAGE + "#/list?brand=Aurelle&stock=in"); await page.waitForSelector(".cards .card");
+    ok(await count(page, ".cards .card-wrap > .pick") === await count(page, ".cards .card") && await count(page, ".cards a.card .pick") === 0, "every card has a pick button beside its link, not inside it");
+    const ids = await page.$$eval(".cards a.card", (as) => as.slice(0, 3).map((a) => decodeURIComponent(a.getAttribute("href").split("/").pop())));
+    await page.click(".cards .card-wrap >> nth=0 >> .pick"); await page.click(".cards .card-wrap >> nth=1 >> .pick");
+    ok(page.url().includes("#/list"), "picking a piece stays on the list");
+    ok((await page.textContent("#sel-btn .badge")) === "2" && await count(page, ".cards .pick[aria-pressed='true']") === 2, "the header counts the picks and the cards show them");
+    const kept = await page.evaluate(() => localStorage.getItem("cat_cart"));
+    ok(kept === JSON.stringify([{ m: ids[0], v: null }, { m: ids[1], v: null }]), "the device keeps references only", kept);
+    await page.click(".cards .card-wrap >> nth=1 >> .pick");
+    ok((await page.textContent("#sel-btn .badge")) === "1", "a second tap takes the piece out");
+    // from a model page: the colour on screen
+    const multi = MODELS.find((m) => m.in_stock && m.colours && m.colours.length > 1 && m.model_id !== ids[0]);
+    await page.goto(PAGE + "#/model/" + encodeURIComponent(multi.model_id) + "?v=" + encodeURIComponent(multi.colours[1].variant_id)); await page.waitForSelector(".mp-top");
+    await page.click(".mp-actions .pick-page");
+    ok(await page.getAttribute(".mp-actions .pick-page", "aria-pressed") === "true" && (await page.textContent(".mp-actions .pick-page")).includes("In the selection"), "a model page adds the colour on screen");
+    ok(JSON.parse(await page.evaluate(() => localStorage.getItem("cat_cart")))[1].v === multi.colours[1].variant_id, "the colour is kept with the model");
+    // the page
+    log.length = 0;
+    await page.click("#sel-btn"); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, ".sel-row") === 2 && log.filter((r) => r.action === "model").length === 2, "the selection lists both pieces, with one request for each", log.filter((r) => r.action === "model").length);
+    const first = MODELS.find((m) => m.model_id === ids[0]);
+    const rowText = await page.textContent(".sel-row >> nth=0");
+    ok(rowText.includes(first.brand) && rowText.includes("Ref. " + first.article) && rowText.includes("UZS"), "a line carries the brand, the reference and the price", rowText);
+    ok((await page.textContent(".sel-row >> nth=1")).includes(multi.colours[1].variant_id), "a line added from a model page shows its colour's reference");
+    ok(!(await page.textContent("#sel-list")).match(/SN[A-Z0-9-]+\d|TBC|\d+ pieces?\b/), "no serial numbers, TBC marks or stock counts on the selection", await page.textContent("#sel-list"));
+    const sum = Number((await page.textContent("#sel-sum")).replace(/[^0-9]/g, ""));
+    const lineSum = (await page.$$eval(".sel-row .price", (ns) => ns.map((n) => Number(n.textContent.replace(/[^0-9]/g, ""))))).reduce((a, b) => a + b, 0);
+    ok(sum === lineSum && sum > 0, "the total is the sum of the lines", { sum, lineSum });
+    // the eye
+    await page.click("header.top .hbtn[aria-label='Hide amounts']"); await settle(page);
+    ok((await page.textContent("#sel-sum")) === "•••" && (await page.$$eval(".sel-row .price", (ns) => ns.every((n) => n.textContent === "•••"))), "the eye hides the prices on the selection too");
+    await page.click("header.top .hbtn[aria-label='Show amounts']"); await settle(page);
+    // the message
+    await page.click(".sel-actions .btn:has-text('Copy as a message')"); await settle(page);
+    const msg = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null);
+    if (msg !== null) ok(msg.includes(first.brand) && msg.includes("Ref. " + first.article) && msg.includes("Bukhara 26") && msg.includes("Tester") && msg.includes("Total"), "the message carries the pieces, the total, the address and who prepared it", msg);
+    // the link
+    await page.click(".sel-actions .btn:has-text('Copy the link')"); await settle(page);
+    const link = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null);
+    if (link !== null) ok(link.includes("#/selection?p=") && decodeURIComponent(link).includes(multi.model_id + "~" + multi.colours[1].variant_id), "the link carries the references", link);
+    // the sheet
+    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__sheet = document.querySelector("#print").innerText; window.__logo = !!document.querySelector("#print .ps-mark"); }; });
+    await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.waitForSelector(".sel-sheet");
+    await page.fill("#sheet-who", "A client"); await page.click("#sheet-go");
+    const printed = await page.evaluate(() => ({ n: window.__printed, text: window.__sheet, logo: window.__logo }));
+    ok(printed.n === 1 && printed.logo, "the sheet goes to print once, with the Delardi mark", printed.n);
+    ok(printed.text.includes("A client") && printed.text.includes("Prepared by Tester") && printed.text.includes("Bukhara 26") && printed.text.includes(first.brand) && printed.text.includes("UZS"),
+      "the sheet names the client, who prepared it, the address, the pieces and the prices", printed.text);
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).display) === "none", "the sheet is not on screen");
+    await page.emulateMedia({ media: "print" });
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).display !== "none" && getComputedStyle(document.querySelector("#app")).display === "none"), "on paper the sheet is the only thing");
+    await page.emulateMedia({ media: "screen" });
+    await page.uncheck("#sheet-prices"); await page.click("#sheet-go");
+    ok(!(await page.evaluate(() => window.__sheet)).includes("UZS"), "prices can be left off the sheet");
+    ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("A client"), "the client's name is not kept on the device");
+    await page.click(".sel-sheet header .btn");
+    // client view, remove, lock
+    await page.click(".sel-actions .btn:has-text('Show to a client')"); await settle(page);
+    ok(await count(page, ".client-band") === 1 && await count(page, ".sel-row") === 2, "the selection can be turned to the client");
+    await page.click(".client-band .btn");
+    await page.click(".sel-row >> nth=0 >> .sel-remove"); await settle(page);
+    ok(await count(page, ".sel-row") === 1 && (await page.textContent("#sel-btn .badge")) === "1", "a piece can be taken out on the page");
+    await page.click("header.top .hbtn[aria-label='Lock']"); await unlock(page);
+    ok((await page.textContent("#sel-btn .badge")) === "1", "the selection outlives a lock, like 'opened recently'");
+    ok(errors.length === 0, "selection: no script errors", errors);
+    await ctx.close();
+  }
+  // a selection that comes by link, and a piece that is gone
+  {
+    const { ctx, page, errors } = await open(browser);
+    await unlock(page);
+    const a = MODELS.find((m) => m.in_stock), b2 = MODELS.filter((m) => m.in_stock)[3];
+    await page.evaluate((id) => localStorage.setItem("cat_cart", JSON.stringify([{ m: id, v: null }])), b2.model_id);
+    await page.goto(PAGE + "#/selection?p=" + encodeURIComponent(a.model_id) + "&p=NOPE-1"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    ok((await page.textContent("h1.page")) === "A colleague's selection" && await count(page, ".sel-row") === 2, "a link opens the colleague's list");
+    ok(await count(page, ".sel-row.gone") === 1 && await count(page, ".sel-remove") === 0, "a piece no longer in the catalogue is named as such, and the list is not edited here");
+    ok(JSON.parse(await page.evaluate(() => localStorage.getItem("cat_cart"))).length === 1, "opening a link leaves my own selection alone");
+    await page.click(".sel-actions .btn:has-text('Keep as my selection')"); await settle(page);
+    ok((await page.textContent("h1.page")) === "Your selection" && JSON.parse(await page.evaluate(() => localStorage.getItem("cat_cart")))[0].m === a.model_id, "it can be kept as my own");
+    await page.click(".sel-actions .linkbtn"); await settle(page);
+    ok(await count(page, ".sel-empty") === 1 && await page.evaluate(() => localStorage.getItem("cat_cart")) === null, "clearing empties it on the device too");
+    ok(errors.length === 0, "shared selection: no script errors", errors);
+    await ctx.close();
+  }
+  // the selection on a phone and an iPad
+  for (const [w, h] of [[390, 780], [820, 1180]]) {
+    const { ctx, page, errors } = await open(browser, { viewport: { width: w, height: h }, touch: true, mobile: true });
+    await unlock(page);
+    const some = MODELS.filter((m) => m.in_stock).slice(0, 3).map((m) => ({ m: m.model_id, v: null }));
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), some);
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), w + ": the selection does not scroll sideways");
+    const small = await page.$$eval(".sel-actions .btn, .sel-remove, .pick", (xs) => xs.filter((x) => x.getBoundingClientRect().height < 44).map((x) => x.textContent));
+    ok(small.length === 0, w + ": the selection's buttons are at least 44 px tall", small);
+    const tiny = await page.$$eval("main *", (ns) => ns.filter((n) => n.children.length === 0 && n.textContent.trim() && parseFloat(getComputedStyle(n).fontSize) < 11).map((n) => n.textContent.trim().slice(0, 20)));
+    ok(tiny.length === 0, w + ": no text under 11 px on the selection", tiny);
+    await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
+    const pk = await page.$eval(".pick", (b) => { const r = b.getBoundingClientRect(); return [r.width, r.height]; });
+    ok(pk[0] >= 44 && pk[1] >= 44, w + ": the pick button on a card is 44 px", pk);
+    const tiny2 = await page.$$eval("main *, header.top *", (ns) => ns.filter((n) => n.children.length === 0 && n.textContent.trim() && n.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(n).fontSize) < 11).map((n) => n.textContent.trim().slice(0, 20)));
+    ok(tiny2.length === 0, w + ": no text under 11 px on the list", tiny2);
+    ok(errors.length === 0, w + ": no script errors", errors);
     await ctx.close();
   }
 

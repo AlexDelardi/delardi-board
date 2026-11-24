@@ -16,6 +16,7 @@ python3 build.py        # writes ../index.html
 | `template.html` | the styles and the page shell |
 | `app.js` | the session, the routes, the start screen, the four ways in, the reference list and its filters |
 | `model.js` | the model page: photo gallery (v6), "In transit" with the pieces on their way (v8), colour switch, crucial facts, advisor block, specifications with TBC and marks, description, matching pieces, the owner's data block (part 3) |
+| `selection.js` | the selection: pick buttons, the page, the printed sheet, the message, the link |
 | `floor.js` | client view, report an error, the owner's review of reports (`#/reports`), the 15-minute idle lock on iPads and phones, the no-connection screen, the back button closing panels (part 4) |
 
 `../brands/` holds the brand logos on the brand tiles (v9): one-colour navy PNGs, made from each brand's own logo (Wikimedia Commons, the brand's website or delardi.uz, 26 Oct 2026), turned light in the dark theme. The list of brands with a logo is `BRAND_LOGOS` in `app.js`; a brand without one shows its name.
@@ -33,6 +34,13 @@ Watch movement split + spec tidy (v13 — 4 Nov 2026):
 - **Watches split by movement.** The Watches category now opens a sub-page of movement tiles — **All watches** (first, so the ones with no movement on file stay reachable), then **Automatic / Quartz / Hand-wound** for those present — each opening the watch list filtered on that movement. Jewellery and Accessories are unchanged. Counts come from the reference's movement facet (movement is only set on watches, so it is the watch split); no extra API call, no data change.
 - **Model page — rows that don't apply are dropped.** A spec row that belongs only to a kind of piece (ring size → rings, length/clasp → necklaces & bracelets, fastening → earrings) is no longer shown as "TBC" on pieces it can't apply to; it is dropped when empty, and still shown if it happens to carry a value. `SPEC_ONLY_FOR` in `model.js`.
 - **Model page — stoneless pieces collapse.** A piece with no stones (empty `stone_keys`, the same signal as the "no stones" filter) reads a single **"No stones" / "Без камней"** line in place of the empty stone block, at the top fact and in the Specifications. Genuinely-unknown fields on pieces that do have stones still read "TBC".
+
+Refresh (24 Nov 2026) — retire, keep, add:
+- **Gone:** the dark theme (one light look in every tool); the "Retail category" way in (`#/types` now opens Category, whose sub-pages are the same kinds); dimmed tiles (a brand, kind or collection with nothing in stock has no tile; its sold-out models are still found by search and in a list set to "All"); filter options with 0 behind them, and any group left empty (a chosen option stays at 0 so it can be taken off).
+- **For the catalogue owner only** (`can_manage`): the "least complete first" sort and the "details still TBC" filter.
+- **The selection** (`selection.js`, `#/selection`): pieces ticked on the cards or on a model page (the colour on screen), shown side by side with what a client may see (material, stones, size, price; no stock counts, serials or TBC). From there: a branded sheet to print or save as a PDF (the Delardi mark, the boutique's address, the brands' logos, who prepared it; an optional "prepared for" line and a prices switch, neither kept), the same list copied as a message, and a link for a colleague (`#/selection?p=<model>~<colour>`), which opens their list without touching one's own. The device keeps references only (`cat_cart`), at most 24.
+- **Guideline v2:** on a phone the header is one navy row (the mark, the selection, a menu button) with everything else under the menu; 44 px to tap on touch screens; no text under 11 px.
+- **Still to do:** the pre-v2 list and filter sheet remain in `app.js` as the fallback for `filter_version` 1; most of the checks still run through it, so taking it out is its own change.
 
 `../app/` holds the home-screen manifest and icons (the brandbook monogram, white on navy). There is no service worker: nothing is kept for offline use.
 

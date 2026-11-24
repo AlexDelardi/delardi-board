@@ -18,11 +18,9 @@
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/catalogue-api";
 const LOGO_WORDMARK = "__WORDMARK__";
 const MONO_NAVY = "__MONO_NAVY__";
-const MONO_WHITE = "__MONO_WHITE__";
 const SESSION_KEY = "cat_session";
 const RECENT_KEY = "cat_recent";          // model references only, never names or prices
 const HIDE_KEY = "cat_hide_amounts";
-const THEME_KEY = "board_theme";          // shared with the Weekly Board and the CRM
 const LANG_KEY = "delardi_lang";          // shared with the landing page
 const PAGE = 60;
 const RECENT_MAX = 12;
@@ -40,6 +38,9 @@ const RU = {
   "Amounts hidden.": "Цены скрыты.",
   "Amounts shown.": "Цены показаны.",
   "Lock": "Заблокировать",
+  "Menu": "Меню",
+  "Nothing in stock here.": "Здесь сейчас ничего нет в наличии.",
+  "See every model": "Показать все модели",
   "Locked.": "Заблокировано.",
   "Unlock": "Вход",
   "The catalogue is for the Delardi team. Enter your personal passcode to open it.": "Каталог — для команды Delardi. Введите свой личный код доступа.",
@@ -163,6 +164,10 @@ const GENDERS = { women: "Women", men: "Men", unisex: "Unisex" };
 const COLOUR_NAMES = { WG: ["White gold", "Белое золото"], YG: ["Yellow gold", "Жёлтое золото"], PG: ["Rose gold", "Розовое золото"], RG: ["Rose gold", "Розовое золото"] };
 const SORTS = [["newest", "Newest arrivals"], ["brand", "Brand A–Z"], ["price_asc", "Price: low to high"], ["price_desc", "Price: high to low"], ["reference", "Reference"], ["completeness", "Least complete first"]];
 
+// "Least complete first" and "only models with details still TBC" are data clean-up tools: the catalogue owner's, not the floor's.
+const canManage = () => !!(S.session && S.session.can_manage) && !S.client;
+const sortsShown = () => SORTS.filter(([k]) => k !== "completeness" || canManage());
+
 function initialLang() {
   try { const v = localStorage.getItem(LANG_KEY); if (v === "en" || v === "ru") return v; } catch (e) { /* blocked */ }
   return /^ru\b/i.test(navigator.language || "") ? "ru" : "en";
@@ -258,9 +263,7 @@ function priceLine(m) {
   if (m.price_min_uzs === m.price_max_uzs || !m.price_max_uzs) return fmtUZS(m.price_min_uzs || m.price_max_uzs);
   return tr("from {p}", { p: fmtUZS(m.price_min_uzs) });
 }
-const dark = () => document.documentElement.getAttribute("data-theme") === "dark" ||
-  document.documentElement.classList.contains("sysdark");
-const mono = () => (dark() ? MONO_WHITE : MONO_NAVY);
+const mono = () => MONO_NAVY;
 // The name a model is known by on the floor: its model name, else its collection, else its type.
 function modelTitle(m) {
   return m.model_name || m.collection || typeName(m.retail_category) || m.article;
@@ -498,23 +501,42 @@ function render() {
   if (r.view === "brands") main.append(...renderBrands());
   else if (r.view === "categories") main.append(...renderCategories());
   else if (r.view === "cat") main.append(...renderCatSub(r.arg));
-  else if (r.view === "types") main.append(...renderTypes());
+  else if (r.view === "types") main.append(...renderCategories());   // the old "Retail category" way in: Category opens the same kinds
   else if (r.view === "collections") main.append(...renderCollections(r.params.get("brand")));
   else if (r.view === "list") main.append(...renderList());
   else if (r.view === "model") main.append(...renderModel());
   else if (r.view === "reports") main.append(...renderReports());
+  else if (r.view === "selection") main.append(...renderSelection());
   else main.append(...renderStart());
   if (S.sheet) { if (S.sheetV2) renderSheetV2(); else renderSheet(); }
   if (S.report) renderReport();
+  if (S.selSheet) renderSheetOptions();
   syncSticky();
 }
 
+// Guideline v2: on a phone the header is one slim navy row: the mark, the selection and a menu button. Everything
+// else (client view, the eye, the language, the lock, the other tools) opens under it.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; render(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; render(); const b = $("#menu-btn"); if (b) b.focus(); } });
 function renderHeader() {
+  const phone = isPhone();
   const hideBtn = el("button", {
     class: "hbtn", type: "button", "aria-pressed": S.hide ? "true" : "false",
     title: tr(S.hide ? "Show amounts" : "Hide amounts"), "aria-label": tr(S.hide ? "Show amounts" : "Hide amounts"),
     onclick: () => { S.hide = !S.hide; store(HIDE_KEY, S.hide ? "1" : null); toast(tr(S.hide ? "Amounts hidden." : "Amounts shown.")); render(); },
-  }, [svg(S.hide ? ICON.eyeOff : ICON.eye)]);
+  }, [svg(S.hide ? ICON.eyeOff : ICON.eye), phone ? el("span", { text: tr(S.hide ? "Show amounts" : "Hide amounts") }) : null]);
+  const lock = S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock), phone ? el("span", { text: tr("Lock") }) : null]);
+  // the same switcher as in every tool; not while the screen is turned to a client
+  const tools = S.client || S.locked ? null : kitToolsMenu("catalogue", LANG);
+  const controls = [S.locked ? null : clientButton(), S.locked ? null : hideBtn, langSwitch(), lock, tools];
+  const open = phone && S.menuOpen && !S.locked;
+  const menuBtn = phone && !S.locked ? el("button", { class: "hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; render(); const b = $("#menu-btn"); if (b) b.focus(); } }, [el("span", { class: "menu-bars", "aria-hidden": "true" })]) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, controls) : null;
+  // a choice in the menu closes it; opening the tool switcher inside it does not
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   return el("header", { class: "top" }, [
     el("div", { class: "top-row" }, [
       el("a", { class: "brand", href: "#/", "aria-label": tr("Home") }, [
@@ -523,14 +545,10 @@ function renderHeader() {
         el("div", { class: "words" }, [el("div", { class: "title", text: tr("Catalogue") }), el("div", { class: "sub", text: tr("Watches & jewellery") })]),
       ]),
       el("span", { class: "spacer" }),
-      S.locked ? null : clientButton(),
-      S.locked ? null : hideBtn,
-      langSwitch(),
-      el("button", { class: "hbtn hide-phone", type: "button", title: tr("Switch between light and dark"), "aria-label": tr("Switch between light and dark"), onclick: () => { toggleTheme(); render(); } }, [svg(ICON.moon)]),
-      S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock)]),
-      // the same switcher as in every tool; not while the screen is turned to a client
-      S.client || S.locked ? null : kitToolsMenu("catalogue", LANG),
+      S.locked ? null : selectionHeaderButton(),
+      ...(phone && !S.locked ? [menuBtn] : controls),
     ]),
+    menu,
   ]);
 }
 function langSwitch() {
@@ -565,10 +583,10 @@ function renderStart() {
   const inStock = brands.reduce((a, b) => a + b.in_stock, 0);
   const collections = ref.collections || [];
   const entry = el("div", { class: "entry" }, [
-    el("a", { href: "#/brands" }, [el("div", { class: "k", text: tr("Brands") }), el("div", { class: "n", text: tr("{n} brands", { n: brands.length }) }), el("div", { class: "c", text: brands.slice(0, 4).map((b) => b.brand).join(" · ") + (brands.length > 4 ? " …" : "") })]),
-    el("a", { href: "#/categories" }, [el("div", { class: "k", text: tr("Category") }), el("div", { class: "n", text: tr("{n} categories", { n: Object.keys(catCounts()).length }) }), el("div", { class: "c", text: CAT_ORDER.map(catName).join(" · ") })]),
-    el("a", { href: "#/types" }, [el("div", { class: "k", text: tr("Retail category") }), el("div", { class: "n", text: tr("{n} types", { n: new Set(((S.ref && S.ref.categories) || []).map((c) => c.retail_category)).size }) }), el("div", { class: "c", text: tr("Rings, earrings, necklaces, watches…") })]),
-    el("a", { href: "#/collections" }, [el("div", { class: "k", text: tr("Collections") }), el("div", { class: "n", text: tr("{n} collections", { n: collections.length }) }), el("div", { class: "c", text: collections.filter((c) => c.in_stock).slice(0, 3).map((c) => c.collection).join(" · ") + " …" })]),
+    el("a", { href: "#/brands" }, [el("div", { class: "k", text: tr("Brands") }), el("div", { class: "n", text: tr("{n} brands", { n: brands.filter((b) => b.in_stock > 0).length }) }), el("div", { class: "c", text: brands.filter((b) => b.in_stock > 0).slice(0, 4).map((b) => b.brand).join(" · ") + (brands.filter((b) => b.in_stock > 0).length > 4 ? " …" : "") })]),
+    el("a", { href: "#/categories" }, [el("div", { class: "k", text: tr("Category") }), el("div", { class: "n", text: tr("{n} categories", { n: Object.values(catCounts()).filter((c) => c.in_stock > 0).length }) }), el("div", { class: "c", text: CAT_ORDER.filter((c) => (catCounts()[c] || {}).in_stock > 0).map(catName).join(" · ") })]),
+    el("a", { href: "#/collections" }, [el("div", { class: "k", text: tr("Collections") }), el("div", { class: "n", text: tr("{n} collections", { n: collections.filter((c) => c.in_stock > 0).length }) }), el("div", { class: "c", text: collections.filter((c) => c.in_stock).slice(0, 3).map((c) => c.collection).join(" · ") + " …" })]),
+    selectionEntry(),
   ]);
   const out = [
     el("div", { class: "hero" }, [el("img", { class: "mono", src: mono(), alt: "" }), el("h1", { text: tr("Find a piece") }),
@@ -624,10 +642,15 @@ function pageHead(title, sub, trail) {
   return [crumbs([{ text: tr("Home"), href: "#/" }, ...(trail || []), { text: title }]),
     el("h1", { class: "page", text: title }), sub ? el("p", { class: "page-sub", text: sub }) : null, el("hr", { class: "hair" })];
 }
+// A tile is a way in to what is on the floor: a brand, kind or collection with nothing in stock has none.
+// Its sold-out models are still found by search, and in a list set to "All".
+function tilesOrNone(tiles) {
+  return tiles.length ? el("div", { class: "tiles" }, tiles) : el("div", { class: "empty" }, [el("div", { class: "serif", text: tr("Nothing in stock here.") }), el("p", {}, [el("a", { class: "btn", href: listHash({}), text: tr("See every model") })])]);
+}
 function renderBrands() {
   const brands = (S.ref && S.ref.brands) || [];
   return [...pageHead(tr("Brands"), null),
-    el("div", { class: "tiles" }, brands.map((b) => tile(listHash({ brands: [b.brand] }), b.brand, stockMeta(b.in_stock, b.models), { word: b.brand, logo: brandLogo(b.brand), dim: !b.in_stock })))];
+    tilesOrNone(brands.filter((b) => b.in_stock > 0).map((b) => tile(listHash({ brands: [b.brand] }), b.brand, stockMeta(b.in_stock, b.models), { word: b.brand, logo: brandLogo(b.brand) })))];
 }
 function catCounts() {
   const by = {};
@@ -659,7 +682,7 @@ function renderCategories() {
   const by = catCounts();
   const href = (c) => (catOpensSub(c) ? "#/cat/" + encodeURIComponent(c) : listHash({ category: c }));
   return [...pageHead(tr("Category"), null),
-    el("div", { class: "tiles" }, CAT_ORDER.filter((c) => by[c]).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c), img: catImg(c) })))];
+    tilesOrNone(CAT_ORDER.filter((c) => by[c] && by[c].in_stock > 0).map((c) => tile(href(c), catName(c), stockMeta(by[c].in_stock, by[c].models), { word: catName(c), img: catImg(c) })))];
 }
 // A category's sub-page: a tile per kind of piece (Rings, Necklaces…) — or, for
 // watches, a tile per movement (Automatic / Quartz / Hand-wound) with an "All
@@ -669,29 +692,18 @@ function renderCatSub(cat) {
   const head = [...pageHead(catName(cat), null, [{ text: tr("Category"), href: "#/categories" }])];
   if (cat === "watch") {
     const by = catCounts().watch || { models: 0, in_stock: 0 };
-    const tiles = [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), img: catImg("watch"), dim: !by.in_stock })]
-      .concat(watchMoves().map((x) => tile(listHash({ category: "watch", movements: [x.key] }),
-        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), img: moveImg(x.key), dim: !x.in_stock })));
-    return [...head, el("div", { class: "tiles" }, tiles)];
+    const tiles = (by.in_stock > 0 ? [tile(listHash({ category: "watch" }), tr("All watches"), stockMeta(by.in_stock, by.models), { word: tr("All watches"), img: catImg("watch") })] : [])
+      .concat(watchMoves().filter((x) => x.in_stock > 0).map((x) => tile(listHash({ category: "watch", movements: [x.key] }),
+        nm(MOVEMENT_NAMES, x.key), stockMeta(x.in_stock, x.models), { word: nm(MOVEMENT_NAMES, x.key), img: moveImg(x.key) })));
+    return [...head, tilesOrNone(tiles)];
   }
   const cats = (S.ref && S.ref.categories) || [];
-  const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter(Boolean);
-  return [...head, el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
-    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock })))];
-}
-function renderTypes() {
-  const cats = (S.ref && S.ref.categories) || [];
-  const out = [...pageHead(tr("Retail category"), null)];
-  for (const c of CAT_ORDER) {
-    const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === c && x.retail_category === t)).filter(Boolean);
-    if (!rows.length) continue;
-    out.push(el("h2", { class: "group-h" }, [catName(c)]));
-    out.push(el("div", { class: "tiles" }, rows.map((x) => tile(listHash({ types: [x.retail_category] }), typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category), dim: !x.in_stock }))));
-  }
-  return out;
+  const rows = TYPE_ORDER.map((t) => cats.find((x) => x.category === cat && x.retail_category === t)).filter((x) => x && x.in_stock > 0);
+  return [...head, tilesOrNone(rows.map((x) => tile(listHash({ category: cat, types: [x.retail_category] }),
+    typeName(x.retail_category, true), stockMeta(x.in_stock, x.models), { word: typeName(x.retail_category, true), img: typeImg(x.retail_category) })))];
 }
 function renderCollections(brandSel) {
-  const all = (S.ref && S.ref.collections) || [];
+  const all = ((S.ref && S.ref.collections) || []).filter((c) => c.in_stock > 0);
   const brands = [...new Set(all.map((c) => c.brand))];
   const chips = el("div", { class: "chiprow" }, [
     el("a", { class: "chip", href: "#/collections", "aria-pressed": brandSel ? "false" : "true", text: tr("All brands") }),
@@ -701,9 +713,9 @@ function renderCollections(brandSel) {
   const out = [...pageHead(tr("Collections"), null), chips];
   for (const b of brands) {
     if (brandSel && b !== brandSel) continue;
-    const rows = all.filter((c) => c.brand === b).sort((x, y) => (y.in_stock > 0) - (x.in_stock > 0) || x.collection.localeCompare(y.collection));
+    const rows = all.filter((c) => c.brand === b).sort((x, y) => x.collection.localeCompare(y.collection));
     out.push(el("h2", { class: "group-h" }, [b, el("span", { class: "c", text: tr("{n} collections", { n: rows.length }) })]));
-    out.push(el("div", { class: "tiles" }, rows.map((c) => tile(listHash({ brands: [b], collections: [c.collection] }), c.collection, stockMeta(c.in_stock, c.models), { word: c.collection, dim: !c.in_stock }))));
+    out.push(el("div", { class: "tiles" }, rows.map((c) => tile(listHash({ brands: [b], collections: [c.collection] }), c.collection, stockMeta(c.in_stock, c.models), { word: c.collection }))));
   }
   return out;
 }
@@ -719,7 +731,7 @@ function card(m) {
     return el("span", { class: "dot " + (COLOUR_NAMES[code] ? code : "other") + (c.in_stock || c.qty_transit > 0 ? "" : " out"), title: name });
   })) : null;
   const tbc = m.missing_crucial && m.missing_crucial.length;
-  return el("a", { class: "card" + (out ? " out" : ""), href: "#/model/" + encodeURIComponent(m.model_id) }, [
+  const link = el("a", { class: "card" + (out ? " out" : ""), href: "#/model/" + encodeURIComponent(m.model_id) }, [
     photoBox(m),
     tbc && !S.client ? el("span", { class: "flagmark", title: tr("Key details TBC"), text: tr("TBC") }) : null,
     el("div", { class: "b" }, [
@@ -734,6 +746,8 @@ function card(m) {
       ]),
     ]),
   ]);
+  // the pick button is a neighbour of the link, not inside it: a button within a link is neither valid nor reachable by keyboard
+  return el("div", { class: "card-wrap" }, [link, cartCardButton(m)]);
 }
 // One short material for a card: the metals found for the model, else what Colibri says.
 function cardMaterial(m) {
@@ -787,7 +801,7 @@ function renderList() {
   q.id = "q-list";
   const n = v2 ? activeFilterCountV2(f) : activeFilterCount(f);
   const sort = el("select", { class: "btn hide-phone", "aria-label": tr("Sort"), onchange: (e) => set({ sort: e.target.value }) },
-    SORTS.filter(([k]) => !S.client || k !== "completeness").map(([k, label]) => el("option", { value: k, selected: f.sort === k ? "selected" : null, text: tr(label) })));
+    sortsShown().map(([k, label]) => el("option", { value: k, selected: f.sort === k ? "selected" : null, text: tr(label) })));
   const seg = v2
     ? el("div", { class: "seg", role: "group", "aria-label": tr("Stock") }, [["all", "All"], ["boutique", "In stock"]].map(([k, label]) =>
         el("button", { type: "button", "aria-pressed": f.availability === k ? "true" : "false", onclick: () => set({ availability: k }), text: tr(label) })))
@@ -925,7 +939,7 @@ function renderSheet() {
       showWatch ? grp(tr("Case size, mm"), el("div", { class: "range" }, [cmin, el("span", { text: "–" }), cmax])) : null,
       grp(tr("Gender"), el("div", { class: "chiprow" }, Object.entries(GENDERS).map(([k, l]) => chip(tr(l), f.genders.includes(k), () => { f.genders = toggle(f.genders, k); rerender(); })))),
       grp(tr("Price, UZS"), el("div", { class: "range" }, [pmin, el("span", { text: "–" }), pmax])),
-      S.client ? null : el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: f.incomplete ? "checked" : null, onchange: (e) => { f.incomplete = e.target.checked; } }), tr("Only models with key details still TBC")])]),
+      !canManage() ? null : el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: f.incomplete ? "checked" : null, onchange: (e) => { f.incomplete = e.target.checked; } }), tr("Only models with key details still TBC")])]),
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: () => { S.sheet = { ...filtersFrom(new URLSearchParams()), q: f.q, sort: f.sort }; rerender(); }, text: tr("Clear all") }),
@@ -978,6 +992,7 @@ function lockDown(message) {
   S.session = null; store(SESSION_KEY, null);
   S.locked = true; S.ref = null; S.list = null; S.model = null; S.recent = null; S.arrivals = null; S.sheet = null;
   S.report = null; S.reports = null; S.client = false; store(CLIENT_KEY, null);
+  S.selSheet = null; S.cartData = {}; S.menuOpen = false;   // the selection itself stays: it is references only, like "opened recently"
   if (S.layerPushed) { S.layerPushed = false; try { history.back(); } catch (e) { /* ignore */ } }
   S.gateMsg = message || null;
   $("#layer").innerHTML = "";
@@ -986,20 +1001,11 @@ function lockDown(message) {
 async function loadRef() { S.ref = await call("reference"); }
 
 /* ------------------------------------------------------------------- theme */
+// One look in every tool: the catalogue is light, whatever the device or an old choice says.
 function applyTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("sysdark", mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", "light");
+  document.documentElement.classList.remove("sysdark");
 }
-function toggleTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  const next = mode === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark") : mode === "dark" ? "light" : "dark";
-  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* ignore */ }
-  applyTheme();
-}
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { applyTheme(); render(); });
 
 /* ===================================================================== v2 filtering
    Server-driven filtering (catalogue-api filter_version 2). Live ONLY when the
@@ -1244,11 +1250,15 @@ function renderSheetV2() {
   const byKey = {}; for (const f of facets) byKey[f.key] = f;
   const groups = [];
   // Sort (phone only), first, like v1.
-  groups.push(el("div", { class: "phone-only" }, [grp(tr("Sort"), el("div", { class: "chiprow" }, SORTS.map(([k, l]) => chip(tr(l), o.sort === k, () => { o.sort = k; renderSheetV2(); }))))]));
+  groups.push(el("div", { class: "phone-only" }, [grp(tr("Sort"), el("div", { class: "chiprow" }, sortsShown().map(([k, l]) => chip(tr(l), o.sort === k, () => { o.sort = k; renderSheetV2(); }))))]));
   for (const key of V2_GROUP_ORDER) {
     const f = byKey[key];
     if (!f || !f.applicable || !f.options.length) continue;
-    const row = el("div", { class: "chiprow" }, f.options.map((op) => {
+    // An option with nothing behind it is not offered, and a group left with none goes with it.
+    // A chosen option stays, even at 0, so it can be taken off.
+    const shown = f.options.filter((op) => op.count > 0 || v2IsSelected(o, key, op.value));
+    if (!shown.length) continue;
+    const row = el("div", { class: "chiprow" }, shown.map((op) => {
       const on = v2IsSelected(o, key, op.value);
       return chip(v2FacetLabel(key, op.value, op.metadata), on, () => { v2Toggle(o, key, op.value); queueFacets(); }, op.count, op.disabled && !on);
     }));
@@ -1258,7 +1268,7 @@ function renderSheetV2() {
   const pmin = el("input", { type: "text", inputmode: "numeric", placeholder: tr("from"), value: o.price_min_uzs || "", "aria-label": tr("Price, UZS") + " " + tr("from"), oninput: (e) => { o.price_min_uzs = parseAmt(e.target.value); clearTimeout(S.sheetT); S.sheetT = setTimeout(fetchFacets, 350); } });
   const pmax = el("input", { type: "text", inputmode: "numeric", placeholder: tr("to"), value: o.price_max_uzs || "", "aria-label": tr("Price, UZS") + " " + tr("to"), oninput: (e) => { o.price_max_uzs = parseAmt(e.target.value); clearTimeout(S.sheetT); S.sheetT = setTimeout(fetchFacets, 350); } });
   groups.push(grp(tr("Price, UZS"), el("div", { class: "range" }, [pmin, el("span", { text: "–" }), pmax])));
-  if (!S.client) groups.push(el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: o.incomplete ? "checked" : null, onchange: (e) => { o.incomplete = e.target.checked; queueFacets(); } }), tr("Only models with key details still TBC")])]));
+  if (canManage()) groups.push(el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", checked: o.incomplete ? "checked" : null, onchange: (e) => { o.incomplete = e.target.checked; queueFacets(); } }), tr("Only models with key details still TBC")])]));
   const doneLabel = S.sheetTotal == null ? tr("Done") : tr("Show {n}", { n: S.sheetTotal });
   const sheet = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": tr("Filters") }, [
     el("header", {}, [el("h2", { text: tr("Filters") }), el("button", { class: "btn", type: "button", onclick: () => closeSheet(), text: tr("Close") })]),
