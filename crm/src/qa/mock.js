@@ -308,6 +308,14 @@ function handle(body) {
     if (!editor) return [403, { error: "Your account can view client records but not change them." }];
     return clientAdd(body, actor);
   }
+  if (a === "resolve_field") {
+    if (!editor) return [403, { error: "Your account can view client records but not change them." }];
+    if (!body.field || !body.source || !body.basis) return [400, { error: "Say which field, which value and how it was confirmed." }];
+    const c = find(body.id);
+    if (body.source === "value") c[body.field + "_confirmed"] = body.value;
+    c[body.field + "_flag"] = "confirmed";
+    return [200, card(body.id)];
+  }
   if (a === "set_state" || a === "assign_owner") {
     if (!editor) return [403, { error: "Your account can view client records but not change them." }];
     const c = find(body.id);

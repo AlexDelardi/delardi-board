@@ -58,7 +58,7 @@ const LIST_COLS = [
   ["contact", "Last contact", "col-contact num", "desc", null],
   ["spend", "Lifetime spend", "col-sp num", "desc", null],
 ];
-const FACETS = ["status", "abc", "segment", "lifecycle", "owner"];
+const FACETS = ["abc", "segment", "lifecycle", "owner"];
 // The select in the filter bar that each checklist stays in step with.
 const FACET_SELECT = { status: "status", abc: "abc_class", lifecycle: "lifecycle_status", owner: "owner" };
 const SELECT_FACET = { status: "status", abc_class: "abc", lifecycle_status: "lifecycle", owner: "owner" };

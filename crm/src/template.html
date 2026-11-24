@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <meta name="robots" content="noindex, nofollow">
-<title>Delardi Client Instrument</title>
+<title>Delardi CRM</title>
 <link rel="icon" type="image/png" href="__FAVICON__">
 <!-- On the home screen (Phase 5, step 6): icon, name and a full-screen launch. -->
 <link rel="manifest" href="app/manifest.webmanifest">
@@ -138,7 +138,7 @@ a { color: inherit; }
 
 /* -------------------------------------------------------------- scoreboard */
 .scoreboard {
-  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)) auto;
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 1px; background: var(--border); border-top: 1px solid var(--border);
 }
 /* v14: three tiles are the day's work; the other three fold in beside them. */
@@ -1419,6 +1419,10 @@ body.split table.clients td.col-contact { display: none; }
     scroll-behavior: auto !important;
   }
 }
+/* The details table keeps its Edit buttons at every width: the rule that folded the old comparison table's status
+   column away on a phone must not hide them. */
+table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
+table.compare.details td.st .btn { display: inline-flex; margin-top: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>

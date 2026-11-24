@@ -189,10 +189,7 @@ const isTgLead = (data) => !!(data && data.queue && data.queue.review_status ===
 const openMissed = (data) => tgData(data).missed.filter((m) => m.status === "open");
 function sourceLineTg(r) {
   if (!r.in_telegram) return null;
-  if (r.in_colibri && r.in_marketing) return tr("Colibri + questionnaire + Telegram");
-  if (r.in_colibri) return tr("Colibri + Telegram");
-  if (r.in_marketing) return tr("Questionnaire + Telegram");
-  return tr("Telegram only");
+  return r.in_colibri || r.in_marketing ? "Telegram" : tr("Telegram only");   // a chat exists; the other sources are no longer named
 }
 function replyTime(min) {
   const m = Number(min);
