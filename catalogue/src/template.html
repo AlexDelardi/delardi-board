@@ -443,6 +443,25 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
   .listbar .search input { font-size: 16px; }
   .sheet { top: auto; left: 0; width: 100%; max-height: 88vh; border-radius: 14px 14px 0 0; }
 }
+/* The tool switcher (ui/tools.js) on a header that is not yet the shared kit's: the same button and list as in the
+   other tools, with its own colours spelled out so it does not lean on this page's tokens. */
+.kit-tool-wrap { position: relative; display: inline-flex; }
+.kit-tool-wrap > .kit-hbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 16px; margin: 0; background: transparent; color: #FFFFFF; border: 1px solid rgba(143, 168, 204, .45); border-radius: 0; font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.kit-tool-wrap > .kit-hbtn:hover { border-color: #8FA8CC; }
+.kit-tool-wrap > .kit-hbtn:focus-visible { outline: 2px solid #8FA8CC; outline-offset: 2px; }
+.kit-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 200; min-width: 200px; margin: 0; padding: 0; list-style: none; background: #FFFFFF; color: #001A4A; border: 1px solid #D3DCE9; border-top: 2px solid #082966; border-radius: 0; box-shadow: none; text-align: left; }
+.kit-menu li { margin: 0; padding: 0; }
+.kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: 44px; padding: 0 16px; color: #001A4A; text-decoration: none; font-size: 15px; line-height: 1.5; white-space: nowrap; }
+.kit-menu a:hover { background: #EEF1F7; }
+.kit-menu a:focus-visible { outline: 2px solid #082966; outline-offset: -2px; }
+.kit-menu [aria-current="page"] { font-weight: 700; color: #082966; background: #EEF1F7; }
+/* on a phone the switcher is a nine-dot button, so the header keeps its one row */
+@media (max-width: 599px) {
+  .top .kit-tool-wrap > .kit-hbtn { width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; font-size: 0; border-radius: 8px;
+    background-image: radial-gradient(circle, #FFFFFF 1.6px, transparent 1.9px); background-size: 7px 7px; background-position: center; background-repeat: space; background-clip: content-box; padding: 10px; }
+}
+@media (max-width: 599px) { .top-row .lang, .top-row .hbtn, .top .kit-tool-wrap { flex: 0 0 auto; } .top-row { gap: 6px; } .brand .mark { height: 22px; } }
+@media (max-width: 380px) { .top-row { gap: 5px; padding: 10px; } .brand .mark { height: 20px; } }
 </style>
 </head>
 <body>

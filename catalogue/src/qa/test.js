@@ -365,9 +365,20 @@ const settle = (page) => page.waitForTimeout(150);
     await unlock(page);
     const ring = MODELS.find((m) => m.retail_category === "ring" && m.colours && m.in_stock);
 
+    // the tool switcher, as in every tool
+    await page.click(".top .kit-tool-wrap > button");
+    const toolItems = await page.$$eval(".top .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()).join("|"));
+    ok(toolItems === "Sales|Stock|Clients|Catalogue|Board|Performance" && (await page.textContent('.top .kit-menu [aria-current="page"]')).trim() === "Catalogue"
+      && (await page.getAttribute('.top .kit-menu a[href="../crm/"]', "href")) === "../crm/", "the header lists every tool, this one marked: " + toolItems);
+    const mb = await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.height > 200; });
+    ok(mb, "the tools list opens inside the screen");
+    await page.keyboard.press("Escape");
+    ok(!(await page.$(".top .kit-menu")) || !(await page.isVisible(".top .kit-menu")), "Escape closes the tools list");
+
     // client view
     await page.click("header .hbtn[aria-label='Show to a client']");
     ok(await page.isVisible(".client-band"), "client view says it is on");
+    ok(!(await page.$(".top .kit-tool-wrap")), "client view: no way to the other tools");
     ok(!(await page.isVisible(".hero p:has-text('in stock')")), "client view hides the stock counts on the start screen");
     await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
     ok(await count(page, ".card .flagmark") === 0, "client view hides the TBC tags");
@@ -581,6 +592,18 @@ const settle = (page) => page.waitForTimeout(150);
     ok(errors.length === 0, "v2: no script errors through the flow", errors);
     await ctx.close();
     setV2(false);
+  }
+
+  // -------------------------------------------------- the tool switcher on a phone
+  for (const w of [390, 360]) {
+    const { ctx, page, errors } = await open(browser, { viewport: { width: w, height: 740 }, touch: true, mobile: true });
+    await unlock(page);
+    const row = await page.$$eval(".top-row > *", (xs) => xs.filter((x) => x.getBoundingClientRect().width > 0).map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; }));
+    const langWhole = await page.$eval(".top-row .lang", (l) => l.lastElementChild.getBoundingClientRect().right <= l.getBoundingClientRect().right + 1);
+    ok(row.every((r, i) => r[1] <= w && (i === 0 || r[0] >= row[i - 1][1])) && langWhole, "phone " + w + ": the header keeps one row with nothing cut or overlapping", row);
+    await page.click(".top .kit-tool-wrap > button");
+    ok(await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }) && errors.length === 0, "phone " + w + ": the tools list opens inside the screen", errors);
+    await ctx.close();
   }
 
   await browser.close();
