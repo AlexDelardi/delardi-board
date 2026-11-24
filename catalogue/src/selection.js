@@ -90,7 +90,7 @@ const cartIndex = (m, v) => S.cart.findIndex((x) => x.m === m && (x.v || null) =
 const cartHasModel = (m) => S.cart.some((x) => x.m === m);
 function cartToggle(m, v) {
   const i = cartIndex(m, v);
-  if (i >= 0) { S.cart.splice(i, 1); cartSave(); toast(tr("Removed from the selection.")); return false; }
+  if (i >= 0) { S.cart.splice(i, 1); dropDiscounts(m, v); cartSave(); toast(tr("Removed from the selection.")); return false; }
   if (S.cart.length >= CART_MAX) { toast(tr("The selection is full ({n} pieces). Take one out first.", { n: CART_MAX })); return false; }
   S.cart.push({ m, v: v || null }); cartSave(); toast(tr("Added to the selection."));
   return true;
@@ -104,7 +104,7 @@ function cartCardButton(m) {
     class: "pick" + (on ? " on" : ""), type: "button", "aria-pressed": on ? "true" : "false",
     title: tr(on ? "Remove from selection" : "Add to selection"), "aria-label": tr(on ? "Remove from selection" : "Add to selection") + ": " + modelTitle(m),
     onclick: () => {
-      if (on) { S.cart = S.cart.filter((x) => x.m !== m.model_id); cartSave(); toast(tr("Removed from the selection.")); }
+      if (on) { S.cart = S.cart.filter((x) => x.m !== m.model_id); dropDiscounts(m.model_id); cartSave(); toast(tr("Removed from the selection.")); }
       else cartToggle(m.model_id, null);
       const y = window.scrollY; render(); window.scrollTo(0, y);
     },
@@ -132,7 +132,8 @@ function selectionEntry() {
 /* ---------------------------------------------------------------- the data */
 // The items on screen: a list that came by link, or this device's own.
 function linkItems(params) {
-  return params.getAll("p").map((s) => { const i = String(s).indexOf("~"); return cleanItem(i < 0 ? { m: s } : { m: s.slice(0, i), v: s.slice(i + 1) || null }); }).filter(Boolean).slice(0, CART_MAX);
+  return params.getAll("p").map((s) => { const i = String(s).indexOf("~"); return cleanItem(i < 0 ? { m: s } : { m: s.slice(0, i), v: s.slice(i + 1) || null }); }).filter(Boolean).slice(0, CART_MAX)
+    .map((x) => ({ ...x, link: true }));
 }
 function selectionHash(items) {
   const p = new URLSearchParams();
@@ -195,7 +196,15 @@ function selLine(it) {
 }
 // A discount per piece, typed on the selection. In memory only: gone at a lock, never on the device, never in a link.
 S.cartDisc = {};
-const discKey = (it) => it.m + "~" + (it.v || "");
+// A list that came by link keeps its discounts apart from one's own: the same piece may be in both.
+const discKey = (it) => (it.link ? "link|" : "") + it.m + "~" + (it.v || "");
+// A piece taken out, by whichever button, leaves no discount behind to come back with it.
+function dropDiscounts(m, v) {
+  for (const k of Object.keys(S.cartDisc)) {
+    if (k.startsWith("link|")) continue;
+    if (v === undefined ? k.startsWith(m + "~") : k === m + "~" + (v || "")) delete S.cartDisc[k];
+  }
+}
 const parseDisc = (v) => { const n = Number(String(v == null ? "" : v).replace("%", "").replace(",", ".").trim()); return Number.isFinite(n) && n > 0 && n < 100 ? Math.round(n * 10) / 10 : 0; };
 const discOf = (L) => (L && L.it && L.lo != null ? S.cartDisc[discKey(L.it)] || 0 : 0);
 const netOf = (L) => (L.lo == null ? null : L.lo - Math.round(L.lo * discOf(L) / 100));
@@ -280,7 +289,10 @@ function renderSelection() {
       () => copyText(location.href.split("#")[0] + selectionHash(items), tr("Link copied. It opens for anyone with a catalogue passcode."))),
     S.client ? null : el("button", { class: "btn", type: "button", onclick: () => setClient(true) }, [svg(["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21a8 8 0 0 1 16 0"]), tr("Show to a client")]),
     el("span", { class: "spacer" }),
-    shared ? el("button", { class: "btn", type: "button", onclick: () => { S.cart = items.slice(); cartSave(); go("#/selection"); } }, [tr("Keep as my selection")])
+    shared ? el("button", { class: "btn", type: "button", onclick: () => {
+        // it becomes one's own list, at list prices: discounts typed on either list do not carry over
+        S.cart = items.map((x) => ({ m: x.m, v: x.v })); S.cartDisc = {}; cartSave(); go("#/selection");
+      } }, [tr("Keep as my selection")])
       : el("button", { class: "linkbtn", type: "button", onclick: () => { S.cart = []; S.cartDisc = {}; cartSave(); toast(tr("Selection cleared.")); render(); } }, [tr("Clear the selection")]),
   ]);
   const note = shared ? el("p", { class: "page-sub" }, [tr("This list came by link. Yours is untouched."), " ", el("a", { href: "#/selection", text: tr("Back to my selection") })]) : null;
