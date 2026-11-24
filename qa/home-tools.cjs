@@ -21,4 +21,10 @@ for (const id of ids) {
 // the Board is one hand-kept file: its copy of ui/tools.js must be the file itself
 const board = fs.readFileSync(path.join(root, 'board/index.html'), 'utf8');
 ok(board.includes(kit.trimEnd()), 'the Board carries ui/tools.js unchanged');
+// the Christmas season: every tool and the hub carry ui/season.js with its images in place
+for (const id of ids.concat([''])) {
+  const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');
+  ok(page.includes('function seasonDress()') && page.includes('function seasonFor(d)') && !page.includes('__XMAS_'), (id || 'the hub') + ' carries the season with its images');
+}
+ok(home.includes('<body class="hub">'), 'the hub is marked for the tree');
 console.log(n + ' home page checks passed.');

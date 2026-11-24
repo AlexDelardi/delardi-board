@@ -21,9 +21,6 @@ MARK = '/* -------------------------------------------------------------------- 
 assert js.count(MARK) == 1
 js = js.replace(MARK, ins + '\n' + MARK)
 js = js.replace('__WORDMARK__', uri('wordmark_white.png'))
-# seasonal decorations (brand/christmas), shown 20 November to 14 January only
-for tok, f in [('__XMAS_SPRIG__', 'christmas/fir-sprig.png'), ('__XMAS_FLAKE__', 'christmas/geometric-snowflake.png'), ('__XMAS_MINI__', 'christmas/mini-snowflake.png')]:
-    js = js.replace(tok, uri(f))
 t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png')).replace('__MONO_WHITE__', uri('monogram_white.png'))
 out = t.replace('__SCRIPT__', js)
 for tok in ['__WORDMARK__', '__FAVICON__', '__MONO_NAVY__', '__MONO_WHITE__', '__SCRIPT__']:
@@ -35,5 +32,11 @@ dest = HERE.parent / 'index.html' if (HERE.parent / 'index.html').exists() or HE
 if dest is None:
     (HERE / 'dist').mkdir(exist_ok=True)
     dest = HERE / 'dist' / 'index.html'
+# the Christmas images for ui/season.js (ui/season_art.py)
+import sys as _sys
+_sys.path.insert(0, str(HERE.parent.parent / 'ui'))
+from season_art import season_inline
+out = season_inline(out)
+
 dest.write_text(out, encoding='utf-8', newline='\n')
 print('built', dest, len(out), 'bytes')

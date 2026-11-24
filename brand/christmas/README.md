@@ -2,9 +2,9 @@
 
 Ten static, decorative PNGs for Delardi's in-store tools: the tools hub, Performance, CRM, Sales, Stock, the weekly board and the Catalogue. The artwork is drawn for white and light surfaces.
 
-**The idea:** a quiet seasonal note, the way a boutique puts one sprig on the counter. One decoration per screen, in one fixed place, never competing with a figure, a control or the logo.
+**The idea:** from 20 November the tools look like the season. Every page of every tool carries a band of snowflakes across the top, every lock screen and the tools hub carry the tree, and a screen may add one mark beside its title. Decorations sit in places of their own: never on a control, a figure or the logo.
 
-Revised 24 November 2026: the season starts on 20 November, the CRM carries its mark, and the code is shared (`ui/season.js`). What changed from the first version is listed at the end.
+Revised 24 November 2026 (second time): Alex asked for it to be turned up and switched on today. The band and the tree on every tool are new; the earlier rule of one decoration per screen is replaced by the three layers below.
 
 ## Season
 
@@ -29,13 +29,11 @@ Revised 24 November 2026: the season starts on 20 November, the CRM carries its 
 
 Display sizes are fixed. Do not scale an asset to fill a gap; choose a different asset or leave the gap.
 
-## Three tiers
+## Three layers
 
-1. **Hero: the tree arrangement.** One place only, the tools hub. The tree with at most two ornaments beside it, never hung on it. Tablet and desktop only.
-2. **Screen mark: fir sprig.** Dashboards and reading screens, one per screen: the Performance month, the weekly board, the Catalogue's landing view.
-3. **Accent: snowflake pair.** Every other screen that carries a mark: the geometric snowflake with the mini snowflake to its lower right. On a phone this pair replaces the sprig too.
-
-A screen carries one tier, never two.
+1. **The band.** A strip of snowflakes, 36 px high, across the top of every page of every tool, above the navy header, and across the top of every lock screen. The three snowflakes at their own sizes, evenly spaced, on the light card colour. It scrolls away with the page.
+2. **The tree.** Beside the passcode card on every lock screen (bottom right, where the screen is at least 900 px wide and 620 px high), and beside the title on the tools hub.
+3. **A mark beside a title.** One per screen, where the tool asks for it: the fir sprig on a dashboard (Performance: Month), the snowflake pair on a working screen (Performance: Year, Brands, Incentive; the CRM's tab row). Forms carry none.
 
 ## Where it goes
 
@@ -57,7 +55,7 @@ A screen carries one tier, never two.
 - On the navy header, a button, a table, a chart or a headline card.
 - Within one D height of the logo.
 - On a screen where someone is typing, selling or correcting data.
-- More than one decoration per screen (the snowflake pair counts as one; so does the tree arrangement).
+- More than one mark beside a title on the same screen.
 - Animated: no falling snow, no twinkle, no hover effect.
 - Recoloured, tinted, rotated, cropped or given a shadow.
 - In exports, receipts or anything printed.
@@ -105,6 +103,8 @@ Flat shapes and crisp silhouettes that read at the display size. Delardi Blue (#
 
 ## Status
 
-- **Built:** Performance: fir sprig on Month, snowflake pair on Year, Brands and Incentive, nothing on Inputs. CRM: snowflake pair on the tab row of every view, nothing on the card or on a phone.
-- **Shared code:** `ui/season.js` holds the dates, the preview switch and the mark; each tool's build puts the images in.
-- **Not built yet:** the tools hub, Sales, Stock, Catalogue, the lock screen.
+- **Live in every tool from 20 November:** the band (hub, Sales, Stock, CRM, Catalogue, Board, Performance) and the tree on lock screens and the hub.
+- **Marks beside a title:** Performance and the CRM.
+- **Shared code:** `ui/season.js` holds the dates, the preview switch, the band, the tree and the marks. `ui/season_art.py` puts the images in at build time; `ui/inline_season.py` does it for the hub and the Board, which have no build.
+- **Images in the repo** (`brand/christmas`): fir sprig, geometric and mini snowflakes, the composed band (`snowflake-band.png`, made from the three snowflakes), and a lighter export of the tree (4.7 KB, from 81 KB).
+- **Not used yet:** baubles, star, stocking, candle.

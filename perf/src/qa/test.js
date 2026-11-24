@@ -576,6 +576,8 @@ async function shot(page, name, full) {
     // off unless it is the season or the preview is asked for
     let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-11-10T09:00:00" });
     check("season: nothing is added outside the season", !(await page.$(".season-mark")));
+    check("season: out of season the page carries no band", await page.evaluate(() => !document.documentElement.classList.contains("season-christmas") && !document.querySelector("style[data-season]") && Math.round(document.querySelector(".top").getBoundingClientRect().top) === 0),
+      await page.evaluate(() => JSON.stringify([document.documentElement.className, !!document.querySelector("style[data-season]"), document.querySelector(".top").getBoundingClientRect().top, new Date().toString().slice(0, 15), location.search])));
     await ctx.close();
     ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-12-10T09:00:00" }));
     check("season: in December it is on by itself", (await page.$$(".season-mark img")).length === 1 && errors.length === 0, errors.join(" | "));
@@ -593,6 +595,8 @@ async function shot(page, name, full) {
     check("season month: one fir sprig at its display size, decorative only", m.length === 1 && m[0].k === "sprig" && m[0].w === 128 && m[0].h === 56 && m[0].alt === "" && m[0].pe === "none"
       && (await page.getAttribute(".season-mark", "aria-hidden")) === "true", JSON.stringify(m));
     check("season month: clear of the title, controls and figures", await clear());
+    const band = await page.evaluate(() => { const b = getComputedStyle(document.body, "::before"); return { h: b.height, img: /^url\("data:image\/png/.test(b.backgroundImage), pe: b.pointerEvents, top: document.querySelector(".top").getBoundingClientRect().top }; });
+    check("season: a band of snowflakes across the top of the page, above the header", band.h === "36px" && band.img && band.pe === "none" && Math.round(band.top) === 37, JSON.stringify(band));
     await shot(page, "p12-month-season");
     for (const r of ["year", "brands", "incentive"]) {
       await page.click("#tab-" + r); await page.waitForSelector("#screen-" + r); await page.waitForTimeout(150);
