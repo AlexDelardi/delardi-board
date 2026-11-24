@@ -24,7 +24,7 @@ async function setup(browser, viewport, opts = {}) {
   const errors = [], foreign = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
-  const html = fs.readFileSync(HTML_FILE, "utf8");
+  const html = fs.readFileSync(HTML_FILE, "utf8").replace("<head>", "<head><script>window.__HUB_OFF = true;</script>");   // the single sign-in (ui/hub.js) is off here: these tests use the tool's own passcode card
   await page.route("**/*", async (r) => {
     const u = r.request().url();
     if (u.startsWith("data:")) return r.continue();

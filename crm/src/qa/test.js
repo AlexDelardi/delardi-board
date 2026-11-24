@@ -73,7 +73,7 @@ async function grabDownload(page, action) {
   return { file: to, name: dl.suggestedFilename() };
 }
 
-const HTML = fs.readFileSync(path.join(__dirname, "..", "dist", "index.html"), "utf8");
+const HTML = fs.readFileSync(path.join(__dirname, "..", "dist", "index.html"), "utf8").replace("<head>", "<head><script>window.__HUB_OFF = true;</script>");   // the single sign-in (ui/hub.js) is off here: these tests use the tool's own passcode card
 const ROOT = "https://alexdelardi.github.io/delardi-board/";
 const PAGE_URL = ROOT + "crm/";
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-api";

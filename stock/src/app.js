@@ -466,6 +466,7 @@ function renderGate() {
   const old = $("#gate");
   if (old) old.remove();
   if (!S.locked) return;
+  if (kitHubGate("stock")) return;                // signing in is the home page's job (ui/hub.js)
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
@@ -586,6 +587,7 @@ function renderAll() {
   if (typeof renderPiece === "function") renderPiece();      // an open piece panel follows the language
 }
 function restoreSession() {
+  kitHubAdopt("stock", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   // The mode is the tab's, not the login's: it is read before anything that can send the page to the
   // gate (no saved session, an expired one, the idle lock), so unlocking comes back to the same mode.
   S.training = sstore(TRAIN_KEY) === "1";

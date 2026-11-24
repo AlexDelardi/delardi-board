@@ -12,6 +12,7 @@ const ok = (cond, name, extra) => { if (cond) { pass++; } else { fail++; console
 
 async function open(browser, opts = {}) {
   const ctx = await browser.newContext({ viewport: opts.viewport || { width: 1280, height: 900 }, hasTouch: !!opts.touch, isMobile: !!opts.mobile, locale: opts.locale || "en-GB" });
+  await ctx.addInitScript(() => { window.__HUB_OFF = true; });   // the single sign-in (ui/hub.js) is off here: these tests use the tool's own passcode card
   const page = await ctx.newPage();
   const log = [], errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));

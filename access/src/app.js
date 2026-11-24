@@ -786,6 +786,7 @@ function renderGate() {
   const old = $("#gate");
   if (old) old.remove();
   if (!S.locked) return;
+  if (kitHubGate("access")) return;                // signing in is the home page's job (ui/hub.js)
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
@@ -883,6 +884,7 @@ function renderAll() {
   if (mx && $("#matrix-wrap")) $("#matrix-wrap").scrollLeft = mx;
 }
 function restoreSession() {
+  kitHubAdopt("access", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;
