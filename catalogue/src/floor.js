@@ -89,8 +89,9 @@ function layerClosed(navHash) {
   } else if (navHash) go(navHash);
 }
 function closeAllLayers() {
-  S.sheet = null; S.report = null;
+  S.sheet = null; S.report = null; S.selSheet = null;
   const l = $("#layer"); if (l) l.innerHTML = "";
+  const pr = $("#print"); if (pr) pr.innerHTML = "";
 }
 // The pinned header changes height (client band, phone, iPad); what sticks below it follows.
 function syncSticky() {

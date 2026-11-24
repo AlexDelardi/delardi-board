@@ -268,6 +268,8 @@ function handle(b, log) {
   log.push(b);
   if (b.action === "unlock") {
     if (b.passcode === "1234") return [200, { token: "t".repeat(64), name: "Tester", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_manage: true }];
+    // "5678" is a floor login: catalogue access, but not the catalogue owner
+    if (b.passcode === "5678") return [200, { token: "t".repeat(64), name: "Floor", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_manage: false }];
     if (b.passcode === "0000") return [403, { error: "This account does not have access to the catalogue." }];
     return [401, { error: "That passcode is not right." }];
   }

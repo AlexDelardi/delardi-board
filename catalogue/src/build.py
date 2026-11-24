@@ -11,16 +11,16 @@ uri = lambda f: 'data:image/png;base64,' + base64.b64encode((B / f).read_bytes()
 
 t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
-MODULES = ['model.js', 'floor.js']
+MODULES = ['model.js', 'floor.js', 'selection.js']
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1
 # the shared tool switcher (ui/tools.js), as in every other tool
 js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + (HERE.parent.parent / 'ui' / 'season.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
-for tok, f in [('__WORDMARK__', 'wordmark_white.png'), ('__MONO_NAVY__', 'monogram_navy.png'), ('__MONO_WHITE__', 'monogram_white.png')]:
+for tok, f in [('__WORDMARK_NAVY__', 'wordmark_navy.png'), ('__WORDMARK__', 'wordmark_white.png'), ('__MONO_NAVY__', 'monogram_navy.png')]:
     js = js.replace(tok, uri(f))
-t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png')).replace('__MONO_WHITE__', uri('monogram_white.png'))
+t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png'))
 out = t.replace('__SCRIPT__', js)
-for tok in ['__WORDMARK__', '__FAVICON__', '__MONO_NAVY__', '__MONO_WHITE__', '__SCRIPT__']:
+for tok in ['__WORDMARK__', '__WORDMARK_NAVY__', '__FAVICON__', '__MONO_NAVY__', '__SCRIPT__']:
     assert tok not in out, tok
 
 # the Christmas images for ui/season.js (ui/season_art.py)
