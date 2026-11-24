@@ -393,7 +393,7 @@ function taskRow(t, opts) {
   const open = el("button", { type: "button", class: "task-open", "aria-label": t.title, onclick: () => openTask(t.task_id) },
     el("span", { class: "item task-title", text: t.title }),
     el("span", { class: "task-meta" }, meta));
-  return el("li", { class: "task" + (done ? " is-done" : "") + (g === "overdue" ? " is-late" : ""), "data-id": t.task_id }, open, quick);
+  return el("li", { class: "task" + (done ? " is-done" : "") + (g === "overdue" ? " is-late" : "") + (t.priority === "high" && !done ? " is-high" : ""), "data-id": t.task_id }, open, quick);
 }
 async function quickStatus(t, status) {
   try {

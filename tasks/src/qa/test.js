@@ -99,6 +99,10 @@ async function shot(page, name, full) {
     const row = "ul[data-group=overdue] .task";
     const meta = await page.textContent(row + " .task-meta");
     check("my: an overdue task shows its scope, priority, due day, checklist progress, comments and client", /CRM/.test(meta) && /High/.test(meta) && /due/.test(meta) && /1 of 2/.test(meta) && /1 comment/.test(meta) && /Amira Stone/.test(meta), meta);
+    const paint = await page.evaluate(() => { const c = (n) => getComputedStyle(n); const row = document.querySelector("ul[data-group=today] .task"), late = document.querySelector("ul[data-group=overdue] .task");
+      return { page: c(document.body).backgroundColor, card: c(row).backgroundColor, edge: c(row).borderLeftColor, late: c(late).borderLeftColor, gap: parseFloat(c(row.parentElement).rowGap) }; });
+    check("my: tasks are white cards on a tinted page, set apart from each other", paint.page === "rgb(238, 241, 247)" && paint.card === "rgb(255, 255, 255)" && paint.gap >= 8, paint);
+    check("my: a late task's edge is the alert colour, an ordinary one's is not", paint.late === "rgb(140, 47, 47)" && paint.edge !== paint.late, paint);
     check("my: an overdue date is marked late", await page.$eval(row + " .due", (n) => n.classList.contains("late")));
     check("my: today's task reads 'due today'", /due today/.test(await page.textContent("ul[data-group=today] .task-meta")));
     check("my: a floor-only login has no ribbon switch and no inbox", !(await page.$("#ribbon-switch")) && !(await page.$("#tab-inbox")));
