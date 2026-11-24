@@ -14,7 +14,8 @@ js = (HERE / 'app.js').read_text(encoding='utf-8')
 MODULES = ['model.js', 'floor.js']
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1
-js = js.replace(MARK, '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
+# the shared tool switcher (ui/tools.js), as in every other tool
+js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
 for tok, f in [('__WORDMARK__', 'wordmark_white.png'), ('__MONO_NAVY__', 'monogram_navy.png'), ('__MONO_WHITE__', 'monogram_white.png')]:
     js = js.replace(tok, uri(f))
 t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png')).replace('__MONO_WHITE__', uri('monogram_white.png'))

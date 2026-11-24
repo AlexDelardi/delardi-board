@@ -528,7 +528,8 @@ function renderHeader() {
       langSwitch(),
       el("button", { class: "hbtn hide-phone", type: "button", title: tr("Switch between light and dark"), "aria-label": tr("Switch between light and dark"), onclick: () => { toggleTheme(); render(); } }, [svg(ICON.moon)]),
       S.locked ? null : el("button", { class: "hbtn", type: "button", title: tr("Lock"), "aria-label": tr("Lock"), onclick: () => { lockDown(); toast(tr("Locked.")); } }, [svg(ICON.lock)]),
-      el("a", { class: "hbtn hide-phone", href: "../", text: tr("All tools") }),
+      // the same switcher as in every tool; not while the screen is turned to a client
+      S.client || S.locked ? null : kitToolsMenu("catalogue", LANG),
     ]),
   ]);
 }

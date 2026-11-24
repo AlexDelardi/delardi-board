@@ -646,6 +646,18 @@ html[data-theme="auto"].sysdark .nav-list button[aria-pressed="true"] { color: v
     scroll-behavior: auto !important;
   }
 }
+/* The tool switcher (ui/tools.js) on a header that is not yet the shared kit's: the same button and list as in the
+   other tools, with its own colours spelled out so it does not lean on this page's tokens. */
+.kit-tool-wrap { position: relative; display: inline-flex; }
+.kit-tool-wrap > .kit-hbtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 16px; margin: 0; background: transparent; color: #FFFFFF; border: 1px solid rgba(143, 168, 204, .45); border-radius: 0; font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.kit-tool-wrap > .kit-hbtn:hover { border-color: #8FA8CC; }
+.kit-tool-wrap > .kit-hbtn:focus-visible { outline: 2px solid #8FA8CC; outline-offset: 2px; }
+.kit-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 200; min-width: 200px; margin: 0; padding: 0; list-style: none; background: #FFFFFF; color: #001A4A; border: 1px solid #D3DCE9; border-top: 2px solid #082966; border-radius: 0; box-shadow: none; text-align: left; }
+.kit-menu li { margin: 0; padding: 0; }
+.kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: 44px; padding: 0 16px; color: #001A4A; text-decoration: none; font-size: 15px; line-height: 1.5; white-space: nowrap; }
+.kit-menu a:hover { background: #EEF1F7; }
+.kit-menu a:focus-visible { outline: 2px solid #082966; outline-offset: -2px; }
+.kit-menu [aria-current="page"] { font-weight: 700; color: #082966; background: #EEF1F7; }
 </style>
 </head>
 <body>
@@ -659,6 +671,96 @@ html[data-theme="auto"].sysdark .nav-list button[aria-pressed="true"] { color: v
 <img class="watermark" src="data:image/png;base64,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" alt="">
 <div class="toast" id="toast"></div>
 <script>
+/* ---- ui/tools.js (shared tool switcher) ---- */
+// Delardi UI kit: tool switcher. No dependencies. Inlined ahead of each tool's own modules.
+const KIT_TOOLS = [
+  { id: 'sales', href: '../sales/', en: 'Sales', ru: 'Продажи' },
+  { id: 'stock', href: '../stock/', en: 'Stock', ru: 'Склад' },
+  { id: 'crm', href: '../crm/', en: 'Clients', ru: 'Клиенты' },
+  { id: 'catalogue', href: '../catalogue/', en: 'Catalogue', ru: 'Каталог' },
+  { id: 'board', href: '../board/', en: 'Board', ru: 'Доска' },
+  { id: 'perf', href: '../perf/', en: 'Performance', ru: 'Показатели' },
+];
+
+// Close functions of the menus that are open right now.
+const kitOpenMenus = [];
+
+// A tool calls this on lock: closes every open kit menu and detaches its listeners.
+function kitCloseMenus() {
+  for (const close of kitOpenMenus.slice()) close();
+}
+
+// A link that leaves the page can ask first. beforeLeave(href) returns a Promise:
+// true follows the link, false stays. A modified click (new tab) is left alone.
+function kitGuardLink(a, beforeLeave) {
+  if (typeof beforeLeave !== 'function') return a;
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const href = a.href;
+    Promise.resolve(beforeLeave(href)).then(go => { if (go) window.location.assign(href); });
+  });
+  return a;
+}
+
+// opts.beforeLeave: see kitGuardLink; asked before any tool link is followed.
+function kitToolsMenu(currentId, lang, opts) {
+  const beforeLeave = opts && opts.beforeLeave;
+  const ru = lang === 'ru';
+  const wrap = document.createElement('span');
+  wrap.className = 'kit-tool-wrap';
+  wrap.setAttribute('data-kit-menu', '');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'kit-hbtn';
+  btn.textContent = ru ? 'Инструменты' : 'Tools';
+  btn.setAttribute('aria-expanded', 'false');
+  const list = document.createElement('ul');
+  list.className = 'kit-menu';
+  list.hidden = true;
+  for (const t of KIT_TOOLS) {
+    const li = document.createElement('li');
+    let item;
+    if (t.id === currentId) {
+      item = document.createElement('span');
+      item.setAttribute('aria-current', 'page');
+    } else {
+      item = document.createElement('a');
+      item.setAttribute('href', t.href);
+      kitGuardLink(item, beforeLeave);
+    }
+    item.textContent = ru ? t.ru : t.en;
+    li.appendChild(item);
+    list.appendChild(li);
+  }
+  function close(refocus) {
+    list.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('click', onDoc);
+    const i = kitOpenMenus.indexOf(close);
+    if (i >= 0) kitOpenMenus.splice(i, 1);
+    if (refocus === true && btn.isConnected) btn.focus();
+  }
+  function open() {
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onDoc);
+    kitOpenMenus.push(close);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(true); }
+  function onDoc(e) { if (!wrap.contains(e.target)) close(); }
+  btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => { if (e.target.closest && e.target.closest('a')) close(); });
+  wrap.addEventListener('focusout', e => {
+    if (!list.hidden && e.relatedTarget && !wrap.contains(e.relatedTarget)) close();
+  });
+  wrap.appendChild(btn);
+  wrap.appendChild(list);
+  return wrap;
+}
+/* ---- end ui/tools.js ---- */
 /* ===========================================================================
    Configuration
    There is deliberately NO database key in this file. Every read and every
@@ -1056,6 +1158,8 @@ function renderHeader() {
       ])
     : el("span", { class: "lock-state" }, [el("span", { text: "Locked" })]);
 
+  // The tool switcher shared by every Delardi tool: a copy of ui/tools.js, kept in step by qa/home-tools.cjs.
+  const toolsMenu = kitToolsMenu("board", "en");
   const hamburger = el("button", { class: "btn subtle hamburger-btn", "aria-label": "Open menu",
     onclick: openNavDrawer,
     html: '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">' +
@@ -1077,6 +1181,7 @@ function renderHeader() {
       el("select", { "aria-label": "Meeting week", onchange: (e) => {
         S.week = e.target.value; S.meetingIdx = 0; S.meetingDraft = {}; renderAll();
       } }, weekOpts),
+      toolsMenu,
       el("button", { class: "btn subtle", title: "Light / dark", "aria-label": "Toggle light or dark",
         html: '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">' +
               '<circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4"/>' +

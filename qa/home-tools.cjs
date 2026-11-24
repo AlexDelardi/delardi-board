@@ -12,4 +12,13 @@ ok(home.includes('data-session="stock_session"'), 'Home page shows the Stock ses
 ok((home.match(/stock_name:/g) || []).length === 2 && (home.match(/stock_desc:/g) || []).length === 2, 'Stock tile text in English and Russian');
 ok(home.includes('data-session="perf_session"'), 'Home page shows the Performance session status');
 ok((home.match(/perf_name:/g) || []).length === 2 && (home.match(/perf_desc:/g) || []).length === 2, 'Performance tile text in English and Russian');
+// every tool carries the shared switcher, so any tool is one tap from any other
+for (const id of ids) {
+  const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');
+  ok(page.includes('function kitToolsMenu(') && new RegExp('kitToolsMenu\\(["\']' + id + '["\']').test(page), id + ' has the tool switcher in its header');
+  for (const other of ids) ok(page.includes("{ id: '" + other + "', href: '../" + other + "/'"), id + ' lists ' + other);
+}
+// the Board is one hand-kept file: its copy of ui/tools.js must be the file itself
+const board = fs.readFileSync(path.join(root, 'board/index.html'), 'utf8');
+ok(board.includes(kit.trimEnd()), 'the Board carries ui/tools.js unchanged');
 console.log(n + ' home page checks passed.');
