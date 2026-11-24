@@ -1484,6 +1484,11 @@ table.compare.details .btn { min-height: var(--tap); }
    column away on a phone must not hide them. */
 table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
 table.compare.details td.st .btn { display: inline-flex; margin-top: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; }
+/* the seasonal mark: at the far end of the tab row, never over a tab */
+.views .season-mark { margin-left: auto; align-self: center; display: inline-flex; align-items: flex-start; gap: 4px; pointer-events: none; user-select: none; }
+.views .season-mark img { display: block; pointer-events: none; }
+.views .season-mark img[data-k="mini"] { margin-top: 12px; }
+@media print { .season-mark { display: none; } }
 </style>
 </head>
 <body>

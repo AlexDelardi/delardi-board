@@ -215,7 +215,10 @@ function renderViews() {
   const tab = (v, label) => el("button", { class: "view-tab", type: "button", "data-view": v,
     "aria-current": S.view === v ? "page" : null, onclick: () => setView(v), text: label });
   return el("nav", { class: "views", "aria-label": tr("Views") },
-    [tab("clients", tr("All clients")), tab("cockpit", tr(S.ref && S.ref.my_rep ? "My clients" : "Cockpit")), tab("insights", tr("Insights"))]);
+    [tab("clients", tr("All clients")), tab("cockpit", tr(S.ref && S.ref.my_rep ? "My clients" : "Cockpit")), tab("insights", tr("Insights")),
+      // in season, one small snowflake pair at the far end of the tab row: the same place on every screen, clear of
+      // the figures and the controls (ui/season.js). The card, the forms and the phone layout carry none.
+      seasonMarkEl("flake")]);
 }
 
 /* -------------------------------------------------------------- drill-down */
