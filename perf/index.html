@@ -132,6 +132,29 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 .gate-card > :last-child { margin-bottom: 24px; }
 .gate-card > .gate-mast + * { margin-top: 24px; }
 
+/* ---- phone header (up to 599 px; guideline v2 section 4) ----
+   A tool adds .phone to its header.top and draws a .menu-btn in place of the bar's controls; .head-menu is the navy
+   panel behind that button. The navy row scrolls away and the tabs stay pinned on one row that swipes sideways. */
+.menu-btn { padding: 0; }
+.menu-bars, .menu-bars::before, .menu-bars::after { display: block; width: 20px; height: 2px; background: var(--white); }
+.menu-bars { position: relative; }
+.menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
+.menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
+.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px 16px; background: var(--navy-deep); color: var(--white); }
+.head-menu .kit-staff { flex: 1 0 100%; max-width: none; }
+.head-menu :focus-visible { outline-color: #8FA8CC; }
+.head-menu .kit-menu { left: 0; right: auto; }
+.head-menu .kit-menu :focus-visible { outline-color: #082966; }
+.top.phone { top: -56px; }
+.top.phone.open { top: 0; }
+.top.phone .kit-head { flex-wrap: nowrap; height: 56px; min-height: 56px; padding: 0 8px 0 16px; gap: 10px; }
+.top.phone .kit-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.top.phone .kit-tabs { flex-wrap: nowrap; gap: 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+.top.phone .kit-tabs::-webkit-scrollbar { display: none; }
+.top.phone .kit-tab { padding: 0 10px; min-width: var(--tap); justify-content: center; flex: 0 0 auto; }
+.top.phone .band { padding: 6px 16px; line-height: 1.35; }
+.top.phone .band .lbl { margin-right: 8px; }
+
 
 /* ===========================================================================
    Delardi Performance. The look is the shared UI kit above (ui/kit.css, inlined by
@@ -361,31 +384,14 @@ input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(
 /* ------------------------------------------------------------ phone (up to 599 px)
    One slim navy row with a menu button; the tabs on one row that swipes sideways and stays pinned; the period picker
    under them, scrolling away with the page; tables keep their first column; charts are drawn at the phone's width. */
-.menu-btn { padding: 0; }
-.menu-bars, .menu-bars::before, .menu-bars::after { display: block; width: 20px; height: 2px; background: var(--white); }
-.menu-bars { position: relative; }
-.menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
-.menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
-.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px 16px; background: var(--navy-deep); color: var(--white); }
-.head-menu .kit-staff { flex: 1 0 100%; max-width: none; }
 .head-menu .cur-switch { margin: 0; padding: 0; }
 .head-menu .cur-switch .btn { background: transparent; color: var(--white); border-color: rgba(143, 168, 204, .45); }
 .head-menu .cur-switch .btn[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
-.head-menu :focus-visible { outline-color: #8FA8CC; }
-.head-menu .kit-menu { left: 0; right: auto; }
-.head-menu .kit-menu :focus-visible { outline-color: #082966; }
 .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 16px; border-bottom: 1px solid var(--mist); background: var(--white); }
 .period-bar .cur-switch { margin-right: 0; flex: 0 0 auto; }
 .period-bar .cur-switch .btn { padding: 0 10px; }
 .period-bar .month-picker { flex: 1 1 212px; min-width: 0; }   /* beside the period switch when there is room for the month, under it when not */
 .period-bar .month-picker select { flex: 1 1 0; min-width: 0; width: 100%; max-width: 220px; padding-left: 8px; padding-right: 4px; }
-.top.phone { top: -56px; }                       /* the navy row scrolls away; the tabs stay */
-.top.phone.open { top: 0; }
-.top.phone .kit-head { flex-wrap: nowrap; height: 56px; min-height: 56px; padding: 0 8px 0 16px; gap: 10px; }
-.top.phone .kit-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.top.phone .kit-tabs { flex-wrap: nowrap; gap: 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
-.top.phone .kit-tabs::-webkit-scrollbar { display: none; }
-.top.phone .kit-tab { padding: 0 10px; min-width: var(--tap); justify-content: center; flex: 0 0 auto; }
 @media (max-width: 599px) {
   main { padding: 12px 16px 96px; }
   main, .screen, .screen > * { min-width: 0; }

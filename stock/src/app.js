@@ -27,7 +27,7 @@ const RU = {
   "Stock": "Склад",
   "All tools": "Все инструменты",
   "Language": "Язык",
-  "Lock": "Заблокировать",
+  "Lock": "Заблокировать", "Menu": "Меню",
   "Locked.": "Заблокировано.",
   "Pieces": "Изделия",
   "Review": "Проверка",
@@ -143,7 +143,7 @@ function stateTag(state) {
    Filters live here and nowhere else (not in the URL, not in storage). */
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, manage: false, crm: false, cost: false },
-  locked: true, gateMessage: null,
+  locked: true, gateMessage: null, menuOpen: false,
   training: false,                   // Training mode: made-up pieces through the train_* actions, nothing real
   facets: null,                      // { brands, categories } (+ stores in training)
   filters: { q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null },
@@ -370,20 +370,46 @@ function langSwitch() {
 }
 // The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs sit under it.
+// A phone gets a slim header: the navy bar keeps the wordmark, the tool name and a menu button; tools, language,
+// the person and the lock sit behind that button. Only the header is redrawn, so the list and its filters stay.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+function redrawHeader(refocus) {
+  const h = document.querySelector("#app > header.top");
+  if (!h || S.locked) return;
+  kitCloseMenus();
+  for (const n of document.querySelectorAll("#app > #train-band")) n.remove();   // on a phone the band sits after the header
+  h.replaceWith(...[].concat(renderHeader()));
+  const b = refocus && $("#menu-btn");
+  if (b) b.focus();
+}
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; redrawHeader(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; redrawHeader(true); } });
 function renderHeader() {
-  const r = route().name;
+  const r = route().name, phone = isPhone(), open = phone && S.menuOpen;
+  const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
+  const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
+  const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; redrawHeader(true); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("stock", LANG), langSwitch(), lock) : null;
+  // a choice in the menu closes it (the Tools button only opens its own list)
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const tab = (name, label, n) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name,
     "aria-current": r === name ? "page" : null, text: tr(label) + (n > 0 ? " (" + n + ")" : "") });
-  return el("header", { class: "top" },
+  // Training: a band under the tabs. On a phone it follows the header and scrolls away with the page — the pressed
+  // Training switch in the pinned tab row already says which mode this is.
+  const band = S.training ? el("div", { class: "band training-band", id: "train-band", role: "note" },
+    el("span", { class: "lbl", text: tr("TRAINING") }),
+    el("span", { class: "tb-text", text: tr("made-up pieces in two made-up stores: nothing here touches real stock") }),
+    S.rights.manage ? el("button", { type: "button", class: "btn", id: "train-reset", onclick: resetTraining, text: tr("Reset training data") }) : null) : null;
+  const top = el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
       kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") }))),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Stock") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("stock", LANG),
-      langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
-      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
+      phone ? menuBtn : [kitToolsMenu("stock", LANG), langSwitch(), staff, lock]),
+    menu,
     el("nav", { class: "kit-tabs", "aria-label": tr("Stock") },
       tab("pieces", "Pieces"),
       S.training ? null : tab("review", "Review", S.reviewCount),
@@ -392,10 +418,8 @@ function renderHeader() {
       // the Training switch sits at the end of the tab row (not tr(): "Training" is also a ticket source word)
       S.token ? el("button", { class: "btn train-toggle", type: "button", id: "train-toggle", "aria-pressed": S.training ? "true" : "false",
         onclick: () => setTraining(!S.training), text: LANG === "ru" ? "Обучение" : "Training" }) : null),
-    S.training ? el("div", { class: "band training-band", id: "train-band", role: "note" },
-      el("span", { class: "lbl", text: tr("TRAINING") }),
-      el("span", { class: "tb-text", text: tr("made-up pieces in two made-up stores: nothing here touches real stock") }),
-      S.rights.manage ? el("button", { type: "button", class: "btn", id: "train-reset", onclick: resetTraining, text: tr("Reset training data") }) : null) : null);
+    phone ? null : band);
+  return phone && band ? [top, band] : top;
 }
 
 /* ----------------------------------------------------------------- training
@@ -488,6 +512,7 @@ function renderGate() {
 }
 // Drop the token and ask for the passcode again. The filters on screen stay.
 function lockDown(message) {
+  S.menuOpen = false;
   S.token = null;
   sstore(SESSION_KEY, null);
   sstore(ACTIVE_KEY, null);
@@ -556,7 +581,7 @@ function renderAll() {
   app.innerHTML = "";
   if (!S.locked) { app.classList.remove("gated"); app.setAttribute("aria-hidden", "false"); app.inert = false; }
   const main = el("main", { id: "main" });
-  app.append(renderHeader(), main);
+  app.append(...[].concat(renderHeader()), main);
   ROUTES[r.name](main, r.arg);
   if (typeof renderPiece === "function") renderPiece();      // an open piece panel follows the language
 }

@@ -132,6 +132,29 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 .gate-card > :last-child { margin-bottom: 24px; }
 .gate-card > .gate-mast + * { margin-top: 24px; }
 
+/* ---- phone header (up to 599 px; guideline v2 section 4) ----
+   A tool adds .phone to its header.top and draws a .menu-btn in place of the bar's controls; .head-menu is the navy
+   panel behind that button. The navy row scrolls away and the tabs stay pinned on one row that swipes sideways. */
+.menu-btn { padding: 0; }
+.menu-bars, .menu-bars::before, .menu-bars::after { display: block; width: 20px; height: 2px; background: var(--white); }
+.menu-bars { position: relative; }
+.menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
+.menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
+.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px 16px; background: var(--navy-deep); color: var(--white); }
+.head-menu .kit-staff { flex: 1 0 100%; max-width: none; }
+.head-menu :focus-visible { outline-color: #8FA8CC; }
+.head-menu .kit-menu { left: 0; right: auto; }
+.head-menu .kit-menu :focus-visible { outline-color: #082966; }
+.top.phone { top: -56px; }
+.top.phone.open { top: 0; }
+.top.phone .kit-head { flex-wrap: nowrap; height: 56px; min-height: 56px; padding: 0 8px 0 16px; gap: 10px; }
+.top.phone .kit-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.top.phone .kit-tabs { flex-wrap: nowrap; gap: 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+.top.phone .kit-tabs::-webkit-scrollbar { display: none; }
+.top.phone .kit-tab { padding: 0 10px; min-width: var(--tap); justify-content: center; flex: 0 0 auto; }
+.top.phone .band { padding: 6px 16px; line-height: 1.35; }
+.top.phone .band .lbl { margin-right: 8px; }
+
 
 /* ===========================================================================
    Delardi Sales — the till. The look is the shared UI kit above (ui/kit.css,
@@ -587,6 +610,24 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .sg .sg-p { grid-column: 2; grid-row: 1 / 3; }
   .hide-sm { display: none !important; }
 }
+/* phone (up to 599 px): the slim header comes from the kit; here the till's own screens */
+@media (max-width: 599px) {
+  .title { font-size: 24px; }
+  /* the foot scrolls with the sale instead of covering its lines; the way on is one full-width button */
+  .foot { position: static; padding-top: 12px; }
+  .foot .client-slot { flex: 1 1 100%; }
+  .foot .total { flex: 1 1 100%; margin-left: 0; }
+  .foot #to-pay { flex: 1 1 100%; }
+  /* ticket filters: the dates side by side, every list on its own row */
+  .tk-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px 8px; }
+  .tk-filters > .tk-date-f { grid-column: span 1; }
+  .tk-filters > select { grid-column: 1 / -1; }
+  .tk-sum, .tk-pad { padding-left: 16px; padding-right: 16px; }
+  .tk-list tbody tr { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "no no net" "client client st" "date date date" "src seller seller" "items items items"; }
+  .tk-list td.tk-seller, .tk-list td.tk-client, .tk-list td.tk-items { overflow: hidden; text-overflow: ellipsis; }
+  .tk-list td.tk-items { white-space: normal; }
+  .tk-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px; }
+}
 @media (max-width: 480px) {
   .lines > .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
   .pay-row { grid-template-columns: minmax(0, 1fr) var(--tap); }
@@ -642,7 +683,7 @@ const RU = {
   "Leave": "Уйти",
   "Stay": "Остаться",
   "Language": "Язык",
-  "Lock": "Заблокировать",
+  "Lock": "Заблокировать", "Menu": "Меню",
   "Locked.": "Заблокировано.",
   "New sale": "Новая продажа",
   "Tickets": "Чеки",
@@ -729,7 +770,7 @@ function newSale() {
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false, crm: false },
   mode: null, ref: null,             // ref: the `reference` answer (sellers, cash notice, address)
-  locked: true, gateMessage: null,
+  locked: true, gateMessage: null, menuOpen: false,
   sale: newSale(),
   lastPct: null,                     // the discount % last typed on any line
   lastPosted: null,                  // the `post` answer, for the receipt if the ticket cannot be read
@@ -976,21 +1017,40 @@ function beforeLeave() {
 // The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
 // TRAINING band sit under it, in the same sticky block.
+// A phone gets a slim header: the navy bar keeps the wordmark, the tool name and a menu button; tools, language,
+// the person and the lock sit behind that button. Only the header is redrawn, so a sale in progress is untouched.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+function redrawHeader(refocus) {
+  const h = document.querySelector("#app > header.top");
+  if (!h || S.locked) return;
+  kitCloseMenus();
+  h.replaceWith(renderHeader());
+  const b = refocus && $("#menu-btn");
+  if (b) b.focus();
+}
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; redrawHeader(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; redrawHeader(true); } });
 function renderHeader() {
-  const r = route().name;
+  const r = route().name, phone = isPhone(), open = phone && S.menuOpen;
+  const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
+  const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
+  const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; redrawHeader(true); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), lock) : null;
+  // a choice in the menu closes it (the Tools button only opens its own list)
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const tab = (name, href, label, show) => show ? el("a", { class: "kit-tab", href,
     "aria-current": (r === name || (name === "sale" && (r === "pay" || r === "receipt")) || (name === "tickets" && r === "ticket")) ? "page" : null,
     text: tr(label) }) : null;
-  return el("header", { class: "top" },
+  return el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
       kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Sales") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("sales", LANG, { beforeLeave }),
-      langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
-      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
+      phone ? menuBtn : [kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), staff, lock]),
+    menu,
     el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
       tab("tickets", "#/tickets", "Tickets", S.rights.view),
@@ -1054,6 +1114,7 @@ function renderGate() {
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
 function lockDown(message) {
+  S.menuOpen = false;
   S.token = null;
   crmDrop();
   sstore(SESSION_KEY, null);

@@ -294,6 +294,55 @@ label.btn { display: inline-flex; align-items: center; cursor: pointer; }
   .modal, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
   .hide-sm { display: none !important; }
 }
+/* phone (up to 599 px): the slim header comes from the kit; here Stock's own screens */
+@media (max-width: 599px) {
+  main { padding: 12px 16px 96px; }
+  main, .screen, .screen > * { min-width: 0; }
+  .title { font-size: 24px; }
+  .kit-tabs .train-toggle { min-height: var(--tap); flex: 0 0 auto; padding: 0 8px; }
+  .top.phone .kit-tabs .kit-spacer { min-width: 8px; }
+  #app > .band.training-band { padding: 8px 16px; gap: 6px 12px; }
+  #app > .band.training-band .tb-text { flex: 1 1 100%; }
+  #app > .band.training-band .btn { min-height: var(--tap); flex: 1 1 auto; }
+  /* filters: search on its own row, the lists in pairs, the two prices side by side */
+  .filters, .filters.with-store { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filters .f-q { grid-column: 1 / -1; }
+  .filters .f-state, .filters .f-brand, .filters .f-cat, .filters .f-min, .filters .f-max,
+  .filters.with-store .f-state, .filters.with-store .f-brand, .filters.with-store .f-cat, .filters.with-store .f-store, .filters.with-store .f-min, .filters.with-store .f-max { grid-column: span 1; }
+  .filters:not(.with-store) .f-cat { grid-column: 1 / -1; }
+  /* totals: one state per row — its name, then pieces and value on the right */
+  .totals { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .tot { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lbl n" "lbl v" "s s"; align-items: center; gap: 0 12px; min-height: var(--tap); padding: 2px 12px; text-align: left; }
+  .tot .lbl { grid-area: lbl; }
+  .tot .t-n { grid-area: n; text-align: right; font-size: 13px; }
+  .tot .t-v { grid-area: v; text-align: right; }
+  .tot .small { grid-area: s; text-align: right; }
+  /* the pieces table scrolls inside its own box and its serial column stays put */
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl.pieces { min-width: 640px; }
+  .tbl.pieces th, .tbl.pieces td { font-size: 13px; }
+  .tbl.pieces th:first-child, .tbl.pieces td:first-child { position: sticky; left: 0; z-index: 1; background: var(--white); border-right: 1px solid var(--mist); }
+  .tbl.pieces thead th:first-child { background: var(--card); }
+  .th-filter, .screen.training .th-filter { min-width: var(--tap); }
+  .th-sort { min-width: var(--tap); }
+  /* reviews: each one a card — what it is and the piece's state, the piece, when it was raised, the answers */
+  .tbl.reviews, .tbl.reviews tbody { display: block; }
+  .tbl.reviews thead { display: none; }
+  .tbl.reviews tr.rrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "rk st" "rp rp" "since since" "ra ra"; gap: 4px 12px; height: auto; padding: 12px; border-bottom: 1px solid var(--mist); }
+  .tbl.reviews tr.rrow td { padding: 0; border: 0; min-height: 0; }
+  .tbl.reviews td.rk { grid-area: rk; font-weight: 700; color: var(--navy-deep); }
+  .tbl.reviews td.rp { grid-area: rp; }
+  .tbl.reviews td.st { grid-area: st; }
+  .tbl.reviews td.since { grid-area: since; color: var(--slate); font-size: 13px; }
+  .tbl.reviews td.ra { grid-area: ra; padding-top: 4px; }
+  .tbl.reviews .rv-piece { min-height: var(--tap); }
+  .rv-answers .btn { flex: 1 1 auto; }
+  .tbl.reviews tr.rv-formrow, .tbl.reviews tr.rv-formrow td { display: block; }
+  .tbl.reviews tr.rv-formrow td { padding: 0 12px 12px; }
+  .pager { flex-wrap: wrap; justify-content: center; }
+  #screen-pieces .screen-head .aside { justify-content: stretch; }
+  #screen-pieces .screen-head .aside .btn { flex: 1 1 auto; }
+}
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 </head>
