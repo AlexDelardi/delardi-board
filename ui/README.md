@@ -26,7 +26,7 @@ Lowest to highest: header `.kit-head` (50), its menu (60), `.panel-wrap` (100), 
 
 ## JS
 
-`KIT_TOOLS` lists the five tools (Sales, Stock, Clients, Catalogue, Board). `kitToolsMenu(currentId, lang, opts)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool calls `kitCloseMenus()` on lock (closes every open kit menu and removes its document listeners) and then removes the element. The menu is a plain disclosure (`aria-expanded`, a list of links) and also closes when focus leaves it.
+`KIT_TOOLS` lists the tools (Sales, Stock, Clients, Catalogue, Tasks, Board, Performance). `kitToolsMenu(currentId, lang, opts)` returns an element (`data-kit-menu`) holding a "Tools" / "Инструменты" button and a `.kit-menu` list; the current tool is shown as `aria-current="page"` and is not a link. Escape and an outside click close it. A tool calls `kitCloseMenus()` on lock (closes every open kit menu and removes its document listeners) and then removes the element. The menu is a plain disclosure (`aria-expanded`, a list of links) and also closes when focus leaves it.
 
 Leaving the page can ask first. `opts.beforeLeave(href)` (optional) returns a Promise: `true` follows the link, `false` stays. The menu calls it before any tool link is followed; `kitGuardLink(a, beforeLeave)` does the same for any other link (the `.kit-brand` wordmark). A modified click (Ctrl/Cmd, a new tab) is left alone. The kit does not know what a tool keeps on screen: the tool decides. Sales asks with its confirm dialog when the sale on screen has lines ("Leave the till?" / «Уйти из кассы?»).
 
