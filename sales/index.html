@@ -2267,9 +2267,9 @@ function cardName(card) {
      says whose record it is and offers to open it instead of making a second.
    - The server checks again, by number and by name, and refuses unless the
      page says plainly that this is a different person.
-   - A record added here is a prospect with a PRS reference until Colibri
-     brings a purchase, and it goes through the clean-up like any other, so a
-     second person confirms what was typed.
+   - A record added here is a prospect with a PRS reference until a first
+     purchase is recorded. (The clean-up that used to follow was retired on
+     24 Nov 2026.)
    ========================================================================= */
 Object.assign(RU, {
   "Add a client": "Добавить клиента",
@@ -2299,8 +2299,8 @@ Object.assign(RU, {
   "Open {id}": "Открыть {id}",
   "This is a different person — add anyway": "Это другой человек — всё равно добавить",
   "Client added. Fill in the rest on the card.": "Клиент добавлен. Остальное — в карточке.",
-  "A new record is a prospect until Colibri brings a purchase. It goes through the clean-up, so someone confirms what you typed.":
-    "Новая запись — потенциальный клиент, пока из Colibri не придёт покупка. Запись проходит проверку: кто-то подтвердит введённое.",
+  "A new record is a prospect until a first purchase is recorded. You can fill in the rest on the client card.":
+    "Новая запись — потенциальный клиент, пока не появится первая покупка. Остальное можно заполнить в карточке клиента.",
   "Added by the team, {d}": "Добавлено командой, {d}",
   "Added by {by}, {d}": "Добавил(а) {by}, {d}",
   "Not in the questionnaire. This record was added by the team at the counter.":
@@ -2450,7 +2450,7 @@ function renderAddClient() {
       el("input", { type: "text", id: "add-note", maxlength: "500", value: e.note,
         placeholder: tr("E.g. came in with a friend, looking for a gift"),
         oninput: (ev) => { e.note = ev.target.value; } }),
-      el("p", { class: "hint", text: tr("A new record is a prospect until Colibri brings a purchase. It goes through the clean-up, so someone confirms what you typed.") }),
+      el("p", { class: "hint", text: tr("A new record is a prospect until a first purchase is recorded. You can fill in the rest on the client card.") }),
       S.addErr ? el("p", { class: "form-err", role: "alert", text: S.addErr }) : null,
       e.onFile ? el("div", { class: "actions" }, [
         ...e.onFile.map((id) => el("button", { type: "button", class: "btn sm subtle", "data-open": id,

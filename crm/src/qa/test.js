@@ -331,7 +331,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("add: the form opens with the fields the counter needs",
       ["Name", "Phone number", "Who they are", "Date of birth", "Owner", "How we met", "Note"].every((t) => /./.test(t))
       && (await page.textContent("#addwrap")).includes("How we met"));
-    check("add: it says what a new record becomes", (await page.textContent("#addwrap")).includes("prospect until Colibri brings a purchase"));
+    check("add: it says what a new record becomes, with no word of the retired clean-up", (await page.textContent("#addwrap .hint")).trim() === "A new record is a prospect until a first purchase is recorded. You can fill in the rest on the client card." && !/clean-up|Colibri/.test(await page.textContent("#addwrap")));
     const owners = await page.$$eval("#add-owner option", (os) => os.map((o) => o.textContent));
     check("add: the owner list is current people and the shared list", owners.includes("Dilnoza A.") && owners.includes("Malika B.") && owners.includes("Shared (store)")
       && !owners.some((o) => /left/.test(o)), owners.join("|"));
