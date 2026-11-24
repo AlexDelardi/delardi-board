@@ -887,6 +887,38 @@ const settle = (page) => page.waitForTimeout(150);
     ok(errors.length === 0, "discounts: no script errors", errors);
     await ctx.close();
   }
+  // Codex on #41: a linked list's discounts are its own; a piece taken out by any button loses its discount
+  {
+    const { ctx, page, errors } = await open(browser);
+    await unlock(page);
+    const two = MODELS.filter((m) => m.in_stock && (!m.colours || m.colours.length === 1)).slice(0, 2);
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), two.map((m) => ({ m: m.model_id, v: null })));
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    await page.fill("#sel-list .sel-row >> nth=0 >> .sel-disc input", "10");
+    // the same piece arrives by link
+    await page.evaluate((id) => { location.hash = "#/selection?p=" + encodeURIComponent(id); }, two[0].model_id); await page.waitForSelector("h1.page:has-text('colleague')"); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, "#sel-list .sel-price s") === 0 && (await page.inputValue("#sel-list .sel-disc input")) === "", "a linked list does not inherit my discount on the same piece");
+    await page.fill("#sel-list .sel-disc input", "25");
+    await page.evaluate(() => { location.hash = "#/selection"; }); await page.waitForSelector("h1.page:has-text('Your')");
+    ok((await page.inputValue("#sel-list .sel-row >> nth=0 >> .sel-disc input")) === "10", "a discount typed on the linked list leaves mine as it was");
+    ok(JSON.parse(await page.evaluate(() => localStorage.getItem("cat_cart"))).every((x) => Object.keys(x).join() === "m,v"), "the device still keeps references only");
+    // taken out on a card, put back: at list price
+    await page.evaluate(() => { location.hash = "#/list?stock=in"; }); await page.waitForSelector(".cards .card");
+    const wrap = `.cards .card-wrap:has(a.card[href="#/model/${encodeURIComponent(two[0].model_id)}"])`;
+    await page.click(wrap + " .pick"); await page.click(wrap + " .pick");
+    await page.evaluate(() => { location.hash = "#/selection"; }); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, ".sel-row") === 2 && await count(page, "#sel-list .sel-price s") === 0, "a piece taken out on its card and put back comes in at list price");
+    // taken out on its model page, put back
+    await page.fill("#sel-list .sel-row >> nth=0 >> .sel-disc input", "15");
+    await page.evaluate((m) => { S.cart = []; S.cartDisc = {}; cartSave(); location.hash = "#/model/" + encodeURIComponent(m); }, two[1].model_id);
+    await page.waitForSelector(".mp-actions .pick-page");
+    await page.click(".mp-actions .pick-page"); await page.waitForSelector(".mp-actions .pick-page.on");
+    await page.evaluate(() => { S.cartDisc[discKey(S.cart[0])] = 15; });
+    await page.click(".mp-actions .pick-page"); await page.click(".mp-actions .pick-page"); await page.waitForSelector(".mp-actions .pick-page.on");
+    ok(await page.evaluate(() => Object.keys(S.cartDisc).length) === 0 && await page.evaluate(() => S.cart.length) === 1, "the same on a model page: out and back in, no discount comes back");
+    ok(errors.length === 0, "discount scope: no script errors", errors);
+    await ctx.close();
+  }
   // the discount boxes on a phone
   {
     const { ctx, page } = await open(browser, { viewport: { width: 390, height: 780 }, touch: true, mobile: true });
