@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<meta name="robots" content="noindex, nofollow">
+<meta name="google" content="notranslate">
+<title>Delardi Access</title>
+<link rel="icon" type="image/png" href="__FAVICON__">
+<meta name="theme-color" content="#001A4A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Delardi Access">
+<style>
+/*__KIT_CSS__*/
+
+/* ===========================================================================
+   Delardi Access. The look is the shared UI kit above (ui/kit.css, inlined by
+   build.py); what follows is this tool's layout only, written with kit tokens:
+   palette colours, square corners, no shadows, no dark mode. iPad first:
+   every control is a 44 px target, nothing scrolls sideways at 768 or 1024.
+   ========================================================================= */
+body { overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+html { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: inherit; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ------------------------------------------------------------------ header */
+.top { position: sticky; top: 0; z-index: 40; background: var(--white); }
+.top .kit-head { flex-wrap: wrap; }
+.top .kit-tabs { overflow-x: auto; }
+.top .kit-tab { white-space: nowrap; }
+.top .kit-tab:focus-visible { outline-offset: -2px; }
+@media (max-width: 900px) {                       /* portrait iPad, RU labels: still one row */
+  .top .kit-head { gap: 8px; padding: 0 16px; }
+  .top .kit-head .kit-hbtn { padding: 0 12px; }
+  .top .kit-staff { max-width: 120px; }
+}
+
+/* ----------------------------------------------------------------- buttons */
+.btn { min-width: var(--tap); white-space: nowrap; }
+.btn.subtle { background: transparent; color: var(--slate); border-color: transparent; font-weight: 400; }
+.btn.subtle:hover { background: var(--card); color: var(--navy); }
+
+/* ------------------------------------------------------------------ screens */
+main { padding: 24px 24px 96px; }
+.screen { max-width: 1200px; margin: 0 auto; }
+.screen-head { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; }
+.screen-head .title { margin: 0; flex: 1 1 auto; color: var(--navy); }
+.screen-head { justify-content: flex-end; margin-bottom: 8px; }
+.screen-head .aside { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ------------------------------------------------------------------- access */
+/* The page is tinted and each person is a white card on it, as in the task tracker. */
+body { background: var(--card); }
+.kit-tabs { background: var(--white); }
+.top .kit-tab { min-width: var(--tap); justify-content: center; }
+.screen.in-season > .screen-head { padding-right: 150px; min-height: 48px; }
+@media (max-width: 599px) { .screen.in-season > .screen-head { padding-right: 0; } .screen.in-season > .screen-head .title { padding-right: 56px; } }
+.screen.wide { max-width: 1500px; }
+.screen .notice { background: var(--white); }
+.sec-title { display: flex; align-items: center; gap: 10px; margin: 28px 0 8px; color: var(--navy); font: 400 21px/1.3 var(--serif); }
+.meta-bit { color: var(--slate); font: 13px/1.4 var(--sans); }
+/* people */
+.people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.person { background: var(--white); border: 1px solid var(--mist); border-left: 4px solid var(--navy); }
+.person.is-off { border-left-color: var(--mist); }
+.person-open { width: 100%; min-height: var(--tap); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 14px; background: none; border: 0; text-align: left; }
+.person-open:hover .person-name, .person-open:focus-visible .person-name { text-decoration: underline; text-underline-offset: 3px; }
+.person.is-off .person-name { color: var(--slate); }
+.person-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.off-box { margin-top: 24px; }
+.off-box > summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--navy); font-weight: 700; }
+.off-box .people { margin-top: 8px; }
+/* the person panel */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -8px 8px 0; }
+.panel-head .h2 { margin: 0; overflow-wrap: anywhere; }
+.panel-head .close { font-size: 22px; line-height: 1; }
+.panel-tags { margin-bottom: 16px; }
+.person-form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field .hint { color: var(--slate); }
+.form-err { margin: 0; color: var(--alert); font-weight: 700; }
+.form-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px; }
+.form-foot a.btn { text-decoration: none; }
+input[aria-invalid="true"] { border-color: var(--alert); outline: 1px solid var(--alert); }
+.pass-box, .switch-box { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--mist); }
+.pass-box p { margin: 4px 0 12px; }
+.pass-act { display: flex; flex-wrap: wrap; gap: 8px; }
+.code-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
+.code { flex: 1 1 auto; min-width: 0; min-height: var(--tap); display: flex; align-items: center; padding: 0 14px; background: var(--card); border: 1px solid var(--mist); color: var(--navy-deep); font: 700 19px/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .06em; user-select: all; overflow-wrap: anywhere; }
+/* rights: the matrix */
+.table-wrap { max-width: 100%; overflow-x: auto; background: var(--white); border: 1px solid var(--mist); }
+.tbl.matrix { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+.tbl.matrix th, .tbl.matrix td { padding: 0; border-bottom: 1px solid var(--mist); height: auto; }
+.tbl.matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--card); vertical-align: bottom; }
+.tbl.matrix th.r-person { width: 52px; min-width: 52px; height: 124px; padding: 8px 0; text-transform: none; letter-spacing: 0; }
+.tbl.matrix th.r-person span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; color: var(--navy-deep); font: 700 13px/1.2 var(--sans); }
+.tbl.matrix th.r-right { position: sticky; left: 0; z-index: 1; min-width: 250px; max-width: 320px; padding: 8px 12px; background: var(--white); border-right: 1px solid var(--mist); text-align: left; text-transform: none; letter-spacing: 0; white-space: normal; }
+.tbl.matrix thead th.r-right { z-index: 3; background: var(--card); text-transform: uppercase; letter-spacing: .1em; }
+.tbl.matrix .r-name { display: block; color: var(--navy-deep); font: 700 14px/1.3 var(--sans); }
+.tbl.matrix .r-what { display: block; color: var(--slate); font-weight: 400; }
+.tbl.matrix tr.r-group th { position: sticky; left: 0; padding: 8px 12px; background: var(--card); color: var(--navy); border-top: 2px solid var(--navy); text-align: left; }
+.tbl.matrix td { text-align: center; border-right: 1px solid var(--mist); }
+.tbl.matrix tbody tr:hover td, .tbl.matrix tbody tr:hover th.r-right { background: var(--card); }
+.cell { width: 100%; min-width: var(--tap); min-height: var(--tap); display: flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: 0; color: var(--white); }
+.cell .tick { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--sky); font: 700 15px/1 var(--sans); }
+.cell[aria-pressed="true"] .tick { background: var(--navy); border-color: var(--navy); }
+.cell:disabled { cursor: default; }
+.cell:disabled .tick { opacity: .55; }
+.cell:focus-visible { outline: 2px solid var(--navy); outline-offset: -3px; }
+/* rights: one person as a list (narrow screens) */
+.field.who { margin: 12px 0 0; }
+.rows { display: flex; flex-direction: column; gap: 6px; }
+.cell.row { justify-content: space-between; gap: 12px; padding: 8px 12px; background: var(--white); border: 1px solid var(--mist); color: inherit; text-align: left; }
+.cell.row .row-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cell.row .row-name { color: var(--navy-deep); font-weight: 700; }
+.cell.row .row-what { color: var(--slate); }
+.cell.row .tag { flex: 0 0 auto; min-width: 44px; justify-content: center; text-align: center; }
+/* history */
+.history { list-style: none; margin: 8px 0 0; padding: 0; background: var(--white); border: 1px solid var(--mist); }
+.h-line { display: grid; grid-template-columns: 150px 140px 160px minmax(0, 1fr); gap: 4px 16px; padding: 8px 12px; border-bottom: 1px solid var(--mist); font-size: 14px; }
+.h-line:last-child { border-bottom: 0; }
+.h-when, .h-who { color: var(--slate); }
+.h-person { color: var(--navy-deep); font-weight: 700; }
+.h-what { overflow-wrap: anywhere; }
+/* logins */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin: 0 0 8px; padding: 12px 14px; background: var(--white); border: 1px solid var(--mist); }
+.filter { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+.tbl.usage th, .tbl.usage td, #recent th, #recent td { padding: 10px 12px; }
+.tbl.usage td.r, .tbl.usage th.r { text-align: right; }
+.tbl.usage td.no-right { background: var(--card); color: var(--slate); }
+.tbl.usage td.b { font-weight: 700; }
+.tbl.usage tbody th { text-align: left; text-transform: none; letter-spacing: 0; color: var(--navy-deep); font: 700 14px/1.3 var(--sans); background: var(--white); }
+@media (max-width: 899px) {
+  .h-line { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .h-what { grid-column: 1 / -1; }
+}
+
+/* ----------------------------------------------------------------- dialogs */
+.modal-wrap { padding: 24px; }                  /* stacking is the kit's: panel 100, modal 110, gate 115, toast 120 */
+.modal-scrim { position: fixed; }
+.modal { padding: 0; width: 640px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
+.modal.confirm, .confirm .modal { width: 480px; }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 24px; border-bottom: 1px solid var(--mist); }
+.modal-head h3 { flex: 1; min-width: 0; margin: 0; font: normal 21px/1.3 var(--serif); color: var(--navy-deep); }
+.modal-head .close { font-size: 22px; line-height: 1; }
+.modal-body { padding: 16px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.modal-body p { margin: 0; line-height: 1.5; }
+.modal-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--mist); }
+
+/* ---------------------------------------------------------- lock card */
+#app.gated { pointer-events: none; user-select: none; }
+#gate.gate { min-height: 0; }
+.gate-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 16px 24px; margin-bottom: 24px; }
+.gate-card > .gate-mast + * { margin-top: 0; }
+.gate-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.gate-mast img { height: 22px; width: auto; display: block; }
+.gate-mast .kit-hbtn { letter-spacing: .06em; }
+.gate-card label { display: block; margin-bottom: 16px; }
+.gate-card label .lbl { margin-bottom: 4px; }
+.gate-card input { width: 100%; }
+.gate-card .err { margin-bottom: 12px; color: var(--alert); font-size: 13px; font-weight: 700; }
+.gate-card > .btn { display: flex; width: calc(100% - 48px); }
+.gate-card .gate-foot { margin-top: 12px; text-align: center; }
+
+/* ------------------------------------------------------------------- toast */
+.toast { opacity: 0; pointer-events: none; transition: opacity .18s; }
+.toast.show { opacity: 1; }
+
+/* ---------------------------------------------------- narrower: portrait iPad */
+@media (max-width: 900px) {
+  main { padding: 16px 16px 96px; }
+}
+@media (max-width: 720px) {
+  .modal-wrap { padding: 0; align-items: flex-end; }
+  .modal, .modal.confirm, .confirm .modal { width: 100%; max-height: 92vh; }
+  .hide-sm { display: none !important; }
+}
+/* ---------------------------------------------------------------- seasonal mark
+   One decoration in the top right corner of a screen, on the title's line and never over it. */
+.screen.in-season { position: relative; }
+.screen.in-season > .title { padding-right: 144px; min-height: 48px; }
+.season-mark { position: absolute; top: -6px; right: 0; display: inline-flex; align-items: flex-start; gap: 4px; pointer-events: none; user-select: none; }
+.season-mark img { display: block; pointer-events: none; }
+.season-mark img[data-k="mini"] { margin-top: 12px; }
+@media (max-width: 599px) { .screen.in-season > .title { padding-right: 48px; min-height: 0; } .season-mark { top: 0; } }
+@media print { .season-mark { display: none; } }
+/* ------------------------------------------------------------ phone (up to 599 px)
+   One slim navy row with a menu button; the tabs on one row that swipes sideways and stays pinned; tables scroll in
+   their own box and keep their first column. */
+@media (max-width: 599px) {
+  main { padding: 12px 16px 96px; }
+  main, .screen, .screen > * { min-width: 0; }
+  .screen { max-width: 100%; }
+  .title { font-size: 24px; }
+  /* a wide table scrolls inside its own box and its first column stays put */
+  .table-wrap { max-width: 100%; }
+  .table-wrap .tbl th:first-child, .table-wrap .tbl td:first-child { position: sticky; left: 0; z-index: 1; background: var(--white); min-width: 104px; max-width: 132px; white-space: normal; overflow-wrap: break-word; }
+  .table-wrap .tbl thead th:first-child { background: var(--card); }
+}
+@media (max-width: 599px) {
+  .screen-head { align-items: stretch; flex-direction: column; gap: 8px; }
+  .screen-head .aside .btn { flex: 1 1 auto; }
+  .panel { padding: 16px; }
+  .filter { flex: 1 1 100%; }
+  .form-foot .btn { flex: 1 1 auto; }
+  .pass-act .btn, .switch-box .btn { flex: 1 1 auto; }
+  .switch-box { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>__SCRIPT__</script>
+</body>
+</html>
