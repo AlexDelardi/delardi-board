@@ -109,7 +109,11 @@ async function setup(browser, viewport, opts = {}) {
     await new Promise((r) => setTimeout(r, 10));
     route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
   });
-  await page.goto(PAGE_URL + (opts.view ? "?view=" + opts.view : ""));
+  // The seasonal mark follows the calendar; every test runs with it switched off by the address so the suite reads the
+  // same all year, and the season's own test asks for it (opts.season) or sets the browser's date (opts.now).
+  if (opts.now) await page.clock.setFixedTime(new Date(opts.now));
+  const qs = [opts.view ? "view=" + opts.view : null, opts.season === undefined ? "season=off" : opts.season ? "season=" + opts.season : null].filter(Boolean).join("&");
+  await page.goto(PAGE_URL + (qs ? "?" + qs : ""));
   await page.fill("#gate-pass", opts.pass || "demo");
   await page.click(".gate-card button[type=submit]");
   await page.waitForSelector("#gate", { state: "detached" });
@@ -690,6 +694,36 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("phone: every detail has its Edit button in view, a 44 px target", !!box && box.width > 0 && box.height >= 44
       && (await page.$$eval("#drawer table.compare button[data-field]", (bs) => bs.filter((b) => b.getBoundingClientRect().width > 0).length)) === 4, JSON.stringify(box));
     check("phone details: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
+  {
+    // the seasonal mark
+    let { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { season: "christmas" });
+    await settled(page);
+    const mark = () => page.evaluate(() => { const m = document.querySelector(".views .season-mark"); if (!m) return null; const a = m.getBoundingClientRect();
+      const hit = (n) => { const b = n.getBoundingClientRect(); return !(b.right <= a.left || b.left >= a.right || b.bottom <= a.top || b.top >= a.bottom); };
+      return { kinds: [...m.querySelectorAll("img")].map((i) => i.dataset.k + ":" + Math.round(i.getBoundingClientRect().width) + ":" + i.getAttribute("alt")).join(","),
+        hidden: m.getAttribute("aria-hidden"), pe: getComputedStyle(m).pointerEvents, count: document.querySelectorAll(".season-mark").length,
+        clear: [...document.querySelectorAll(".view-tab, .kit-head, main button, main input, main select, main table, .stat")].every((n) => !hit(n)) }; });
+    let m = await mark();
+    check("season: one snowflake pair at the end of the tab row, decorative only", !!m && m.kinds === "flake:20:,mini:14:" && m.hidden === "true" && m.pe === "none" && m.count === 1, JSON.stringify(m));
+    check("season: clear of the tabs, the header, the figures and the controls", !!m && m.clear, JSON.stringify(m));
+    for (const v of ["cockpit", "insights"]) { await page.click('.view-tab[data-view="' + v + '"]'); await page.waitForTimeout(400); m = await mark();
+      check("season " + v + ": the same mark in the same place", !!m && m.count === 1 && m.clear, JSON.stringify(m)); }
+    await page.click('.view-tab[data-view="clients"]'); await settled(page);
+    await page.click("#list-host tbody tr"); await page.waitForSelector("#drawer[aria-busy='false']");
+    check("season: the client card carries none", !(await page.$("#drawer .season-mark")));
+    check("season: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { season: "", now: "2026-11-10T09:00:00" }));
+    check("season: nothing before 20 November", !(await page.$(".season-mark")));
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { season: "", now: "2026-11-24T09:00:00" }));
+    check("season: on by itself from 20 November", (await page.$$(".season-mark")).length === 1);
+    await ctx.close();
+    ({ ctx, page, errors } = await setup(browser, { width: 390, height: 844 }, { season: "christmas", touch: true }));
+    check("season phone: none where space is tight", !(await page.$(".season-mark")) && errors.length === 0, errors.join(" | "));
     await ctx.close();
   }
 

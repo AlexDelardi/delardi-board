@@ -4,11 +4,11 @@ Ten static, decorative PNGs for Delardi's in-store tools: the tools hub, Perform
 
 **The idea:** a quiet seasonal note, the way a boutique puts one sprig on the counter. One decoration per screen, in one fixed place, never competing with a figure, a control or the logo.
 
-Revised 23 November 2026 after the first test run on Performance. What changed from the first version is listed at the end.
+Revised 24 November 2026: the season starts on 20 November, the CRM carries its mark, and the code is shared (`ui/season.js`). What changed from the first version is listed at the end.
 
 ## Season
 
-- **On from 1 December to 14 January**, both days included. Off the rest of the year, with no leftover spacing.
+- **On from 20 November to 14 January**, both days included. Off the rest of the year, with no leftover spacing.
 - Every tool switches on the same dates, by itself. Nobody turns it on by hand.
 - Preview on any date by adding `?season=christmas` to a tool's address; `?season=off` hides it.
 
@@ -46,7 +46,8 @@ A screen carries one tier, never two.
 | Tools hub | Tree arrangement beside the welcome line | Stocking, or nothing |
 | Performance: Month | Fir sprig | Snowflake pair |
 | Performance: Year, Brands, Incentive | Snowflake pair | Snowflake pair |
-| CRM, Sales, Stock: list screens | Snowflake pair | Snowflake pair |
+| CRM: every view | Snowflake pair at the far end of the tab row | Nothing (its phone header has no tab row yet) |
+| Sales, Stock: list screens | Snowflake pair | Snowflake pair |
 | Catalogue (clients see it) | Fir sprig, landing view only | Nothing |
 | Lock screen | Candle beside the passcode card | Nothing |
 | Any form, till, sale in progress, dialog, panel | **Nothing** | **Nothing** |
@@ -104,5 +105,6 @@ Flat shapes and crisp silhouettes that read at the display size. Delardi Blue (#
 
 ## Status
 
-- **Built:** Performance (test run, PR #30): fir sprig on Month, snowflake pair on Year, Brands and Incentive, nothing on Inputs.
-- **Not built yet:** the tools hub, CRM, Sales, Stock, Catalogue, the lock screen.
+- **Built:** Performance: fir sprig on Month, snowflake pair on Year, Brands and Incentive, nothing on Inputs. CRM: snowflake pair on the tab row of every view, nothing on the card or on a phone.
+- **Shared code:** `ui/season.js` holds the dates, the preview switch and the mark; each tool's build puts the images in.
+- **Not built yet:** the tools hub, Sales, Stock, Catalogue, the lock screen.

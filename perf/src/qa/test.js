@@ -574,13 +574,13 @@ async function shot(page, name, full) {
 
   await run("season", async () => {
     // off unless it is the season or the preview is asked for
-    let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-11-20T09:00:00" });
+    let { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-11-10T09:00:00" });
     check("season: nothing is added outside the season", !(await page.$(".season-mark")));
     await ctx.close();
     ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "", now: "2026-12-10T09:00:00" }));
     check("season: in December it is on by itself", (await page.$$(".season-mark img")).length === 1 && errors.length === 0, errors.join(" | "));
-    check("season: 1 December to 14 January", await page.evaluate(() => seasonFor(new Date(2026, 11, 1)) === "christmas" && seasonFor(new Date(2027, 0, 14)) === "christmas"
-      && seasonFor(new Date(2027, 0, 15)) === null && seasonFor(new Date(2026, 10, 30)) === null && seasonFor(new Date(2026, 11, 31)) === "christmas"));
+    check("season: 20 November to 14 January", await page.evaluate(() => seasonFor(new Date(2026, 10, 20)) === "christmas" && seasonFor(new Date(2027, 0, 14)) === "christmas"
+      && seasonFor(new Date(2027, 0, 15)) === null && seasonFor(new Date(2026, 10, 19)) === null && seasonFor(new Date(2026, 11, 31)) === "christmas"));
     await ctx.close();
     ({ ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { query: "?season=christmas" }));
     const marks = () => page.$$eval(".season-mark img", (is) => is.map((i) => { const r = i.getBoundingClientRect(); return { k: i.dataset.k, alt: i.getAttribute("alt"), w: Math.round(r.width), h: Math.round(r.height), pe: getComputedStyle(i).pointerEvents }; }));
