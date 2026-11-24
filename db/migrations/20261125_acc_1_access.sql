@@ -112,10 +112,11 @@ revoke execute on function public.acc_set_right(text, uuid, text, boolean) from 
 -- ---------------------------------------------------------------- people
 -- Add a person (no person_id; needs a name and a passcode) or change one. Only the keys present in p_person are touched:
 --   role, rep (the sales rep name in the CRM), active; on adding also name and copy_from (a person whose rights to start with).
+-- A person being added gets the same checks on those fields; if one fails, nobody is added.
 create function public.acc_save_person(p_actor text, p_person jsonb, p_hash text default null, p_enc text default null) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
-  me jsonb := acc_me(p_actor); u board_users%rowtype; v_id uuid; v_name text; v_txt text; v_on boolean; src board_users%rowtype; k text;
+  me jsonb := acc_me(p_actor); u board_users%rowtype; v_id uuid; v_name text; v_txt text; v_on boolean; src board_users%rowtype; k text; v_new boolean := false;
 begin
   if p_person is null or jsonb_typeof(p_person) <> 'object' then raise exception 'person must be an object.'; end if;
   if not (p_person ? 'person_id') or p_person->>'person_id' is null then
@@ -130,6 +131,7 @@ begin
       returning id into v_id;
     foreach k in array acc_right_keys() loop execute format('update board_users set %I = false where id = $1', k) using v_id; end loop;
     insert into acc_log(actor, person_id, person, action, field, new_value) values (p_actor, v_id, v_name, 'add', 'role', nullif(btrim(coalesce(p_person->>'role', '')), ''));
+    v_new := true;
     if p_person ? 'copy_from' and p_person->>'copy_from' is not null then
       select * into src from board_users where id = (p_person->>'copy_from')::uuid;
       if not found then raise exception 'The person to copy rights from was not found.'; end if;
@@ -141,12 +143,14 @@ begin
         end if;
       end loop;
     end if;
-    return acc_person_json(v_id);
+  else
+    v_id := (p_person->>'person_id')::uuid;
   end if;
 
-  select * into u from board_users where id = (p_person->>'person_id')::uuid for update;
+  -- the fields below are handled the same way for a person just added and for one being changed
+  select * into u from board_users where id = v_id for update;
   if not found then raise exception 'That person was not found.'; end if;
-  if p_person ? 'name' and btrim(coalesce(p_person->>'name', '')) is distinct from u.name then
+  if not v_new and p_person ? 'name' and btrim(coalesce(p_person->>'name', '')) is distinct from u.name then
     raise exception 'A name cannot be changed: it is on this person''s tickets, tasks and notes. Switch the person off and add a new one.';
   end if;
   if p_person ? 'role' then
@@ -209,6 +213,28 @@ end $$;
 revoke execute on function public.acc_passcode(text, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- logins
+-- The address on a login line. The trigger used to take the latest successful passcode attempt of the last 15 seconds,
+-- whoever made it: with two people signing in at once, one could be filed under the other's address. A session may now
+-- carry its own address (editor_sessions.ip, for the APIs to fill in); without it the attempt is used only when it is
+-- the single one in the window, and otherwise the address is left empty.
+alter table public.editor_sessions add column if not exists ip text;
+create or replace function public.usage_log_session() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz := coalesce(new.created_at, now()); v_ip text := new.ip;
+begin
+  begin
+    if v_ip is null then
+      select min(a.ip) into v_ip from auth_attempts a where a.ok and a.created_at between t - interval '15 seconds' and t
+      having count(*) = 1;
+    end if;
+    insert into usage_logins (at, who, tool, ip, is_test, source)
+    values (t, new.display_name, usage_tool_of(new), v_ip, new.display_name ilike 'Claude%', 'live');
+  exception when others then
+    raise warning 'usage_log_session: % (session still issued)', sqlerrm;
+  end;
+  return new;
+end $$;
+
 -- A task tracker session is the tracker's (it was filed as "other"), and the lines already filed so are corrected:
 -- until now only tracker sessions carried no other tool's flag.
 create or replace function public.usage_tool_of(s public.editor_sessions) returns text

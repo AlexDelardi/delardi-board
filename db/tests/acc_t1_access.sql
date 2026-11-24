@@ -100,6 +100,16 @@ begin
   p := acc_save_person('Zz Boss', jsonb_build_object('name', 'Zz Copy', 'copy_from', v_boss), 'zz-hash-10', 'zz-enc-10');
   assert not (p->'rights'->>'can_manage_access')::boolean and (p->'rights'->>'can_view_logins')::boolean, 'access to this tool is never copied';
 
+  -- the profile fields given with a new person are honoured, and logged like any other change
+  p := acc_save_person('Zz Boss', '{"name": "Zz Full", "role": "Sales Rep", "rep": " Zz Full ", "active": false}', 'zz-hash-12', 'zz-enc-12');
+  assert p->>'rep' = 'Zz Full' and not (p->>'active')::boolean and p->>'role' = 'Sales Rep'
+     and (select crm_rep_label = 'Zz Full' and not active from board_users where name = 'Zz Full'), 'a new person keeps the rep name and the off switch given: ' || p::text;
+  assert (select count(*) from acc_log where person = 'Zz Full' and action = 'profile' and field = 'rep' and new_value = 'Zz Full') = 1
+     and (select count(*) from acc_log where person = 'Zz Full' and action = 'active' and new_value = 'false') = 1
+     and (select count(*) from acc_log where person = 'Zz Full' and field = 'role') = 1, 'each is logged once';
+  begin perform acc_save_person('Zz Boss', jsonb_build_object('name', 'Zz Long', 'rep', repeat('x', 41)), 'zz-hash-13', 'zz-enc-13'); ok := false; exception when others then ok := sqlerrm like '%too long%'; end;
+  assert ok and not exists (select 1 from board_users where name = 'Zz Long'), 'a bad field on a new person adds nobody';
+
   -- passcodes: a new one replaces the old, ends the sessions, and can be looked up; each look is logged
   insert into editor_sessions(token, display_name, expires_at) values ('zz-token-rep-3', 'Zz Rep', now() + interval '1 hour');
   begin perform acc_passcode('Zz Boss', v_rep); ok := false; exception when others then ok := sqlerrm like '%set earlier%'; end;
@@ -131,6 +141,16 @@ begin
   assert d->'tools' ? 'tasks' and not d->'tools' ? 'board' and (select count(*) from jsonb_array_elements(d->'recent') z where z->>'who' = 'Zz Rep' and z->>'tool' = 'tasks') = 1, 'the view lists it: ' || (d->'tools')::text;
   select z into p from jsonb_array_elements(d->'people') z where z->>'name' = 'Zz Rep';
   assert (p->'tools'->'tasks'->>'logins')::int = 1 and p->>'last_tool' = 'tasks', 'per person and tool: ' || p::text;
+
+  -- the address on a login line is the session's own; it is guessed from the passcode attempts only when there is no doubt
+  insert into editor_sessions(token, display_name, expires_at, can_use_tasks, ip) values ('zz-token-ip-1', 'Zz Rep', now() + interval '1 hour', true, '10.9.9.1');
+  assert (select ip from usage_logins where who = 'Zz Rep' order by id desc limit 1) = '10.9.9.1', 'an address given with the session is the one logged';
+  insert into auth_attempts(ip, ok, created_at) values ('10.9.9.2', true, now());
+  insert into editor_sessions(token, display_name, expires_at, can_use_tasks) values ('zz-token-ip-2', 'Zz Rep', now() + interval '1 hour', true);
+  assert (select ip from usage_logins where who = 'Zz Rep' order by id desc limit 1) = '10.9.9.2', 'one fresh successful attempt: that address';
+  insert into auth_attempts(ip, ok, created_at) values ('10.9.9.3', true, now());
+  insert into editor_sessions(token, display_name, expires_at, can_use_tasks) values ('zz-token-ip-3', 'Zz Rep', now() + interval '1 hour', true);
+  assert (select ip from usage_logins where who = 'Zz Rep' order by id desc limit 1) is null, 'two sign-ins at once: no address is better than someone else''s';
 
   raise notice 'acc_t1 ok';
 end $$;
