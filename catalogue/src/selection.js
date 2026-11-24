@@ -134,18 +134,24 @@ async function loadSelection(items) {
   for (const id of need) S.cartData[id] = { loading: true };
   await Promise.all(need.map(async (id) => {
     try { S.cartData[id] = { data: await call("model", { model_id: id }) }; }
-    catch (e) { S.cartData[id] = { error: e.status === 404 ? tr("This piece is no longer in the catalogue.") : e.message }; }
+    // a piece that is gone stays gone; anything else (no Wi-Fi, a server hiccup) may be tried again
+    catch (e) { S.cartData[id] = e.status === 404 ? { error: tr("This piece is no longer in the catalogue.") } : { error: e.message || tr("Could not load this piece."), again: true }; }
   }));
   if (parseHash().view === "selection") render();
 }
+function selRetry() {
+  for (const [id, d] of Object.entries(S.cartData)) if (d && d.again) delete S.cartData[id];
+  if (parseHash().view === "selection" && !S.locked) render();
+}
+window.addEventListener("online", selRetry);
 // Everything a line of the selection says, worked out once for the page, the sheet and the message.
 function selLine(it) {
   const D = S.cartData[it.m];
   if (!D || D.loading) return { it, loading: true };
-  if (D.error || !D.data || !D.data.variants || !D.data.variants.length) return { it, error: (D && D.error) || tr("This piece is no longer in the catalogue.") };
+  if (D.error || !D.data || !D.data.variants || !D.data.variants.length) return { it, error: (D && D.error) || tr("This piece is no longer in the catalogue."), again: !!D.again };
   const { model: m, variants, photos } = D.data;
   const v = variants.find((x) => x.variant_id === it.v) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
-  const A = attrsFor(variants, v);
+  const A = attrsFor(variants, v, m);
   const code = (v.colour_code || "").toUpperCase();
   const pieces = v.pieces || [];
   const amounts = (it.v ? pieces : variants.flatMap((x) => (x.in_stock ? x.pieces || [] : []))).map((p) => p.price_uzs).filter(Boolean);
@@ -205,7 +211,8 @@ function renderSelection() {
     const remove = shared ? null : el("button", { class: "btn sm sel-remove", type: "button", "aria-label": tr("Remove") + (L.title ? ": " + L.title : ""),
       onclick: () => { S.cart.splice(i, 1); cartSave(); toast(tr("Removed from the selection.")); render(); } }, [tr("Remove")]);
     if (L.error) return el("div", { class: "sel-row gone" }, [el("div", { class: "sel-ph" }, [el("img", { src: mono(), alt: "" })]),
-      el("div", { class: "sel-main" }, [el("div", { class: "ref", text: tr("Ref.") + " " + (L.it.v || L.it.m) }), el("div", { class: "sel-note", text: L.error })]), el("div", { class: "sel-side" }, [remove])]);
+      el("div", { class: "sel-main" }, [el("div", { class: "ref", text: tr("Ref.") + " " + (L.it.v || L.it.m) }), el("div", { class: "sel-note", text: L.error })]),
+      el("div", { class: "sel-side" }, [L.again ? el("button", { class: "btn sm sel-again", type: "button", onclick: selRetry }, [tr("Try again")]) : null, remove])]);
     const spec = (label, value) => (value ? el("div", { class: "sel-spec" }, [el("dt", { text: label }), el("dd", { text: value })]) : null);
     return el("div", { class: "sel-row" + (L.state === "out" ? " out" : "") }, [
       el("a", { class: "sel-ph" + (L.photo ? " photo" : ""), href: L.href, "aria-label": L.title }, [el("img", { src: L.photo || mono(), alt: L.photo ? L.title : "", loading: "lazy" })]),

@@ -187,7 +187,8 @@ function withUnit(key, v) {
 
 /* The attribute set for one colour: its own values, then the colour-free values
    of its sibling colours, then what follows from the colour code itself. */
-function attrsFor(variants, v) {
+// `model` is the model the colours belong to: the model page passes its own, the selection each line's.
+function attrsFor(variants, v, model) {
   const out = {};
   for (const [k, a] of Object.entries(v.attributes || {})) out[k] = { ...a };
   const others = variants.filter((x) => x !== v).sort((a, b) => Object.keys(b.attributes || {}).length - Object.keys(a.attributes || {}).length);
@@ -200,7 +201,7 @@ function attrsFor(variants, v) {
   const c = COLOUR_OF_CODE[(v.colour_code || "").toUpperCase()];
   if (c && (!out.metal_colour || out.metal_colour.inherited)) out.metal_colour = { value: c, flag: "colibri_only" };
   const sizes = [...new Set((v.pieces || []).map((p) => p.size).filter(Boolean))];
-  if (sizes.length && !out.ring_size && variants[0] && S.model && S.model.data.model.retail_category === "ring") out.ring_size = { value: sizes.join(", "), flag: "colibri_only" };
+  if (sizes.length && !out.ring_size && variants[0] && model && model.retail_category === "ring") out.ring_size = { value: sizes.join(", "), flag: "colibri_only" };
   return out;
 }
 function mark(a) {
@@ -224,7 +225,7 @@ function renderModel() {
   // The colour on screen: the one asked for in the address, else the first in stock, else the first.
   const want = parseHash().params.get("v");
   const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
-  const A = attrsFor(variants, v);
+  const A = attrsFor(variants, v, m);
   const val = (k) => (A[k] && A[k].value) || null;
 
   const title = val("model_name") || m.model_name || m.collection || typeName(m.retail_category);

@@ -779,6 +779,50 @@ const settle = (page) => page.waitForTimeout(150);
     ok(errors.length === 0, "shared selection: no script errors", errors);
     await ctx.close();
   }
+  // Codex on #39: a sheet left open at a lock, a failed model page, a request that fails for a moment
+  {
+    const { ctx, page, errors } = await open(browser);
+    await unlock(page);
+    const ring = MODELS.find((m) => m.in_stock && m.retail_category === "ring"), other = MODELS.find((m) => m.in_stock && m.retail_category !== "ring");
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), [{ m: ring.model_id, v: null }, { m: other.model_id, v: null }]);
+    // a model page that failed leaves S.model without data; the selection must not lean on it
+    await page.goto(PAGE + "#/model/NOPE-9"); await page.reload(); await page.waitForSelector(".empty");
+    await page.evaluate(() => { location.hash = "#/selection"; }); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, ".sel-row .nm") === 2 && errors.length === 0, "the selection renders after a model page failed to load", errors);
+    ok((await page.textContent(".sel-row >> nth=0")).includes("Size"), "a ring's size comes from the line's own model");
+    // a sheet made, then the lock: nothing is left to print from the gate
+    await page.evaluate(() => { window.print = () => {}; });
+    await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.fill("#sheet-who", "A client"); await page.click("#sheet-go");
+    ok((await page.evaluate(() => document.querySelector("#print").innerText)).includes("A client"), "the sheet is built while its panel is open");
+    await page.evaluate(() => lockDown());
+    ok(await page.isVisible("#gate") && await page.evaluate(() => document.querySelector("#print").innerHTML) === "", "locking empties the sheet");
+    await ctx.close();
+  }
+  {
+    let failing = true;
+    const { ctx, page, errors } = await open(browser);
+    await unlock(page);
+    const a = MODELS.find((m) => m.in_stock);
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), [{ m: a.model_id, v: null }]);
+    await page.route(API, async (route) => {
+      const body = JSON.parse(route.request().postData() || "{}");
+      if (body.action === "model" && failing) return route.fulfill({ status: 500, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "Something went wrong on the server." }) });
+      return route.fallback();
+    });
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row.gone");
+    ok(await count(page, ".sel-again") === 1, "a piece that failed to load offers 'Try again'");
+    failing = false;
+    await page.click(".sel-again"); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, ".sel-row.gone") === 0, "trying again loads it once the server answers");
+    failing = true;
+    await page.evaluate(() => { S.cartData = {}; render(); }); await page.waitForSelector(".sel-row.gone");
+    failing = false;
+    await page.evaluate(() => window.dispatchEvent(new Event("online"))); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, ".sel-row.gone") === 0, "coming back online loads it without a tap");
+    await page.goto(PAGE + "#/selection?p=NOPE-1"); await page.reload(); await page.waitForSelector(".sel-row.gone");
+    ok(await count(page, ".sel-again") === 0, "a piece that is gone from the catalogue offers no retry");
+    await ctx.close();
+  }
   // the selection on a phone and an iPad
   for (const [w, h] of [[390, 780], [820, 1180]]) {
     const { ctx, page, errors } = await open(browser, { viewport: { width: w, height: h }, touch: true, mobile: true });

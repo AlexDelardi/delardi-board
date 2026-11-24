@@ -640,6 +640,7 @@ const RU = {
   "Amounts shown.": "Цены показаны.",
   "Lock": "Заблокировать",
   "Menu": "Меню",
+  "Could not load this piece.": "Не удалось загрузить это изделие.",
   "Nothing in stock here.": "Здесь сейчас ничего нет в наличии.",
   "See every model": "Показать все модели",
   "Locked.": "Заблокировано.",
@@ -1593,6 +1594,7 @@ function lockDown(message) {
   S.session = null; store(SESSION_KEY, null);
   S.locked = true; S.ref = null; S.list = null; S.model = null; S.recent = null; S.arrivals = null; S.sheet = null;
   S.report = null; S.reports = null; S.client = false; store(CLIENT_KEY, null);
+  { const pr = $("#print"); if (pr) pr.innerHTML = ""; }   // a sheet made and not yet closed must not print from the lock screen
   S.selSheet = null; S.cartData = {}; S.menuOpen = false;   // the selection itself stays: it is references only, like "opened recently"
   if (S.layerPushed) { S.layerPushed = false; try { history.back(); } catch (e) { /* ignore */ } }
   S.gateMsg = message || null;
@@ -2217,7 +2219,8 @@ function withUnit(key, v) {
 
 /* The attribute set for one colour: its own values, then the colour-free values
    of its sibling colours, then what follows from the colour code itself. */
-function attrsFor(variants, v) {
+// `model` is the model the colours belong to: the model page passes its own, the selection each line's.
+function attrsFor(variants, v, model) {
   const out = {};
   for (const [k, a] of Object.entries(v.attributes || {})) out[k] = { ...a };
   const others = variants.filter((x) => x !== v).sort((a, b) => Object.keys(b.attributes || {}).length - Object.keys(a.attributes || {}).length);
@@ -2230,7 +2233,7 @@ function attrsFor(variants, v) {
   const c = COLOUR_OF_CODE[(v.colour_code || "").toUpperCase()];
   if (c && (!out.metal_colour || out.metal_colour.inherited)) out.metal_colour = { value: c, flag: "colibri_only" };
   const sizes = [...new Set((v.pieces || []).map((p) => p.size).filter(Boolean))];
-  if (sizes.length && !out.ring_size && variants[0] && S.model && S.model.data.model.retail_category === "ring") out.ring_size = { value: sizes.join(", "), flag: "colibri_only" };
+  if (sizes.length && !out.ring_size && variants[0] && model && model.retail_category === "ring") out.ring_size = { value: sizes.join(", "), flag: "colibri_only" };
   return out;
 }
 function mark(a) {
@@ -2254,7 +2257,7 @@ function renderModel() {
   // The colour on screen: the one asked for in the address, else the first in stock, else the first.
   const want = parseHash().params.get("v");
   const v = variants.find((x) => x.variant_id === want) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
-  const A = attrsFor(variants, v);
+  const A = attrsFor(variants, v, m);
   const val = (k) => (A[k] && A[k].value) || null;
 
   const title = val("model_name") || m.model_name || m.collection || typeName(m.retail_category);
@@ -2872,18 +2875,24 @@ async function loadSelection(items) {
   for (const id of need) S.cartData[id] = { loading: true };
   await Promise.all(need.map(async (id) => {
     try { S.cartData[id] = { data: await call("model", { model_id: id }) }; }
-    catch (e) { S.cartData[id] = { error: e.status === 404 ? tr("This piece is no longer in the catalogue.") : e.message }; }
+    // a piece that is gone stays gone; anything else (no Wi-Fi, a server hiccup) may be tried again
+    catch (e) { S.cartData[id] = e.status === 404 ? { error: tr("This piece is no longer in the catalogue.") } : { error: e.message || tr("Could not load this piece."), again: true }; }
   }));
   if (parseHash().view === "selection") render();
 }
+function selRetry() {
+  for (const [id, d] of Object.entries(S.cartData)) if (d && d.again) delete S.cartData[id];
+  if (parseHash().view === "selection" && !S.locked) render();
+}
+window.addEventListener("online", selRetry);
 // Everything a line of the selection says, worked out once for the page, the sheet and the message.
 function selLine(it) {
   const D = S.cartData[it.m];
   if (!D || D.loading) return { it, loading: true };
-  if (D.error || !D.data || !D.data.variants || !D.data.variants.length) return { it, error: (D && D.error) || tr("This piece is no longer in the catalogue.") };
+  if (D.error || !D.data || !D.data.variants || !D.data.variants.length) return { it, error: (D && D.error) || tr("This piece is no longer in the catalogue."), again: !!D.again };
   const { model: m, variants, photos } = D.data;
   const v = variants.find((x) => x.variant_id === it.v) || variants.find((x) => x.in_stock) || variants.find((x) => x.qty_transit > 0) || variants[0];
-  const A = attrsFor(variants, v);
+  const A = attrsFor(variants, v, m);
   const code = (v.colour_code || "").toUpperCase();
   const pieces = v.pieces || [];
   const amounts = (it.v ? pieces : variants.flatMap((x) => (x.in_stock ? x.pieces || [] : []))).map((p) => p.price_uzs).filter(Boolean);
@@ -2943,7 +2952,8 @@ function renderSelection() {
     const remove = shared ? null : el("button", { class: "btn sm sel-remove", type: "button", "aria-label": tr("Remove") + (L.title ? ": " + L.title : ""),
       onclick: () => { S.cart.splice(i, 1); cartSave(); toast(tr("Removed from the selection.")); render(); } }, [tr("Remove")]);
     if (L.error) return el("div", { class: "sel-row gone" }, [el("div", { class: "sel-ph" }, [el("img", { src: mono(), alt: "" })]),
-      el("div", { class: "sel-main" }, [el("div", { class: "ref", text: tr("Ref.") + " " + (L.it.v || L.it.m) }), el("div", { class: "sel-note", text: L.error })]), el("div", { class: "sel-side" }, [remove])]);
+      el("div", { class: "sel-main" }, [el("div", { class: "ref", text: tr("Ref.") + " " + (L.it.v || L.it.m) }), el("div", { class: "sel-note", text: L.error })]),
+      el("div", { class: "sel-side" }, [L.again ? el("button", { class: "btn sm sel-again", type: "button", onclick: selRetry }, [tr("Try again")]) : null, remove])]);
     const spec = (label, value) => (value ? el("div", { class: "sel-spec" }, [el("dt", { text: label }), el("dd", { text: value })]) : null);
     return el("div", { class: "sel-row" + (L.state === "out" ? " out" : "") }, [
       el("a", { class: "sel-ph" + (L.photo ? " photo" : ""), href: L.href, "aria-label": L.title }, [el("img", { src: L.photo || mono(), alt: L.photo ? L.title : "", loading: "lazy" })]),
