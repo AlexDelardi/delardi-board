@@ -193,6 +193,17 @@ footer img { height: 22px; width: auto; opacity: .55; }
   <p class="lede" data-i18n="lede">For the Delardi team. Each tool opens with its own passcode.</p>
 
   <nav class="tools" aria-label="Tools" data-i18n-label="tools">
+    <a class="tool" href="tasks/" data-tool="tasks">
+      <span class="tool-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="1"/><path d="M6.5 8l1.5 1.5L11 6.5"/><path d="M6.5 13.5h7"/></svg>
+      </span>
+      <span class="tool-name" data-i18n="tasks_name">Task tracker</span>
+      <span class="tool-desc" data-i18n="tasks_desc">Tasks for the boutique and the back office: who does what by when, with checklists, comments and client tags.</span>
+      <span class="tool-foot">
+        <span class="status" data-session="tasks_session"><span class="dot" aria-hidden="true"></span><span class="status-text" data-i18n="locked">Passcode needed</span></span>
+        <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </span>
+    </a>
     <a class="tool" href="board/" data-tool="board">
       <span class="tool-icon" aria-hidden="true">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="14" rx="1"/><rect x="7.75" y="3" width="4.5" height="10" rx="1"/><rect x="13.5" y="3" width="4.5" height="6" rx="1"/></svg>
@@ -350,6 +361,8 @@ function seasonMarkEl(kind) {
       sales_desc: "The till: scan a piece, choose the client, take payment and print the receipt; look up any ticket.",
       stock_name: "Stock",
       stock_desc: "Every piece in the boutique: what is in stock, reserved, on approval or in transit, its history, and the items to check.",
+      tasks_name: "Task tracker",
+      tasks_desc: "Tasks for the boutique and the back office: who does what by when, with checklists, comments and client tags.",
       perf_name: "Performance",
       perf_desc: "The month against plan and last year, what explains the gap, and the incentive estimate. For the Retail Director.",
       locked: "Passcode needed",
@@ -374,6 +387,8 @@ function seasonMarkEl(kind) {
       sales_desc: "Касса: отсканировать изделие, выбрать клиента, принять оплату и распечатать чек; найти любой чек.",
       stock_name: "Склад",
       stock_desc: "Все изделия бутика: что в наличии, в резерве, у клиента на примерке или в пути, их история и что нужно проверить.",
+      tasks_name: "Задачи",
+      tasks_desc: "Задачи бутика и бэк-офиса: кто что делает и к какому сроку, с чек-листами, комментариями и клиентами.",
       perf_name: "Показатели",
       perf_desc: "Месяц к плану и к прошлому году, из чего складывается отклонение, и оценка мотивации. Для директора по рознице.",
       locked: "Нужен код доступа",

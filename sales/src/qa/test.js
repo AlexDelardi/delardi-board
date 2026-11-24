@@ -463,7 +463,7 @@ async function shot(page, name) {
     await toolsBtn.click();
     const items = await page.$$eval(".kit-head .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()));
     const current = await page.$$eval(".kit-head .kit-menu [aria-current=page]", (ns) => ns.map((n) => n.textContent.trim()));
-    check("kit: header has the Tools switcher with 6 tools, Stock among them", items.join() === "Sales,Stock,Clients,Catalogue,Board,Performance" && current.join() === "Sales",
+    check("kit: header has the Tools switcher with 7 tools, Stock among them", items.join() === "Sales,Stock,Clients,Catalogue,Tasks,Board,Performance" && current.join() === "Sales",
       items.join() + " / " + current.join());
     check("kit: the Tools menu is open", await page.isVisible(".kit-head .kit-menu"));
     check("kit: no theme switch", await page.evaluate(() => ![...document.querySelectorAll("[title], [aria-label]")]

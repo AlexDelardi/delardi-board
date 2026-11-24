@@ -678,7 +678,7 @@ const measure = (page, scope) => page.evaluate((scope) => {
     check("design: square corners, no shadows, navy underline on the tab in use", h.radius && h.shadow && h.tab === "rgb(8, 41, 102)", JSON.stringify(h));
     await page.click(".kit-head .kit-tool-wrap > button");
     const items = await page.$$eval(".kit-menu li", (ls) => ls.map((l) => l.textContent.trim()).join("|"));
-    check("design: the switcher lists the tools, this one marked", /Sales\|Stock\|Clients\|Catalogue\|Board\|Performance/.test(items) && (await page.$('.kit-menu [aria-current="page"]')) !== null, items);
+    check("design: the switcher lists the tools, this one marked", /Sales\|Stock\|Clients\|Catalogue\|Tasks\|Board\|Performance/.test(items) && (await page.$('.kit-menu [aria-current="page"]')) !== null, items);
     check("design: no console errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   }

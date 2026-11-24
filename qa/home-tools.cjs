@@ -6,12 +6,14 @@ const kit = fs.readFileSync(path.join(root, 'ui/tools.js'), 'utf8');
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };
 const ids = [...kit.matchAll(/\{ id: '([a-z]+)', href: '\.\.\/\1\/'/g)].map((m) => m[1]);
-ok(ids.length === 6, 'read the tools from KIT_TOOLS: ' + ids.join(','));
+ok(ids.length === 7, 'read the tools from KIT_TOOLS: ' + ids.join(','));
 for (const id of ids) ok(home.includes('href="' + id + '/" data-tool="' + id + '"'), 'Home page has a ' + id + ' tile');
 ok(home.includes('data-session="stock_session"'), 'Home page shows the Stock session status');
 ok((home.match(/stock_name:/g) || []).length === 2 && (home.match(/stock_desc:/g) || []).length === 2, 'Stock tile text in English and Russian');
 ok(home.includes('data-session="perf_session"'), 'Home page shows the Performance session status');
 ok((home.match(/perf_name:/g) || []).length === 2 && (home.match(/perf_desc:/g) || []).length === 2, 'Performance tile text in English and Russian');
+ok(home.includes('data-session="tasks_session"'), 'Home page shows the task tracker session status');
+ok((home.match(/tasks_name:/g) || []).length === 2 && (home.match(/tasks_desc:/g) || []).length === 2, 'Task tracker tile text in English and Russian');
 // every tool carries the shared switcher, so any tool is one tap from any other
 for (const id of ids) {
   const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');
