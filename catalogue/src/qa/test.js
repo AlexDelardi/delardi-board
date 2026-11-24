@@ -754,24 +754,10 @@ const settle = (page) => page.waitForTimeout(150);
     ok((await page.evaluate(() => window.__sheet)).includes("Prepared for: Delardi client") && (await page.textContent("#sheet-who-hint")).includes("Delardi client"),
       "with no name typed the sheet says 'Prepared for: Delardi client', and the panel says so beforehand", await page.evaluate(() => window.__sheet));
     ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("A client"), "the client's name is not kept on the device");
-    // a discount on the whole selection, and the word that prices are indicative
     const sheetNow = () => page.evaluate(() => document.querySelector("#print").textContent);
-    const digits = (t) => Number(String(t).replace(/[^0-9]/g, ""));
     await page.check("#sheet-prices"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 3);
-    ok((await sheetNow()).includes("Prices are indicative only") && await count(page, "#print .ps-disc") === 0, "a sheet with prices says they are indicative only; with no discount typed none is shown");
-    await page.fill("#sheet-discount", "7,5"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 4);
-    const gross = digits(await page.textContent("#print .ps-total.before b")), offD = digits(await page.textContent("#print .ps-off")), net = digits(await page.textContent("#print .ps-net b"));
-    ok(gross === sum && offD === Math.round(sum * 0.075) && net === gross - offD, "a 7.5% discount shows the total, the discount and what is left", { gross, offD, net, sum });
-    ok((await page.textContent("#print .ps-disc")).includes("Discount 7.5%") && (await sheetNow()).includes("Prices and the discount are indicative only"), "the sheet names the percentage and says the prices and the discount are indicative");
-    for (const bad of ["abc", "0", "100", "-5"]) {
-      const before = await page.evaluate(() => window.__printed);
-      await page.fill("#sheet-discount", bad); await page.click("#sheet-go"); await page.waitForFunction((n) => window.__printed === n + 1, before);
-      ok(await count(page, "#print .ps-disc") === 0, "a discount of '" + bad + "' is no discount");
-    }
-    await page.fill("#sheet-discount", "10"); await page.uncheck("#sheet-prices");
-    { const before = await page.evaluate(() => window.__printed); await page.click("#sheet-go"); await page.waitForFunction((n) => window.__printed === n + 1, before); }
-    ok(await count(page, "#print .ps-disc") === 0 && !(await sheetNow()).includes("indicative"), "with prices off there is no discount and no note about prices");
-    ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("discount"), "the discount is not kept on the device");
+    ok((await sheetNow()).includes("Prices are indicative only") && await count(page, "#print .ps-disc") === 0 && await count(page, "#sheet-discount") === 0,
+      "a sheet with prices says they are indicative only; the panel has no discount box of its own");
     await page.click(".sel-sheet header .btn");
     // client view, remove, lock
     await page.click(".sel-actions .btn:has-text('Show to a client')"); await settle(page);
@@ -845,6 +831,75 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await count(page, ".sel-again") === 0, "a piece that is gone from the catalogue offers no retry");
     await ctx.close();
   }
+  // ------------------------------------------- a discount per piece, typed on the selection
+  {
+    const { ctx, page, errors } = await open(browser);
+    await ctx.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+    await unlock(page);
+    const three = MODELS.filter((m) => m.in_stock && (!m.colours || m.colours.length === 1)).slice(0, 3);
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), three.map((m) => ({ m: m.model_id, v: null })));
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    const digits = (t) => Number(String(t).replace(/[^0-9]/g, ""));
+    const P = three.map((m) => m.price_min_uzs), gross = P[0] + P[1] + P[2];
+    ok(await count(page, "#sel-list .sel-disc input") === 3 && await count(page, "#sel-disc-all") === 1, "every piece has a discount box, and there is one for all pieces");
+    ok(digits(await page.textContent("#sel-sum")) === gross && await count(page, "#sel-off") === 0, "with no discount the total is the list total and no discount line shows");
+    // one piece: typed with a comma, the cursor stays in the box
+    await page.click("#sel-list .sel-row >> nth=1 >> .sel-disc input"); await page.keyboard.type("7,5");
+    ok(await page.evaluate(() => document.activeElement && document.activeElement.closest(".sel-disc") !== null && document.activeElement.value === "7,5"), "typing a discount keeps the cursor in the box");
+    const off1 = Math.round(P[1] * 0.075);
+    ok(digits(await page.textContent("#sel-list .sel-row >> nth=1 >> .sel-price .price")) === P[1] - off1 && digits(await page.textContent("#sel-list .sel-row >> nth=1 >> .sel-price s")) === P[1]
+      && (await page.textContent("#sel-list .sel-row >> nth=1 >> .pct")) === "−7.5%", "the line shows the list price struck through, the percentage and the price after it");
+    ok(await count(page, "#sel-list .sel-row >> nth=0 >> .sel-price s") === 0, "the other lines are untouched");
+    ok(digits(await page.textContent("#sel-gross")) === gross && digits(await page.textContent("#sel-off")) === off1 && digits(await page.textContent("#sel-sum")) === gross - off1,
+      "the totals show the list total, the discount and what is left");
+    // the message and the sheet carry it
+    await page.click(".sel-actions .btn:has-text('Copy as a message')"); await settle(page);
+    const msg = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null);
+    if (msg !== null) ok(msg.includes("− 7.5% = ") && msg.includes("With the discount") && msg.includes("Prices and the discount are indicative only"), "the message carries the discount and says the prices are indicative", msg);
+    await page.evaluate(() => { window.__n = 0; window.print = () => { window.__n++; }; });
+    await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.waitForSelector(".sel-sheet"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__n === 1);
+    ok(digits(await page.textContent("#print .ps-item >> nth=1 >> .ps-price")) === P[1] - off1 && (await page.textContent("#print .ps-item >> nth=1 >> .ps-was")).includes("−7.5%")
+      && await count(page, "#print .ps-item >> nth=0 >> .ps-was") === 0, "on the sheet the discounted line shows both prices, the others one");
+    ok(digits(await page.textContent("#print .ps-total.before b")) === gross && digits(await page.textContent("#print .ps-off")) === off1 && digits(await page.textContent("#print .ps-net b")) === gross - off1
+      && (await page.evaluate(() => document.querySelector("#print").textContent)).includes("Prices and the discount are indicative only"), "the sheet totals the discount and says prices and discount are indicative");
+    await page.click(".sel-sheet header .btn");
+    // all pieces at once
+    await page.fill("#sel-disc-all", "10");
+    const offAll = P.reduce((a, x) => a + Math.round(x * 0.10), 0);
+    ok((await page.$$eval("#sel-list .sel-disc input", (xs) => xs.map((x) => x.value))).every((v) => v === "10") && digits(await page.textContent("#sel-off")) === offAll && digits(await page.textContent("#sel-sum")) === gross - offAll,
+      "the box for all pieces sets every line and the totals follow");
+    for (const bad of ["abc", "0", "100", "-5"]) {
+      await page.fill("#sel-list .sel-row >> nth=0 >> .sel-disc input", bad);
+      ok(await count(page, "#sel-list .sel-row >> nth=0 >> .sel-price s") === 0, "a discount of '" + bad + "' is no discount");
+    }
+    // not the client's to see or to change; not kept
+    await page.click(".sel-actions .btn:has-text('Show to a client')"); await settle(page);
+    ok(await count(page, ".sel-disc") === 0 && await count(page, "#sel-list .sel-price s") === 2 && await count(page, "#sel-off") === 1, "client view hides the boxes and keeps the discounted prices");
+    await page.click(".client-band .btn");
+    await page.click("header.top .hbtn[aria-label='Hide amounts']"); await settle(page);
+    ok(await count(page, ".sel-disc") === 0 && (await page.textContent("#sel-sum")) === "•••" && await count(page, "#sel-off") === 0, "with the eye closed there are no boxes and no figures");
+    await page.click("header.top .hbtn[aria-label='Show amounts']"); await settle(page);
+    ok(!(await page.evaluate(() => JSON.stringify(localStorage))).match(/disc/i), "discounts are not kept on the device");
+    await page.click("#sel-list .sel-row >> nth=1 >> .sel-remove"); await settle(page);
+    ok(await count(page, "#sel-list .sel-price s") === 1, "taking a piece out takes its discount with it");
+    await page.click("header.top .hbtn[aria-label='Lock']"); await unlock(page); await page.goto(PAGE + "#/selection"); await page.waitForSelector(".sel-row .nm");
+    ok(await count(page, "#sel-list .sel-price s") === 0 && await count(page, "#sel-off") === 0, "a lock clears the discounts; the pieces stay");
+    ok(errors.length === 0, "discounts: no script errors", errors);
+    await ctx.close();
+  }
+  // the discount boxes on a phone
+  {
+    const { ctx, page } = await open(browser, { viewport: { width: 390, height: 780 }, touch: true, mobile: true });
+    await unlock(page);
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), MODELS.filter((m) => m.in_stock).slice(0, 2).map((m) => ({ m: m.model_id, v: null })));
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    await page.fill("#sel-disc-all", "12.5");
+    ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "phone: the selection with discounts does not scroll sideways");
+    const small = await page.$$eval(".sel-disc input", (xs) => xs.filter((x) => x.getBoundingClientRect().height < 44).length);
+    ok(small === 0, "phone: the discount boxes are 44 px tall");
+    await ctx.close();
+  }
+
   // the sheet waits for its pictures: the print window takes the page as it is at that instant
   {
     const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
@@ -863,11 +918,13 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.waitForSelector(".sel-sheet");
     await page.click("#sheet-go");
     ok((await page.textContent("#sheet-go")).includes("Preparing") && await page.evaluate(() => window.__at === undefined), "the sheet does not print before its pictures are in");
+    ok(await page.$$eval(".sel-sheet input", (xs) => xs.length === 2 && xs.every((x) => x.disabled)), "while the sheet is prepared its options cannot be changed");
     await page.waitForFunction(() => window.__at);
     const at = await page.evaluate(() => window.__at);
     ok(at.length >= 4 && at.every((i) => i.done && i.w > 0), "at the moment of printing every picture on the sheet is loaded: the mark, the photos, the logos", at);
     ok(at.filter((i) => i.cls === "mono").length === 2, "a piece with no photo, and one whose photo will not load, show the monogram", at);
     ok(n > 0 && errors.length === 0, "the slow photo was waited for, without script errors", { n, errors });
+    ok(await page.$$eval(".sel-sheet input", (xs) => xs.every((x) => !x.disabled)), "once it has gone to print the options open again");
     await ctx.close();
   }
   // the selection on a phone and an iPad

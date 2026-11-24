@@ -994,7 +994,7 @@ function lockDown(message) {
   S.locked = true; S.ref = null; S.list = null; S.model = null; S.recent = null; S.arrivals = null; S.sheet = null;
   S.report = null; S.reports = null; S.client = false; store(CLIENT_KEY, null);
   { const pr = $("#print"); if (pr) pr.innerHTML = ""; }   // a sheet made and not yet closed must not print from the lock screen
-  S.selSheet = null; S.cartData = {}; S.menuOpen = false;   // the selection itself stays: it is references only, like "opened recently"
+  S.selSheet = null; S.cartData = {}; S.cartDisc = {}; S.menuOpen = false;   // the selection itself stays: it is references only, like "opened recently"
   if (S.layerPushed) { S.layerPushed = false; try { history.back(); } catch (e) { /* ignore */ } }
   S.gateMsg = message || null;
   $("#layer").innerHTML = "";
