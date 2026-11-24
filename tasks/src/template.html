@@ -51,6 +51,10 @@ main { padding: 24px 24px 96px; }
 .screen-head .aside { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* -------------------------------------------------------------------- tasks */
+/* The page is tinted and each task is a white card on it, so a task reads as one thing and the lists do not melt into
+   the page. A card's left edge says what matters most about it: late, high priority, or neither. */
+body { background: var(--card); }
+.kit-tabs { background: var(--white); }
 .top .kit-tab { min-width: var(--tap); justify-content: center; }
 /* the seasonal mark keeps to its corner: the head's button stops short of it */
 .screen.in-season > .screen-head { padding-right: 150px; min-height: 48px; }
@@ -61,8 +65,11 @@ main { padding: 24px 24px 96px; }
 .kit-tab .count { margin-left: 8px; border-color: currentColor; color: inherit; }
 .sec-title { display: flex; align-items: center; gap: 10px; margin: 28px 0 8px; color: var(--navy); font: 400 21px/1.3 var(--serif); }
 .sec-title.late { color: var(--alert); }
-.tasks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--mist); }
-.task { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--mist); }
+.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.task { display: flex; align-items: stretch; gap: 8px; padding: 0 12px 0 14px; background: var(--white); border: 1px solid var(--mist); border-left: 4px solid var(--sky); }
+.task.is-high { border-left-color: var(--navy); }
+.task.is-late { border-left-color: var(--alert); }
+.task.is-done { border-left-color: var(--mist); background: transparent; }
 .task-open { flex: 1 1 auto; min-width: 0; min-height: var(--tap); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 8px 12px 0; background: none; border: 0; text-align: left; }
 .task-open:hover .task-title, .task-open:focus-visible .task-title { text-decoration: underline; text-underline-offset: 3px; }
 .task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
@@ -85,18 +92,19 @@ main { padding: 24px 24px 96px; }
 .cols { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 20px; align-items: start; }
 .col { min-width: 0; }
 .col-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 10px 0; border-bottom: 2px solid var(--navy); color: var(--navy); font: 700 13px/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
-.col .tasks { border-top: 0; }
-.col .task { flex-direction: column; gap: 0; padding-bottom: 10px; }
+.col .tasks { margin-top: 10px; }
+.col .task { flex-direction: column; gap: 0; padding-bottom: 12px; }
 .col .task .quick { align-self: flex-start; }
 .col .empty { padding: 12px 0; }
+.col-title .count, .sec-title .count { background: var(--white); }
 @media (max-width: 1099px) {                      /* iPad and below: the scopes stack, each a plain list */
-  .cols { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .cols { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .col .task { flex-direction: row; gap: 8px; padding-bottom: 0; }
   .col .task .quick { align-self: center; }
 }
 /* the inbox */
 .sugs { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.sug { padding: 16px; border: 1px solid var(--mist); display: flex; flex-direction: column; gap: 6px; }
+.sug { padding: 16px; background: var(--white); border: 1px solid var(--mist); border-left: 4px solid var(--sky); display: flex; flex-direction: column; gap: 6px; }
 .sug p { margin: 0; }
 .sug-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .sug-target { color: var(--navy); font-weight: 700; }
@@ -119,6 +127,8 @@ textarea { resize: vertical; }
 .add-row input, .add-row textarea { flex: 1 1 auto; min-width: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 2px; padding-left: 12px; background: var(--card); min-height: var(--tap); }
+.screen .notice { background: var(--white); }
+.filters { padding: 12px 14px; background: var(--white); border: 1px solid var(--mist); }
 .chip a { color: var(--navy); }
 .found { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .found-pick { width: 100%; justify-content: space-between; gap: 12px; font-weight: 400; text-align: left; }
