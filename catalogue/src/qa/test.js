@@ -319,9 +319,11 @@ const settle = (page) => page.waitForTimeout(150);
     ok((await page.evaluate(() => location.hash)).includes("brand=Aurelle"), "Back keeps the list's filters", await page.evaluate(() => location.hash));
     await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
     await page.evaluate(() => window.scrollTo(0, 600)); await settle(page);
-    await page.click(".cards .card >> nth=5"); await page.waitForSelector(".mp-top");
+    // a card in the third row: at 600 px it is clear of the pinned header, so the click itself does not scroll the page
+    // (the second row sits half under the header, and Playwright then scrolls before it clicks)
+    await page.click(".cards .card >> nth=10"); await page.waitForSelector(".mp-top");
     await page.click(".mp-back"); await page.waitForSelector(".cards .card");
-    ok(await page.evaluate(() => window.scrollY) > 200, "Back restores the scroll position", await page.evaluate(() => window.scrollY));
+    ok(await page.evaluate(() => window.scrollY) === 600, "Back restores the scroll position", await page.evaluate(() => window.scrollY));
 
     // --------------------------------------- price range (full UZS)
     await page.goto(PAGE + "#/list"); await page.waitForSelector(".cards .card");
