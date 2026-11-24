@@ -51,7 +51,9 @@ Object.assign(RU, {
   "Print or save as PDF": "Печать или сохранить в PDF",
   "Discount, %": "Скидка, %",
   "none": "нет",
-  "Optional, on the whole selection. Shown on the sheet under the total; not kept.": "Необязательно, на всю подборку. Показывается на листе под итогом; не сохраняется.",
+  "Discount": "Скидка",
+  "On all pieces, %": "На все изделия, %",
+  "Discount on {t}, %": "Скидка на {t}, %",
   "Discount {p}%": "Скидка {p}%",
   "With the discount": "Со скидкой",
   "With the discount, from": "Со скидкой, от",
@@ -191,10 +193,19 @@ function selLine(it) {
     href: "#/model/" + encodeURIComponent(m.model_id) + (it.v ? "?v=" + encodeURIComponent(it.v) : ""),
   };
 }
+// A discount per piece, typed on the selection. In memory only: gone at a lock, never on the device, never in a link.
+S.cartDisc = {};
+const discKey = (it) => it.m + "~" + (it.v || "");
+const parseDisc = (v) => { const n = Number(String(v == null ? "" : v).replace("%", "").replace(",", ".").trim()); return Number.isFinite(n) && n > 0 && n < 100 ? Math.round(n * 10) / 10 : 0; };
+const discOf = (L) => (L && L.it && L.lo != null ? S.cartDisc[discKey(L.it)] || 0 : 0);
+const netOf = (L) => (L.lo == null ? null : L.lo - Math.round(L.lo * discOf(L) / 100));
+const pctText = (d) => String(d).replace(".", LANG === "ru" ? "," : ".") + "%";
+const selNetPrice = (L) => (L.lo == null ? tr("Price on request") : L.lo === L.hi ? fmtAmt(netOf(L)) : tr("from {p}", { p: fmtAmt(netOf(L)) }));
 const selPrice = (L, show) => (!show ? null : L.lo == null ? tr("Price on request") : L.lo === L.hi ? fmtAmt(L.lo) : tr("from {p}", { p: fmtAmt(L.lo) }));
 function selTotal(lines) {
   const priced = lines.filter((L) => L.lo != null);
-  return { sum: priced.reduce((a, L) => a + L.lo, 0), from: priced.some((L) => L.lo !== L.hi) || priced.length < lines.filter((L) => !L.error && !L.loading).length, n: priced.length };
+  const sum = priced.reduce((a, L) => a + L.lo, 0), net = priced.reduce((a, L) => a + netOf(L), 0);
+  return { sum, net, off: sum - net, from: priced.some((L) => L.lo !== L.hi) || priced.length < lines.filter((L) => !L.error && !L.loading).length, n: priced.length };
 }
 const STATE_WORD = { in: "In stock", transit: "In transit", out: "Sold out" };
 const today = () => new Date().toLocaleDateString(LOC(), { day: "numeric", month: "long", year: "numeric" });
@@ -220,7 +231,7 @@ function renderSelection() {
   const row = (L, i) => {
     if (L.loading) return el("div", { class: "sel-row" }, [el("div", { class: "skel" })]);
     const remove = shared ? null : el("button", { class: "btn sm sel-remove", type: "button", "aria-label": tr("Remove") + (L.title ? ": " + L.title : ""),
-      onclick: () => { S.cart.splice(i, 1); cartSave(); toast(tr("Removed from the selection.")); render(); } }, [tr("Remove")]);
+      onclick: () => { delete S.cartDisc[discKey(L.it)]; S.cart.splice(i, 1); cartSave(); toast(tr("Removed from the selection.")); render(); } }, [tr("Remove")]);
     if (L.error) return el("div", { class: "sel-row gone" }, [el("div", { class: "sel-ph" }, [el("img", { src: mono(), alt: "" })]),
       el("div", { class: "sel-main" }, [el("div", { class: "ref", text: tr("Ref.") + " " + (L.it.v || L.it.m) }), el("div", { class: "sel-note", text: L.error })]),
       el("div", { class: "sel-side" }, [L.again ? el("button", { class: "btn sm sel-again", type: "button", onclick: selRetry }, [tr("Try again")]) : null, remove])]);
@@ -235,17 +246,31 @@ function renderSelection() {
         el("dl", { class: "sel-specs" }, [spec(tr("Material"), L.material), spec(tr("Stones"), L.stones), spec(L.sizeLabel, L.size)]),
       ]),
       el("div", { class: "sel-side" }, [
-        showPrices ? el("div", { class: "price", text: selPrice(L, true) }) : el("div", { class: "price", text: "•••" }),
+        el("div", { class: "sel-price", "data-k": discKey(L.it) }, selPriceKids(L, showPrices)),
+        showPrices && !S.client && L.lo != null ? el("label", { class: "sel-disc" }, [el("span", { text: tr("Discount, %") }),
+          el("input", { type: "text", inputmode: "decimal", maxlength: "5", autocomplete: "off", placeholder: "0", "aria-label": tr("Discount on {t}, %", { t: L.title }),
+            value: discOf(L) ? String(discOf(L)) : "",
+            oninput: (e) => { const d = parseDisc(e.target.value); if (d) S.cartDisc[discKey(L.it)] = d; else delete S.cartDisc[discKey(L.it)]; selFigures(lines, showPrices); } })]) : null,
         el("span", { class: "stock " + L.state, text: tr(STATE_WORD[L.state]) }),
         remove,
       ]),
     ]);
   };
+  // The discount boxes are the rep's: not for a client's eyes, and not while the eye hides the prices.
+  const canDisc = showPrices && !S.client && tot.n > 0;
+  const allBox = canDisc && tot.n > 1 ? el("label", { class: "sel-disc all" }, [el("span", { text: tr("On all pieces, %") }),
+    el("input", { type: "text", id: "sel-disc-all", inputmode: "decimal", maxlength: "5", autocomplete: "off", placeholder: "0",
+      oninput: (e) => {
+        const d = parseDisc(e.target.value);
+        for (const L of lines) if (!L.loading && !L.error && L.lo != null) { if (d) S.cartDisc[discKey(L.it)] = d; else delete S.cartDisc[discKey(L.it)]; }
+        document.querySelectorAll("#sel-list .sel-disc input").forEach((inp) => { inp.value = d ? String(d) : ""; });
+        selFigures(lines, showPrices);
+      } })]) : null;
   const total = el("div", { class: "sel-total" }, [
     el("span", { class: "count-line", style: "margin:0", text: tr("{n} pieces", { n: items.length }) }),
+    allBox,
     el("span", { class: "spacer" }),
-    tot.n ? el("span", { class: "lbl", text: tr(tot.from ? "Total, from" : "Total") }) : null,
-    tot.n ? el("span", { class: "sum", id: "sel-sum", text: showPrices ? fmtAmt(tot.sum) : "•••" }) : null,
+    el("div", { class: "sel-sums", id: "sel-sums" }, selSums(lines, showPrices)),
   ]);
   const act = (label, icon, onclick, cls) => el("button", { class: "btn " + (cls || ""), type: "button", disabled: ready ? null : "disabled", onclick }, [icon ? svg(icon) : null, label]);
   const actions = el("div", { class: "sel-actions" }, [
@@ -256,10 +281,35 @@ function renderSelection() {
     S.client ? null : el("button", { class: "btn", type: "button", onclick: () => setClient(true) }, [svg(["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21a8 8 0 0 1 16 0"]), tr("Show to a client")]),
     el("span", { class: "spacer" }),
     shared ? el("button", { class: "btn", type: "button", onclick: () => { S.cart = items.slice(); cartSave(); go("#/selection"); } }, [tr("Keep as my selection")])
-      : el("button", { class: "linkbtn", type: "button", onclick: () => { S.cart = []; cartSave(); toast(tr("Selection cleared.")); render(); } }, [tr("Clear the selection")]),
+      : el("button", { class: "linkbtn", type: "button", onclick: () => { S.cart = []; S.cartDisc = {}; cartSave(); toast(tr("Selection cleared.")); render(); } }, [tr("Clear the selection")]),
   ]);
   const note = shared ? el("p", { class: "page-sub" }, [tr("This list came by link. Yours is untouched."), " ", el("a", { href: "#/selection", text: tr("Back to my selection") })]) : null;
   return [...head, note, actions, el("div", { class: "sel-list", id: "sel-list" }, lines.map(row)), total];
+}
+
+// A line's price: as it is, or the list price struck through, the percentage and what is left.
+function selPriceKids(L, showPrices) {
+  if (!showPrices) return [el("div", { class: "price", text: "•••" })];
+  const d = discOf(L);
+  if (!d) return [el("div", { class: "price", text: selPrice(L, true) })];
+  return [el("div", { class: "was" }, [el("s", { text: selPrice(L, true) }), el("span", { class: "pct", text: "−" + pctText(d) })]), el("div", { class: "price", text: selNetPrice(L) })];
+}
+function selSums(lines, showPrices) {
+  const tot = selTotal(lines);
+  if (!tot.n) return [];
+  const line = (cls, label, value, id) => el("div", { class: "sum-line " + cls }, [el("span", { class: "lbl", text: label }), el("span", { class: "sum", id: id || null, text: showPrices ? value : "•••" })]);
+  if (!tot.off || !showPrices) return [line("net", tr(tot.from ? "Total, from" : "Total"), fmtAmt(tot.sum), "sel-sum")];
+  return [line("gross", tr(tot.from ? "Total, from" : "Total"), fmtAmt(tot.sum), "sel-gross"), line("off", tr("Discount"), "− " + fmtAmt(tot.off), "sel-off"),
+    line("net", tr(tot.from ? "With the discount, from" : "With the discount"), fmtAmt(tot.net), "sel-sum")];
+}
+// A discount is typed into a box that must keep the cursor, so the figures are redrawn in place, not the page.
+function selFigures(lines, showPrices) {
+  for (const L of lines) {
+    if (L.loading || L.error) continue;
+    const host = [...document.querySelectorAll("#sel-list .sel-price")].find((n) => n.getAttribute("data-k") === discKey(L.it));
+    if (host) host.replaceChildren(...selPriceKids(L, showPrices));
+  }
+  const sums = $("#sel-sums"); if (sums) sums.replaceChildren(...selSums(lines, showPrices));
 }
 
 /* ----------------------------------------------------------- the message */
@@ -269,10 +319,12 @@ function selMessage(lines, showPrices) {
   good.forEach((L, i) => {
     out.push((i + 1) + ". " + L.brand + " · " + L.title);
     out.push("   " + [L.kind, L.material, L.stones, L.size ? L.sizeLabel + " " + L.size : null].filter(Boolean).join(" · "));
-    out.push("   " + tr("Ref.") + " " + L.ref + (showPrices ? " · " + selPrice(L, true) : ""));
+    out.push("   " + tr("Ref.") + " " + L.ref + (showPrices ? " · " + selPrice(L, true) + (discOf(L) ? " − " + pctText(discOf(L)) + " = " + selNetPrice(L) : "") : ""));
   });
   const tot = selTotal(good);
-  if (showPrices && tot.n > 1) out.push("", tr(tot.from ? "Total, from" : "Total") + ": " + fmtAmt(tot.sum));
+  if (showPrices && tot.n && (tot.n > 1 || tot.off)) out.push("", tr(tot.from ? "Total, from" : "Total") + ": " + fmtAmt(tot.sum));
+  if (showPrices && tot.off) out.push(tr("Discount") + ": − " + fmtAmt(tot.off), tr(tot.from ? "With the discount, from" : "With the discount") + ": " + fmtAmt(tot.net));
+  if (showPrices && tot.n) out.push("", tr(tot.off ? "Prices and the discount are indicative only and are confirmed at the boutique." : "Prices are indicative only and are confirmed at the boutique."));
   out.push("", BOUTIQUE.name + " · " + BOUTIQUE.address[LANG === "ru" ? 1 : 0], BOUTIQUE.web + " · Telegram " + BOUTIQUE.telegram);
   if (S.session && S.session.name) out.push(S.session.name);
   return out.join("\n");
@@ -289,7 +341,7 @@ async function copyText(text, done) {
 /* -------------------------------------------------------------- the sheet */
 // A small panel first: who it is for and whether prices show. Nothing typed here is kept.
 function openSheetOptions(lines) {
-  S.selSheet = { who: "", prices: !S.hide, discount: "", lines };
+  S.selSheet = { who: "", prices: !S.hide, lines, busy: false };
   layerOpened();
   renderSheetOptions();
 }
@@ -306,9 +358,6 @@ function renderSheetOptions() {
       el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-who", text: tr("Prepared for") }), who,
         el("p", { class: "sel-hint", id: "sheet-who-hint", text: tr("Left empty, the sheet says “{d}”.", { d: tr("Delardi client") }) })]),
       el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", id: "sheet-prices", checked: o.prices ? "checked" : null, onchange: (e) => { o.prices = e.target.checked; } }), tr("Show prices")])]),
-      el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-discount", text: tr("Discount, %") }),
-        el("input", { type: "text", id: "sheet-discount", inputmode: "decimal", maxlength: "5", autocomplete: "off", value: o.discount, placeholder: tr("none"), oninput: (e) => { o.discount = e.target.value; } }),
-        el("p", { class: "sel-hint", text: tr("Optional, on the whole selection. Shown on the sheet under the total; not kept.") })]),
       el("p", { class: "sel-hint", text: tr("In the print window choose “Save as PDF”. On an iPad: Print, then spread two fingers on the preview and share it.") }),
     ]),
     el("footer", {}, [
@@ -317,9 +366,13 @@ function renderSheetOptions() {
         // The print window takes the page as it is at that instant, and a picture just put on the sheet has not arrived yet:
         // the sheet is built, its pictures are waited for, and only then does it go to print.
         const btn = e.currentTarget; if (btn.disabled) return;
+        // what the sheet says is fixed here: the name and the prices switch are held until it has gone to print
+        const held = [...document.querySelectorAll(".sel-sheet input")];
+        held.forEach((i) => { i.disabled = true; });
         btn.disabled = true; btn.textContent = tr("Preparing…");
-        buildPrintSheet(o.lines, { who: o.who.trim(), prices: o.prices, discount: sheetDiscount(o.discount) });
+        buildPrintSheet(o.lines, { who: o.who.trim(), prices: o.prices });
         await sheetPictures();
+        held.forEach((i) => { i.disabled = false; });
         btn.disabled = false; btn.textContent = tr("Print or save as PDF");
         if (S.selSheet === o) window.print();
       }, text: tr("Print or save as PDF") }),
@@ -328,20 +381,19 @@ function renderSheetOptions() {
   layer.append(el("div", { class: "sheet-scrim", onclick: closeSheetOptions }), panel);
   setTimeout(() => who.focus(), 60);
 }
-// What was typed as a discount, as a percentage above 0 and below 100; anything else is no discount.
-function sheetDiscount(v) {
-  const n = Number(String(v || "").replace("%", "").replace(",", ".").trim());
-  return Number.isFinite(n) && n > 0 && n < 100 ? Math.round(n * 10) / 10 : 0;
-}
 // Every picture on the sheet loaded and decoded, or given up on: a photo that will not come within a few seconds
 // (or at all) must not hold the sheet back, and gives way to the monogram.
 function sheetPictures(limit = 6000) {
-  const one = (img) => new Promise((done) => {
-    const settle = () => { if (!img.naturalWidth && !img.classList.contains("mono")) { img.src = MONO_NAVY; img.className = "mono"; } done(); };
-    if (img.complete) { (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(settle); return; }
-    img.addEventListener("load", () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(settle), { once: true });
-    img.addEventListener("error", settle, { once: true });
-  });
+  const decoded = (img) => (img.decode ? img.decode().catch(() => {}) : Promise.resolve());
+  const loaded = (img) => (img.complete ? decoded(img) : new Promise((done) => {
+    img.addEventListener("load", () => decoded(img).then(done), { once: true });
+    img.addEventListener("error", done, { once: true });
+  }));
+  // a photo that did not come gives way to the monogram, and the monogram is waited for in its turn
+  const one = async (img) => {
+    await loaded(img);
+    if (!img.naturalWidth && !img.classList.contains("mono")) { img.className = "mono"; img.src = MONO_NAVY; await loaded(img); }
+  };
   const all = Promise.all([...document.querySelectorAll("#print img")].map(one));
   return Promise.race([all, new Promise((done) => setTimeout(done, limit))]);
 }
@@ -353,8 +405,8 @@ function buildPrintSheet(lines, opts) {
   const brands = [...new Set(good.map((L) => L.brand))];
   const logos = brands.map((b) => (brandLogo(b) ? el("img", { src: brandLogo(b), alt: b, loading: "eager", decoding: "sync" }) : el("span", { text: b })));
   const tot = selTotal(good);
-  const disc = opts.prices && opts.discount > 0 ? opts.discount : 0;
-  const off = Math.round(tot.sum * disc / 100);
+  const disc = opts.prices && tot.off > 0;
+  const off = tot.off;
   host.append(
     el("header", { class: "ps-head" }, [
       el("img", { class: "ps-mark", src: WORDMARK_NAVY, alt: "Delardi", loading: "eager", decoding: "sync" }),
@@ -374,12 +426,14 @@ function buildPrintSheet(lines, opts) {
         el("div", { class: "ps-specs", text: [L.material, L.stones, L.size ? L.sizeLabel + " " + L.size : null].filter(Boolean).join(" · ") }),
         el("div", { class: "ps-ref", text: tr("Ref.") + " " + L.ref }),
       ]),
-      el("div", { class: "ps-side" }, [el("div", { class: "ps-no", text: String(i + 1) }), opts.prices ? el("div", { class: "ps-price", text: selPrice(L, true) }) : null]),
+      el("div", { class: "ps-side" }, [el("div", { class: "ps-no", text: String(i + 1) }), opts.prices ? el("div", { class: "ps-prices" }, [
+        discOf(L) ? el("div", { class: "ps-was" }, [el("s", { text: selPrice(L, true) }), el("span", { text: " −" + pctText(discOf(L)) })]) : null,
+        el("div", { class: "ps-price", text: discOf(L) ? selNetPrice(L) : selPrice(L, true) })]) : null]),
     ]))),
     // with a discount the total always shows, then the discount and what is left, even for a single piece
     opts.prices && tot.n && (tot.n > 1 || disc) ? el("div", { class: "ps-total" + (disc ? " before" : "") }, [el("span", { text: tr(tot.from ? "Total, from" : "Total") }), el("b", { text: fmtAmt(tot.sum) })]) : null,
-    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-disc" }, [el("span", { text: tr("Discount {p}%", { p: String(disc).replace(".", LANG === "ru" ? "," : ".") }) }), el("span", { class: "ps-off", text: "− " + fmtAmt(off) })]) : null,
-    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-net" }, [el("span", { text: tr(tot.from ? "With the discount, from" : "With the discount") }), el("b", { text: fmtAmt(tot.sum - off) })]) : null,
+    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-disc" }, [el("span", { text: tr("Discount") }), el("span", { class: "ps-off", text: "− " + fmtAmt(off) })]) : null,
+    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-net" }, [el("span", { text: tr(tot.from ? "With the discount, from" : "With the discount") }), el("b", { text: fmtAmt(tot.net) })]) : null,
     el("footer", { class: "ps-foot" }, [
       logos.length ? el("div", { class: "ps-logos" }, logos) : null,
       el("div", { class: "ps-small" }, [
