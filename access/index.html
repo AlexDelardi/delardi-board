@@ -466,6 +466,8 @@ const RU = {
   "A new passcode for {name}?": "Новый код для: {name}?", "The current passcode stops working at once and they are signed out everywhere.": "Текущий код сразу перестанет работать, человек выйдет из системы везде.",
   "Issue it": "Выдать", "Passcode for {name}": "Код доступа: {name}", "New passcode for {name}": "Новый код доступа: {name}",
   "Give it to them now. You can look it up again on their card.": "Передайте его сейчас. Позже код можно посмотреть в карточке человека.",
+  "This is your own passcode, and you are signed out now. Note it before you close this: you will need it to sign in again.": "Это ваш собственный код доступа, и вы уже вышли из системы. Запишите его до закрытия окна: он понадобится для входа.",
+  "Sign in with your new passcode.": "Войдите с новым кодом доступа.",
   "{name} is added.": "{name}: добавлен.",
   "Passcodes cannot be issued or shown yet: the passcode key is not set up.": "Коды пока нельзя выдавать и показывать: ключ для кодов не настроен.",
   "This passcode was set earlier and cannot be shown. Issue a new one.": "Этот код задан ранее, показать его нельзя. Выдайте новый.",
@@ -903,7 +905,9 @@ async function addPerson() {
   try {
     const person = { name: P.form.name, role: P.form.role, rep: P.form.rep };
     if (P.form.copy_from) person.copy_from = P.form.copy_from;
+    const tok = S.token;
     const r = await api("save_person", { person });
+    if (gone(tok)) return;                         // locked while the answer was on its way: the passcode is not shown
     putPerson(r.person);
     if (S.panel === P) closePanel();
     toast(tr("{name} is added.", { name: r.person.name }));
@@ -930,10 +934,25 @@ async function switchPerson() {
   } catch (e) { toast(e.message, true); }
 }
 // A passcode on screen: in a dialog of its own, built from the value and dropped with the dialog.
-function showCode(title, code) {
-  modal("code-dialog", title, [codeBox(code, "code-out"), el("p", { class: "small", text: tr("Give it to them now. You can look it up again on their card.") })],
+// own: the passcode is the reader's own, and issuing it ended their session. The page stays as it is while they read
+// it, asks the server for nothing, and returns to the gate when the dialog is closed, whichever way it is closed.
+function showCode(title, code, own) {
+  const note = own ? "This is your own passcode, and you are signed out now. Note it before you close this: you will need it to sign in again."
+    : "Give it to them now. You can look it up again on their card.";
+  modal("code-dialog", title, [codeBox(code, "code-out"), el("p", { class: "small", id: "code-note", text: tr(note) })],
     [el("button", { type: "button", class: "btn primary", id: "code-ok", onclick: () => { const h = $("#code-dialog"); if (h) h.remove(); }, text: tr("Close") })], "confirm");
+  if (!own) return;
+  const host = $("#code-dialog");
+  const seen = new MutationObserver(() => {
+    if (host.isConnected) return;
+    seen.disconnect();
+    if (!S.locked) lockDown(tr("Sign in with your new passcode."));
+  });
+  seen.observe(document.body, { childList: true });
 }
+// True when the page was locked, or signed in afresh, since the token was read: an answer to a request sent before that
+// belongs to a session that is over.
+const gone = (tok) => S.locked || S.token !== tok;
 async function showPasscode() {
   const P = S.panel;
   if (!P || !P.person) return;
@@ -941,8 +960,9 @@ async function showPasscode() {
   if (box.firstChild) { box.innerHTML = ""; btn.textContent = tr("Show passcode"); return; }
   btn.disabled = true;
   try {
+    const tok = S.token;
     const r = await api("show_passcode", { person_id: P.person.person_id });
-    if (S.panel !== P || !$("#pass-shown")) return;
+    if (gone(tok) || S.panel !== P || !$("#pass-shown")) return;
     $("#pass-shown").append(codeBox(r.passcode, "pass-out"));
     $("#pass-show").textContent = tr("Hide");
     loadDoc(true);
@@ -956,12 +976,14 @@ async function newPasscode() {
   const yes = await confirmBox({ title: tr("A new passcode for {name}?", { name: p.name }), body: tr("The current passcode stops working at once and they are signed out everywhere."), ok: tr("Issue it") });
   if (!yes || S.panel !== P) return;
   try {
+    const tok = S.token, own = isMe(p);
     const r = await api("new_passcode", { person_id: p.person_id });
+    if (gone(tok)) return;                         // locked while the answer was on its way: the passcode is not shown
     putPerson(r.person);
     if (S.panel === P) { P.person = r.person; renderPanel(); }
     renderAll();
-    showCode(tr("New passcode for {name}", { name: p.name }), r.passcode);
-    loadDoc(true);
+    showCode(tr("New passcode for {name}", { name: p.name }), r.passcode, own);
+    if (!own) loadDoc(true);                       // their own session ended with the old passcode: nothing more to ask
   } catch (e) { toast(e.message, true); }
 }
 
