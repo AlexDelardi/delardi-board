@@ -63,7 +63,7 @@ function str(v: unknown, max: number): string | null {
 }
 
 // The same checks as crm-api's requireSession.
-async function requireSession(token: unknown): Promise<{ name: string; repLabel: string | null }> {
+async function requireSession(token: unknown): Promise<{ name: string; repLabel: string | null; canPick: boolean }> {
   const t = str(token, 100);
   if (!t || t.length < 20) throw new HttpErr(401, "Enter your passcode to open the instrument.");
   const rows = await db(`editor_sessions?token=eq.${encodeURIComponent(t)}&select=display_name,expires_at,can_view_crm`);
@@ -74,10 +74,11 @@ async function requireSession(token: unknown): Promise<{ name: string; repLabel:
   }
   if (!rows[0].can_view_crm) throw new HttpErr(403, "This account does not have access to the CRM.");
   const name = rows[0].display_name as string;
-  const users = await db(`board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_crm,crm_rep_label`);
+  const users = await db(`board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_crm,crm_rep_label,can_view_all_cockpits`);
   const user = users?.[0];
   if (!user || !user.can_view_crm) throw new HttpErr(403, "This account does not have access to the CRM.");
-  return { name, repLabel: str(user.crm_rep_label, 40) };
+  // canPick: may choose whose cockpit to look at (board_users.can_view_all_cockpits)
+  return { name, repLabel: str(user.crm_rep_label, 40), canPick: !!user.can_view_all_cockpits };
 }
 
 async function handle(body: Record<string, unknown>) {
@@ -85,21 +86,25 @@ async function handle(body: Record<string, unknown>) {
   if (action === "health") return { ok: true };
   if (action !== "cockpit") throw new HttpErr(400, "Unknown action.");
 
-  // A login that is a rep gets its own cockpit; a login that is not a rep names the
-  // rep to look at, and with no name gets the list of reps to choose from. Everyone
-  // here can already see every client, so a colleague's cockpit shows nothing new.
+  // A sales rep opens her own cockpit. A login with the right to choose (the director, the store manager, marketing)
+  // may name any rep, and starts on its own if it is a rep too. A login with neither has no cockpit.
   const sess = await requireSession(body.token);
   const reps = (await db("crm_sales_reps?select=label,active&active=is.true&order=label")) as Array<{ label: string }>;
-  const active = (reps ?? []).map((r) => r.label).filter((x) => !!x);
-  const rep = str(body.rep, 40) ?? sess.repLabel;
-  if (!rep) return { rep: null, own: null, reps: active };
-  if (!active.some((l) => l.toLowerCase() === rep.toLowerCase()) && rep !== sess.repLabel) {
+  const active = sess.canPick ? (reps ?? []).map((r) => r.label).filter((x) => !!x) : [];
+  const asked = str(body.rep, 40);
+  const mine = sess.repLabel;
+  if (asked && !sess.canPick && asked.toLowerCase() !== (mine ?? "").toLowerCase()) {
+    throw new HttpErr(409, "Your account opens its own cockpit only.");
+  }
+  const rep = sess.canPick ? (asked ?? mine) : mine;
+  if (!rep) return { rep: null, own: mine, reps: active, can_pick: sess.canPick };
+  if (sess.canPick && !active.some((l) => l.toLowerCase() === rep.toLowerCase()) && rep !== mine) {
     throw new HttpErr(404, "No sales rep with that name.");
   }
   // "today" is the shop's day, not the server's: Tashkent is five hours ahead of UTC
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
   const doc = await db("rpc/crm_cockpit", { method: "POST", body: JSON.stringify({ p_rep: rep, p_today: today }) });
-  return { ...doc, own: sess.repLabel, reps: active };
+  return { ...doc, own: mine, reps: active, can_pick: sess.canPick };
 }
 
 Deno.serve(async (req: Request) => {

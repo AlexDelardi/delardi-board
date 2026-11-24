@@ -2,7 +2,7 @@
 // real person, and the sales people's names are invented too. It serves the
 // screens the tests drive: the list, the card, the checklists, and adding a
 // client by hand (with the duplicate guard).
-const TOKEN = "d".repeat(64), TOKEN_VIEW = "v".repeat(64), TOKEN_REP = "r".repeat(64);
+const TOKEN = "d".repeat(64), TOKEN_VIEW = "v".repeat(64), TOKEN_REP = "r".repeat(64), TOKEN_MANAGER = "m".repeat(64);
 // v12: sales people are shown by name, former ones kept and marked as left.
 const reps = [
   { label: "Nodira T.", active: false }, { label: "Sevara U.", active: false },
@@ -298,12 +298,13 @@ function handle(body) {
   const a = body.action;
   if (a === "unlock") {
     if (body.passcode === "viewer") return [200, { token: TOKEN_VIEW, name: "Viewer", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_edit: false }];
+    if (body.passcode === "manager") return [200, { token: TOKEN_MANAGER, name: "Dilnoza A.", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_edit: true }];
     if (body.passcode === "rep") return [200, { token: TOKEN_REP, name: "Dilnoza A.", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_edit: true }];
     return [200, { token: TOKEN, name: "Tester", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_edit: true }];
   }
-  if (![TOKEN, TOKEN_VIEW, TOKEN_REP].includes(body.token)) return [401, { error: "That session is not valid. Enter your passcode again." }];
+  if (![TOKEN, TOKEN_VIEW, TOKEN_REP, TOKEN_MANAGER].includes(body.token)) return [401, { error: "That session is not valid. Enter your passcode again." }];
   const editor = body.token !== TOKEN_VIEW;
-  const actor = body.token === TOKEN_REP ? "Dilnoza A." : body.token === TOKEN_VIEW ? "Viewer" : "Tester";
+  const actor = body.token === TOKEN_REP || body.token === TOKEN_MANAGER ? "Dilnoza A." : body.token === TOKEN_VIEW ? "Viewer" : "Tester";
   if (a === "client_add") {
     if (!editor) return [403, { error: "Your account can view client records but not change them." }];
     return clientAdd(body, actor);
@@ -327,7 +328,7 @@ function handle(body) {
   // does not, which is how Karina and Ellona stand on the real system.
   const canExport = body.token === TOKEN;
   if (a === "reference") return [200, { name: actor, can_edit: editor, can_import: false, can_export: canExport,
-    my_rep: body.token === TOKEN_REP ? REP_A : null, sales_reps: reps,
+    my_rep: body.token === TOKEN_REP || body.token === TOKEN_MANAGER ? REP_A : null, sales_reps: reps,
     value_mappings: [], totals: totals(), activity: { week: 23, today: 6 } }];
   if (a === "export") {
     if (!canExport) return [403, { error: "Your account cannot download client lists." }];
@@ -361,12 +362,18 @@ function handle(body) {
   // v13: enough of an Insights payload to render the page, so the birthdays
   // block (and the month download in it) can be checked like anything else.
   if (a === "cockpit") {
-    const own = body.token === TOKEN_REP ? REP_A : null, rep = body.rep || own, reps = [REP_A, REP_B];
-    if (!rep) return [200, { rep: null, own: null, reps }];
-    if (!reps.includes(rep)) return [404, { error: "No sales rep with that name." }];
+    // the stand-in's logins: the rep opens her own only; the manager is a rep who may choose; the director may choose;
+    // a viewer has neither
+    const own = body.token === TOKEN_REP || body.token === TOKEN_MANAGER ? REP_A : null;
+    const canPick = body.token === TOKEN || body.token === TOKEN_MANAGER;
+    const all = [REP_A, REP_B], reps = canPick ? all : [];
+    if (body.rep && !canPick && body.rep !== own) return [409, { error: "Your account opens its own cockpit only." }];
+    const rep = canPick ? (body.rep || own) : own;
+    if (!rep) return [200, { rep: null, own, reps, can_pick: canPick }];
+    if (!all.includes(rep)) return [404, { error: "No sales rep with that name." }];
     const mine = DB.map(queueRow).filter((r) => r.client_owner === rep && !["merged", "deleted"].includes(r.review_status));
     const id = (i) => (mine[i] || mine[0]).client_id, nm = (i) => (mine[i] || mine[0]).display_name;
-    return [200, { rep, own, reps, as_of: "2026-10-16", days: 230,
+    return [200, { rep, own, reps, can_pick: canPick, as_of: "2026-10-16", days: 230,
       summary: { clients: mine.length, spend: mine.reduce((t, r) => t + (r.lifetime_spend_uzs || 0), 0), contacted_30d: 2, never_contacted: 3, overdue: 1, dates_next_30: 2, follow_ups: 2, missed_open: 1 },
       dates: [
         { client_id: id(1), name: nm(1), kind: "child_birthday", label: null, on: "2026-10-13", in_days: -3, confirmed: true, years: null, do_not_contact: false },
