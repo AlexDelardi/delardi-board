@@ -727,6 +727,28 @@ const measure = (page, scope) => page.evaluate((scope) => {
     await ctx.close();
   }
 
+  {
+    // who may choose whose cockpit: a rep sees her own, a manager who is also a rep starts on her own and may switch,
+    // a login with neither has none
+    let { ctx, page, calls, errors } = await setup(browser, { width: 1180, height: 820 }, { pass: "manager", view: "cockpit" });
+    await page.waitForSelector("#ck-dates");
+    check("cockpit manager: opens on her own clients, with the rep picker set to her", (await page.textContent("#ck-title")).trim() === "Dilnoza A. · my clients"
+      && (await page.$eval("#ck-rep", (s) => s.value)) === "Dilnoza A." && (await page.$$eval(".view-tab", (ts) => ts[1].textContent.trim())) === "My clients");
+    await page.selectOption("#ck-rep", "Malika B.");
+    await page.waitForFunction(() => { const t = document.querySelector("#ck-title"); return !!t && /Malika B\. · clients/.test(t.textContent); });
+    check("cockpit manager: can look at a colleague's", calls.some((c) => c.action === "cockpit" && c.rep === "Malika B.") && !!(await page.$("#ck-rep")) && errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    ({ ctx, page, calls, errors } = await setup(browser, { width: 1180, height: 820 }, { pass: "rep", view: "cockpit" }));
+    await page.waitForSelector("#ck-dates");
+    check("cockpit rep: her own only, no picker", !(await page.$("#ck-rep")) && (await page.textContent("#ck-title")).trim() === "Dilnoza A. · my clients");
+    await ctx.close();
+    ({ ctx, page, calls, errors } = await setup(browser, { width: 1180, height: 820 }, { pass: "viewer", view: "cockpit" }));
+    await page.waitForSelector("#ck-none");
+    check("cockpit viewer: no cockpit and no picker, said plainly", !(await page.$("#ck-rep")) && !(await page.$("#ck-dates"))
+      && /for sales reps and their managers/.test(await page.textContent("#ck-none")) && errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+
   await browser.close();
   console.log(results.join("\n"));
   console.log("\n" + pass + " passed, " + fail + " failed");

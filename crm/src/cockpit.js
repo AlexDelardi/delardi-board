@@ -36,7 +36,8 @@ Object.assign(RU, {
   "Asked": "Спросили", "Request": "Запрос",
   "My clients by value": "Мои клиенты по ценности", "Clients by value": "Клиенты по ценности", "The first {n}, highest lifetime spend first.": "Первые {n}, сначала самые ценные.",
   "Open all {n} in the list": "Открыть все {n} в списке", "Last contact": "Последний контакт", "No clients are attached yet.": "Клиенты пока не закреплены.",
-  "Unnamed record": "Запись без имени", "Amount": "Сумма", "Clients": "Клиенты",
+  "Unnamed record": "Запись без имени",
+  "The cockpit is for sales reps and their managers. This login has no clients of its own.": "Кабинет предназначен для продавцов и их руководителей. За этим логином клиенты не закреплены.", "Amount": "Сумма", "Clients": "Клиенты",
 });
 PL.year = PL.year || { en: ["year", "years"], ru: ["год", "года", "лет"] };
 
@@ -163,7 +164,11 @@ function renderCockpit() {
   const host = $("#cockpit-host");
   if (!host) return;
   host.innerHTML = "";
-  const k = S.ck || {}, d = k.doc, own = ckIsOwn();
+  const k = S.ck || {}, d = k.doc;
+  // own: the cockpit on screen is this login's own. pick: this login may choose whose to look at (an older answer
+  // without the flag meant "anyone who is not a rep").
+  const pick = d ? (d.can_pick !== undefined ? !!d.can_pick : !d.own) : false;
+  const own = !!(d && d.rep && d.own && d.rep === d.own);
   if (k.error) {
     host.append(el("div", { class: "empty" }, [el("h3", { text: tr("Could not load the cockpit.") }), el("p", { text: k.error }),
       el("button", { class: "btn", type: "button", onclick: () => loadCockpit(), text: tr("Try again") })]));
@@ -171,10 +176,11 @@ function renderCockpit() {
   }
   if (!d) { host.append(el("p", { class: "empty-line", text: tr("Loading the cockpit…") })); return; }
   const head = el("div", { class: "ck-head" }, [
-    el("h2", { class: "ins-h2", id: "ck-title", text: d.rep ? tr(own && d.rep === d.own ? "{rep} · my clients" : "{rep} · clients", { rep: who(d.rep) }) : tr("Cockpit") }),
-    own ? null : ckPicker(d)]);
+    el("h2", { class: "ins-h2", id: "ck-title", text: d.rep ? tr(own ? "{rep} · my clients" : "{rep} · clients", { rep: who(d.rep) }) : tr("Cockpit") }),
+    pick ? ckPicker(d) : null]);
   if (!d.rep) {
-    host.append(head, el("p", { class: "lede", text: tr("Choose a sales rep to see their dates, who to contact and follow-ups.") }));
+    host.append(head, el("p", { class: "lede", id: "ck-none", text: tr(pick ? "Choose a sales rep to see their dates, who to contact and follow-ups."
+      : "The cockpit is for sales reps and their managers. This login has no clients of its own.") }));
     return;
   }
   host.setAttribute("aria-busy", k.loading ? "true" : "false");
