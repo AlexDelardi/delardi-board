@@ -107,6 +107,7 @@ async function shot(page, name) {
 (async () => {
   const browser = await chromium.launch();
   const run = async (name, fn) => {
+    if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
     try { await fn(); } catch (e) { check(name + " (ran to the end)", false, e.message.split("\n")[0]); }
   };
 
@@ -1500,6 +1501,78 @@ async function shot(page, name) {
     await b.page.waitForSelector("#main .notice");
     check("sale: no right to sell → a kit .notice, not .notice-box", !(await b.page.$(".notice-box")) && /cannot make sales/.test(await b.page.textContent("#main .notice")));
     await b.ctx.close();
+  });
+
+  // Phones (guideline v2, section 4): one slim navy row with a menu button, the tabs pinned, nothing wider than the screen.
+  for (const [w, h] of [[390, 844], [360, 720]]) {
+    await run("phone " + w, async () => {
+      const L = "phone " + w;
+      const { ctx, page, errors } = await setup(browser, { width: w, height: h }, { touch: true });
+      const noH = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+      const small = (sel) => page.$$eval(sel, (xs) => xs.filter((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && (r.height < 43.5 || r.width < 43.5); }).map((x) => (x.id || x.textContent || x.className).trim().slice(0, 24)));
+      const tiny = () => page.$$eval("#app *", (ns) => ns.filter((n) => n.children.length === 0 && n.textContent.trim() && n.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(n).fontSize) < 11).map((n) => n.textContent.trim().slice(0, 20)));
+      const pinned = () => page.evaluate(() => { window.scrollTo(0, 400); const t = document.querySelector("header.top").getBoundingClientRect(); return [Math.round(Math.max(0, t.bottom)), window.innerHeight, window.scrollY]; });
+      const TAPS = "#app button, #app a.kit-tab, #app select, #app input:not([type=hidden]):not([type=checkbox])";
+      // clipped is as bad as scrolling: nothing drawn in the page may reach past the right edge
+      const cut = () => page.$$eval("#main *", (ns) => ns.filter((n) => { const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > window.innerWidth + 1 && !n.closest(".kit-tabs"); }).map((n) => (n.className || n.tagName) + " " + n.textContent.trim().slice(0, 16)).slice(0, 4));
+      check(L + ": the header is one navy row of 56 px with a menu button", !!(await page.$("#menu-btn")) && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
+      check(L + ": tools, language and lock are not in the bar", !(await page.$(".kit-head .kit-lang")) && !(await page.$(".kit-head .kit-tool-wrap")) && !/Lock/.test(await page.textContent(".kit-head")));
+      check(L + ": the menu button is 44 px and says what it is", (await page.$eval("#menu-btn", (n) => { const r = n.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && n.getAttribute("aria-label") === "Menu" && n.getAttribute("aria-expanded") === "false"; })));
+      check(L + ": the sale screen does not scroll sideways", await noH());
+      await page.fill("#q", "2000000000031"); await page.press("#q", "Enter"); await page.waitForSelector("#lines .line");
+      await page.fill("#q", "ZZ.00.2");
+      await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
+      check(L + ": the menu holds the person, the tools, the language and the lock", !!(await page.$("#head-menu .kit-tool-wrap")) && !!(await page.$("#head-menu .kit-lang")) && /Till Manager/.test(await page.textContent("#head-menu")) && /Lock/.test(await page.textContent("#head-menu")));
+      check(L + ": the open menu is marked on its button", (await page.getAttribute("#menu-btn", "aria-expanded")) === "true");
+      check(L + ": opening the menu keeps the sale and what is being typed", (await page.$$("#lines .line")).length === 1 && (await page.inputValue("#q")) === "ZZ.00.2");
+      check(L + ": everything in the menu is 44 px", (await small("#head-menu button, #head-menu a")).length === 0, (await small("#head-menu button, #head-menu a")).join());
+      await page.keyboard.press("Escape");
+      check(L + ": Escape closes the menu and returns to its button", !(await page.$("#head-menu")) && await page.evaluate(() => document.activeElement.id === "menu-btn"));
+      await page.fill("#q", "");
+      check(L + ": everything to tap on the sale is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+      check(L + ": no text under 11 px on the sale", (await tiny()).length === 0, (await tiny()).join());
+      const [pin, vh, sy] = await pinned();
+      check(L + ": scrolled, only the tabs and the training line stay pinned (under 15% of the screen)", sy > 0 ? pin > 40 && pin <= vh * 0.15 : true, pin + " of " + vh);
+      check(L + ": scrolled, the navy row is gone and the tabs are still there", sy > 0 ? await page.evaluate(() => document.querySelector(".kit-head").getBoundingClientRect().bottom <= 1 && document.querySelector(".kit-tabs").getBoundingClientRect().top >= -1) : true);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await shot(page, "p01-sale-" + w);
+      for (const [hash, name] of [["#/pay", "payment"], ["#/tickets", "tickets"], ["#/ticket/30000000-0000-4000-8000-000000000002", "ticket"], ["#/admin", "admin"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash); await page.waitForTimeout(250);
+        check(L + ": " + name + " does not scroll sideways", await noH());
+        check(L + ": nothing on " + name + " is cut off at the right", (await cut()).length === 0, (await cut()).join(" | "));
+        check(L + ": everything to tap on " + name + " is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+        check(L + ": no text under 11 px on " + name, (await tiny()).length === 0, (await tiny()).join());
+        await shot(page, "p02-" + name + "-" + w);
+      }
+      // Russian runs longer: the same screens again
+      await page.click("#menu-btn"); await page.click('#head-menu .kit-lang button[lang="ru"]'); await page.waitForTimeout(200);
+      check(L + ": choosing a language closes the menu", !(await page.$("#head-menu")) && (await page.textContent(".kit-tool")).trim() === "Продажи");
+      check(L + " RU: the header is still one row of 56 px", (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
+      check(L + " RU: the tabs are on one row", (await page.$eval(".kit-tabs", (n) => Math.round(n.getBoundingClientRect().height))) <= 50);
+      for (const [hash, name] of [["#/admin", "admin"], ["#/tickets", "tickets"], ["#/sale", "sale"], ["#/pay", "payment"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash); await page.waitForTimeout(250);
+        check(L + " RU: " + name + " does not scroll sideways", await noH());
+        check(L + " RU: nothing on " + name + " is cut off at the right", (await cut()).length === 0, (await cut()).join(" | "));
+        if (name === "sale") check(L + " RU: the sale's foot is not pinned over the lines", await page.evaluate(() => getComputedStyle(document.querySelector(".foot")).position !== "sticky") && await page.$eval("#to-pay", (n) => n.getBoundingClientRect().width > window.innerWidth * 0.8));
+        if (name === "tickets") check(L + " RU: each ticket filter has its full width", await page.$$eval(".tk-filters > select", (ns) => ns.every((n) => n.getBoundingClientRect().width > window.innerWidth * 0.8)));
+        check(L + " RU: everything to tap on " + name + " is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+        await shot(page, "p03-ru-" + name + "-" + w);
+      }
+      const [pinR, vhR, syR] = await pinned();
+      check(L + " RU: the pinned part stays under 15% of the screen", syR > 0 ? pinR <= vhR * 0.15 : true, pinR + " of " + vhR);
+      check(L + ": no script errors", errors.length === 0, errors.join());
+      await ctx.close();
+    });
+  }
+  await run("phone to tablet", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 390, height: 844 }, { touch: true });
+    await page.fill("#q", "2000000000031"); await page.press("#q", "Enter"); await page.waitForSelector("#lines .line");
+    await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
+    await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(200);
+    check("phone turned: the full header comes back, the menu button goes", !(await page.$("#menu-btn")) && !(await page.$("#head-menu")) && !!(await page.$(".kit-head .kit-lang")));
+    check("phone turned: the sale is still on screen", (await page.$$("#lines .line")).length === 1);
+    check("phone turned: no script errors", errors.length === 0, errors.join());
+    await ctx.close();
   });
 
   await browser.close();

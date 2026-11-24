@@ -467,6 +467,24 @@ a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
   .sg .sg-p { grid-column: 2; grid-row: 1 / 3; }
   .hide-sm { display: none !important; }
 }
+/* phone (up to 599 px): the slim header comes from the kit; here the till's own screens */
+@media (max-width: 599px) {
+  .title { font-size: 24px; }
+  /* the foot scrolls with the sale instead of covering its lines; the way on is one full-width button */
+  .foot { position: static; padding-top: 12px; }
+  .foot .client-slot { flex: 1 1 100%; }
+  .foot .total { flex: 1 1 100%; margin-left: 0; }
+  .foot #to-pay { flex: 1 1 100%; }
+  /* ticket filters: the dates side by side, every list on its own row */
+  .tk-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px 8px; }
+  .tk-filters > .tk-date-f { grid-column: span 1; }
+  .tk-filters > select { grid-column: 1 / -1; }
+  .tk-sum, .tk-pad { padding-left: 16px; padding-right: 16px; }
+  .tk-list tbody tr { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "no no net" "client client st" "date date date" "src seller seller" "items items items"; }
+  .tk-list td.tk-seller, .tk-list td.tk-client, .tk-list td.tk-items { overflow: hidden; text-overflow: ellipsis; }
+  .tk-list td.tk-items { white-space: normal; }
+  .tk-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px; }
+}
 @media (max-width: 480px) {
   .lines > .line { grid-template-columns: minmax(0, 1fr) 80px var(--tap); grid-template-areas: "info info x" "price disc disc" "net net net"; }
   .pay-row { grid-template-columns: minmax(0, 1fr) var(--tap); }

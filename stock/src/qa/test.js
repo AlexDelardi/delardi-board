@@ -1281,14 +1281,14 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await run("piece panel widths " + vp.width, async () => {
       const { ctx, page, errors } = await setup(browser, vp);
       await settled(page);
+      if (vp.width < 600) await page.click("#menu-btn");   // a phone keeps the language behind the menu button
       await page.click(".kit-lang .kit-hbtn[lang=ru]");
       await settled(page);
       const sp = pieceOf("sold");
       await openId(page, sp.piece_id);
       const w = await page.$eval("#piece-panel .panel", (n) => Math.round(n.getBoundingClientRect().width));
       check(`piece panel ${vp.width}: width ${vp.width < 600 ? "is the full width" : "is 560"}`, w === (vp.width < 600 ? vp.width : 560), String(w));
-      // the list behind the panel is built for iPad widths; under 600 only the panel itself is held to it
-      const pageOk = async () => vp.width < 600 || (await noHScroll(page));
+      const pageOk = () => noHScroll(page);   // the list behind the panel fits a phone as well
       check(`piece panel ${vp.width}: no sideways scroll`, (await pageOk()) && await page.$eval("#piece-panel .panel", (n) => n.scrollWidth <= n.clientWidth + 1));
       const long = pieceOf("in_stock", (p) => p.model_name === mock.LONG_NAME);
       if (long) {
@@ -2115,6 +2115,93 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
   await run("kit css", async () => {
     const r = require("child_process").spawnSync(process.execPath, [path.join(__dirname, "..", "..", "..", "qa", "kit.cjs")], { encoding: "utf8" });
     check("kit: node qa/kit.cjs exits 0", r.status === 0, (r.stderr || r.stdout).trim().split("\n")[0]);
+  });
+
+  // Phones (guideline v2, section 4): one slim navy row with a menu button, the tabs pinned, tables that scroll in their own box.
+  for (const [w, h] of [[390, 844], [360, 720]]) {
+    await run("phone " + w, async () => {
+      const L = "phone " + w;
+      const { ctx, page, errors } = await setup(browser, { width: w, height: h }, { touch: true });
+      await settled(page);
+      const noH = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+      const small = (sel) => page.$$eval(sel, (xs) => xs.filter((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && (r.height < 43.5 || r.width < 43.5); }).map((x) => (x.id || x.textContent || x.className).trim().slice(0, 24)));
+      const tiny = () => page.$$eval("#app *", (ns) => ns.filter((n) => n.children.length === 0 && n.textContent.trim() && n.getBoundingClientRect().width > 0 && parseFloat(getComputedStyle(n).fontSize) < 11).map((n) => n.textContent.trim().slice(0, 20)));
+      // nothing outside a table's own scrolling box may reach past the right edge
+      const cut = () => page.$$eval("#main *", (ns) => ns.filter((n) => { const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > window.innerWidth + 1 && !n.closest(".tbl-wrap, .table-wrap"); }).map((n) => (n.className || n.tagName) + " " + n.textContent.trim().slice(0, 16)).slice(0, 4));
+      const TAPS = "#app button, #app a.kit-tab, #app select, #app input:not([type=hidden]):not([type=checkbox]):not([type=file]), #app summary";
+      check(L + ": the header is one navy row of 56 px with a menu button", !!(await page.$("#menu-btn")) && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
+      check(L + ": tools, language and lock are not in the bar", !(await page.$(".kit-head .kit-lang")) && !(await page.$(".kit-head .kit-tool-wrap")) && !/Lock/.test(await page.textContent(".kit-head")));
+      check(L + ": the tabs and the Training switch are on one row", (await page.$eval(".kit-tabs", (n) => Math.round(n.getBoundingClientRect().height))) <= 50 && !!(await page.$(".kit-tabs #train-toggle")));
+      check(L + ": Pieces does not scroll sideways", await noH());
+      check(L + ": nothing on Pieces is cut off at the right", (await cut()).length === 0, (await cut()).join(" | "));
+      check(L + ": everything to tap on Pieces is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+      check(L + ": no text under 11 px on Pieces", (await tiny()).length === 0, (await tiny()).join());
+      check(L + ": the totals are one per row, each with its pieces and value", await page.$$eval("#totals .tot", (ts) => ts.length >= 5 && ts.every((t, i) => i === 0 || t.getBoundingClientRect().top > ts[i - 1].getBoundingClientRect().top + 10) && ts.every((t) => /\d/.test(t.querySelector(".t-n").textContent) && t.querySelector(".t-amt").getBoundingClientRect().width > 0)));
+      check(L + ": the totals take less room than the screen", await page.$eval("#totals", (n) => n.getBoundingClientRect().height < window.innerHeight * 0.62), String(await page.$eval("#totals", (n) => Math.round(n.getBoundingClientRect().height))));
+      check(L + ": the table scrolls sideways inside its own box", await page.$eval(".tbl-wrap", (n) => n.scrollWidth > n.clientWidth + 20 && ["auto", "scroll"].includes(getComputedStyle(n).overflowX)));
+      const stay = await page.evaluate(async () => { const w = document.querySelector(".tbl-wrap"); const c = () => document.querySelector("#rows tr.prow td").getBoundingClientRect().left; const a = c(); w.scrollLeft = 200; await new Promise((r) => requestAnimationFrame(r)); const b = c(); const last = document.querySelector("#rows tr.prow td:last-child").getBoundingClientRect(); const out = [a, b, w.scrollLeft, last.right, w.getBoundingClientRect().right]; w.scrollLeft = 0; return out; });
+      check(L + ": scrolled sideways, the serial column stays in place", stay[2] > 100 && Math.abs(stay[0] - stay[1]) < 1.5, stay.join());
+      check(L + ": the price column can be reached", await page.evaluate(() => { const w = document.querySelector(".tbl-wrap"); w.scrollLeft = 9999; const r = document.querySelector("#rows tr.prow td:last-child").getBoundingClientRect(); const ok = r.right <= w.getBoundingClientRect().right + 1; w.scrollLeft = 0; return ok; }));
+      await shot(page, "p01-pieces-" + w);
+      // the menu
+      await page.fill("#f-q", "ZZ"); await settled(page);
+      await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
+      check(L + ": the menu holds the person, the tools, the language and the lock", !!(await page.$("#head-menu .kit-tool-wrap")) && !!(await page.$("#head-menu .kit-lang")) && /Stock Manager/.test(await page.textContent("#head-menu")) && /Lock/.test(await page.textContent("#head-menu")));
+      check(L + ": opening the menu keeps the search", (await page.inputValue("#f-q")) === "ZZ");
+      check(L + ": everything in the menu is 44 px", (await small("#head-menu button, #head-menu a")).length === 0, (await small("#head-menu button, #head-menu a")).join());
+      await page.keyboard.press("Escape");
+      check(L + ": Escape closes the menu and returns to its button", !(await page.$("#head-menu")) && await page.evaluate(() => document.activeElement.id === "menu-btn"));
+      await page.fill("#f-q", ""); await settled(page);
+      // pinned part
+      const pin = await page.evaluate(() => { window.scrollTo(0, 500); const t = document.querySelector("header.top").getBoundingClientRect(); const o = [Math.round(Math.max(0, t.bottom)), window.innerHeight, window.scrollY, document.querySelector(".kit-head").getBoundingClientRect().bottom]; window.scrollTo(0, 0); return o; });
+      check(L + ": scrolled, only the tab row stays pinned", pin[2] > 0 && pin[0] >= 44 && pin[0] <= pin[1] * 0.15 && pin[3] <= 1, pin.join());
+      // a piece
+      await page.click("#rows tr.prow td.ref"); await page.waitForSelector(".pc-head");
+      await page.waitForFunction(() => { const r = document.querySelector(".panel").getBoundingClientRect(); return r.left <= 1 && r.width >= window.innerWidth - 1; }).catch(() => {});   // let it slide in
+      const pc = await page.$eval(".panel", (n) => { const r = n.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), window.innerWidth, n.scrollWidth, n.clientWidth, document.documentElement.scrollWidth]; });
+      check(L + ": the piece card fills the screen and does not scroll sideways", pc[0] <= 1 && pc[1] >= pc[2] - 1 && pc[3] <= pc[4] + 1 && pc[5] <= pc[2] + 1, pc.join());
+      check(L + ": everything to tap on the piece card is 44 px", (await small(".panel button, .panel a.kit-tab, .panel [role=tab]")).length === 0, (await small(".panel button, .panel a.kit-tab, .panel [role=tab]")).join());
+      await shot(page, "p02-piece-" + w);
+      await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+      for (const [hash, name] of [["#/review", "Review"], ["#/import", "Import"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash); await page.waitForTimeout(350);
+        check(L + ": " + name + " does not scroll sideways", await noH());
+        check(L + ": nothing on " + name + " is cut off at the right", (await cut()).length === 0, (await cut()).join(" | "));
+        check(L + ": everything to tap on " + name + " is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+        check(L + ": no text under 11 px on " + name, (await tiny()).length === 0, (await tiny()).join());
+        if (name === "Review") check(L + ": each review is a card — state, date and answers on screen without sideways scrolling", await page.evaluate(() => { const w = document.querySelector("#rv-table").closest(".tbl-wrap"); const inside = [...document.querySelectorAll("#rv-table tr.rrow td, #rv-table .rv-ans")].every((n) => { const r = n.getBoundingClientRect(); return r.left >= -1 && r.right <= window.innerWidth + 1; }); return w.scrollWidth <= w.clientWidth + 1 && inside && document.querySelectorAll("#rv-table .rv-ans").length > 0; }));
+        await shot(page, "p03-" + name.toLowerCase() + "-" + w);
+      }
+      // Russian, and Training (one more filter, one more column)
+      await page.click("#menu-btn"); await page.click('#head-menu .kit-lang button[lang="ru"]'); await page.waitForTimeout(250);
+      check(L + " RU: the header is still one row of 56 px, the tabs one row", !(await page.$("#head-menu")) && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56 && (await page.$eval(".kit-tabs", (n) => Math.round(n.getBoundingClientRect().height))) <= 50);
+      for (const [hash, name] of [["#/import", "Import"], ["#/review", "Review"], ["#/pieces", "Pieces"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash); await page.waitForTimeout(350);
+        check(L + " RU: " + name + " does not scroll sideways", await noH());
+        check(L + " RU: nothing on " + name + " is cut off at the right", (await cut()).length === 0, (await cut()).join(" | "));
+        check(L + " RU: everything to tap on " + name + " is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+      }
+      await settled(page);
+      await shot(page, "p04-ru-pieces-" + w);
+      await page.click("#train-toggle"); await page.waitForSelector("#train-band"); await settled(page);
+      check(L + " RU Training: Pieces does not scroll sideways, nothing cut off", await noH() && (await cut()).length === 0, (await cut()).join(" | "));
+      check(L + " RU Training: everything to tap is 44 px", (await small(TAPS)).length === 0, (await small(TAPS)).join());
+      const pinT = await page.evaluate(() => { window.scrollTo(0, 500); const t = document.querySelector("header.top").getBoundingClientRect(); const o = [Math.round(Math.max(0, t.bottom)), window.innerHeight, window.scrollY]; window.scrollTo(0, 0); return o; });
+      check(L + " RU Training: the pinned part stays under 20% of the screen", pinT[2] > 0 && pinT[0] <= pinT[1] * 0.2, pinT.join());
+      await shot(page, "p05-ru-training-" + w);
+      check(L + ": no script errors", errors.length === 0, errors.join());
+      await ctx.close();
+    });
+  }
+  await run("phone to tablet", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 390, height: 844 }, { touch: true });
+    await settled(page);
+    await page.click("#menu-btn"); await page.waitForSelector("#head-menu");
+    await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(200);
+    check("phone turned: the full header comes back, the menu button goes", !(await page.$("#menu-btn")) && !(await page.$("#head-menu")) && !!(await page.$(".kit-head .kit-lang")));
+    check("phone turned: the list is still there", (await rowCount(page)) > 0);
+    check("phone turned: no script errors", errors.length === 0, errors.join());
+    await ctx.close();
   });
 
   await browser.close();

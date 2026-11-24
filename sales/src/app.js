@@ -31,7 +31,7 @@ const RU = {
   "Leave": "Уйти",
   "Stay": "Остаться",
   "Language": "Язык",
-  "Lock": "Заблокировать",
+  "Lock": "Заблокировать", "Menu": "Меню",
   "Locked.": "Заблокировано.",
   "New sale": "Новая продажа",
   "Tickets": "Чеки",
@@ -118,7 +118,7 @@ function newSale() {
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false, crm: false },
   mode: null, ref: null,             // ref: the `reference` answer (sellers, cash notice, address)
-  locked: true, gateMessage: null,
+  locked: true, gateMessage: null, menuOpen: false,
   sale: newSale(),
   lastPct: null,                     // the discount % last typed on any line
   lastPosted: null,                  // the `post` answer, for the receipt if the ticket cannot be read
@@ -365,21 +365,40 @@ function beforeLeave() {
 // The kit header (ui/kit.css): wordmark to the landing page, rule, the tool's name, then
 // the Tools switcher (ui/tools.js), EN/RU, who is signed in and Lock. Tabs and the
 // TRAINING band sit under it, in the same sticky block.
+// A phone gets a slim header: the navy bar keeps the wordmark, the tool name and a menu button; tools, language,
+// the person and the lock sit behind that button. Only the header is redrawn, so a sale in progress is untouched.
+const PHONE_MQ = window.matchMedia("(max-width: 599px)");
+const isPhone = () => PHONE_MQ.matches;
+function redrawHeader(refocus) {
+  const h = document.querySelector("#app > header.top");
+  if (!h || S.locked) return;
+  kitCloseMenus();
+  h.replaceWith(renderHeader());
+  const b = refocus && $("#menu-btn");
+  if (b) b.focus();
+}
+PHONE_MQ.addEventListener("change", () => { S.menuOpen = false; redrawHeader(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && S.menuOpen) { S.menuOpen = false; redrawHeader(true); } });
 function renderHeader() {
-  const r = route().name;
+  const r = route().name, phone = isPhone(), open = phone && S.menuOpen;
+  const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
+  const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
+  const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
+    onclick: () => { S.menuOpen = !S.menuOpen; redrawHeader(true); } }, el("span", { class: "menu-bars", "aria-hidden": "true" })) : null;
+  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, staff, kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), lock) : null;
+  // a choice in the menu closes it (the Tools button only opens its own list)
+  if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const tab = (name, href, label, show) => show ? el("a", { class: "kit-tab", href,
     "aria-current": (r === name || (name === "sale" && (r === "pay" || r === "receipt")) || (name === "tickets" && r === "ticket")) ? "page" : null,
     text: tr(label) }) : null;
-  return el("header", { class: "top" },
+  return el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
       kitGuardLink(el("a", { class: "kit-brand", href: "../" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })), beforeLeave),
       el("span", { class: "kit-rule", "aria-hidden": "true" }),
       el("span", { class: "kit-tool", text: tr("Sales") }),
       el("span", { class: "kit-spacer" }),
-      kitToolsMenu("sales", LANG, { beforeLeave }),
-      langSwitch(),
-      S.token ? el("span", { class: "kit-staff hide-sm", title: S.name, text: S.name }) : null,
-      S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null),
+      phone ? menuBtn : [kitToolsMenu("sales", LANG, { beforeLeave }), langSwitch(), staff, lock]),
+    menu,
     el("nav", { class: "kit-tabs", "aria-label": tr("Sales") },
       tab("sale", "#/sale", "New sale", S.rights.post),
       tab("tickets", "#/tickets", "Tickets", S.rights.view),
@@ -443,6 +462,7 @@ function renderGate() {
 }
 // Drop the token and ask for the passcode again. The sale on screen stays.
 function lockDown(message) {
+  S.menuOpen = false;
   S.token = null;
   crmDrop();
   sstore(SESSION_KEY, null);
