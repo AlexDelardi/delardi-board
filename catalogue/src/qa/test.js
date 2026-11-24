@@ -747,8 +747,10 @@ const settle = (page) => page.waitForTimeout(150);
     await page.emulateMedia({ media: "print" });
     ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).display !== "none" && getComputedStyle(document.querySelector("#app")).display === "none"), "on paper the sheet is the only thing");
     await page.emulateMedia({ media: "screen" });
-    await page.uncheck("#sheet-prices"); await page.click("#sheet-go");
+    await page.uncheck("#sheet-prices"); await page.fill("#sheet-who", "   "); await page.click("#sheet-go");
     ok(!(await page.evaluate(() => window.__sheet)).includes("UZS"), "prices can be left off the sheet");
+    ok((await page.evaluate(() => window.__sheet)).includes("Prepared for: Delardi client") && (await page.textContent("#sheet-who-hint")).includes("Delardi client"),
+      "with no name typed the sheet says 'Prepared for: Delardi client', and the panel says so beforehand", await page.evaluate(() => window.__sheet));
     ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("A client"), "the client's name is not kept on the device");
     await page.click(".sel-sheet header .btn");
     // client view, remove, lock

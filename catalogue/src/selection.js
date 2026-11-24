@@ -45,6 +45,8 @@ Object.assign(RU, {
   "The sheet": "Лист для клиента",
   "Prepared for": "Для кого",
   "Client's name (optional, not kept)": "Имя клиента (необязательно, не сохраняется)",
+  "Delardi client": "Клиент Delardi",
+  "Left empty, the sheet says “{d}”.": "Если оставить пустым, на листе будет «{d}».",
   "Show prices": "Показывать цены",
   "Print or save as PDF": "Печать или сохранить в PDF",
   "In the print window choose “Save as PDF”. On an iPad: Print, then spread two fingers on the preview and share it.":
@@ -292,7 +294,8 @@ function renderSheetOptions() {
   const panel = el("div", { class: "sheet sel-sheet", role: "dialog", "aria-modal": "true", "aria-label": tr("The sheet") }, [
     el("header", {}, [el("h2", { text: tr("The sheet") }), el("button", { class: "btn", type: "button", onclick: closeSheetOptions, text: tr("Close") })]),
     el("div", { class: "scroll" }, [
-      el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-who", text: tr("Prepared for") }), who]),
+      el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-who", text: tr("Prepared for") }), who,
+        el("p", { class: "sel-hint", id: "sheet-who-hint", text: tr("Left empty, the sheet says “{d}”.", { d: tr("Delardi client") }) })]),
       el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", id: "sheet-prices", checked: o.prices ? "checked" : null, onchange: (e) => { o.prices = e.target.checked; } }), tr("Show prices")])]),
       el("p", { class: "sel-hint", text: tr("In the print window choose “Save as PDF”. On an iPad: Print, then spread two fingers on the preview and share it.") }),
     ]),
@@ -319,7 +322,8 @@ function buildPrintSheet(lines, opts) {
     ]),
     el("div", { class: "ps-title" }, [
       el("h1", { text: tr("A selection for you") }),
-      el("div", { class: "ps-meta" }, [opts.who ? el("span", { class: "ps-who", text: tr("Prepared for") + ": " + opts.who }) : null, el("span", { text: today() })]),
+      // with no name typed the line still reads, with a default
+      el("div", { class: "ps-meta" }, [el("span", { class: "ps-who", text: tr("Prepared for") + ": " + (opts.who || tr("Delardi client")) }), el("span", { text: today() })]),
     ]),
     el("div", { class: "ps-items" }, good.map((L, i) => el("div", { class: "ps-item" }, [
       el("div", { class: "ps-ph" }, [L.photoBig || L.photo ? el("img", { src: L.photoBig || L.photo, alt: "" }) : el("img", { class: "mono", src: MONO_NAVY, alt: "" })]),
