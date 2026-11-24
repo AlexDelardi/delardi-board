@@ -152,6 +152,12 @@ begin
   insert into editor_sessions(token, display_name, expires_at, can_use_tasks) values ('zz-token-ip-3', 'Zz Rep', now() + interval '1 hour', true);
   assert (select ip from usage_logins where who = 'Zz Rep' order by id desc limit 1) is null, 'two sign-ins at once: no address is better than someone else''s';
 
+  -- the Access tool's own session is filed under its name, and is not one of the tools counted per person
+  insert into editor_sessions(token, display_name, expires_at, can_use_access) values ('zz-token-acc', 'Zz Boss', now() + interval '1 hour', true);
+  assert (select tool from usage_logins where who = 'Zz Boss' order by id desc limit 1) = 'access', 'an Access sign-in is logged as access';
+  d := acc_logins('Zz Boss', 30);
+  assert not d->'tools' ? 'access' and (select count(*) from jsonb_array_elements(d->'recent') z where z->>'who' = 'Zz Boss' and z->>'tool' = 'access') = 1, 'listed among the latest sign-ins';
+
   raise notice 'acc_t1 ok';
 end $$;
 rollback;

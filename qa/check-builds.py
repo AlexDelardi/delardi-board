@@ -5,7 +5,7 @@ import sys
 
 root = Path(__file__).resolve().parent.parent
 failed = False
-for tool in ('crm', 'catalogue', 'sales', 'stock', 'perf', 'tasks'):
+for tool in ('crm', 'catalogue', 'sales', 'stock', 'perf', 'tasks', 'access'):
     page = root / tool / 'index.html'
     before = page.read_bytes()
     try:
