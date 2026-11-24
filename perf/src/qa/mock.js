@@ -159,6 +159,29 @@ const count = (v, f, max) => {
   if (typeof v !== "number" || !Number.isSafeInteger(v) || v < 0 || v > max) fail(400, `${f} must be a whole number, zero or more.`);
   return v;
 };
+// Usage: invented people. Zz Ann uses three tools, Zz Bee has the Catalogue but has not opened it, Zz Cee left.
+function usageDoc(days) {
+  const T = (allowed, logins, dd, last) => ({ allowed, logins, days: dd, last_at: last || null });
+  const tools = ["crm", "catalogue", "sales", "stock", "board", "perf"];
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) { const d = new Date(Date.UTC(2031, 10, 24 - i)); daily.push({ day: d.toISOString().slice(0, 10), logins: i === 0 ? 3 : i === 1 ? 2 : i === 5 ? 4 : 0, people: i === 0 ? 2 : i === 5 ? 1 : i === 1 ? 1 : 0 }); }
+  return { as_of: "2031-11-24T08:00:00Z", today: "2031-11-24", days, since: "2031-11-18T10:00:00Z", tools,
+    people: [
+      { name: "Zz Ann", active: true, logins_7: 6, logins_n: 9, days_7: 3, days_n: 4, last_at: "2031-11-24T07:54:00Z", last_tool: "stock",
+        tools: { crm: T(true, 4, 3, "2031-11-24T07:18:00Z"), catalogue: T(false, 0, 0), sales: T(true, 0, 0), stock: T(true, 2, 1, "2031-11-24T07:54:00Z"), board: T(false, 0, 0), perf: T(true, 3, 2, "2031-11-23T15:06:00Z") } },
+      { name: "Zz Dee", active: true, logins_7: 3, logins_n: 3, days_7: 1, days_n: 1, last_at: "2031-11-23T08:30:00Z", last_tool: "catalogue",
+        tools: { crm: T(false, 0, 0), catalogue: T(true, 3, 1, "2031-11-23T08:30:00Z"), sales: T(false, 0, 0), stock: T(false, 0, 0), board: T(false, 0, 0), perf: T(false, 0, 0) } },
+      { name: "Zz Bee", active: true, logins_7: 0, logins_n: 0, days_7: 0, days_n: 0, last_at: null, last_tool: null,
+        tools: { crm: T(false, 0, 0), catalogue: T(true, 0, 0), sales: T(false, 0, 0), stock: T(false, 0, 0), board: T(false, 0, 0), perf: T(false, 0, 0) } },
+      { name: "Zz Cee", active: false, logins_7: 0, logins_n: 1, days_7: 0, days_n: 1, last_at: "2031-11-10T09:00:00Z", last_tool: "crm",
+        tools: { crm: T(false, 1, 1, "2031-11-10T09:00:00Z"), catalogue: T(false, 0, 0), sales: T(false, 0, 0), stock: T(false, 0, 0), board: T(false, 0, 0), perf: T(false, 0, 0) } },
+    ],
+    by_tool: [{ tool: "crm", allowed: 1, users: 2, logins_7: 3, logins: 5, last_at: "2031-11-24T07:18:00Z" }, { tool: "catalogue", allowed: 2, users: 1, logins_7: 3, logins: 3, last_at: "2031-11-23T08:30:00Z" },
+      { tool: "sales", allowed: 1, users: 0, logins_7: 0, logins: 0, last_at: null }, { tool: "stock", allowed: 1, users: 1, logins_7: 2, logins: 2, last_at: "2031-11-24T07:54:00Z" },
+      { tool: "board", allowed: 0, users: 0, logins_7: 0, logins: 0, last_at: null }, { tool: "perf", allowed: 1, users: 1, logins_7: 1, logins: 3, last_at: "2031-11-23T15:06:00Z" }],
+    daily,
+    recent: [{ at: "2031-11-24T07:54:00Z", who: "Zz Ann", tool: "stock" }, { at: "2031-11-24T07:18:00Z", who: "Zz Ann", tool: "crm" }, { at: "2031-11-23T08:30:00Z", who: "Zz Dee", tool: "catalogue" }] };
+}
 function handle(body) {
   calls.push(JSON.parse(JSON.stringify(body)));
   try {
@@ -182,6 +205,11 @@ function handle(body) {
       return [200, yearDoc(body.year)];
     }
     if (action === "brands") return [200, brandsDoc(body)];
+    if (action === "usage") {
+      const days = body.days === undefined ? 30 : body.days;
+      if (typeof days !== "number" || days < 7 || days > 365) fail(400, "days must be a whole number from 7 to 365.");
+      return [200, usageDoc(days)];
+    }
     if (action === "save_month") {
       const ym = monthIn(body.month), i = body.inputs;
       if (!i || typeof i !== "object" || Array.isArray(i)) fail(400, "inputs must be an object.");

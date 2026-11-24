@@ -227,6 +227,14 @@ async function handle(req: Request, body: Record<string, unknown>) {
     return await rpc("perf_brands", { p_from: `${y}-01-01`, p_to: `${y + 1}-01-01` });
   }
 
+  // Who opened which tool and when: per person, per tool, per day, and the latest logins (perf_usage).
+  if (action === "usage") {
+    await requirePerf(body.token);
+    const days = body.days === undefined || body.days === null ? 30 : body.days;
+    if (typeof days !== "number" || !Number.isInteger(days) || days < 7 || days > 365) throw new HttpErr(400, "days must be a whole number from 7 to 365.");
+    return await rpc("perf_usage", { p_days: days });
+  }
+
   // The month's inputs: what is sent replaces what was there. → the month, recomputed.
   if (action === "save_month") {
     const name = await requirePerf(body.token);

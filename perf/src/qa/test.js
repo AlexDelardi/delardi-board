@@ -86,7 +86,7 @@ async function shot(page, name, full) {
     await loaded(page);
     check("gate: opens on the last month with tickets", (await page.textContent("#screen-month .title")).trim() === "October 2031" && callsOf("month").pop().month === "2031-10");
     check("gate: asks span then the month, nothing else", mock.calls.filter((c) => !["unlock"].includes(c.action)).map((c) => c.action).join() === "span,month");
-    check("header: tool name, tabs, picker, who is in", norm(await page.textContent(".kit-head")).includes("Performance") && (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Month|Year|Brands|Incentive|Inputs"
+    check("header: tool name, tabs, picker, who is in", norm(await page.textContent(".kit-head")).includes("Performance") && (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Month|Year|Brands|Incentive|Inputs|Usage"
       && norm(await page.textContent(".kit-staff")) === "Demo Director" && !!(await page.$("#month-select")));
     check("gate: no foreign request, no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join(" | "));
     await ctx.close();
@@ -323,7 +323,7 @@ async function shot(page, name, full) {
     const t = norm(await page.textContent("#screen-month"));
     check("RU: the month screen is in Russian", /Чистые продажи/.test(t) && /К плану/.test(t) && /4 чека/.test(t) && /Разбор отклонения/.test(t) && /Не входит в розничную базу/.test(t) && /Учредитель/.test(t) && /Возвращённые/.test(t), t.slice(0, 200));
     check("RU: percentages use a comma", /\+10,5%/.test(await page.textContent("#hl-ly")));
-    check("RU: tabs and picker", (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Месяц|Год|Бренды|Мотивация|Вводные" && (await page.$eval("#month-select option", (o) => o.textContent)) === "Октябрь 2031");
+    check("RU: tabs and picker", (await page.$$eval(".kit-tab", (ns) => ns.map((n) => n.textContent.trim()))).join("|") === "Месяц|Год|Бренды|Мотивация|Вводные|Использование" && (await page.$eval("#month-select option", (o) => o.textContent)) === "Октябрь 2031");
     check("RU 768 month: no sideways scroll", await noHScroll(page));
     // long real names and the longest Russian labels together must still fit
     await page.evaluate(() => { S.doc.tickets.forEach((x, i) => { x.client = ["Абдусаттаров Рустамбек", "Сайфутдинова Амина", "Мирджалалов Шахзод"][i % 3]; x.seller = "Sayfutdinova"; if (i % 2) { x.basis = "founder"; } }); renderAll(); });
@@ -512,6 +512,34 @@ async function shot(page, name, full) {
     await ctx.close();
   });
 
+  await run("usage", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 });
+    await page.click("#tab-usage"); await page.waitForSelector("#us-people-table");
+    check("usage: asks for 30 days, once", callsOf("usage").length === 1 && callsOf("usage")[0].days === 30);
+    check("usage: no currency switch, a window switch instead", !(await page.$("#cur-switch, .cur-switch[data-cur]")) && !!(await page.$("#usage-days")));
+    const hl = async (id) => norm(await page.textContent(id));
+    check("usage: people active of those with access", (await hl("#us-people")) === "People active, last 7 days2of 3 with access", await hl("#us-people"));
+    check("usage: logins in 7 days and in the window", (await hl("#us-logins")) === "Logins, last 7 days9 13 in the last 30 days".replace("9 13", "913"), await hl("#us-logins"));
+    check("usage: the most used tool", (await hl("#us-top")) === "Most used toolCRM5 logins in 30 days", await hl("#us-top"));
+    const ppl = await cells(page, "#us-people-table tbody tr");
+    check("usage: one row per person, in the order sent", ppl.map((r) => r[0]).join("|") === "Zz Ann|Zz Dee|Zz Bee|Zz Ceeleft", ppl.map((r) => r[0]).join("|"));
+    check("usage: logins · days per tool; not used; no access", ppl[0].slice(4).join("|") === "4 · 3|·|not used|2 · 1|·|3 · 2", ppl[0].join("|"));
+    check("usage: someone who never logged in says so", ppl[2][1] === "never" && ppl[2][5] === "not used", ppl[2].join("|"));
+    check("usage: someone without a login in 7 days is greyed", await page.$eval('#us-people-table tr[data-person="Zz Bee"]', (r) => r.classList.contains("quiet")));
+    const tl = await cells(page, "#us-tools-table tbody tr");
+    check("usage: one row per tool", tl.length === 6 && tl[1].slice(0, 5).join("|") === "Catalogue|2|1|3|3", tl[1].join("|"));
+    check("usage: a bar a day", (await page.$$("#us-daily g.bar")).length === 30);
+    check("usage: the latest logins", (await cells(page, "#us-recent tbody tr")).length === 3);
+    await page.click('#usage-days button[data-days="90"]'); await page.waitForFunction(() => document.querySelectorAll("#us-daily g.bar").length === 90);
+    check("usage: the 90-day window asks again", callsOf("usage").pop().days === 90 && /in the last 90 days/.test(await hl("#us-logins")));
+    check("usage 1280: no sideways scroll, no script errors", (await noHScroll(page)) && errors.length === 0, errors.join(" | "));
+    await shot(page, "p15-usage", true);
+    await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(200);
+    check("usage phone: the page fits; the table scrolls in its own box", await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await shot(page, "p16-usage-phone", true);
+    await ctx.close();
+  });
+
   await run("phone", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 390, height: 844 });
     const vis = (sel) => page.evaluate((q) => { const n = document.querySelector(q); if (!n) return false; const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0; }, sel);
@@ -521,7 +549,7 @@ async function shot(page, name, full) {
       (await vis("#menu-btn")) && (await page.getAttribute("#menu-btn", "aria-expanded")) === "false" && !(await vis(".kit-lang")) && !(await vis("#cur-switch")) && !(await vis("#head-menu"))
       && (await box(".kit-head")).h <= 57, JSON.stringify(await box(".kit-head")));
     const tabs = await page.$$eval(".kit-tab", (ts) => ts.map((t) => { const r = t.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }));
-    check("phone: five tabs on one row, each a 44 px target", tabs.length === 5 && new Set(tabs.map((t) => t[0])).size === 1 && tabs.every((t) => t[1] >= 44 && t[2] >= 44), JSON.stringify(tabs));
+    check("phone: six tabs on one row, each a 44 px target", tabs.length === 6 && new Set(tabs.map((t) => t[0])).size === 1 && tabs.every((t) => t[1] >= 44 && t[2] >= 44), JSON.stringify(tabs));
     check("phone: the period picker sits under the tabs, outside the pinned header", (await vis("#period-bar #month-select")) && !(await page.$(".top #month-select"))
       && (await box("#period-bar")).bottom <= 170, JSON.stringify(await box("#period-bar")));
     check("phone month: the page is no wider than the screen", await pageFits(), String(await page.evaluate(() => document.documentElement.scrollWidth)));

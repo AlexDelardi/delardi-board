@@ -110,7 +110,7 @@ const S = {
   year: null,                        // the year on the Year screen
   brandMode: "month",                // Brands: "month" or "year"
   inMonth: null,                     // Inputs has its own month: it opens on the month ahead
-  yearDoc: null, brandDoc: null, inDoc: null,   // { key, doc, err }: one document per screen, see need()
+  yearDoc: null, brandDoc: null, inDoc: null, usageDoc: null,   // { key, doc, err }: one document per screen, see need()
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -377,13 +377,14 @@ document.addEventListener("keydown", (e) => {
 }, true);
 
 /* ------------------------------------------------------------------ routes
-   #/month (default)  #/year  #/brands  #/incentive  #/inputs */
+   #/month (default)  #/year  #/brands  #/incentive  #/inputs  #/usage */
 const ROUTES = {
   month: (main) => renderMonth(main),              // month.js
   incentive: (main) => renderIncentive(main),      // incentive.js
   inputs: (main) => renderInputs(main),            // inputs.js
   year: (main) => renderYear(main),                // year.js
   brands: (main) => renderBrands(main),            // brands.js
+  usage: (main) => renderUsage(main),              // usage.js
 };
 function route() {
   const m = /^#\/([a-z]+)/.exec(location.hash || "");
@@ -436,7 +437,7 @@ function need(slot, action, params, key) {
 function pending(sec, st, loadingText) {
   if (st.err) {
     sec.append(el("p", { class: "notice", role: "alert", id: "doc-err" }, st.err + " ",
-      el("button", { type: "button", class: "btn", onclick: () => { for (const k of ["yearDoc", "brandDoc", "inDoc"]) if (S[k] === st) S[k] = null; renderAll(); }, text: tr("Try again") })));
+      el("button", { type: "button", class: "btn", onclick: () => { for (const k of ["yearDoc", "brandDoc", "inDoc", "usageDoc"]) if (S[k] === st) S[k] = null; renderAll(); }, text: tr("Try again") })));
     return true;
   }
   if (!st.doc) { sec.append(el("p", { class: "small", role: "status", id: "doc-loading", text: tr(loadingText) })); return true; }
@@ -502,9 +503,9 @@ function renderHeader() {
   const tab = (name, label) => el("a", { class: "kit-tab", href: "#/" + name, id: "tab-" + name, "aria-current": r === name ? "page" : null, text: tr(label) });
   const staff = S.token ? el("span", { class: "kit-staff" + (phone ? "" : " hide-sm"), title: S.name, text: S.name }) : null;
   const lock = S.token ? el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }) : null;
-  const cur = r === "inputs" ? null : curSwitch();
+  const cur = r === "inputs" || r === "usage" ? null : curSwitch();
   // each screen shows the picker for the period it is about
-  const period = [r === "brands" && S.token && S.span ? brandModeSwitch() : null,
+  const period = r === "usage" ? [S.token ? usageDaysSwitch() : null] : [r === "brands" && S.token && S.span ? brandModeSwitch() : null,
     r === "year" || (r === "brands" && S.brandMode === "year") ? yearPicker() : r === "inputs" ? inMonthPicker() : monthPicker()];
   const open = phone && S.menuOpen;
   const menuBtn = phone ? el("button", { class: "kit-hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
@@ -513,7 +514,7 @@ function renderHeader() {
   // a choice made in the menu closes it; the tools list opens in place
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   const nav = el("nav", { class: "kit-tabs", "aria-label": tr("Performance") },
-    tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"),
+    tab("month", "Month"), tab("year", "Year"), tab("brands", "Brands"), tab("incentive", "Incentive"), tab("inputs", "Inputs"), tab("usage", "Usage"),
     phone ? null : [el("span", { class: "kit-spacer" }), cur, period]);
   const top = el("header", { class: "top" + (phone ? " phone" : "") + (open ? " open" : "") },
     el("div", { class: "kit-head" },
@@ -553,7 +554,7 @@ async function afterUnlock() {
     S.brandMode = sstore(BRAND_MODE_KEY) === "year" ? "year" : "month";
     S.inMonth = inputsLast();
   }
-  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null; S.usageDoc = null;
   if (S.month) loadMonth(); else renderAll();
 }
 function renderGate() {
@@ -610,7 +611,7 @@ function lockDown(message) {
   S.gateMessage = message || null;
   monthSeq++;
   S.doc = null; S.span = null; S.form = null; S.busy = false; S.err = null;
-  S.yearDoc = null; S.brandDoc = null; S.inDoc = null;
+  S.yearDoc = null; S.brandDoc = null; S.inDoc = null; S.usageDoc = null;
   kitCloseMenus();
   document.querySelectorAll(".modal-wrap, .chart-tip").forEach((n) => n.remove());
   $("#app").innerHTML = "";

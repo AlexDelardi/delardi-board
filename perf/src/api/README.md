@@ -36,3 +36,12 @@ All money is whole so'm. No cost or margin.
 | `brands` | `token`, and `month` ("YYYY-MM") or `year` (number) | `perf_brands`: per brand net, share, units, discount, last year, stock on hand, arrivals of the year; arrivals by year; what is on hand by arrival year |
 
 Arrivals are loaded by hand with `perf_load_arrivals` from Colibri's arrival report; there is no action for it.
+
+## Added 24 Nov 2026
+
+| Action | Body | Answer |
+|---|---|---|
+| `usage` | `token`, `days?` (7–365, default 30) | `perf_usage`: `{as_of, today, days, since, tools[], people[]{name, active, logins_7, logins_n, days_7, days_n, last_at, last_tool, tools{tool → {allowed, logins, days, last_at}}}, by_tool[]{tool, allowed, users, logins_7, logins, last_at}, daily[]{day, logins, people}, recent[]{at, who, tool}}` |
+
+Logins come from `usage_logins`, written by a trigger on `editor_sessions` (db/migrations/20261124_usage_1_logins.sql):
+one row per passcode entry, per tool. Test logins are left out. Days are Tashkent days.

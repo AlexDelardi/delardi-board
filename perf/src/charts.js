@@ -47,7 +47,7 @@ function barChart(o) {
       g.addEventListener("mouseleave", chartTipHide); g.addEventListener("blur", chartTipHide);
       return g;
     })));
-  wrap.append(el("p", { class: "chart-title small", text: o.title }), svg, two && o.legend ? chartLegend([["k-mark", o.legend[0]], ["k-mark2", o.legend[1]]]) : null);
+  wrap.append(...[el("p", { class: "chart-title small", text: o.title }), svg, two && o.legend ? chartLegend([["k-mark", o.legend[0]], ["k-mark2", o.legend[1]]]) : null].filter(Boolean));   // a one-series chart has no key
   return wrap;
 }
 /* lineChart({ id, title, labels: [..], series: [{ cls, name, values: [number|null] }], tip: (i) => [lines] })
