@@ -15,13 +15,19 @@ MODULES = ['model.js', 'floor.js']
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1
 # the shared tool switcher (ui/tools.js), as in every other tool
-js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
+js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + (HERE.parent.parent / 'ui' / 'season.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
 for tok, f in [('__WORDMARK__', 'wordmark_white.png'), ('__MONO_NAVY__', 'monogram_navy.png'), ('__MONO_WHITE__', 'monogram_white.png')]:
     js = js.replace(tok, uri(f))
 t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png')).replace('__MONO_WHITE__', uri('monogram_white.png'))
 out = t.replace('__SCRIPT__', js)
 for tok in ['__WORDMARK__', '__FAVICON__', '__MONO_NAVY__', '__MONO_WHITE__', '__SCRIPT__']:
     assert tok not in out, tok
+
+# the Christmas images for ui/season.js (ui/season_art.py)
+import sys as _sys
+_sys.path.insert(0, str(HERE.parent.parent / 'ui'))
+from season_art import season_inline
+out = season_inline(out)
 
 dest = HERE.parent / 'index.html'
 dest.write_text(out, encoding='utf-8', newline='\n')

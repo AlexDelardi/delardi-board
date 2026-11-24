@@ -36,10 +36,6 @@ js = js.replace(MARK, '\n'.join(parts) + '\n' + MARK)
 TOKENS = {
     '__WORDMARK__': uri('wordmark_white.svg'),   # vector master, DELARDI alone (crisp at header size)
     '__FAVICON__': uri('favicon.png'),
-    # seasonal decorations (brand/christmas, from the Design folder): shown 1 December to 14 January only
-    '__XMAS_SPRIG__': uri('christmas/fir-sprig.png'),
-    '__XMAS_FLAKE__': uri('christmas/geometric-snowflake.png'),
-    '__XMAS_MINI__': uri('christmas/mini-snowflake.png'),
 }
 for k, v in TOKENS.items():
     t = t.replace(k, v)
@@ -55,5 +51,11 @@ dest = HERE.parent / 'index.html' if (HERE.parent / 'index.html').exists() or HE
 if dest is None:
     (HERE / 'dist').mkdir(exist_ok=True)
     dest = HERE / 'dist' / 'index.html'
+# the Christmas images for ui/season.js (ui/season_art.py)
+import sys as _sys
+_sys.path.insert(0, str(HERE.parent.parent / 'ui'))
+from season_art import season_inline
+out = season_inline(out)
+
 dest.write_text(out, encoding='utf-8', newline='\n')
 print('built', dest, len(out), 'bytes')

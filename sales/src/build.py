@@ -19,7 +19,7 @@ assert t.count('/*__KIT_CSS__*/') == 1, 'the kit marker must appear exactly once
 t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # In this order, before the init marker. The later ones arrive with Task 8;
 # whatever is not there yet is skipped, and the build says so.
-MODULES = ['../../ui/tools.js', 'sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
+MODULES = ['../../ui/tools.js', '../../ui/season.js', 'sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()
@@ -51,5 +51,11 @@ dest = HERE.parent / 'index.html' if (HERE.parent / 'index.html').exists() or HE
 if dest is None:
     (HERE / 'dist').mkdir(exist_ok=True)
     dest = HERE / 'dist' / 'index.html'
+# the Christmas images for ui/season.js (ui/season_art.py)
+import sys as _sys
+_sys.path.insert(0, str(HERE.parent.parent / 'ui'))
+from season_art import season_inline
+out = season_inline(out)
+
 dest.write_text(out, encoding='utf-8', newline='\n')
 print('built', dest, len(out), 'bytes')
