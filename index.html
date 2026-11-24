@@ -11,7 +11,7 @@
 <style>
 /* ===========================================================================
    Delardi — landing page
-   The front door to the Weekly Board (board/), the Client Instrument
+   The front door to the Client Instrument
    (crm/), the Catalogue (catalogue/) and Sales, the till (sales/). It holds no key, makes no network request and shows no data: it
    only reads, from this browser, whether each tool is already unlocked here.
    Same brand system as the tools: navies #001A4A / #082966, Palatino
@@ -204,17 +204,6 @@ footer img { height: 22px; width: auto; opacity: .55; }
         <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </span>
     </a>
-    <a class="tool" href="board/" data-tool="board">
-      <span class="tool-icon" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="3" width="4.5" height="14" rx="1"/><rect x="7.75" y="3" width="4.5" height="10" rx="1"/><rect x="13.5" y="3" width="4.5" height="6" rx="1"/></svg>
-      </span>
-      <span class="tool-name" data-i18n="board_name">Weekly Board</span>
-      <span class="tool-desc" data-i18n="board_desc">Leadership topics across Marketing, Retail, Operations and Company Steering, followed week by week for the weekly call.</span>
-      <span class="tool-foot">
-        <span class="status" data-session="board_session"><span class="dot" aria-hidden="true"></span><span class="status-text" data-i18n="locked">Passcode needed</span></span>
-        <span class="go"><span data-i18n="open">Open</span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7h9M7.5 3.5 11 7l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      </span>
-    </a>
     <a class="tool" href="crm/" data-tool="crm">
       <span class="tool-icon" aria-hidden="true">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="16" height="13" rx="1.5"/><circle cx="7" cy="9" r="2"/><path d="M4 14c.6-1.6 1.7-2.4 3-2.4s2.4.8 3 2.4M12 8h3.5M12 11h3.5"/></svg>
@@ -351,8 +340,6 @@ function seasonMarkEl(kind) {
       lede: "For the Delardi team. Each tool opens with its own passcode.",
       tools: "Tools",
       theme: "Switch between light and dark",
-      board_name: "Weekly Board",
-      board_desc: "Leadership topics across Marketing, Retail, Operations and Company Steering, followed week by week for the weekly call.",
       crm_name: "CRM",
       crm_desc: "Every client and who looks after them, with a cockpit for each sales rep: dates coming up, who to contact and purchases to follow up.",
       cat_name: "Catalogue",
@@ -377,8 +364,6 @@ function seasonMarkEl(kind) {
       lede: "Для команды Delardi. Каждый инструмент открывается своим кодом доступа.",
       tools: "Инструменты",
       theme: "Переключить светлую и тёмную тему",
-      board_name: "Еженедельная доска",
-      board_desc: "Темы руководства — маркетинг, розница, операции и управление компанией — неделя за неделей, для еженедельного созвона.",
       crm_name: "CRM",
       crm_desc: "Все клиенты и кто их ведёт, с кабинетом для каждого продавца: ближайшие даты, кому написать и какие покупки довести до конца.",
       cat_name: "Каталог",

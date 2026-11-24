@@ -6,7 +6,7 @@ const kit = fs.readFileSync(path.join(root, 'ui/tools.js'), 'utf8');
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };
 const ids = [...kit.matchAll(/\{ id: '([a-z]+)', href: '\.\.\/\1\/'/g)].map((m) => m[1]);
-ok(ids.length === 7, 'read the tools from KIT_TOOLS: ' + ids.join(','));
+ok(ids.length === 6, 'read the tools from KIT_TOOLS: ' + ids.join(','));
 for (const id of ids) ok(home.includes('href="' + id + '/" data-tool="' + id + '"'), 'Home page has a ' + id + ' tile');
 ok(home.includes('data-session="stock_session"'), 'Home page shows the Stock session status');
 ok((home.match(/stock_name:/g) || []).length === 2 && (home.match(/stock_desc:/g) || []).length === 2, 'Stock tile text in English and Russian');
@@ -23,6 +23,10 @@ for (const id of ids) {
 // the Board is one hand-kept file: its copy of ui/tools.js must be the file itself
 const board = fs.readFileSync(path.join(root, 'board/index.html'), 'utf8');
 ok(board.includes(kit.trimEnd()), 'the Board carries ui/tools.js unchanged');
+// the Weekly Board is retired: kept at its address for reference, offered nowhere
+ok(!ids.includes('board'), 'the tool menu does not offer the Board');
+ok(!/data-tool="board"|href="board\/"|board_name|board_desc|board_session/.test(home), 'the home page has no Weekly Board tile');
+ok(/kitToolsMenu\(["']board["']/.test(board), 'the Board keeps its own way to the other tools');
 // the Christmas season: every tool and the hub carry ui/season.js with its images in place
 for (const id of ids.concat([''])) {
   const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');

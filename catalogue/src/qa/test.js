@@ -372,7 +372,7 @@ const settle = (page) => page.waitForTimeout(150);
     // the tool switcher, as in every tool
     await page.click(".top .kit-tool-wrap > button");
     const toolItems = await page.$$eval(".top .kit-menu li", (ls) => ls.map((l) => l.textContent.trim()).join("|"));
-    ok(toolItems === "Sales|Stock|Clients|Catalogue|Tasks|Board|Performance" && (await page.textContent('.top .kit-menu [aria-current="page"]')).trim() === "Catalogue"
+    ok(toolItems === "Sales|Stock|Clients|Catalogue|Tasks|Performance" && (await page.textContent('.top .kit-menu [aria-current="page"]')).trim() === "Catalogue"
       && (await page.getAttribute('.top .kit-menu a[href="../crm/"]', "href")) === "../crm/", "the header lists every tool, this one marked: " + toolItems);
     const mb = await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.height > 200; });
     ok(mb, "the tools list opens inside the screen");
