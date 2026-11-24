@@ -245,6 +245,65 @@ async function shot(page, name, full) {
     await ctx.close();
   });
 
+  await run("drag", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { pass: "lead" });
+    const colTitles = (slug) => titles(page, `.col[data-scope="${slug}"]`);
+    const count = (slug) => page.textContent(`.col[data-scope="${slug}"] .col-title .count`);
+    const card = (title) => page.locator(`#cols .task:has-text("${title}")`);
+    const col = (slug) => page.locator(`.col[data-scope="${slug}"]`);
+    check("drag: my own list is not draggable", (await page.$$eval("#screen-my .task", (ts) => ts.filter((t) => t.draggable).length)) === 0);
+    await go(page, "#/team");
+    check("drag: every card on the Team board can be picked up", await page.$$eval("#cols .task", (ts) => ts.length === 8 && ts.every((t) => t.draggable)));
+    check("drag: the board says how to move a card", (await page.textContent("#drag-hint")) === "Drag a card to another column to change its scope.");
+    await card("Learn the new collection").dragTo(col("sales"));
+    await page.waitForFunction(() => document.querySelector("#toast").textContent.includes("Moved"));
+    check("drag: a card dropped on another column moves there", (await colTitles("sales")).includes("Learn the new collection") && !(await colTitles("brand")).includes("Learn the new collection"));
+    check("drag: both counts follow", (await count("sales")) === "3" && (await count("brand")) === "0");
+    check("drag: it is said in words", (await toastText(page)) === "Moved to Sales.");
+    const sent = callsOf("save").slice(-1)[0];
+    check("drag: only the scope is sent to the server", JSON.stringify(Object.keys(sent.task).sort()) === JSON.stringify(["scope_id", "task_id"]) && sent.task.scope_id === 5);
+    check("drag: the server has it", mock.tasks.find((t) => t.title === "Learn the new collection").scope_id === 5);
+    // onto a card in the target column works as well as onto the empty part
+    await card("Learn the new collection").dragTo(card("Polish the window display"));
+    await page.waitForFunction(() => document.querySelector("#toast").textContent === "Moved to Operations.");
+    check("drag: dropping onto a card of the column counts as the column", (await colTitles("operations")).includes("Learn the new collection"));
+    // an empty column takes a card
+    await card("Learn the new collection").dragTo(col("brand"));
+    await page.waitForFunction(() => document.querySelector("#toast").textContent === "Moved to Brand.");
+    check("drag: an empty column takes a card", JSON.stringify(await colTitles("brand")) === JSON.stringify(["Learn the new collection"]));
+    // the same column: nothing happens
+    const before = callsOf("save").length;
+    await card("Learn the new collection").dragTo(col("brand"));
+    await page.waitForTimeout(150);
+    check("drag: dropping a card where it already is saves nothing", callsOf("save").length === before);
+    check("drag: no column is left marked after a drop", (await page.$$(".col.is-over, .task.is-dragging")).length === 0);
+    // the server refuses: the card stays, and it is said
+    mock.failNext = "save";
+    await card("Learn the new collection").dragTo(col("crm"));
+    await page.waitForFunction(() => document.querySelector("#toast").classList.contains("err") || document.querySelector("#toast").textContent.includes("wrong"));
+    check("drag: a failed move leaves the card where it was", (await colTitles("brand")).includes("Learn the new collection") && !(await colTitles("crm")).includes("Learn the new collection"));
+    // filters stay on after a move
+    await page.selectOption("#f-owner", "Rita Rep");
+    await card("Check the strap order").dragTo(col("crm"));
+    await page.waitForFunction(() => document.querySelector("#toast").textContent === "Moved to CRM.");
+    check("drag: the filters stay as they were after a move", (await page.inputValue("#f-owner")) === "Rita Rep" && (await colTitles("crm")).includes("Check the strap order") && !(await titles(page, "#cols")).includes("Count the showcase stock"));
+    // opening a card by click still works
+    await card("Check the strap order").locator(".task-open").click(); await page.waitForSelector("#task-form");
+    check("drag: a click still opens the card, on its new scope", (await page.inputValue("#t-scope")) === "2");
+    check("drag: no script errors", errors.length === 0, errors);
+    await shot(page, "t09-team-drag");
+    await ctx.close();
+  });
+  await run("drag rep", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { pass: "rep" });
+    await go(page, "#/team");
+    await page.locator('#cols .task:has-text("Count the showcase stock")').dragTo(page.locator('.col[data-scope="sales"]'));
+    await page.waitForFunction(() => document.querySelector("#toast").textContent === "Moved to Sales.");
+    check("drag: anyone on the ribbon may move a card, as in the task form", mock.tasks.find((t) => t.title === "Count the showcase stock").scope_id === 5);
+    check("drag rep: no script errors", errors.length === 0, errors);
+    await ctx.close();
+  });
+
   await run("crm right", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { pass: "fresh" });
     await go(page, "#/team");
