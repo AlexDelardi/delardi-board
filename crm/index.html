@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
@@ -650,7 +650,6 @@ table.bdays .w { white-space: nowrap; }
 .ck-table th.num { text-align: right; }
 .ck-more { margin: 8px 0 0; }
 .scoreboard.ck-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#ck-contact td:nth-child(2) { min-width: 168px; }
 @media (max-width: 900px) { .scoreboard.ck-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 #ck-clients-all { margin-top: 12px; min-height: 44px; }
 @media (max-width: 900px) { .ck-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -1419,6 +1418,68 @@ body.split table.clients td.col-contact { display: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ====================================================================== guideline v2 (24 Nov 2026)
+   The CRM on the shared design: the kit's header, the guideline's palette, square corners, no shadows, one look.
+   The rules below sit last on purpose, so they settle what the older rules above left open. */
+:root, :root[data-theme] {
+  --navy: #082966; --navy-2: #082966; --navy-deep: #001A4A; --slate: #5B6478; --sky: #8FA8CC; --mist: #D3DCE9; --card: #EEF1F7; --white: #FFFFFF; --alert: #8C2F2F;
+  --tap: 44px; --radius: 0;
+  --page: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF1F7; --ink: #001A4A; --ink-2: #5B6478; --muted: #5B6478;
+  --grid: #D3DCE9; --line: #D3DCE9; --border: #D3DCE9; --shadow: none; --row-hover: #EEF1F7; --focus: #082966;
+  --header-bg: #001A4A; --header-ink: #FFFFFF; --header-ink-2: #8FA8CC; --header-line: #8FA8CC;
+  /* status by the blue scale and words; one muted red for errors only (G1) */
+  --good: #082966; --good-ink: #082966; --warning: #5B6478; --serious: #082966; --critical: #8C2F2F;
+}
+*, *::before, *::after { border-radius: 0 !important; box-shadow: none !important; }
+.lock-state .dot, .stat .tone { border-radius: 0 !important; }
+body { background: #FFFFFF; }
+/* Header bar */
+.kit-head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 24px; background: var(--navy-deep); color: var(--white); position: relative; z-index: 50; }
+.kit-brand { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--white); text-decoration: none; font: 13px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
+.kit-brand img, .kit-brand svg { display: block; height: 18px; width: auto; }
+.kit-rule { width: 1px; align-self: stretch; margin: 12px 0; background: var(--sky); }
+.kit-staff { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--white); font: 14px/1.2 var(--sans); white-space: nowrap; }
+.kit-tool { font: normal 19px/1.2 var(--serif); color: var(--white); }
+.kit-spacer { flex: 1 1 auto; }
+.kit-head a { color: var(--white); }
+.kit-hbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); min-width: var(--tap); padding: 0 16px; background: transparent; color: var(--white); border: 1px solid rgba(143, 168, 204, .45); font: 15px/1 var(--sans); cursor: pointer; text-decoration: none; }
+.kit-hbtn:hover { border-color: var(--sky); }
+.kit-lang { display: inline-flex; }
+.kit-lang .kit-hbtn { padding: 0 12px; min-width: var(--tap); }
+.kit-lang .kit-hbtn + .kit-hbtn { border-left-width: 0; }
+.kit-lang .kit-hbtn[aria-pressed="true"], .kit-lang .kit-hbtn.on { background: var(--navy); border-color: var(--sky); font-weight: 700; }
+.kit-tool-wrap, [data-kit-menu] { position: relative; }
+.kit-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; min-width: 200px; margin: 0; padding: 0; list-style: none; background: var(--white); color: var(--navy-deep); border: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: var(--tap); padding: 0 16px; color: var(--navy-deep); text-decoration: none; font: 15px/1.5 var(--sans); }
+.kit-menu a:hover { background: var(--card); }
+.kit-menu [aria-current="page"] { font-weight: 700; color: var(--navy); background: var(--card); }
+
+
+.top-row.kit-head { flex-wrap: wrap; }
+.top-row.kit-head .spacer { flex: 1 1 auto; }
+.top-row.kit-head .kit-brand .mark { height: 26px; }
+.top-row.kit-head .lang { border: 0; }
+.top-row.kit-head .lang button { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; background: transparent; color: var(--white); border: 1px solid rgba(143, 168, 204, .45); font: 14px/1 var(--sans); }
+.top-row.kit-head .lang button + button { border-left-width: 0; }
+.top-row.kit-head .lang button[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); font-weight: 700; }
+.top-row.kit-head .lock-state { display: inline-flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 0; color: var(--white); }
+.top-row.kit-head .lock-state .role { color: var(--sky); }
+.top-row.kit-head .discreet { min-height: var(--tap); min-width: var(--tap); color: var(--white); background: transparent; border: 1px solid rgba(143, 168, 204, .45); }
+.top-row.kit-head .discreet[aria-pressed="true"] { background: var(--navy); border-color: var(--sky); }
+/* tabs as in every tool: text, navy underline for the one in use */
+.views { gap: 28px; padding: 0 24px; background: var(--white); border-bottom: 1px solid var(--mist); }
+.view-tab { min-height: 48px; padding: 0; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--slate); font: 15px/1.5 var(--sans); }
+.view-tab:hover { color: var(--navy); background: transparent; }
+.view-tab[aria-current="page"] { color: var(--navy); font-weight: 700; border-bottom-color: var(--navy); }
+/* separation without shadows: a rule, and a navy top rule on what opens over the page */
+.drawer { border-left: 1px solid var(--mist); border-top: 2px solid var(--navy); }
+.icard, .stat, .toolbar, .list-wrap { border-color: var(--mist); }
+h1, h2, h3, .ins-h2, #drawer-title { font-family: var(--serif); font-weight: 400; color: var(--navy); }
+table.compare.details th, table.compare.details td { vertical-align: middle; padding: 10px 8px; border-bottom: 1px solid var(--mist); }
+table.compare.details th.f { width: 34%; text-align: left; }
+table.compare.details td.st { text-align: right; white-space: nowrap; }
+table.compare.details .btn { min-height: var(--tap); }
 /* The details table keeps its Edit buttons at every width: the rule that folded the old comparison table's status
    column away on a phone must not hide them. */
 table.compare.details td.st { display: table-cell !important; width: auto; text-align: right; white-space: nowrap; }
@@ -2126,32 +2187,24 @@ function langSwitch() {
     el("button", { type: "button", lang: l, "aria-pressed": LANG === l ? "true" : "false",
       onclick: () => { if (LANG !== l) setLang(l); }, text: l.toUpperCase() })));
 }
+// The shared header of every Delardi tool (guideline v2): wordmark, tool name, the tool switcher, language, the person
+// and Lock on a navy-deep bar. No theme switch: the tools have no dark mode (G2).
 function renderHeader() {
   if (isPhone()) return renderHeaderPhone();
-  const right = [];
-  right.push(el("a", { class: "btn subtle hide-sm", href: "../board/", text: tr("Weekly board") }));
-  right.push(langSwitch());
-  if (S.session && !S.locked) right.push(discreetBtn());
-  right.push(el("button", { class: "btn subtle", type: "button", "aria-label": tr("Switch between light and dark"),
-    title: tr("Switch between light and dark"), onclick: toggleTheme }, [themeIcon()]));
+  const right = [kitToolsMenu("crm", LANG), langSwitch()];
   if (S.session && !S.locked) {
+    right.push(discreetBtn());
     right.push(el("span", { class: "lock-state" }, [
-      el("span", { class: "dot", "aria-hidden": "true" }),
       el("span", { class: "who", text: S.session.name }),
       el("span", { class: "role", text: "· " + (canEdit() ? tr("can edit") : tr("view only")) }),
-      el("button", { class: "btn subtle sm", type: "button", onclick: lockNow, text: tr("Lock") }),
+      el("button", { class: "kit-hbtn", type: "button", onclick: lockNow, text: tr("Lock") }),
     ]));
   }
-  return el("div", { class: "top-row" }, [
-    el("div", { class: "brand" }, [
-      el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
-        el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
-      el("span", { class: "rule", "aria-hidden": "true" }),
-      el("div", {}, [
-        el("div", { class: "title", text: tr("CRM") }),
-        el("div", { class: "sub", text: tr("Client records") }),
-      ]),
-    ]),
+  return el("div", { class: "top-row kit-head" }, [
+    el("a", { class: "kit-brand home", href: "../", title: tr("All Delardi tools") }, [
+      el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
+    el("span", { class: "kit-rule", "aria-hidden": "true" }),
+    el("span", { class: "kit-tool title", text: tr("CRM") }),
     el("div", { class: "spacer" }),
     ...right,
   ]);
@@ -3111,7 +3164,7 @@ function renderDrawer() {
       el("div", { class: "eyebrow", text: eyebrowText(c) }),
       el("h2", { id: "drawer-title", tabindex: "-1", text: c ? bestName(c) : (S.cardError ? tr("Could not open this record") : tr("Loading…")) }),
       c ? el("div", { class: "chips" }, [
-        q ? statusChip(q) : null,
+        q && ["lead", "merged", "deleted"].includes(q.review_status) ? statusChip(q) : null,
         c.abc_class ? chip({ glyph: "▪", tone: "" }, tr("Class {c}", { c: c.abc_class })) : null,
         c.lifecycle_status ? chip({ glyph: "•", tone: "" }, tr(c.lifecycle_status)) : null,
         c.related_party ? chip({ glyph: "◇", tone: "" }, tr("Related party"), "dashed") : null,
@@ -3245,11 +3298,9 @@ function lockNow() { lockDown(); toast(tr("Locked.")); }
 
 /* ------------------------------------------------------------------- theme */
 function applyTheme() {
-  let mode;
-  try { mode = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { mode = "auto"; }
-  document.documentElement.setAttribute("data-theme", mode);
-  document.documentElement.classList.toggle("sysdark",
-    mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // one look, no dark mode (guideline G2); a theme remembered from before is ignored
+  document.documentElement.setAttribute("data-theme", "light");
+  document.documentElement.classList.remove("sysdark");
 }
 function toggleTheme() {
   let mode;
@@ -3259,6 +3310,95 @@ function toggleTheme() {
     : mode === "dark" ? "light" : "dark";
   try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
   applyTheme();
+}
+
+// Delardi UI kit: tool switcher. No dependencies. Inlined ahead of each tool's own modules.
+const KIT_TOOLS = [
+  { id: 'sales', href: '../sales/', en: 'Sales', ru: 'Продажи' },
+  { id: 'stock', href: '../stock/', en: 'Stock', ru: 'Склад' },
+  { id: 'crm', href: '../crm/', en: 'Clients', ru: 'Клиенты' },
+  { id: 'catalogue', href: '../catalogue/', en: 'Catalogue', ru: 'Каталог' },
+  { id: 'board', href: '../board/', en: 'Board', ru: 'Доска' },
+  { id: 'perf', href: '../perf/', en: 'Performance', ru: 'Показатели' },
+];
+
+// Close functions of the menus that are open right now.
+const kitOpenMenus = [];
+
+// A tool calls this on lock: closes every open kit menu and detaches its listeners.
+function kitCloseMenus() {
+  for (const close of kitOpenMenus.slice()) close();
+}
+
+// A link that leaves the page can ask first. beforeLeave(href) returns a Promise:
+// true follows the link, false stays. A modified click (new tab) is left alone.
+function kitGuardLink(a, beforeLeave) {
+  if (typeof beforeLeave !== 'function') return a;
+  a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const href = a.href;
+    Promise.resolve(beforeLeave(href)).then(go => { if (go) window.location.assign(href); });
+  });
+  return a;
+}
+
+// opts.beforeLeave: see kitGuardLink; asked before any tool link is followed.
+function kitToolsMenu(currentId, lang, opts) {
+  const beforeLeave = opts && opts.beforeLeave;
+  const ru = lang === 'ru';
+  const wrap = document.createElement('span');
+  wrap.className = 'kit-tool-wrap';
+  wrap.setAttribute('data-kit-menu', '');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'kit-hbtn';
+  btn.textContent = ru ? 'Инструменты' : 'Tools';
+  btn.setAttribute('aria-expanded', 'false');
+  const list = document.createElement('ul');
+  list.className = 'kit-menu';
+  list.hidden = true;
+  for (const t of KIT_TOOLS) {
+    const li = document.createElement('li');
+    let item;
+    if (t.id === currentId) {
+      item = document.createElement('span');
+      item.setAttribute('aria-current', 'page');
+    } else {
+      item = document.createElement('a');
+      item.setAttribute('href', t.href);
+      kitGuardLink(item, beforeLeave);
+    }
+    item.textContent = ru ? t.ru : t.en;
+    li.appendChild(item);
+    list.appendChild(li);
+  }
+  function close(refocus) {
+    list.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('click', onDoc);
+    const i = kitOpenMenus.indexOf(close);
+    if (i >= 0) kitOpenMenus.splice(i, 1);
+    if (refocus === true && btn.isConnected) btn.focus();
+  }
+  function open() {
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onDoc);
+    kitOpenMenus.push(close);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(true); }
+  function onDoc(e) { if (!wrap.contains(e.target)) close(); }
+  btn.addEventListener('click', e => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  list.addEventListener('click', e => { if (e.target.closest && e.target.closest('a')) close(); });
+  wrap.addEventListener('focusout', e => {
+    if (!list.hidden && e.relatedTarget && !wrap.contains(e.relatedTarget)) close();
+  });
+  wrap.appendChild(btn);
+  wrap.appendChild(list);
+  return wrap;
 }
 
 /* ===========================================================================
@@ -4641,7 +4781,7 @@ function renderHeaderPhone() {
       "aria-expanded": S.navOpen ? "true" : "false", "aria-controls": "nav", onclick: () => openNav() }, [menuIcon()]) : null,
     el("a", { class: "home", href: "../", title: tr("All Delardi tools") }, [
       el("img", { class: "mark", src: LOGO_WORDMARK, alt: "Delardi — " + tr("All tools") })]),
-    el("div", { class: "title-m", text: unlocked ? tr(VIEW_TITLES[S.view] || "Clients") : tr("CRM") }),
+    el("div", { class: "title-m", text: unlocked ? tr(S.view === "cockpit" && S.ref && S.ref.my_rep ? "My clients" : VIEW_TITLES[S.view] || "Clients") : tr("CRM") }),
     el("div", { class: "spacer" }),
     unlocked ? discreetBtn() : langSwitch(),
     unlocked ? el("button", { class: "btn subtle icon-btn lock-m", type: "button", onclick: lockNow, "aria-label": tr("Lock"), title: tr("Lock") }, [
@@ -4714,16 +4854,13 @@ function renderNav() {
       ]),
     ]));
   }
-  let themeNow = "auto";
-  try { themeNow = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* ignore */ }
-  const dark = themeNow === "dark" || (themeNow === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   if (!S.navFacet) sections.push(el("div", { class: "nav-section", "data-section": "settings" }, [
     el("h3", { text: tr("Settings") }),
     el("div", { class: "nav-list" }, [
       el("div", { class: "nav-row static" }, [el("span", { text: tr("Language") }), langSwitch()]),
-      navRow(tr("Theme"), false, () => { toggleTheme(); renderNav(); }, el("span", { class: "nav-val", text: tr(dark ? "Dark" : "Light") })),
       navRow(tr(S.discreet ? "Show amounts" : "Hide amounts"), false, toggleDiscreet, eyeIcon(S.discreet)),
-      el("a", { class: "nav-row", href: "../board/" }, [el("span", { text: tr("Weekly board") })]),
+      // the other tools, as the tool switcher lists them on a wider screen
+      ...KIT_TOOLS.filter((t) => t.id !== "crm").map((t) => el("a", { class: "nav-row", href: t.href }, [el("span", { text: LANG === "ru" ? t.ru : t.en })])),
       el("a", { class: "nav-row", href: "../" }, [el("span", { text: tr("All tools") })]),
     ]),
   ]));

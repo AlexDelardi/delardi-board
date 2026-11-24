@@ -653,6 +653,26 @@ const measure = (page, scope) => page.evaluate((scope) => {
   }
 
   {
+    // the shared design (guideline v2): one header for every tool, one look
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { dark: true });
+    await settled(page);
+    const h = await page.evaluate(() => { const cs = (q) => getComputedStyle(document.querySelector(q)); return {
+      head: cs(".kit-head").backgroundColor, body: cs("body").backgroundColor, theme: document.documentElement.getAttribute("data-theme"),
+      tool: document.querySelector(".kit-head .kit-tool").textContent, tools: !!document.querySelector(".kit-head .kit-tool-wrap"),
+      themeBtn: !![...document.querySelectorAll(".kit-head button")].find((b) => /light and dark/i.test(b.title || "")), board: !!document.querySelector('.kit-head > a[href="../board/"]'),   // the old separate link; the switcher lists the Board now
+      radius: [...document.querySelectorAll(".btn, .stat, input, .toolbar")].every((n) => getComputedStyle(n).borderTopLeftRadius === "0px"),
+      shadow: [...document.querySelectorAll(".btn, .stat, .list-wrap")].every((n) => getComputedStyle(n).boxShadow === "none"),
+      tab: cs('.view-tab[aria-current="page"]').borderBottomColor }; });
+    check("design: the shared navy header with the tool name and the tool switcher", h.head === "rgb(0, 26, 74)" && h.tool === "CRM" && h.tools && !h.board, JSON.stringify(h));
+    check("design: one look, even on a device set to dark", h.theme === "light" && h.body === "rgb(255, 255, 255)" && !h.themeBtn, JSON.stringify(h));
+    check("design: square corners, no shadows, navy underline on the tab in use", h.radius && h.shadow && h.tab === "rgb(8, 41, 102)", JSON.stringify(h));
+    await page.click(".kit-head .kit-tool-wrap > button");
+    const items = await page.$$eval(".kit-menu li", (ls) => ls.map((l) => l.textContent.trim()).join("|"));
+    check("design: the switcher lists the tools, this one marked", /Sales\|Stock\|Clients\|Catalogue\|Board\|Performance/.test(items) && (await page.$('.kit-menu [aria-current="page"]')) !== null, items);
+    check("design: no console errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+  {
     // the details are edited on a phone too
     const { ctx, page, calls, errors } = await setup(browser, { width: 390, height: 844 }, { touch: true });
     await page.waitForSelector("#list-host .mrow, #list-host tbody tr, #list-host [data-id]");

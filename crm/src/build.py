@@ -15,6 +15,8 @@ t = (HERE / 'template.html').read_text(encoding='utf-8')
 js = (HERE / 'app.js').read_text(encoding='utf-8')
 MODULES = ['insights.js', 'cockpit.js', 'refresh-words.js', 'floor.js', 'mobile.js', 'telegram.js', 'personal.js', 'listx.js', 'addclient.js', 'xlsx.js', 'export.js']
 ins = '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES)
+# the shared tool switcher (ui/tools.js), as in every other tool
+ins = (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + ins
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1
 js = js.replace(MARK, ins + '\n' + MARK)
