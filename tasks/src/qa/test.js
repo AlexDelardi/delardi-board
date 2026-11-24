@@ -391,6 +391,21 @@ async function shot(page, name, full) {
     check("session: a login that lost its ribbons is locked out with the reason", /does not have access/.test(await r.page.textContent(".gate-card .err")));
     mock.restore("fresh", true, false);
     await r.ctx.close();
+    // …and the same when it happens between two taps, with a task open
+    for (const act of ["quick", "comment", "save"]) {
+      mock.reset();
+      const q = await setup(browser, { width: 1024, height: 768 }, { pass: "rep", keep: true });
+      if (act !== "quick") { await q.page.click("ul[data-group=overdue] .task-open"); await q.page.waitForSelector("#task-form"); }
+      mock.revoke("rep");
+      if (act === "quick") await q.page.click("ul[data-group=today] .quick");
+      if (act === "comment") { await q.page.fill("#t-comment", "x"); await q.page.click("#t-comment-send"); }
+      if (act === "save") { await q.page.fill("#t-notes", "x"); await q.page.click("#panel-save"); }
+      await q.page.waitForSelector("#gate");
+      check("session: access taken away mid-session locks the page on the next " + act + ", with nothing left behind",
+        /does not have access/.test(await q.page.textContent(".gate-card .err")) && (await q.page.$eval("#app", (a) => a.children.length)) === 0 && !(await q.page.$("#task-panel")) && await q.page.evaluate(() => S.doc === null && S.panel === null));
+      mock.restore("rep", true, false);
+      await q.ctx.close();
+    }
     // a failed load can be tried again
     mock.reset();
     const f = await setup(browser, { width: 1024, height: 768 }, { login: false });

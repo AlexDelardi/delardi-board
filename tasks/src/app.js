@@ -249,8 +249,9 @@ async function api(action, body) {
     clearTimeout(timer);
   }
   if (!res.ok) {
-    // A lost session locks the page; the filters on screen are kept.
-    if (res.status === 401 && action !== "unlock") lockDown(data.error);
+    // A lost session locks the page, and so does lost access (403): a right taken away mid-session must not leave the
+    // tasks already loaded, or an open panel, readable behind an error message.
+    if ((res.status === 401 || res.status === 403) && action !== "unlock") lockDown(data.error);
     const err = new Error(data.error ? tr(data.error) : tr("Request failed ({n})", { n: res.status }));
     err.status = res.status;
     err.raw = data.error || "";            // the server's sentence as sent, before any translation
@@ -322,7 +323,6 @@ async function loadTasks() {
     S.ribbon = ribbons().includes(saved) ? saved : ribbons()[0] || null;
   } catch (e) {
     if (seq !== loadSeq || S.locked) return;
-    if (e.status === 403) { lockDown(e.raw); return; }
     S.err = e.message;
   }
   renderAll();

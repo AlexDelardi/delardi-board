@@ -159,6 +159,16 @@ language sql stable security definer set search_path = public, pg_temp as $$
 $$;
 revoke execute on function public.tsk_task_json(uuid, jsonb) from public, anon, authenticated;
 
+-- A suggestion about a sensitive Board topic, or about the sensitive task that topic became, is for the sensitive right
+-- only: the Board kept such suggestions from everyone else, and so does the inbox here.
+create function public.tsk_suggestion_visible(p_topic_id uuid, p_me jsonb) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((p_me->>'sensitive')::boolean, false)
+      or not (coalesce((select tp.sensitive from topics tp where tp.id = p_topic_id), false)
+              or exists (select 1 from tsk_tasks t where t.source_topic_id = p_topic_id and t.sensitive))
+$$;
+revoke execute on function public.tsk_suggestion_visible(uuid, jsonb) from public, anon, authenticated;
+
 -- ------------------------------------------------------------------- reading
 -- Everything the page opens with: who I am, the scopes and people of my ribbons, the live tasks.
 -- A finished task stays in the list for 60 days, then is found only by opening it.
@@ -176,7 +186,7 @@ begin
                          from tsk_tasks t join tsk_scopes s on s.scope_id = t.scope_id
                         where not t.archived and tsk_can_see(me, s.ribbon, t.sensitive)
                           and (t.status <> 'done' or t.done_at > now() - interval '60 days')), '[]'::jsonb),
-    'inbox', case when (me->>'inbox')::boolean then (select count(*) from suggestions where state = 'pending') else 0 end);
+    'inbox', case when (me->>'inbox')::boolean then (select count(*) from suggestions g where g.state = 'pending' and tsk_suggestion_visible(g.target_topic_id, me)) else 0 end);
 end $$;
 revoke execute on function public.tsk_snapshot(text) from public, anon, authenticated;
 
@@ -391,8 +401,8 @@ begin
   return coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'title', coalesce(g.title, tp.title), 'note', g.note, 'next_step', g.next_step,
              'owner', g.owner, 'channel', g.channel, 'source', g.source_meeting, 'source_date', g.source_date, 'evidence', g.evidence,
              'scope_id', 10 + coalesce(g.pillar_id, tp.pillar_id), 'task_id', tk.task_id, 'task_title', tk.title) order by g.source_date desc nulls last, g.created_at desc)
-      from suggestions g left join topics tp on tp.id = g.target_topic_id left join tsk_tasks tk on tk.source_topic_id = g.target_topic_id
-     where g.state = 'pending'), '[]'::jsonb);
+      from suggestions g left join topics tp on tp.id = g.target_topic_id left join tsk_tasks tk on tk.source_topic_id = g.target_topic_id and not tk.archived
+     where g.state = 'pending' and tsk_suggestion_visible(g.target_topic_id, me)), '[]'::jsonb);
 end $$;
 revoke execute on function public.tsk_inbox(text) from public, anon, authenticated;
 
@@ -400,11 +410,11 @@ revoke execute on function public.tsk_inbox(text) from public, anon, authenticat
 -- Dismiss: it leaves the inbox. Either way the suggestion keeps who decided and when.
 create function public.tsk_inbox_decide(p_user text, p_suggestion_id uuid, p_accept boolean, p_scope_id smallint default null) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare me jsonb := tsk_me(p_user); g suggestions%rowtype; v_task uuid; v_scope smallint; v_title text; v_body text;
+declare me jsonb := tsk_me(p_user); g suggestions%rowtype; v_task uuid; v_scope smallint; v_title text; v_body text; v_sens boolean;
 begin
   if not (me->>'inbox')::boolean then raise exception 'This account has no suggestions inbox.'; end if;
   select * into g from suggestions where id = p_suggestion_id for update;
-  if not found then raise exception 'That suggestion was not found.'; end if;
+  if not found or not tsk_suggestion_visible(g.target_topic_id, me) then raise exception 'That suggestion was not found.'; end if;
   if g.state <> 'pending' then raise exception 'That suggestion was already decided.'; end if;
   if coalesce(p_accept, false) then
     select task_id into v_task from tsk_tasks where source_topic_id = g.target_topic_id and not archived;
@@ -418,7 +428,10 @@ begin
       v_title := coalesce(nullif(btrim(coalesce(g.title, '')), ''), (select title from topics where id = g.target_topic_id), 'Suggestion');
       v_scope := coalesce(p_scope_id, (10 + coalesce(g.pillar_id, (select pillar_id from topics where id = g.target_topic_id)))::smallint);
       if not exists (select 1 from tsk_scopes where scope_id = v_scope and ribbon = 'backoffice') then raise exception 'Choose a backoffice scope for the task.'; end if;
-      insert into tsk_tasks(scope_id, title, notes, owner, created_by) values (v_scope, left(v_title, 200), nullif(left(v_body, 8000), ''), p_user, p_user) returning task_id into v_task;
+      -- what was sensitive on the Board stays sensitive here: a topic that was not carried over, or whose task is archived
+      v_sens := coalesce((select tp.sensitive from topics tp where tp.id = g.target_topic_id), false)
+                or exists (select 1 from tsk_tasks t where t.source_topic_id = g.target_topic_id and t.sensitive);
+      insert into tsk_tasks(scope_id, title, notes, owner, sensitive, created_by) values (v_scope, left(v_title, 200), nullif(left(v_body, 8000), ''), p_user, v_sens, p_user) returning task_id into v_task;
       insert into tsk_log(task_id, action, actor, payload) values (v_task, 'created', p_user, jsonb_build_object('suggestion', g.id));
     end if;
   end if;

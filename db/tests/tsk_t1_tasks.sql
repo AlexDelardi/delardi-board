@@ -155,6 +155,25 @@ begin
   d := tsk_inbox_decide('Zz Back', v_sug, false);
   assert d->>'task_id' is null and (select state from suggestions where id = v_sug) = 'dismissed', 'dismissed: no task';
 
+  -- sensitive topics and the inbox (Zz Back has the inbox but not the sensitive right; Zz Boss has both)
+  insert into suggestions(kind, target_topic_id, note, source_meeting, state, channel) values ('update', v_topic2, 'Zz secret reply', 'Zz mail', 'pending', 'email') returning id into v_sug;
+  assert not exists (select 1 from jsonb_array_elements(tsk_inbox('Zz Back')) z where (z->>'id')::uuid = v_sug) and (tsk_snapshot('Zz Back')->>'inbox')::int = 0,
+    'a suggestion about a sensitive task is kept from an inbox without the sensitive right, and not counted';
+  begin perform tsk_inbox_decide('Zz Back', v_sug, true); ok := false; exception when others then ok := sqlerrm like '%suggestion was not found%'; end; assert ok, 'nor can it be decided there';
+  assert exists (select 1 from jsonb_array_elements(tsk_inbox('Zz Boss')) z where (z->>'id')::uuid = v_sug) and (tsk_snapshot('Zz Boss')->>'inbox')::int = 1, 'the sensitive right sees and counts it';
+  -- its task archived: accepting makes a new task, which must stay sensitive
+  update tsk_tasks set archived = true where source_topic_id = v_topic2;
+  d := tsk_inbox_decide('Zz Boss', v_sug, true);
+  assert (select sensitive from tsk_tasks where task_id = (d->>'task_id')::uuid) and (d->>'task_id')::uuid <> (select task_id from tsk_tasks where source_topic_id = v_topic2),
+    'a task made from a suggestion about a sensitive topic is sensitive';
+  assert (select count(*) from jsonb_array_elements(tsk_snapshot('Zz Back')->'tasks') z where (z->>'task_id')::uuid = (d->>'task_id')::uuid) = 0, 'and stays out of sight without the right';
+  -- a sensitive topic that was never carried (parked)
+  insert into topics(pillar_id, title, status, priority, sensitive, archived, created_by, first_raised_week) values (4, 'Zz parked secret', 'parked', 'medium', true, false, 'zz', date '2031-06-09') returning id into v_topic3;
+  insert into suggestions(kind, target_topic_id, note, source_meeting, state, channel) values ('update', v_topic3, 'Zz more', 'Zz mail', 'pending', 'email') returning id into v_sug;
+  assert not exists (select 1 from jsonb_array_elements(tsk_inbox('Zz Back')) z where (z->>'id')::uuid = v_sug), 'the same for a sensitive topic that never came over';
+  d := tsk_inbox_decide('Zz Boss', v_sug, true);
+  assert (select sensitive and title = 'Zz parked secret' from tsk_tasks where task_id = (d->>'task_id')::uuid), 'its new task is sensitive too';
+
   raise notice 'tsk_t1 ok';
 end $$;
 rollback;
