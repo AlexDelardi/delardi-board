@@ -534,8 +534,9 @@ function renderHeader() {
   const controls = [S.locked ? null : clientButton(), S.locked ? null : hideBtn, langSwitch(), lock, tools];
   const open = phone && S.menuOpen && !S.locked;
   const menuBtn = phone && !S.locked ? el("button", { class: "hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
-    onclick: () => { S.menuOpen = !S.menuOpen; render(); const b = $("#menu-btn"); if (b) b.focus(); } }, [el("span", { class: "menu-bars", "aria-hidden": "true" })]) : null;
-  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, controls) : null;
+    onclick: () => { S.menuOpen = !S.menuOpen; render(); const b = $("#menu-btn"); if (b && !S.menuOpen) b.focus(); } }, [el("span", { class: "menu-bars", "aria-hidden": "true" })]) : null;
+  // on a phone the tools lead the list, then the screen's own switches, the language and the lock
+  const menu = open ? kitPhoneMenu([tools, S.locked ? null : clientButton(), S.locked ? null : hideBtn, langSwitch(), lock], LANG, () => { S.menuOpen = false; render(); const b = $("#menu-btn"); if (b) b.focus(); }) : null;
   // a choice in the menu closes it; opening the tool switcher inside it does not
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   return el("header", { class: "top" }, [

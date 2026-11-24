@@ -410,7 +410,11 @@ async function shot(page, name, full) {
         check(label + ": the ribbon switch sits under the tabs, across the width", await page.$eval("#ribbon-bar .ribbon-switch", (n) => n.getBoundingClientRect().width > window.innerWidth * 0.8));
         await page.click("#menu-btn");
         check(label + ": the menu holds the person, the tools, the language and the lock", !!(await page.$("#head-menu .kit-tool-wrap")) && !!(await page.$("#head-menu .kit-lang")) && /Tessa Boss/.test(await page.textContent("#head-menu")) && /Lock/.test(await page.textContent("#head-menu")));
-        await page.click("#menu-btn");
+        await page.waitForFunction(() => Math.round(document.querySelector("#head-menu .head-panel").getBoundingClientRect().right) === window.innerWidth);
+        check(label + ": the menu is a panel from the right edge and the header keeps its height", await page.$eval("#head-menu .head-panel", (m) => { const r = m.getBoundingClientRect(); return r.left >= window.innerWidth * 0.1 && r.top === 0 && Math.round(r.bottom) === window.innerHeight; })
+          && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
+        await page.click("#head-close");
+        check(label + ": its close button closes it", !(await page.$("#head-menu")));
       } else {
         check(label + ": the header keeps its controls in the bar", !(await page.$("#menu-btn")) && !!(await page.$(".kit-head .kit-lang")));
       }

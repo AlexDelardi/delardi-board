@@ -612,10 +612,17 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await page.getAttribute("#menu-btn", "aria-expanded") === "true" && await count(page, "#head-menu .lang") === 1 && await count(page, "#head-menu .kit-tool-wrap") === 1, "phone " + w + ": the menu holds the language and the other tools");
     const small = await page.$$eval("#head-menu button, #head-menu a, .top-row .hbtn", (xs) => xs.filter((x) => x.getBoundingClientRect().width > 0 && x.getBoundingClientRect().height < 44).map((x) => x.textContent || x.className));
     ok(small.length === 0, "phone " + w + ": everything in the header is at least 44 px tall", small);
-    await page.click("#head-menu .kit-tool-wrap > button");
-    ok(await page.$eval(".top .kit-menu", (m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }), "phone " + w + ": the tools list opens inside the screen");
-    await page.keyboard.press("Escape");
-    await page.click("#menu-btn"); if (await count(page, "#head-menu") === 0) await page.click("#menu-btn");
+    // the menu is a panel from the right edge; the tools are listed in it straight away
+    await page.waitForFunction(() => Math.round(document.querySelector("#head-menu .head-panel").getBoundingClientRect().right) === innerWidth);
+    ok(await page.$eval("#head-menu .head-panel", (m) => { const r = m.getBoundingClientRect(); return r.left >= innerWidth * 0.1 && Math.round(r.right) === innerWidth && r.top === 0 && Math.round(r.bottom) === innerHeight; })
+      && await page.$eval(".top-row", (n) => Math.round(n.getBoundingClientRect().height)) <= 60, "phone " + w + ": the menu is a side panel, the header row keeps its height");
+    ok(await page.$$eval("#head-menu .kit-menu li", (ls) => ls.length === 6 && ls.every((l) => { const r = l.getBoundingClientRect(); return r.height >= 44 && r.left >= 0 && r.right <= innerWidth + 1; }))
+      && !(await page.isVisible("#head-menu .kit-tool-wrap > button")), "phone " + w + ": the tools are listed inside the screen, no second tap");
+    await page.click("#head-close");
+    ok(await count(page, "#head-menu") === 0 && await page.evaluate(() => document.activeElement.id === "menu-btn"), "phone " + w + ": the close button closes the menu");
+    await page.click("#menu-btn"); await page.mouse.click(10, 400);
+    ok(await count(page, "#head-menu") === 0, "phone " + w + ": a tap beside the panel closes it");
+    await page.click("#menu-btn");
     await page.click("#head-menu .lang button:has-text('RU')"); await settle(page);
     ok(await count(page, "#head-menu") === 0 && (await page.textContent(".brand .title")) === "Каталог", "phone " + w + ": a choice in the menu applies and closes it");
     ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "phone " + w + ": nothing scrolls sideways");

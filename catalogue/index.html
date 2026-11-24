@@ -483,12 +483,30 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .menu-bars { position: relative; }
 .menu-bars::before, .menu-bars::after { content: ""; position: absolute; left: 0; }
 .menu-bars::before { top: -6px; } .menu-bars::after { top: 6px; }
-.head-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px 16px; background: #000F2E; border-top: 1px solid var(--header-line); }
-.head-menu .hbtn { min-height: 44px; padding: 6px 14px; font-size: 14px; }
-.head-menu .hbtn .lbl-wide { display: inline; }
-.head-menu .lang button { min-height: 44px; min-width: 48px; font-size: 13px; }
-.head-menu .kit-tool-wrap > .kit-hbtn { width: auto; min-width: 44px; height: 44px; min-height: 44px; padding: 0 16px; font-size: 14px; background-image: none; }
-.head-menu .kit-menu { left: 0; right: auto; }
+/* the same side panel as the kit's (ui/kit.css): this page carries its own header styles */
+.head-menu { position: fixed; inset: 0; z-index: 90; }
+.head-scrim { position: absolute; inset: 0; background: rgba(0, 26, 74, .4); }
+.head-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 76px 16px 24px; overflow-y: auto; background: #001A4A; color: #FFFFFF; border-left: 1px solid rgba(143, 168, 204, .45); animation: head-panel-in .16s ease-out; }
+@keyframes head-panel-in { from { transform: translateX(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .head-panel { animation: none; } }
+.head-panel :focus-visible { outline: 2px solid #8FA8CC; outline-offset: 2px; }
+.head-panel .head-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; min-height: 44px; padding: 0; font-size: 24px; line-height: 1; }
+.head-panel .kit-staff { position: absolute; top: 16px; left: 16px; right: 72px; max-width: none; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; white-space: normal; }
+/* the tools are a plain list here: no second tap */
+.head-panel .kit-tool-wrap { display: block; position: static; }
+.head-panel .kit-tool-wrap > button { display: none; }
+.head-panel .kit-menu, .head-panel .kit-menu[hidden] { display: block; position: static; min-width: 0; margin: 0; background: transparent; color: #FFFFFF; border: 0; border-top: 1px solid rgba(143, 168, 204, .45); }
+.head-panel .kit-menu li { border-bottom: 1px solid rgba(143, 168, 204, .45); }
+.head-panel .kit-menu a, .head-panel .kit-menu span { min-height: 48px; padding: 0 4px; color: #FFFFFF; background: transparent; }
+.head-panel .kit-menu a:hover { background: #082966; }
+.head-panel .kit-menu [aria-current="page"] { color: #8FA8CC; background: transparent; font-weight: 700; }
+.head-panel .kit-menu :focus-visible { outline-color: #8FA8CC; }
+.head-panel > .kit-hbtn:not(.head-close), .head-panel > .hbtn { width: 100%; justify-content: center; }
+.head-panel .head-close { background: transparent; color: #FFFFFF; border: 1px solid rgba(143, 168, 204, .45); cursor: pointer; }
+.head-panel .hbtn { min-height: 44px; padding: 6px 14px; font-size: 14px; gap: 8px; }
+.head-panel .hbtn .lbl-wide { display: inline; }
+.head-panel .lang { display: flex; }
+.head-panel .lang button { flex: 1 1 0; min-height: 44px; font-size: 13px; }
 @media (max-width: 599px) {
   .top-row { padding: 8px 12px; gap: 8px; }
   .brand { gap: 10px; }
@@ -1162,8 +1180,9 @@ function renderHeader() {
   const controls = [S.locked ? null : clientButton(), S.locked ? null : hideBtn, langSwitch(), lock, tools];
   const open = phone && S.menuOpen && !S.locked;
   const menuBtn = phone && !S.locked ? el("button", { class: "hbtn menu-btn", id: "menu-btn", type: "button", "aria-label": tr("Menu"), "aria-expanded": open ? "true" : "false", "aria-controls": "head-menu",
-    onclick: () => { S.menuOpen = !S.menuOpen; render(); const b = $("#menu-btn"); if (b) b.focus(); } }, [el("span", { class: "menu-bars", "aria-hidden": "true" })]) : null;
-  const menu = open ? el("div", { class: "head-menu", id: "head-menu" }, controls) : null;
+    onclick: () => { S.menuOpen = !S.menuOpen; render(); const b = $("#menu-btn"); if (b && !S.menuOpen) b.focus(); } }, [el("span", { class: "menu-bars", "aria-hidden": "true" })]) : null;
+  // on a phone the tools lead the list, then the screen's own switches, the language and the lock
+  const menu = open ? kitPhoneMenu([tools, S.locked ? null : clientButton(), S.locked ? null : hideBtn, langSwitch(), lock], LANG, () => { S.menuOpen = false; render(); const b = $("#menu-btn"); if (b) b.focus(); }) : null;
   // a choice in the menu closes it; opening the tool switcher inside it does not
   if (menu) menu.addEventListener("click", (ev) => { if (ev.target.closest("button, a") && !ev.target.closest(".kit-tool-wrap > button")) S.menuOpen = false; }, true);
   return el("header", { class: "top" }, [
@@ -1997,6 +2016,43 @@ function kitToolsMenu(currentId, lang, opts) {
   });
   wrap.appendChild(btn);
   wrap.appendChild(list);
+  return wrap;
+}
+
+// The phone menu: a panel that slides in from the right over a dimmed page, so the header and the tabs under it do not
+// move. items: the tool's own controls, in order (the person, kitToolsMenu(...), the language switch, Lock ...).
+// onClose: called for the close button and for a tap beside the panel; the tool closes the menu and redraws its header.
+function kitPhoneMenu(items, lang, onClose) {
+  const ru = lang === 'ru';
+  const wrap = document.createElement('div');
+  wrap.className = 'head-menu';
+  wrap.id = 'head-menu';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-label', ru ? 'Меню' : 'Menu');
+  const scrim = document.createElement('div');
+  scrim.className = 'head-scrim';
+  scrim.addEventListener('click', () => onClose());
+  const panel = document.createElement('div');
+  panel.className = 'head-panel';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'kit-hbtn head-close';
+  close.id = 'head-close';
+  close.setAttribute('aria-label', ru ? 'Закрыть меню' : 'Close the menu');
+  close.textContent = '\u00D7';
+  close.addEventListener('click', e => { e.stopPropagation(); onClose(); });
+  panel.appendChild(close);
+  const add = kid => {
+    if (kid === null || kid === undefined || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(add); return; }
+    panel.appendChild(kid);
+  };
+  add(items);
+  wrap.appendChild(scrim);
+  wrap.appendChild(panel);
+  // once it is in the page, focus goes into it
+  requestAnimationFrame(() => { if (close.isConnected) close.focus(); });
   return wrap;
 }
 
