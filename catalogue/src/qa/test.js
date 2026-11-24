@@ -754,6 +754,24 @@ const settle = (page) => page.waitForTimeout(150);
     ok((await page.evaluate(() => window.__sheet)).includes("Prepared for: Delardi client") && (await page.textContent("#sheet-who-hint")).includes("Delardi client"),
       "with no name typed the sheet says 'Prepared for: Delardi client', and the panel says so beforehand", await page.evaluate(() => window.__sheet));
     ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("A client"), "the client's name is not kept on the device");
+    // a discount on the whole selection, and the word that prices are indicative
+    const sheetNow = () => page.evaluate(() => document.querySelector("#print").textContent);
+    const digits = (t) => Number(String(t).replace(/[^0-9]/g, ""));
+    await page.check("#sheet-prices"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 3);
+    ok((await sheetNow()).includes("Prices are indicative only") && await count(page, "#print .ps-disc") === 0, "a sheet with prices says they are indicative only; with no discount typed none is shown");
+    await page.fill("#sheet-discount", "7,5"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 4);
+    const gross = digits(await page.textContent("#print .ps-total.before b")), offD = digits(await page.textContent("#print .ps-off")), net = digits(await page.textContent("#print .ps-net b"));
+    ok(gross === sum && offD === Math.round(sum * 0.075) && net === gross - offD, "a 7.5% discount shows the total, the discount and what is left", { gross, offD, net, sum });
+    ok((await page.textContent("#print .ps-disc")).includes("Discount 7.5%") && (await sheetNow()).includes("Prices and the discount are indicative only"), "the sheet names the percentage and says the prices and the discount are indicative");
+    for (const bad of ["abc", "0", "100", "-5"]) {
+      const before = await page.evaluate(() => window.__printed);
+      await page.fill("#sheet-discount", bad); await page.click("#sheet-go"); await page.waitForFunction((n) => window.__printed === n + 1, before);
+      ok(await count(page, "#print .ps-disc") === 0, "a discount of '" + bad + "' is no discount");
+    }
+    await page.fill("#sheet-discount", "10"); await page.uncheck("#sheet-prices");
+    { const before = await page.evaluate(() => window.__printed); await page.click("#sheet-go"); await page.waitForFunction((n) => window.__printed === n + 1, before); }
+    ok(await count(page, "#print .ps-disc") === 0 && !(await sheetNow()).includes("indicative"), "with prices off there is no discount and no note about prices");
+    ok(!(await page.evaluate(() => JSON.stringify(localStorage))).includes("discount"), "the discount is not kept on the device");
     await page.click(".sel-sheet header .btn");
     // client view, remove, lock
     await page.click(".sel-actions .btn:has-text('Show to a client')"); await settle(page);
