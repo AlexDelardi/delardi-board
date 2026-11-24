@@ -58,6 +58,8 @@ its workspace in October 2026; this one replaces it.
 
 ## The API
 
+`api-cockpit/index.ts` is the deployed `crm-cockpit` edge function: the one read-only `cockpit` action, with crm-api's session rules. It is a function of its own so that adding the cockpit did not mean redeploying crm-api.
+
 `api/index.ts` is the deployed `crm-api` edge function, kept here so the page and
 its API can be read side by side. It is deployed from Supabase, not from this
 repository — editing this copy changes nothing on its own. `api/HISTORY.md` holds

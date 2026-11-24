@@ -1952,7 +1952,7 @@ const MAPPED = {
   awareness_source_raw: "awareness_source", online_interest_raw: "online_interest",
   brand_preference_raw: "brand_preference",
 };
-const READ_ACTIONS = ["reference", "stats", "clients", "client", "ping", "peek", "insights", "data_health", "facets"];
+const READ_ACTIONS = ["reference", "stats", "clients", "client", "ping", "peek", "insights", "data_health", "facets", "cockpit"];
 
 /* ------------------------------------------------------------------- state */
 const blankFilters = () => ({
@@ -2069,12 +2069,14 @@ function store(key, val) {
 }
 
 /* --------------------------------------------------------------------- api */
+// The cockpit is served by its own small function, crm-cockpit, beside crm-api: same session, same rules.
+const API_COCKPIT = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-cockpit";
 async function call(action, payload = {}) {
   const body = { action, ...payload };
   if (S.session && action !== "unlock") body.token = S.session.token;
   let res;
   try {
-    res = await fetch(API, {
+    res = await fetch(action === "cockpit" ? API_COCKPIT : API, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
   } catch (e) {
