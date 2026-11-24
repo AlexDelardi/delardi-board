@@ -70,6 +70,7 @@ const RU = {
   "Archive": "В архив", "Archive this task?": "Убрать задачу в архив?",
   "It leaves every list. It is kept, and a manager can restore it.": "Она исчезнет из всех списков, но сохранится: руководитель может её вернуть.",
   "Archived.": "Убрано в архив.",
+  "Drag a card to another column to change its scope.": "Перетащите карточку в другой столбец, чтобы сменить направление.", "Moved to {s}.": "Перенесено: {s}.",
   "Leave without saving?": "Закрыть без сохранения?", "Your changes to this task are not saved.": "Изменения в задаче не сохранены.",
   "Leave": "Закрыть", "Keep editing": "Продолжить",
   "Give the task a title.": "Укажите название задачи.",
@@ -439,7 +440,19 @@ function renderTeam(main) {
     sel("f-pri", tr("Priority"), f.high ? "high" : "", [["", tr("Any priority")], ["high", tr("High")]], (v) => { f.high = v === "high"; }),
     el("label", { class: "filter grow" }, el("span", { class: "lbl", text: tr("Search tasks") }), q)));
   const cols = el("div", { class: "cols", id: "cols", style: "--n:" + scopesOf(S.ribbon).length });
-  sec.append(cols);
+  sec.append(el("p", { class: "small", id: "drag-hint", text: tr("Drag a card to another column to change its scope.") }), cols);
+  // Drag and drop: a card dropped on another column takes that scope. The order inside a column stays by due date.
+  let dragId = null;
+  const clearMarks = () => { for (const n of cols.querySelectorAll(".is-over, .is-dragging")) n.classList.remove("is-over", "is-dragging"); };
+  async function moveTo(id, s) {
+    const t = S.doc && S.doc.tasks.find((x) => x.task_id === id);
+    if (!t || t.scope_id === s.scope_id) return;
+    try {
+      putTask(await api("save", { task: { task_id: id, scope_id: s.scope_id } }));
+      toast(tr("Moved to {s}.", { s: LANG === "ru" ? s.name_ru : s.name_en }));
+    } catch (e) { toast(e.message, true); }
+    if (!S.locked && cols.isConnected) drawColumns();
+  }
   function drawColumns() {
     const needle = f.q.trim().toLowerCase();
     const list = tasksHere().filter((t) => t.status !== "done" && (f.status === "open" || t.status === f.status) && (!f.owner || t.owner === f.owner || t.helper === f.owner)
@@ -447,9 +460,20 @@ function renderTeam(main) {
     cols.innerHTML = "";
     for (const s of scopesOf(S.ribbon)) {
       const mine = list.filter((t) => t.scope_id === s.scope_id);
-      cols.append(el("div", { class: "col", "data-scope": s.slug },
+      const rows = mine.map((t) => {
+        const li = taskRow(t, { scope: false });
+        li.draggable = true;
+        li.addEventListener("dragstart", (e) => { dragId = t.task_id; li.classList.add("is-dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", t.title); });
+        li.addEventListener("dragend", () => { dragId = null; clearMarks(); });
+        return li;
+      });
+      const col = el("div", { class: "col", "data-scope": s.slug },
         el("h2", { class: "col-title" }, LANG === "ru" ? s.name_ru : s.name_en, el("span", { class: "count", text: String(mine.length) })),
-        mine.length ? el("ul", { class: "tasks" }, mine.map((t) => taskRow(t, { scope: false }))) : el("p", { class: "small empty", text: "—" })));
+        mine.length ? el("ul", { class: "tasks" }, rows) : el("p", { class: "small empty", text: "—" }));
+      col.addEventListener("dragover", (e) => { if (dragId === null) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; col.classList.add("is-over"); });
+      col.addEventListener("dragleave", (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove("is-over"); });
+      col.addEventListener("drop", (e) => { if (dragId === null) return; e.preventDefault(); const id = dragId; dragId = null; clearMarks(); moveTo(id, s); });
+      cols.append(col);
     }
     const none = $("#team-empty"); if (none) none.remove();
     if (!list.length) cols.before(el("p", { class: "notice", id: "team-empty", text: tr(tasksHere().some((t) => t.status !== "done") ? "Nothing matches these filters." : "Nothing here. Enjoy it, or add a task.") }));

@@ -96,9 +96,16 @@ body { background: var(--card); }
 .col .task { flex-direction: column; gap: 0; padding-bottom: 12px; }
 .col .task .quick { align-self: flex-start; }
 .col .empty { padding: 12px 0; }
+.col { padding: 0 6px 12px; margin: 0 -6px; border-radius: 4px; min-height: 120px; }
+.col.is-over { background: var(--mist); outline: 2px dashed var(--navy); outline-offset: 2px; }
+.col .task[draggable="true"] { cursor: grab; }
+.col .task.is-dragging { opacity: .45; }
+#drag-hint { margin: 12px 0 0; }
 .col-title .count, .sec-title .count { background: var(--white); }
 @media (max-width: 1099px) {                      /* iPad and below: the scopes stack, each a plain list */
   .cols { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .col { min-height: 0; }
+  #drag-hint { display: none; }
   .col .task { flex-direction: row; gap: 8px; padding-bottom: 0; }
   .col .task .quick { align-self: center; }
 }
