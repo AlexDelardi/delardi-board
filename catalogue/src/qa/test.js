@@ -738,18 +738,18 @@ const settle = (page) => page.waitForTimeout(150);
     const link = await page.evaluate(() => navigator.clipboard.readText()).catch(() => null);
     if (link !== null) ok(link.includes("#/selection?p=") && decodeURIComponent(link).includes(multi.model_id + "~" + multi.colours[1].variant_id), "the link carries the references", link);
     // the sheet
-    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__sheet = document.querySelector("#print").innerText; window.__logo = !!document.querySelector("#print .ps-mark"); }; });
+    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; window.__sheet = document.querySelector("#print").textContent; window.__logo = !!document.querySelector("#print .ps-mark"); }; });
     await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.waitForSelector(".sel-sheet");
-    await page.fill("#sheet-who", "A client"); await page.click("#sheet-go");
+    await page.fill("#sheet-who", "A client"); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 1);
     const printed = await page.evaluate(() => ({ n: window.__printed, text: window.__sheet, logo: window.__logo }));
     ok(printed.n === 1 && printed.logo, "the sheet goes to print once, with the Delardi mark", printed.n);
     ok(printed.text.includes("A client") && printed.text.includes("Prepared by Tester") && printed.text.includes("Bukhara 26") && printed.text.includes(first.brand) && printed.text.includes("UZS"),
       "the sheet names the client, who prepared it, the address, the pieces and the prices", printed.text);
-    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).display) === "none", "the sheet is not on screen");
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).visibility) === "hidden" && await page.evaluate(() => document.querySelector("#print").getBoundingClientRect().right < 0), "the sheet is not on screen");
     await page.emulateMedia({ media: "print" });
-    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).display !== "none" && getComputedStyle(document.querySelector("#app")).display === "none"), "on paper the sheet is the only thing");
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#print")).visibility === "visible" && getComputedStyle(document.querySelector("#print")).position === "static" && getComputedStyle(document.querySelector("#app")).display === "none"), "on paper the sheet is the only thing");
     await page.emulateMedia({ media: "screen" });
-    await page.uncheck("#sheet-prices"); await page.fill("#sheet-who", "   "); await page.click("#sheet-go");
+    await page.uncheck("#sheet-prices"); await page.fill("#sheet-who", "   "); await page.click("#sheet-go"); await page.waitForFunction(() => window.__printed === 2);
     ok(!(await page.evaluate(() => window.__sheet)).includes("UZS"), "prices can be left off the sheet");
     ok((await page.evaluate(() => window.__sheet)).includes("Prepared for: Delardi client") && (await page.textContent("#sheet-who-hint")).includes("Delardi client"),
       "with no name typed the sheet says 'Prepared for: Delardi client', and the panel says so beforehand", await page.evaluate(() => window.__sheet));
@@ -797,7 +797,7 @@ const settle = (page) => page.waitForTimeout(150);
     // a sheet made, then the lock: nothing is left to print from the gate
     await page.evaluate(() => { window.print = () => {}; });
     await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.fill("#sheet-who", "A client"); await page.click("#sheet-go");
-    ok((await page.evaluate(() => document.querySelector("#print").innerText)).includes("A client"), "the sheet is built while its panel is open");
+    ok((await page.evaluate(() => document.querySelector("#print").textContent)).includes("A client"), "the sheet is built while its panel is open");
     await page.evaluate(() => lockDown());
     ok(await page.isVisible("#gate") && await page.evaluate(() => document.querySelector("#print").innerHTML) === "", "locking empties the sheet");
     await ctx.close();
@@ -825,6 +825,31 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await count(page, ".sel-row.gone") === 0, "coming back online loads it without a tap");
     await page.goto(PAGE + "#/selection?p=NOPE-1"); await page.reload(); await page.waitForSelector(".sel-row.gone");
     ok(await count(page, ".sel-again") === 0, "a piece that is gone from the catalogue offers no retry");
+    await ctx.close();
+  }
+  // the sheet waits for its pictures: the print window takes the page as it is at that instant
+  {
+    const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+    const { ctx, page, errors } = await open(browser);
+    const withPhoto = MODELS.filter((m) => m.in_stock && m.image_key).slice(0, 2), bare = MODELS.find((m) => m.in_stock && !m.image_key);
+    let n = 0;
+    await page.route("**/catalogue-photos/**", async (route) => {
+      if (route.request().url().includes(encodeURIComponent(withPhoto[1].model_id) + "/")) return route.fulfill({ status: 404, body: "" });   // one photo is missing
+      n++; await new Promise((r) => setTimeout(r, 700));                                                                                       // the other is slow
+      return route.fulfill({ status: 200, contentType: "image/png", body: PNG });
+    });
+    await unlock(page);
+    await page.evaluate((c) => localStorage.setItem("cat_cart", JSON.stringify(c)), [withPhoto[0], withPhoto[1], bare].map((m) => ({ m: m.model_id, v: null })));
+    await page.goto(PAGE + "#/selection"); await page.reload(); await page.waitForSelector(".sel-row .nm");
+    await page.evaluate(() => { window.print = () => { window.__at = [...document.querySelectorAll("#print img")].map((i) => ({ cls: i.className, done: i.complete, w: i.naturalWidth })); }; });
+    await page.click(".sel-actions .btn:has-text('PDF or print')"); await page.waitForSelector(".sel-sheet");
+    await page.click("#sheet-go");
+    ok((await page.textContent("#sheet-go")).includes("Preparing") && await page.evaluate(() => window.__at === undefined), "the sheet does not print before its pictures are in");
+    await page.waitForFunction(() => window.__at);
+    const at = await page.evaluate(() => window.__at);
+    ok(at.length >= 4 && at.every((i) => i.done && i.w > 0), "at the moment of printing every picture on the sheet is loaded: the mark, the photos, the logos", at);
+    ok(at.filter((i) => i.cls === "mono").length === 2, "a piece with no photo, and one whose photo will not load, show the monogram", at);
+    ok(n > 0 && errors.length === 0, "the slow photo was waited for, without script errors", { n, errors });
     await ctx.close();
   }
   // the selection on a phone and an iPad

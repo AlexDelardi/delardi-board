@@ -554,7 +554,8 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 }
 
 /* ------------------------------------------------- the sheet, on paper only */
-#print { display: none; }
+/* out of sight, but in the page: under display:none a browser may put off loading the sheet's pictures */
+@media screen { #print { position: fixed; left: -10000px; top: 0; width: 794px; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; } }
 @page { size: A4; margin: 14mm 14mm 16mm; }
 @media print {
   html, body { background: #FFFFFF !important; }
