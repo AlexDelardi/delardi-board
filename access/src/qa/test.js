@@ -210,6 +210,57 @@ async function shot(page, name, full) {
     await ctx.close();
   });
 
+  await run("passcode own and late", async () => {
+    // one's own: the session ends with the old passcode, and the new one must still be readable
+    let { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 });
+    await openCard(page, "Tessa Boss");
+    await page.click("#pass-new"); await page.click("#confirm-ok");
+    await page.waitForSelector("#code-dialog");
+    const snaps = callsOf("snapshot").length;
+    await page.waitForTimeout(400);
+    const own = await page.textContent("#code-out");
+    check("own passcode: it stays on screen, and the page asks the server for nothing", /^[a-z]+\d{4}$/.test(own) && !!(await page.$("#code-dialog")) && !(await page.$("#gate")) && callsOf("snapshot").length === snaps, own);
+    check("own passcode: it says they are signed out and must note it", /your own passcode/.test(await page.textContent("#code-note")));
+    await page.click("#code-ok");
+    await page.waitForSelector("#gate");
+    check("own passcode: closing returns to the gate, saying what to do", /Sign in with your new passcode\./.test(await page.textContent("#gate")) && !(await page.content()).includes(own) && (await page.$eval("#app", (a) => a.children.length)) === 0);
+    check("own passcode: no errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+    // closed by the scrim instead of the button
+    ({ ctx, page } = await setup(browser, { width: 1280, height: 800 }));
+    await openCard(page, "Tessa Boss");
+    await page.click("#pass-new"); await page.click("#confirm-ok");
+    await page.waitForSelector("#code-dialog");
+    await page.click("#code-dialog-close");
+    await page.waitForSelector("#gate");
+    check("own passcode: the × returns to the gate too", /Sign in with your new passcode\./.test(await page.textContent("#gate")));
+    await ctx.close();
+    // an answer that arrives after the page was locked
+    ({ ctx, page } = await setup(browser, { width: 1280, height: 800 }));
+    await openCard(page, "Lena Lead");
+    mock.delay.new_passcode = 500;
+    await page.click("#pass-new"); await page.click("#confirm-ok");
+    await page.waitForTimeout(100);
+    await page.evaluate(() => lockNow());
+    await page.waitForTimeout(800);
+    delete mock.delay.new_passcode;
+    const late = mock.codes[person("Lena Lead").person_id];
+    check("late answer: a new passcode that arrives after Lock is not shown", !!late && !(await page.$("#code-dialog")) && !!(await page.$("#gate")) && !(await page.content()).includes(late));
+    await ctx.close();
+    ({ ctx, page } = await setup(browser, { width: 1280, height: 800 }));
+    await page.click("#add-person"); await page.waitForSelector("#person-panel");
+    await page.fill("#p-name", "Late Lara");
+    mock.delay.save_person = 500;
+    await page.click("#panel-save");
+    await page.waitForTimeout(100);
+    await page.evaluate(() => lockNow());
+    await page.waitForTimeout(800);
+    delete mock.delay.save_person;
+    const lara = mock.people.find((x) => x.name === "Late Lara");
+    check("late answer: a new person's passcode that arrives after Lock is not shown", !!lara && !(await page.$("#code-dialog")) && !(await page.content()).includes(mock.codes[lara.person_id]));
+    await ctx.close();
+  });
+
   await run("rights", async () => {
     const { ctx, page, errors } = await setup(browser, { width: 1440, height: 900 });
     await go(page, "#/rights"); await page.waitForSelector("#matrix");

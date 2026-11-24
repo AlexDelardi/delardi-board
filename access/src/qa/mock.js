@@ -106,7 +106,7 @@ function handle(body) {
       if (!keyReady) fail(409, "Passcodes cannot be issued or shown yet: the passcode key is not set up.");
       const passcode = nextCode();
       codes[p.person_id] = passcode; p.passcode = "viewable"; p.passcode_set_at = new Date().toISOString();
-      for (const [t, n] of sessions) if (n === p.name && p !== u) sessions.delete(t);
+      for (const [t, n] of sessions) if (n === p.name) sessions.delete(t);   // their own too, as the database does
       log(u.name, p, "passcode");
       return [200, { person: clone(p), passcode }];
     }
