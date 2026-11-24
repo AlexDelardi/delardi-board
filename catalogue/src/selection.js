@@ -49,6 +49,15 @@ Object.assign(RU, {
   "Left empty, the sheet says “{d}”.": "Если оставить пустым, на листе будет «{d}».",
   "Show prices": "Показывать цены",
   "Print or save as PDF": "Печать или сохранить в PDF",
+  "Discount, %": "Скидка, %",
+  "none": "нет",
+  "Optional, on the whole selection. Shown on the sheet under the total; not kept.": "Необязательно, на всю подборку. Показывается на листе под итогом; не сохраняется.",
+  "Discount {p}%": "Скидка {p}%",
+  "With the discount": "Со скидкой",
+  "With the discount, from": "Со скидкой, от",
+  "Prices and the discount are indicative only and are confirmed at the boutique.": "Цены и скидка указаны ориентировочно и подтверждаются в бутике.",
+  "Prices are indicative only and are confirmed at the boutique.": "Цены указаны ориентировочно и подтверждаются в бутике.",
+  "Preparing…": "Готовим…",
   "In the print window choose “Save as PDF”. On an iPad: Print, then spread two fingers on the preview and share it.":
     "В окне печати выберите «Сохранить как PDF». На iPad: «Напечатать», затем раздвиньте предпросмотр двумя пальцами и отправьте.",
   "A selection for you": "Подборка для вас",
@@ -280,7 +289,7 @@ async function copyText(text, done) {
 /* -------------------------------------------------------------- the sheet */
 // A small panel first: who it is for and whether prices show. Nothing typed here is kept.
 function openSheetOptions(lines) {
-  S.selSheet = { who: "", prices: !S.hide, lines };
+  S.selSheet = { who: "", prices: !S.hide, discount: "", lines };
   layerOpened();
   renderSheetOptions();
 }
@@ -297,15 +306,44 @@ function renderSheetOptions() {
       el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-who", text: tr("Prepared for") }), who,
         el("p", { class: "sel-hint", id: "sheet-who-hint", text: tr("Left empty, the sheet says “{d}”.", { d: tr("Delardi client") }) })]),
       el("div", { class: "grp" }, [el("label", { class: "check" }, [el("input", { type: "checkbox", id: "sheet-prices", checked: o.prices ? "checked" : null, onchange: (e) => { o.prices = e.target.checked; } }), tr("Show prices")])]),
+      el("div", { class: "grp" }, [el("label", { class: "lbl", for: "sheet-discount", text: tr("Discount, %") }),
+        el("input", { type: "text", id: "sheet-discount", inputmode: "decimal", maxlength: "5", autocomplete: "off", value: o.discount, placeholder: tr("none"), oninput: (e) => { o.discount = e.target.value; } }),
+        el("p", { class: "sel-hint", text: tr("Optional, on the whole selection. Shown on the sheet under the total; not kept.") })]),
       el("p", { class: "sel-hint", text: tr("In the print window choose “Save as PDF”. On an iPad: Print, then spread two fingers on the preview and share it.") }),
     ]),
     el("footer", {}, [
       el("button", { class: "btn", type: "button", onclick: closeSheetOptions, text: tr("Cancel") }),
-      el("button", { class: "btn primary", id: "sheet-go", type: "button", onclick: () => { buildPrintSheet(o.lines, { who: o.who.trim(), prices: o.prices }); window.print(); }, text: tr("Print or save as PDF") }),
+      el("button", { class: "btn primary", id: "sheet-go", type: "button", onclick: async (e) => {
+        // The print window takes the page as it is at that instant, and a picture just put on the sheet has not arrived yet:
+        // the sheet is built, its pictures are waited for, and only then does it go to print.
+        const btn = e.currentTarget; if (btn.disabled) return;
+        btn.disabled = true; btn.textContent = tr("Preparing…");
+        buildPrintSheet(o.lines, { who: o.who.trim(), prices: o.prices, discount: sheetDiscount(o.discount) });
+        await sheetPictures();
+        btn.disabled = false; btn.textContent = tr("Print or save as PDF");
+        if (S.selSheet === o) window.print();
+      }, text: tr("Print or save as PDF") }),
     ]),
   ]);
   layer.append(el("div", { class: "sheet-scrim", onclick: closeSheetOptions }), panel);
   setTimeout(() => who.focus(), 60);
+}
+// What was typed as a discount, as a percentage above 0 and below 100; anything else is no discount.
+function sheetDiscount(v) {
+  const n = Number(String(v || "").replace("%", "").replace(",", ".").trim());
+  return Number.isFinite(n) && n > 0 && n < 100 ? Math.round(n * 10) / 10 : 0;
+}
+// Every picture on the sheet loaded and decoded, or given up on: a photo that will not come within a few seconds
+// (or at all) must not hold the sheet back, and gives way to the monogram.
+function sheetPictures(limit = 6000) {
+  const one = (img) => new Promise((done) => {
+    const settle = () => { if (!img.naturalWidth && !img.classList.contains("mono")) { img.src = MONO_NAVY; img.className = "mono"; } done(); };
+    if (img.complete) { (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(settle); return; }
+    img.addEventListener("load", () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(settle), { once: true });
+    img.addEventListener("error", settle, { once: true });
+  });
+  const all = Promise.all([...document.querySelectorAll("#print img")].map(one));
+  return Promise.race([all, new Promise((done) => setTimeout(done, limit))]);
 }
 // The sheet itself sits in #print: hidden on screen, the only thing on paper.
 function buildPrintSheet(lines, opts) {
@@ -313,11 +351,13 @@ function buildPrintSheet(lines, opts) {
   host.innerHTML = "";
   const good = lines.filter((L) => !L.error && !L.loading);
   const brands = [...new Set(good.map((L) => L.brand))];
-  const logos = brands.map((b) => (brandLogo(b) ? el("img", { src: brandLogo(b), alt: b }) : el("span", { text: b })));
+  const logos = brands.map((b) => (brandLogo(b) ? el("img", { src: brandLogo(b), alt: b, loading: "eager", decoding: "sync" }) : el("span", { text: b })));
   const tot = selTotal(good);
+  const disc = opts.prices && opts.discount > 0 ? opts.discount : 0;
+  const off = Math.round(tot.sum * disc / 100);
   host.append(
     el("header", { class: "ps-head" }, [
-      el("img", { class: "ps-mark", src: WORDMARK_NAVY, alt: "Delardi" }),
+      el("img", { class: "ps-mark", src: WORDMARK_NAVY, alt: "Delardi", loading: "eager", decoding: "sync" }),
       el("div", { class: "ps-where" }, [el("div", { text: BOUTIQUE.name }), el("div", { text: BOUTIQUE.address[LANG === "ru" ? 1 : 0] }), el("div", { text: BOUTIQUE.web + " · Telegram " + BOUTIQUE.telegram })]),
     ]),
     el("div", { class: "ps-title" }, [
@@ -326,7 +366,7 @@ function buildPrintSheet(lines, opts) {
       el("div", { class: "ps-meta" }, [el("span", { class: "ps-who", text: tr("Prepared for") + ": " + (opts.who || tr("Delardi client")) }), el("span", { text: today() })]),
     ]),
     el("div", { class: "ps-items" }, good.map((L, i) => el("div", { class: "ps-item" }, [
-      el("div", { class: "ps-ph" }, [L.photoBig || L.photo ? el("img", { src: L.photoBig || L.photo, alt: "" }) : el("img", { class: "mono", src: MONO_NAVY, alt: "" })]),
+      el("div", { class: "ps-ph" }, [L.photoBig || L.photo ? el("img", { src: L.photoBig || L.photo, alt: "", loading: "eager", decoding: "sync" }) : el("img", { class: "mono", src: MONO_NAVY, alt: "" })]),
       el("div", { class: "ps-main" }, [
         el("div", { class: "ps-brand", text: L.brand }),
         el("div", { class: "ps-name", text: L.title }),
@@ -336,11 +376,15 @@ function buildPrintSheet(lines, opts) {
       ]),
       el("div", { class: "ps-side" }, [el("div", { class: "ps-no", text: String(i + 1) }), opts.prices ? el("div", { class: "ps-price", text: selPrice(L, true) }) : null]),
     ]))),
-    opts.prices && tot.n > 1 ? el("div", { class: "ps-total" }, [el("span", { text: tr(tot.from ? "Total, from" : "Total") }), el("b", { text: fmtAmt(tot.sum) })]) : null,
+    // with a discount the total always shows, then the discount and what is left, even for a single piece
+    opts.prices && tot.n && (tot.n > 1 || disc) ? el("div", { class: "ps-total" + (disc ? " before" : "") }, [el("span", { text: tr(tot.from ? "Total, from" : "Total") }), el("b", { text: fmtAmt(tot.sum) })]) : null,
+    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-disc" }, [el("span", { text: tr("Discount {p}%", { p: String(disc).replace(".", LANG === "ru" ? "," : ".") }) }), el("span", { class: "ps-off", text: "− " + fmtAmt(off) })]) : null,
+    opts.prices && tot.n && disc ? el("div", { class: "ps-total ps-net" }, [el("span", { text: tr(tot.from ? "With the discount, from" : "With the discount") }), el("b", { text: fmtAmt(tot.sum - off) })]) : null,
     el("footer", { class: "ps-foot" }, [
       logos.length ? el("div", { class: "ps-logos" }, logos) : null,
       el("div", { class: "ps-small" }, [
         S.session && S.session.name ? el("span", { class: "ps-by", text: tr("Prepared by {who}", { who: S.session.name }) }) : null,
+        opts.prices ? el("span", { class: "ps-indicative", text: tr(disc ? "Prices and the discount are indicative only and are confirmed at the boutique." : "Prices are indicative only and are confirmed at the boutique.") }) : null,
         opts.prices ? el("span", { text: tr("Prices in UZS, VAT included, as on {date}. Pieces are single items and may be sold in the meantime.", { date: today() }) }) : null,
       ]),
     ]),
