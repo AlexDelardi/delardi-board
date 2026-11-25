@@ -59,7 +59,7 @@ async function open(browser, w, url, opts = {}) {
     if (u.startsWith(BASE)) {
       let rel = decodeURIComponent(new URL(u).pathname.replace("/delardi-board/", ""));
       if (rel === "" || rel.endsWith("/")) rel += "index.html";
-      if (rel === "blank.html") return r.fulfill({ status: 200, contentType: "text/html", body: "<!DOCTYPE html><html><body><div id='app'></div></body></html>" });
+      if (rel.endsWith("blank.html")) return r.fulfill({ status: 200, contentType: "text/html", body: "<!DOCTYPE html><html><body><div id='app'></div></body></html>" });
       const f = path.join(ROOT, rel);
       if (!f.startsWith(ROOT) || !fs.existsSync(f)) return r.fulfill({ status: 404, body: "" });
       return r.fulfill({ status: 200, contentType: TYPES[path.extname(f)] || "application/octet-stream", body: fs.readFileSync(f) });
@@ -67,6 +67,7 @@ async function open(browser, w, url, opts = {}) {
     return r.fulfill({ status: 404, body: "" });
   });
   if (opts.lang) await ctx.addInitScript((l) => { try { localStorage.setItem("delardi_lang", l); } catch (e) { /* ignore */ } }, opts.lang);
+  if (opts.tab) await ctx.addInitScript((seed) => { try { if (!sessionStorage.getItem("__tabbed")) { sessionStorage.setItem("__tabbed", "1"); for (const k in seed) sessionStorage.setItem(k, seed[k]); } } catch (e) { /* ignore */ } }, opts.tab);
   if (opts.seed) await ctx.addInitScript((seed) => { try { if (!sessionStorage.getItem("__seeded")) { sessionStorage.setItem("__seeded", "1"); for (const k in seed) localStorage.setItem(k, seed[k]); } } catch (e) { /* ignore */ } }, opts.seed);
   await page.goto(BASE + (url || "") + (url && url.includes("?") ? "&" : "?") + "season=off");
   return { ctx, page, errors };
@@ -267,6 +268,42 @@ const TOOLS = ["sales", "stock", "crm", "catalogue", "tasks", "perf", "access"];
       await ctx.close();
     });
   }
+
+  // An old last-touch time left behind by the tool must not lock a session signed in a moment ago (it used to send
+  // the person round and round: sign in, locked for being idle, sign in).
+  await run("stale idle", async () => {
+    const old = String(Date.now() - 40 * 60000);
+    for (const [id, key, local] of [["sales", "sales_last_active"], ["stock", "stock_last_active"], ["tasks", "tasks_last_active"], ["perf", "perf_last_active"], ["access", "access_last_active"],
+      ["crm", "crm_last_active", true], ["catalogue", "cat_idle", true]]) {
+      const w = world(); w.toolDelay = 2500;
+      const sd = seed(w, "boss", Object.assign({ delardi_last_active: String(Date.now()) }, local ? { [key]: old } : {}));
+      const { ctx, page } = await open(browser, w, id + "/", { seed: sd, tab: local ? null : { [key]: old }, touch: true, viewport: { width: 820, height: 1180 } });
+      await page.waitForTimeout(900);
+      const now = await page.evaluate(([k, l]) => Number((l ? localStorage : sessionStorage).getItem(k) || 0), [key, !!local]);
+      check(id + ": an old idle time in the tab does not lock a fresh sign-in", new URL(page.url()).pathname === "/delardi-board/" + id + "/" && !w.calls.some((c) => c.action === "lock" || c.action === "me")
+        && (await stored(page)) !== null && Date.now() - now < 60000 && w.toolCalls.length > 0, { url: page.url(), calls: w.calls.map((c) => c.action), now });
+      await ctx.close();
+    }
+    // and the shared session left idle still locks
+    const w = world();
+    const { ctx, page } = await open(browser, w, "sales/", { seed: seed(w, "boss", { delardi_last_active: old }), touch: true, viewport: { width: 820, height: 1180 } });
+    await atHome(page);
+    await page.waitForSelector("#signin:not([hidden])");
+    check("a shared session left idle on a touch device still ends at the sign-in", (await stored(page)) === null && w.toolCalls.length === 0);
+    await ctx.close();
+  });
+
+  await run("other tabs", async () => {
+    const w = world();
+    const { ctx, page } = await open(browser, w, "sales/blank.html", { seed: seed(w, "rep") });
+    await page.addScriptTag({ content: fs.readFileSync(path.join(ROOT, "ui/hub.js"), "utf8") + "\nwindow.__n = 0; window.__ok = kitHubAdopt('sales', 'sales_session', { active: () => { window.__n++; }, leaving: () => { sessionStorage.setItem('__left', 'kept'); } });" });
+    check("adopt: the tool starts on the shared session", await page.evaluate(() => window.__ok === true && JSON.parse(sessionStorage.getItem("sales_session")).name === "Rita Rep"));
+    await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", { key: "delardi_last_active", newValue: String(Date.now()) })));
+    check("someone using another tab counts as activity here, so this tab does not lock everyone for being idle", (await page.evaluate(() => window.__n)) === 1);
+    await Promise.all([page.waitForURL((u) => u.pathname === "/delardi-board/"), page.evaluate(() => { localStorage.removeItem("delardi_session"); window.dispatchEvent(new StorageEvent("storage", { key: "delardi_session" })); })]);
+    check("locked in another tab: the tool is told before the page leaves (the till sets its sale aside), then goes to the sign-in", (await page.evaluate(() => sessionStorage.getItem("__left"))) === "kept");
+    await ctx.close();
+  });
 
   await run("menu", async () => {
     const w = world();

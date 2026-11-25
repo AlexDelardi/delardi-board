@@ -884,7 +884,7 @@ function renderAll() {
   if (mx && $("#matrix-wrap")) $("#matrix-wrap").scrollLeft = mx;
 }
 function restoreSession() {
-  kitHubAdopt("access", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("access", SESSION_KEY, { idleKey: ACTIVE_KEY, active: activeNow });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;

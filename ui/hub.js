@@ -74,6 +74,12 @@ function kitHubCover() {
 // Take the shared session as this tool's own. → true when the tool may start with it. With none, the page goes to
 // the home page to sign in and comes back. opts.local: the tool keeps its session in localStorage, not sessionStorage.
 // opts.crmKey: the tool also keeps a CRM session under this sessionStorage key (the till's client panel).
+// opts.idleKey: where the tool keeps its own last-touch time for its idle lock (opts.local says which storage). The
+//   shared session was just read as not idle, so arriving here is a touch: an old time left in the tab must not lock a
+//   session signed in a moment ago.
+// opts.active(): the tool's own "touched now". Called when another tab is being used, so a tool left open beside it
+//   does not lock everyone out for being idle itself.
+// opts.leaving(): called before this tab is sent to the home page because another tab locked or signed in afresh.
 function kitHubAdopt(tool, key, opts) {
   if (!kitHubOn()) return false;
   const h = kitHubRead();
@@ -86,6 +92,7 @@ function kitHubAdopt(tool, key, opts) {
     if (!cur || cur.token !== h.token) {
       st.setItem(key, JSON.stringify({ token: h.token, name: h.name, expires_at: h.expires_at, can_edit: !!tools.crm_edit, can_manage: !!tools.catalogue_manage }));
     }
+    if (opts && opts.idleKey) st.setItem(opts.idleKey, String(Date.now()));
     if (opts && opts.crmKey) {
       if (tools.crm) sessionStorage.setItem(opts.crmKey, JSON.stringify({ token: h.token, can_edit: !!tools.crm_edit, name: h.name, expires_at: h.expires_at }));
       else sessionStorage.removeItem(opts.crmKey);
@@ -95,9 +102,13 @@ function kitHubAdopt(tool, key, opts) {
   kitHubCall('open', { token: h.token, tool: tool });            // the login log's line
   // Locked or signed in as someone else in another tab: this tab follows.
   window.addEventListener('storage', function (e) {
+    if (e.key === KIT_HUB_ACTIVE) { if (e.newValue && opts && opts.active) { try { opts.active(); } catch (err) { /* the tool's own business */ } } return; }
     if (e.key !== KIT_HUB_KEY) return;
     const now = kitHubRead();
-    if (!now || now.token !== h.token) { kitHubCover(); kitHubHome(now ? '' : 'next=' + tool); }
+    if (!now || now.token !== h.token) {
+      if (opts && opts.leaving) { try { opts.leaving(); } catch (err) { /* leave anyway */ } }
+      kitHubCover(); kitHubHome(now ? '' : 'next=' + tool);
+    }
   });
   return true;
 }

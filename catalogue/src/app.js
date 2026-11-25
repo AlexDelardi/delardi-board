@@ -1291,7 +1291,7 @@ function renderSheetV2() {
   document.documentElement.lang = LANG;
   S.hide = store(HIDE_KEY) === "1";
   S.client = store(CLIENT_KEY) === "1";
-  kitHubAdopt("catalogue", SESSION_KEY, { local: true });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("catalogue", SESSION_KEY, { local: true, idleKey: IDLE_KEY, active: activeNow });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const raw = store(SESSION_KEY);
     const s = raw ? JSON.parse(raw) : null;

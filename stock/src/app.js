@@ -587,7 +587,7 @@ function renderAll() {
   if (typeof renderPiece === "function") renderPiece();      // an open piece panel follows the language
 }
 function restoreSession() {
-  kitHubAdopt("stock", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("stock", SESSION_KEY, { idleKey: ACTIVE_KEY, active: activeNow });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   // The mode is the tab's, not the login's: it is read before anything that can send the page to the
   // gate (no saved session, an expired one, the idle lock), so unlocking comes back to the same mode.
   S.training = sstore(TRAIN_KEY) === "1";

@@ -908,7 +908,7 @@ function renderAll() {
   window.scrollTo(0, y);
 }
 function restoreSession() {
-  kitHubAdopt("tasks", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("tasks", SESSION_KEY, { idleKey: ACTIVE_KEY, active: activeNow });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;

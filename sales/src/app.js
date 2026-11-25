@@ -546,7 +546,7 @@ function renderAll() {
   ROUTES[r.name](main, r.arg);
 }
 function restoreSession() {
-  kitHubAdopt("sales", SESSION_KEY, { crmKey: CRM_KEY });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("sales", SESSION_KEY, { crmKey: CRM_KEY, idleKey: ACTIVE_KEY, active: activeNow, leaving: keepSale });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;

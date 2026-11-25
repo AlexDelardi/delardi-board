@@ -1883,7 +1883,7 @@ function renderAll(gateMessage) {
   renderGate(gateMessage);
 }
 function restoreSession() {
-  kitHubAdopt("crm", SESSION_KEY, { local: true });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("crm", SESSION_KEY, { local: true, idleKey: IDLE_KEY, active: activeNow });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const raw = store(SESSION_KEY);
     if (!raw) return;

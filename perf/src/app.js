@@ -659,7 +659,7 @@ function renderAll() {
   if (mark) { sec.classList.add("in-season"); sec.prepend(mark); }
 }
 function restoreSession() {
-  kitHubAdopt("perf", SESSION_KEY);          // the home page's sign-in, taken as this tool's own (ui/hub.js)
+  kitHubAdopt("perf", SESSION_KEY, { idleKey: ACTIVE_KEY, active: activeNow });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;
