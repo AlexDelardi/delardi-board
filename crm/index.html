@@ -3242,9 +3242,10 @@ document.addEventListener("keydown", (e) => {
 
 /* -------------------------------------------------------------------- gate */
 function renderGate(message) {
-  if (kitHubGate("crm")) return;                     // signing in is the home page's job (ui/hub.js)
   const existing = $("#gate");
   if (!S.locked) { if (existing) existing.remove(); return; }
+  // Only when locked: this function runs on every redraw, and the home page must not be handed an open page.
+  if (kitHubGate("crm")) return;                     // signing in is the home page's job (ui/hub.js)
   if (existing) existing.remove();
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const err = el("p", { class: "err", role: "alert", style: message ? null : "display:none", text: message ? tr(message) : "" });

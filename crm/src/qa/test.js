@@ -145,6 +145,37 @@ const measure = (page, scope) => page.evaluate((scope) => {
 (async () => {
   const browser = await chromium.launch();
 
+  // --------------------------- opened on the home page's sign-in (ui/hub.js)
+  // The page that works must stay open: its lock card function runs on every redraw, and handing an open page to
+  // the home page signed the person out the moment the list was drawn (live, 25 Nov 2026).
+  {
+    const raw = fs.readFileSync(path.join(__dirname, "..", "dist", "index.html"), "utf8");
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-GB" });
+    const page = await ctx.newPage();
+    const hub = [], api = [];
+    await ctx.addInitScript((t) => { localStorage.setItem("delardi_session", JSON.stringify({ token: t, name: "Dilnoza A.", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), tools: { crm: true, crm_edit: true } })); }, "m".repeat(64));
+    await page.route(PAGE_URL + "**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: raw }));
+    await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>landing</p>" }));
+    await page.route("https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/**", async (route) => {
+      const req = route.request();
+      if (req.method() === "OPTIONS") return route.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "*" }, body: "ok" });
+      const body = JSON.parse(req.postData() || "{}"), fn = req.url().split("/").pop();
+      const json = (status, data) => route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
+      if (fn === "hub-api") { hub.push(body.action); return json(200, { ok: true, allowed: true, name: "Dilnoza A.", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), tools: { crm: true, crm_edit: true } }); }
+      api.push(body.action);
+      const [status, data] = mock.handle(body);
+      return json(status, data);
+    });
+    await page.goto(PAGE_URL + "?season=off");
+    await settled(page);
+    await page.waitForTimeout(600);
+    check("single sign-in: the page opens on the shared session and stays open", page.url().startsWith(PAGE_URL) && !(await page.$("#gate")) && !(await page.$("#hub-cover")) && (await page.locator("#list-host tbody tr").count()) > 0, page.url());
+    check("single sign-in: it asks the home page only to log the visit, never who it is or to lock", hub.join(",") === "open", hub.join(","));
+    await page.evaluate(() => renderAll()); await page.waitForTimeout(700);
+    check("single sign-in: still open after the list is redrawn", page.url().startsWith(PAGE_URL) && !(await page.$("#hub-cover")) && hub.join(",") === "open", hub.join(","));
+    await ctx.close();
+  }
+
   // ------------------------------------------------ the page still works
   {
     const { ctx, page, calls, errors } = await setup(browser, { width: 1440, height: 900 });
