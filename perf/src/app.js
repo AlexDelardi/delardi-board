@@ -560,6 +560,7 @@ function renderGate() {
   const old = $("#gate");
   if (old) old.remove();
   if (!S.locked) return;
+  if (kitHubGate("perf")) return;                // signing in is the home page's job (ui/hub.js)
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
@@ -658,6 +659,7 @@ function renderAll() {
   if (mark) { sec.classList.add("in-season"); sec.prepend(mark); }
 }
 function restoreSession() {
+  kitHubAdopt("perf", SESSION_KEY, { idleKey: ACTIVE_KEY, active: activeNow });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;

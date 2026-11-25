@@ -50,6 +50,11 @@ function kitToolsMenu(currentId, lang, opts) {
     if (t.id === currentId) {
       item = document.createElement('span');
       item.setAttribute('aria-current', 'page');
+    } else if (typeof kitHubAllowed === 'function' && !kitHubAllowed(t.id)) {
+      // signed in on the home page without access to this tool (ui/hub.js): listed, greyed, not a link
+      item = document.createElement('span');
+      item.setAttribute('aria-disabled', 'true');
+      item.title = ru ? 'Нет доступа' : 'No access';
     } else {
       item = document.createElement('a');
       item.setAttribute('href', t.href);

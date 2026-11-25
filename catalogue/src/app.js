@@ -955,6 +955,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sheet)
 /* -------------------------------------------------------------------- gate */
 function removeGate() { const g = $("#gate"); if (g) g.remove(); }
 function renderGate(message) {
+  if (kitHubGate("catalogue")) return;               // signing in is the home page's job (ui/hub.js)
   removeGate();
   const err = el("div", { class: "err", role: "alert", style: message ? "" : "display:none", text: message ? tr(message) : "" });
   const pass = el("input", { id: "gate-pass", type: "password", autocomplete: "current-password", inputmode: "text" });
@@ -1290,6 +1291,7 @@ function renderSheetV2() {
   document.documentElement.lang = LANG;
   S.hide = store(HIDE_KEY) === "1";
   S.client = store(CLIENT_KEY) === "1";
+  kitHubAdopt("catalogue", SESSION_KEY, { local: true, idleKey: IDLE_KEY, active: activeNow });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const raw = store(SESSION_KEY);
     const s = raw ? JSON.parse(raw) : null;

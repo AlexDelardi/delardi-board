@@ -19,7 +19,7 @@ assert t.count('/*__KIT_CSS__*/') == 1, 'the kit marker must appear exactly once
 t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # In this order, before the init marker. The later ones arrive with Task 8;
 # whatever is not there yet is skipped, and the build says so.
-MODULES = ['../../ui/tools.js', '../../ui/season.js', 'sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
+MODULES = ['../../ui/hub.js', '../../ui/tools.js', '../../ui/season.js', 'sale.js', 'pay.js', 'crmshim.js', '../../crm/src/addclient.js', 'client.js', 'tickets.js', 'admin.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()

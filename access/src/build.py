@@ -18,7 +18,7 @@ assert (KIT / 'kit.css').exists() and (KIT / 'tools.js').exists(), 'ui/kit.css a
 assert t.count('/*__KIT_CSS__*/') == 1, 'the kit marker must appear exactly once in template.html'
 t = t.replace('/*__KIT_CSS__*/', (KIT / 'kit.css').read_text(encoding='utf-8'))
 # The kit's modules, before the init marker.
-MODULES = ['../../ui/tools.js', '../../ui/season.js']
+MODULES = ['../../ui/hub.js', '../../ui/tools.js', '../../ui/season.js']
 parts = []
 for m in MODULES:
     f = (HERE / m).resolve()

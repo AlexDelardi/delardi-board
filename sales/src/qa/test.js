@@ -31,7 +31,7 @@ async function setup(browser, viewport, opts = {}) {
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
-  const html = fs.readFileSync(HTML_FILE, "utf8");
+  const html = opts.hub ? fs.readFileSync(HTML_FILE, "utf8") : fs.readFileSync(HTML_FILE, "utf8").replace("<head>", "<head><script>window.__HUB_OFF = true;</script>");   // the single sign-in (ui/hub.js) is off here: these tests use the tool's own passcode card
   // Nothing but the page and the API: anything else the page asks for fails the run.
   const foreign = [];
   await page.route("**/*", (r) => {
@@ -48,13 +48,26 @@ async function setup(browser, viewport, opts = {}) {
       const [status, data] = mock.crmHandle(JSON.parse(r.request().postData() || "{}"));
       return r.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(data) });
     }
+    if (opts.hub && u === HUB_API) {                 // the home page's sign-in API: this person may open the till
+      const b = JSON.parse(r.request().postData() || "{}"); hubCalls.push(b);
+      return r.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ ok: true, name: "x", expires_at: new Date(Date.now() + 3600e3).toISOString(), tools: { sales: true } }) });
+    }
+    if (opts.hub && u.startsWith(ROOT) && !u.startsWith(PAGE_URL)) return r.fulfill({ status: 200, contentType: "text/html", body: "<!DOCTYPE html><title>home</title>" });
     foreign.push(u);
     return r.fulfill({ status: 404, body: "" });
   });
+  if (opts.hub) await ctx.addInitScript((s) => { if (!sessionStorage.getItem("__seeded")) { sessionStorage.setItem("__seeded", "1"); localStorage.setItem("delardi_session", s); } }, hubSession());
   if (opts.clock) await page.clock.install();
   await page.goto(PAGE_URL + (opts.hash || ""));
   if (opts.login !== false) await login(page);
   return { ctx, page, errors, foreign };
+}
+// The single sign-in (ui/hub.js): a shared session as the home page stores it, good for the stand-in till API.
+const HUB_API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/hub-api";
+const hubCalls = [];
+function hubSession() {
+  const [, d] = mock.handle({ action: "unlock", passcode: "demo" });
+  return JSON.stringify({ token: d.token, name: d.name, expires_at: d.expires_at, tools: { sales: true } });
 }
 async function login(page, pass = "demo") {
   await page.waitForSelector("#gate-pass");
@@ -295,6 +308,25 @@ async function shot(page, name) {
     check("post: New sale clears the sale", (await page.$$("#lines .line")).length === 0 && (await valOf(page, "#seller")) === "" &&
       (await page.getAttribute("#walk-in", "aria-pressed")) === "false");
     check("sale: no script errors", errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  });
+
+  await run("sale kept across sign-in", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 }, { hub: true, login: false });
+    await page.waitForSelector("#lines");
+    check("single sign-in: the till opens on the shared session, with no passcode card", !(await page.$("#gate")) && !(await page.$("#hub-cover")));
+    await addLine(page, "2000000000031");
+    await addLine(page, "2000000000048");
+    const first = await page.$eval("#lines .line:nth-child(1)", (n) => n.textContent);
+    hubCalls.length = 0;
+    await Promise.all([page.waitForURL(ROOT + "?next=sales"), page.evaluate(() => lockNow())]);
+    check("single sign-in: Lock ends the session everywhere and goes to the home page to sign in", hubCalls.some((c) => c.action === "lock") && (await page.evaluate(() => localStorage.getItem("delardi_session"))) === null);
+    await page.evaluate((s) => localStorage.setItem("delardi_session", s), hubSession());   // signed in again on the home page
+    await page.goto(PAGE_URL);
+    await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 2);
+    check("single sign-in: the sale on screen is back after signing in again", (await page.$eval("#lines .line:nth-child(1)", (n) => n.textContent)) === first && /sale in progress is kept: 2 pieces/.test(await page.textContent("#toast")), await page.textContent("#toast"));
+    check("single sign-in: it is put back once, not on every load", (await page.evaluate(() => sessionStorage.getItem("sales_kept_sale"))) === null);
+    check("single sign-in: no script errors", errors.length === 0, errors.join(" | "));
     await ctx.close();
   });
 
@@ -932,7 +964,7 @@ async function shot(page, name) {
     const tile = /<a class="tool" href="sales\/" data-tool="sales">([\s\S]*?)<\/a>/.exec(html);
     check("landing tile: a fourth tile links to sales/", (html.match(/<a class="tool" /g) || []).length >= 4 && !!tile);
     check("landing tile: named Sales / Продажи", !!tile && /data-i18n="sales_name">Sales</.test(tile[1]) && /sales_name: "Продажи"/.test(html));
-    check("landing tile: reads the unlock state only", !!tile && /data-session="sales_session"/.test(tile[1]));
+    check("landing tile: it no longer reads the till's own session (the home page signs in for every tool)", !!tile && !/data-session=/.test(html));
     const { ctx, page, errors } = await setup(browser, { width: 1024, height: 768 }, { login: false });
     await page.route(ROOT, (r) => r.fulfill({ status: 200, contentType: "text/html", body: html }));
     await page.goto(ROOT);

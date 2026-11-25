@@ -407,11 +407,32 @@ function renderHeader() {
       el("span", { class: "lbl", text: tr("TRAINING") }), el("span", { text: tr("practice mode: nothing posted here is a real sale") })) : null);
 }
 
+/* ------------------------------------------------------ the sale across a sign-in
+   With the single sign-in the page leaves for the home page when it locks (Lock, 15 idle minutes, the 8 hours) and
+   comes back after the passcode. The sale on screen is set aside in this tab for that trip, as it used to stay behind
+   the passcode card, and is put back once the till is open again in the same mode. */
+const KEPT_KEY = "sales_kept_sale";       // sessionStorage: this tab only, gone when it closes
+function keepSale() {
+  if (!S.sale.lines.length && !S.sale.payments.length) return;
+  sstore(KEPT_KEY, JSON.stringify({ mode: S.mode, sale: S.sale, lastPct: S.lastPct }));
+}
+function takeKeptSale() {
+  let k = null;
+  try { k = JSON.parse(sstore(KEPT_KEY) || "null"); } catch (e) { k = null; }
+  sstore(KEPT_KEY, null);
+  if (!k || !k.sale || !Array.isArray(k.sale.lines) || k.mode !== S.mode) return 0;
+  S.sale = Object.assign(newSale(), k.sale);
+  S.lastPct = k.lastPct === undefined ? null : k.lastPct;
+  return S.sale.lines.length;
+}
+
 /* -------------------------------------------------------------------- gate */
 function renderGate() {
   const old = $("#gate");
   if (old) old.remove();
   if (!S.locked) return;
+  if (kitHubOn()) keepSale();                     // the page is about to leave for the home page's sign-in
+  if (kitHubGate("sales")) return;                // signing in is the home page's job (ui/hub.js)
   const pass = el("input", { type: "password", id: "gate-pass", autocomplete: "current-password" });
   const msg = S.gateMessage;
   const err = el("p", { class: "err", role: "alert", hidden: msg ? null : true, text: msg ? tr(msg) : "" });
@@ -525,6 +546,7 @@ function renderAll() {
   ROUTES[r.name](main, r.arg);
 }
 function restoreSession() {
+  kitHubAdopt("sales", SESSION_KEY, { crmKey: CRM_KEY, idleKey: ACTIVE_KEY, active: activeNow, leaving: keepSale });          // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const s = JSON.parse(sstore(SESSION_KEY) || "null");
     if (!s || !s.token || new Date(s.expires_at).getTime() <= Date.now()) return false;
@@ -538,11 +560,13 @@ function restoreSession() {
 
 (async function boot() {
   document.documentElement.lang = LANG;
+  let kept = 0;
   if (restoreSession()) {
-    try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); }
+    try { await loadReference(); S.locked = false; activeNow(); loadDrafts(); kept = takeKeptSale(); }
     catch (e) { if (e.status !== 401) { S.token = null; sstore(SESSION_KEY, null); } }
   }
   if (S.locked) $("#app").innerHTML = "";          // nothing behind the gate
   renderAll();
   renderGate();
+  if (kept) toast(tr("The sale in progress is kept: {n}.", { n: pl(kept, "piece") }));
 })();

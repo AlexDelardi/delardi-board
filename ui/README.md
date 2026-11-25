@@ -49,3 +49,13 @@ Replace the `/*__KIT_CSS__*/` marker in the template's `<style>` with the conten
 ## Not yet
 
 The Evolventa font is not embedded; the stack falls back to Segoe UI on Windows and the system font on iPad/Mac — the same stack the other tools use. Century Gothic is deliberately not in it: it renders wide on Windows PCs.
+
+## The single sign-in (`hub.js`)
+
+One passcode on the home page gives one session that every tool's API accepts (`home/api/index.ts`, deployed as `hub-api`; database side `db/migrations/20261125_hub_1_single_login.sql`). `ui/hub.js` is inlined into every tool, before `tools.js`, and into the home page (`python3 ui/inline_hub.py`).
+
+- A tool calls `kitHubAdopt(tool, SESSION_KEY, opts)` where it restores its session, and `kitHubGate(tool)` where it would draw its own passcode card. With no shared session the page goes to the home page (`../?next=<tool>`) and comes back after the sign-in.
+- The session is in `localStorage` (`delardi_session`), so every tab on the device shares it. Lock, 8 hours, or 15 idle minutes on a touch device end it everywhere.
+- The session only says who the person is. What they may do is decided by each API from `board_users` on every request, as before.
+- The tools' own passcode cards and `unlock` actions are still in the code and unused; `window.__HUB_OFF = true` (tests only) brings them back. They go in the tidy-up.
+- Tests: `node qa/hub.cjs` (home page, every tool's handover, the Tools menu), `node home/qa/api.test.cjs`, `db/dev/run_sql_tests.sh hub_`.

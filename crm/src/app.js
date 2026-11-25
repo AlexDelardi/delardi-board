@@ -1740,6 +1740,7 @@ document.addEventListener("keydown", (e) => {
 
 /* -------------------------------------------------------------------- gate */
 function renderGate(message) {
+  if (kitHubGate("crm")) return;                     // signing in is the home page's job (ui/hub.js)
   const existing = $("#gate");
   if (!S.locked) { if (existing) existing.remove(); return; }
   if (existing) existing.remove();
@@ -1882,6 +1883,7 @@ function renderAll(gateMessage) {
   renderGate(gateMessage);
 }
 function restoreSession() {
+  kitHubAdopt("crm", SESSION_KEY, { local: true, idleKey: IDLE_KEY, active: activeNow });   // the home page's sign-in, taken as this tool's own (ui/hub.js)
   try {
     const raw = store(SESSION_KEY);
     if (!raw) return;

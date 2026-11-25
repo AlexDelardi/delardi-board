@@ -39,6 +39,7 @@ body { margin: 0; background: #FFFFFF; color: var(--navy-deep); font: 15px/1.5 v
 .kit-menu a, .kit-menu span { display: flex; align-items: center; min-height: var(--tap); padding: 0 16px; color: var(--navy-deep); text-decoration: none; font: 15px/1.5 var(--sans); }
 .kit-menu a:hover { background: var(--card); }
 .kit-menu [aria-current="page"] { font-weight: 700; color: var(--navy); background: var(--card); }
+.kit-menu [aria-disabled="true"] { color: var(--navy-deep); opacity: .45; cursor: not-allowed; }
 
 /* Tabs */
 .kit-tabs { display: flex; gap: 28px; padding: 0 24px; background: var(--white); border-bottom: 1px solid var(--mist); }
@@ -143,6 +144,7 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; pad
 .head-panel .kit-menu a, .head-panel .kit-menu span { min-height: 48px; padding: 0 4px; color: #FFFFFF; background: transparent; }
 .head-panel .kit-menu a:hover { background: #082966; }
 .head-panel .kit-menu [aria-current="page"] { color: #8FA8CC; background: transparent; font-weight: 700; }
+.head-panel .kit-menu [aria-disabled="true"] { color: #FFFFFF; opacity: .45; }
 .head-panel .kit-menu :focus-visible { outline-color: #8FA8CC; }
 .head-panel > .kit-hbtn:not(.head-close), .head-panel > .hbtn { width: 100%; justify-content: center; }
 .head-panel .kit-lang { display: flex; }

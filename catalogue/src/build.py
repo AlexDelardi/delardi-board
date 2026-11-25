@@ -15,7 +15,7 @@ MODULES = ['model.js', 'floor.js', 'selection.js']
 MARK = '/* -------------------------------------------------------------------- init */'
 assert js.count(MARK) == 1
 # the shared tool switcher (ui/tools.js), as in every other tool
-js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + (HERE.parent.parent / 'ui' / 'season.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
+js = js.replace(MARK, (HERE.parent.parent / 'ui' / 'hub.js').read_text(encoding='utf-8') + '\n' + (HERE.parent.parent / 'ui' / 'tools.js').read_text(encoding='utf-8') + '\n' + (HERE.parent.parent / 'ui' / 'season.js').read_text(encoding='utf-8') + '\n' + '\n'.join((HERE / m).read_text(encoding='utf-8') for m in MODULES) + '\n' + MARK)
 for tok, f in [('__WORDMARK_NAVY__', 'wordmark_navy.png'), ('__WORDMARK__', 'wordmark_white.png'), ('__MONO_NAVY__', 'monogram_navy.png')]:
     js = js.replace(tok, uri(f))
 t = t.replace('__FAVICON__', uri('favicon.png')).replace('__MONO_NAVY__', uri('monogram_navy.png'))

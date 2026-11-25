@@ -8,11 +8,8 @@ const ok = (c, m) => { assert.ok(c, m); n++; };
 const ids = [...kit.matchAll(/\{ id: '([a-z]+)', href: '\.\.\/\1\/'/g)].map((m) => m[1]);
 ok(ids.length === 6, 'read the tools from KIT_TOOLS: ' + ids.join(','));
 for (const id of ids) ok(home.includes('href="' + id + '/" data-tool="' + id + '"'), 'Home page has a ' + id + ' tile');
-ok(home.includes('data-session="stock_session"'), 'Home page shows the Stock session status');
 ok((home.match(/stock_name:/g) || []).length === 2 && (home.match(/stock_desc:/g) || []).length === 2, 'Stock tile text in English and Russian');
-ok(home.includes('data-session="perf_session"'), 'Home page shows the Performance session status');
 ok((home.match(/perf_name:/g) || []).length === 2 && (home.match(/perf_desc:/g) || []).length === 2, 'Performance tile text in English and Russian');
-ok(home.includes('data-session="tasks_session"'), 'Home page shows the task tracker session status');
 ok((home.match(/tasks_name:/g) || []).length === 2 && (home.match(/tasks_desc:/g) || []).length === 2, 'Task tracker tile text in English and Russian');
 // the cards: same order and same names as the Tools menu, one line each, and an illustration in place of the icon
 const order = [...home.matchAll(/<a class="tool" href="([a-z]+)\/" data-tool="\1">/g)].map((m) => m[1]);
@@ -36,7 +33,14 @@ for (const t of names) {
   ok(fs.existsSync(path.join(root, 'ui/cards', t.id + '.webp')) && fs.statSync(path.join(root, 'ui/cards', t.id + '.webp')).size < 40000, t.id + ' illustration file is there and light');
 }
 ok(!home.includes('class="tool-icon"'), 'the small icons are gone from the cards');
-ok(home.includes("default-src 'none'; img-src data: 'self';"), 'the page may load pictures from its own site only, and nothing else');
+ok(home.includes("default-src 'none'; connect-src https://hugduzqwyqwryicfzipu.supabase.co; img-src data: 'self';"), 'the page may load pictures from its own site and ask the sign-in API, and nothing else');
+ok(!home.includes('data-session='), 'the cards no longer read each tool\'s own session');
+ok(/<nav class="tools" id="tools"[^>]* hidden>/.test(home) && /<form class="signin" id="signin"[^>]* hidden>/.test(home), 'nothing but the header shows before the script decides: the cards and the sign-in card start hidden');
+ok(home.includes('<a class="tool" href="access/" data-tool="access" hidden>') && fs.existsSync(path.join(root, 'ui/cards/access.svg')), 'the Access card is there, hidden unless the person manages access');
+// the single sign-in (ui/hub.js) is carried by the home page and by every tool, the same text everywhere
+const hub = fs.readFileSync(path.join(root, 'ui/hub.js'), 'utf8').trim();
+for (const id of ['', ...ids, 'access']) ok(fs.readFileSync(path.join(root, id, 'index.html'), 'utf8').includes(hub), (id || 'home page') + ' carries ui/hub.js as it is in the repository');
+for (const id of [...ids, 'access']) ok(fs.readFileSync(path.join(root, id, 'index.html'), 'utf8').includes('kitHubGate("' + id + '")') && fs.readFileSync(path.join(root, id, 'index.html'), 'utf8').includes('kitHubAdopt("' + id + '"'), id + ' hands its sign-in to the home page');
 // every tool carries the shared switcher, so any tool is one tap from any other
 for (const id of ids) {
   const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');
