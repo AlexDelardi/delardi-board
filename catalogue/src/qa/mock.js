@@ -260,13 +260,24 @@ function model(b) {
   const linked = MODELS.filter((x) => x.brand === m.brand && x.collection === m.collection && x.model_id !== m.model_id).slice(0, 4).map((x) => ({ kind: "same_collection", ...strip(x) }));
   const expected = EXPECTED[m.category].map(([key, section]) => ({ key, section, crucial: ["collection", "model_name", "metal", "case_material"].includes(key) }));
   const photos = m.image_key ? vs.slice(0, 2).flatMap((x, j) => [1, 2].map((o) => ({ variant_id: x.variant_id, ord: o, path_full: `${m.model_id}/${x.variant_id}/${o}-1200.webp`, path_thumb: `${m.model_id}/${x.variant_id}/${o}-400.webp`, width: 1200, height: 1200 }))) : [];
-  return [200, { model: strip(m), variants: vs, expected, linked, reports: [], photos, photo_base: PHOTO_BASE }];
+  // Who bought it: purchases for the first ring with colours (invented names), across its colours.
+  const firstRing = MODELS.find((x) => x.retail_category === "ring" && x.colours && x.in_stock);
+  const buyers = m === firstRing ? [
+    { id: 7, sold_at: "2026-10-03", client_id: "CL-TEST-1", client_name: "Test Client One", related_party: false, seller: "Seller A.", variant_id: vs[0].variant_id, size: "54", serial: "SER-T-1", qty: 1, net_uzs: 31000000, ticket_id: "00000000-0000-4000-8000-000000000001", ticket_no: "T-100" },
+    { id: 6, sold_at: "2026-02-14", client_id: "CL-TEST-2", client_name: "Test Owner Family", related_party: true, seller: null, variant_id: vs[vs.length - 1].variant_id, size: null, serial: null, qty: 2, net_uzs: 50000000, ticket_id: null, ticket_no: null },
+    ...[5, 4, 3, 2, 1].map((k) => ({ id: k, sold_at: `2025-0${k}-01`, client_id: "CL-OLD-" + k, client_name: "Older Client " + k, related_party: false, seller: "Seller B.", variant_id: vs[0].variant_id, size: null, serial: null, qty: 1, net_uzs: 20000000, ticket_id: null, ticket_no: null })),
+  ] : [];
+  const sold = floorLogin ? { buyers_count: buyers.reduce((n, b) => n + b.qty, 0) } : { buyers };
+  return [200, { model: strip(m), variants: vs, expected, linked, reports: [], photos, ...sold, photo_base: PHOTO_BASE }];
 }
+// The floor login ("5678") has no client access: it gets "Sold N times" only.
+let floorLogin = false;
 
 // passcode "1234" is the only one that opens; "0000" is a login without catalogue access.
 function handle(b, log) {
   log.push(b);
   if (b.action === "unlock") {
+    floorLogin = b.passcode === "5678";
     if (b.passcode === "1234") return [200, { token: "t".repeat(64), name: "Tester", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_manage: true }];
     // "5678" is a floor login: catalogue access, but not the catalogue owner
     if (b.passcode === "5678") return [200, { token: "t".repeat(64), name: "Floor", expires_at: new Date(Date.now() + 8 * 3600e3).toISOString(), can_manage: false }];

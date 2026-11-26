@@ -314,6 +314,23 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .val.inh { border-bottom: 1px dotted var(--line); }
 .mp-body { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 22px; align-items: start; margin-bottom: 22px; }
 .mp-body .col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.buyers { margin-bottom: 22px; }
+.buyer-list { list-style: none; margin: 0; padding: 0; }
+.buyer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.buyer:first-child { border-top: 0; }
+.buyer .b-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.buyer .b-date { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+.buyer .b-client { font-weight: 500; overflow-wrap: anywhere; }
+.buyer .b-meta { grid-column: 1; font-size: 13px; overflow-wrap: anywhere; }
+.buyer .b-side { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 13px; text-align: right; }
+.buyer .b-price { font-variant-numeric: tabular-nums; }
+.buyer .b-ticket { color: var(--ink-2); }
+.buyer.here .b-client { text-decoration-thickness: 2px; }
+.chip-here { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+@media (max-width: 560px) {
+  .buyer { grid-template-columns: minmax(0, 1fr); }
+  .buyer .b-side { grid-column: 1; grid-row: auto; flex-direction: row; justify-content: space-between; align-items: baseline; }
+}
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); }
 .panel h2 { font-family: var(--serif); font-weight: 500; font-size: 20px; margin: 0 0 10px; }
 .panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }

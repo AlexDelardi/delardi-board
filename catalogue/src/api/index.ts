@@ -212,7 +212,7 @@ function clientIp(req: Request) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
-interface Session { name: string; canManage: boolean }
+interface Session { name: string; canManage: boolean; canSeeClients: boolean }
 
 async function requireSession(token: unknown): Promise<Session> {
   const t = str(token, 100);
@@ -229,11 +229,11 @@ async function requireSession(token: unknown): Promise<Session> {
   if (!rows[0].can_view_catalogue) throw new HttpErr(403, "This account does not have access to the catalogue.");
   const name = rows[0].display_name as string;
   const users = await select(
-    `board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_catalogue,can_manage_catalogue`,
+    `board_users?name=eq.${encodeURIComponent(name)}&active=is.true&select=can_view_catalogue,can_manage_catalogue,can_view_crm`,
   );
   const user = users?.[0];
   if (!user || !user.can_view_catalogue) throw new HttpErr(403, "This account does not have access to the catalogue.");
-  return { name, canManage: !!user.can_manage_catalogue };
+  return { name, canManage: !!user.can_manage_catalogue, canSeeClients: !!user.can_view_crm };
 }
 
 async function requireManager(token: unknown): Promise<Session> {
@@ -385,13 +385,15 @@ if (body.filter_version === 2 || action === "facets") {
     if (!model) throw new HttpErr(404, "That model is not in the catalogue.");
     const variants = await select(`cat_variants?model_id=eq.${encodeURIComponent(id)}&select=${VARIANT_COLUMNS}&order=sort_order`);
     const vids = variants.map((v: { variant_id: string }) => v.variant_id);
-    const [pieces, attrs, expected, links, photos, incoming] = await Promise.all([
+    const [pieces, attrs, expected, links, photos, incoming, bought] = await Promise.all([
       vids.length ? select(`cat_pieces?variant_id=in.${inList(vids)}&select=variant_id,serial,size,price_uzs&order=size.asc.nullslast,serial`) : [],
       vids.length ? select(`cat_attributes?variant_id=in.${inList(vids)}&select=variant_id,key,value,value_num,flag`) : [],
       select(`cat_expected_keys?category=eq.${model.category}&select=key,section,crucial&order=sort_order`),
       select(`cat_links?model_id=eq.${encodeURIComponent(id)}&select=linked_model_id,kind,rank&order=rank`),
       select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=variant_id,ord,path_full,path_thumb,width,height&order=variant_id.asc.nullsfirst,ord`),
       vids.length ? select(`cat_incoming?variant_id=in.${inList(vids)}&select=variant_id,serial,size,shipment,shipped_on&order=size.asc.nullslast,serial`) : [],
+      // Who bought it: every recorded client purchase of the design, newest first.
+      rpc("cat_model_buyers", { p_model: id }),
     ]);
     // v5: the Russian for values written in English (cat_text_ru, keyed by the English text).
     const vals = [...new Set(attrs.map((a: { value: string }) => a.value).filter((x: string) => x && /[A-Za-z]/.test(x)))];
@@ -426,7 +428,10 @@ if (body.filter_version === 2 || action === "facets") {
     if (s.canManage) {
       reports = await select(`cat_reports?model_id=eq.${encodeURIComponent(id)}&status=eq.open&select=id,variant_id,field_key,message,reported_by,created_at&order=created_at.desc`);
     }
-    return { model, variants: out, expected, linked, reports, photos,
+    // Names, prices and tickets only for people allowed to see clients; everyone else gets the count.
+    const buyers = Array.isArray(bought) ? bought : [];
+    const sold = s.canSeeClients ? { buyers } : { buyers_count: buyers.reduce((n: number, b: { qty?: number }) => n + (Number(b.qty) || 1), 0) };
+    return { model, variants: out, expected, linked, reports, photos, ...sold,
       photo_base: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/` };
   }
 
