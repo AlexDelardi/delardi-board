@@ -65,7 +65,7 @@ function reference() {
     })(),
     case_mm: { min: 36, max: 45, models: MODELS.filter((m) => m.case_mm).length },
     expected: [],
-    run: { id: 1, run_at: "2026-10-24T06:27:59Z", source_built: "2026-10-23", counts: {} },
+    run: { id: 1, run_at: "2026-10-24T06:27:59Z", source_built: "2026-10-23 Colibri Stock Report", counts: {} },
     photo_base: PHOTO_BASE, can_manage: true, open_reports: REPORTS.filter((r) => r.status === "open").length,
     capabilities: { filter_version: V2 ? 2 : 1 },
   };

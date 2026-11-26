@@ -621,8 +621,10 @@ function renderStart() {
   if (!S.arrivals || !S.arrivals.rows) out.push(el("div", { class: "cards" }, Array.from({ length: 4 }, () => el("div", { class: "skel" }))));
   else out.push(el("div", { class: "cards" }, S.arrivals.rows.map(card)));
   if (ref.run) {
-    const d = ref.run.source_built ? new Date(ref.run.source_built) : new Date(ref.run.run_at);
-    out.push(el("p", { class: "foot-note", text: tr("Data as of {date}", { date: d.toLocaleDateString(LOC(), { day: "numeric", month: "long", year: "numeric" }) }) }));
+    // source_built is a label such as "2026-11-18 Colibri Stock Report": take its date; else when the load ran.
+    const built = /^\d{4}-\d{2}-\d{2}/.exec(String(ref.run.source_built || ""));
+    const d = built ? new Date(built[0] + "T00:00:00") : new Date(ref.run.run_at);
+    if (!isNaN(d)) out.push(el("p", { class: "foot-note", text: tr("Data as of {date}", { date: d.toLocaleDateString(LOC(), { day: "numeric", month: "long", year: "numeric" }) }) }));
   }
   return out;
 }

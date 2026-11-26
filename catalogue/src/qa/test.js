@@ -61,7 +61,7 @@ const settle = (page) => page.waitForTimeout(150);
     await page.waitForSelector(".cards .card");
     ok(await count(page, ".cards .card") === 8, "eight new arrivals");
     ok((await page.textContent(".hero p")).includes(String(inStock)), "the start screen counts the pieces in stock");
-    ok((await page.textContent(".foot-note")).includes("2026"), "the date of the data is shown");
+    ok((await page.textContent(".foot-note")).includes("23 October 2026"), "the date of the data is shown, read from the load label", await page.textContent(".foot-note"));
 
     // -------------------------------------------------------------- brands
     await page.click(".entry a[href='#/brands']"); await settle(page);
