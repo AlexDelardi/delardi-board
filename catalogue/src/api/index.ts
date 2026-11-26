@@ -49,6 +49,8 @@ const FILTER_V2_ENABLED = Deno.env.get("CATALOGUE_FILTER_V2_ENABLED") === "true"
 // overlap test as metals and stones. The per-category facet (sizes, broken down
 // by retail category) is in cat_reference, so the page can show only the sizes
 // that belong to the category being browsed.
+// v7 — 27 Nov 2026. "Newest arrivals" sorts by the latest arrival date of the
+// pieces in stock (from their receipts), not by the year alone.
 //
 // The source lives in the repository at catalogue/src/api/index.ts and is kept
 // identical to the deployed function.
@@ -75,7 +77,8 @@ const METALS = ["white_gold", "yellow_gold", "rose_gold", "gold", "platinum", "s
 const STONES = ["diamond", "lab_diamond", "sapphire", "emerald", "ruby", "rubellite", "tsavorite", "tanzanite", "topaz", "amethyst", "pearl", "mother_of_pearl", "opal", "turquoise", "malachite", "lapis", "onyx", "agate", "crystal"];
 const MOVEMENTS = ["automatic", "quartz", "manual"];
 const SORTS: Record<string, string> = {
-  newest: "in_stock.desc,qty_transit.desc,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
+  // v7 (27 Nov 2026): by the real arrival date of the pieces in stock (cat_refresh_arrival_dates), then the year.
+  newest: "in_stock.desc,latest_arrival_date.desc.nullslast,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
   brand: "brand.asc,collection.asc.nullslast,model_name.asc.nullslast,model_id.asc",
   price_asc: "price_min_uzs.asc.nullslast,model_id.asc",
   price_desc: "price_max_uzs.desc.nullslast,model_id.asc",
