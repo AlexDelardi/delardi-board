@@ -20,6 +20,12 @@ begin
   -- a receipt change refreshes by itself
   update ops_receipts set arrival_date = '2026-11-20' where receipt_id = r1;
   assert (select latest_arrival_date from cat_models where model_id='ZZA-OLD') = '2026-11-20', 'receipt trigger refreshes';
+  -- linking a piece to a receipt after the receipt exists (as a Stock import does) refreshes by itself
+  update ops_pieces set receipt_id = r2 where serial = 'ZZA-S1';
+  assert (select latest_arrival_date from cat_models where model_id='ZZA-OLD') = '2026-10-29', 'piece link trigger refreshes';
+  -- selling the only dated piece clears the date
+  update ops_pieces set state = 'sold' where serial = 'ZZA-S1';
+  assert (select latest_arrival_date from cat_models where model_id='ZZA-OLD') is null, 'a sold piece no longer counts';
   -- v2 newest sorts by the date first, then the year (the cache it reads is empty on the local database)
   assert position('x.latest_arrival_date end desc nulls last' in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure)) > 0
      and position('x.latest_arrival_date' in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure))
