@@ -39,6 +39,7 @@ const RU = {
   "Unknown client": "Клиент не указан",
   "Related party": "Связанное лицо",
   "This colour": "Этот цвет",
+  "Return": "Возврат",
   "Ticket {n}": "Чек {n}",
   "No recorded sales yet.": "Продаж пока нет.",
   "Show fewer": "Свернуть",

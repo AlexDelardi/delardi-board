@@ -36,8 +36,18 @@ begin
   assert (r->2->>'related_party')::boolean and r->2->>'seller' = 'Someone Unlisted' and r->2->>'ticket_id' is null, 'related party marked; an unlisted seller shows as written; no ticket';
   assert cat_model_buyers('ZZ-NOTHING') = '[]'::jsonb, 'nothing sold: an empty list';
 
+  assert not (r->0->>'refund')::boolean and not (r->1->>'refund')::boolean, 'a sale is not a return';
+
+  -- a return: a refund line on a posted ticket, negative quantity
+  insert into ops_ticket_lines(ticket_id, line_no, article, kind, qty, net) values (v_t, 2, 'ZZ-ART', 'refund', -1, -100) returning line_id into v_l2;
+  insert into crm_transactions(client_id, sold_at, qty, net_uzs, ticket_line_id) values ('ZZB-001', '2026-05-09', -1, -25000000, v_l2);
+  update crm_transactions set cat_model_id = 'ZZ-MODEL' where ticket_line_id = v_l2;
+  r := cat_model_buyers('ZZ-MODEL');
+  assert jsonb_array_length(r) = 4 and (r->0->>'refund')::boolean and (r->0->>'qty')::int = -1, 'a return is listed first, flagged, got ' || (r->0)::text;
+  update ops_tickets set status = 'void' where ticket_id = v_t2;
+
   update ops_tickets set source = 'training', status = 'posted' where ticket_id = v_t2;
-  assert jsonb_array_length(cat_model_buyers('ZZ-MODEL')) = 3, 'a training ticket is left out';
+  assert jsonb_array_length(cat_model_buyers('ZZ-MODEL')) = 4, 'a training ticket is left out';
 end $$;
 select ' ok' as result;
 rollback;

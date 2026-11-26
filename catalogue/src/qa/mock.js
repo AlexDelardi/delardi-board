@@ -263,11 +263,12 @@ function model(b) {
   // Who bought it: purchases for the first ring with colours (invented names), across its colours.
   const firstRing = MODELS.find((x) => x.retail_category === "ring" && x.colours && x.in_stock);
   const buyers = m === firstRing ? [
+    { id: 8, sold_at: "2026-10-10", client_id: "CL-TEST-1", client_name: "Test Client One", related_party: false, seller: "Seller A.", variant_id: vs[0].variant_id, size: "54", serial: "SER-T-1", qty: -1, net_uzs: -31000000, ticket_id: "00000000-0000-4000-8000-000000000002", ticket_no: "T-101", refund: true },
     { id: 7, sold_at: "2026-10-03", client_id: "CL-TEST-1", client_name: "Test Client One", related_party: false, seller: "Seller A.", variant_id: vs[0].variant_id, size: "54", serial: "SER-T-1", qty: 1, net_uzs: 31000000, ticket_id: "00000000-0000-4000-8000-000000000001", ticket_no: "T-100" },
     { id: 6, sold_at: "2026-02-14", client_id: "CL-TEST-2", client_name: "Test Owner Family", related_party: true, seller: null, variant_id: vs[vs.length - 1].variant_id, size: null, serial: null, qty: 2, net_uzs: 50000000, ticket_id: null, ticket_no: null },
     ...[5, 4, 3, 2, 1].map((k) => ({ id: k, sold_at: `2025-0${k}-01`, client_id: "CL-OLD-" + k, client_name: "Older Client " + k, related_party: false, seller: "Seller B.", variant_id: vs[0].variant_id, size: null, serial: null, qty: 1, net_uzs: 20000000, ticket_id: null, ticket_no: null })),
   ] : [];
-  const sold = floorLogin ? { buyers_count: buyers.reduce((n, b) => n + b.qty, 0) } : { buyers };
+  const sold = floorLogin ? { buyers_count: buyers.filter((b) => !b.refund).reduce((n, b) => n + b.qty, 0) } : { buyers };
   return [200, { model: strip(m), variants: vs, expected, linked, reports: [], photos, ...sold, photo_base: PHOTO_BASE }];
 }
 // The floor login ("5678") has no client access: it gets "Sold N times" only.

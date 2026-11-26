@@ -430,7 +430,7 @@ if (body.filter_version === 2 || action === "facets") {
     }
     // Names, prices and tickets only for people allowed to see clients; everyone else gets the count.
     const buyers = Array.isArray(bought) ? bought : [];
-    const sold = s.canSeeClients ? { buyers } : { buyers_count: buyers.reduce((n: number, b: { qty?: number }) => n + (Number(b.qty) || 1), 0) };
+    const sold = s.canSeeClients ? { buyers } : { buyers_count: buyers.filter((b: { refund?: boolean }) => !b.refund).reduce((n: number, b: { qty?: number }) => n + (Number(b.qty) || 1), 0) };
     return { model, variants: out, expected, linked, reports, photos, ...sold,
       photo_base: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/` };
   }

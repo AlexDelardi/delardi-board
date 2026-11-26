@@ -473,13 +473,15 @@ function buyersBlock(d, variants, v) {
   const line = (b) => {
     const here = many && b.variant_id && b.variant_id === v.variant_id;
     const bits = [many ? colourOf(b.variant_id) : null, b.size ? tr("size {s}", { s: b.size }) : null, b.serial, b.seller].filter(Boolean);
-    const qty = Number(b.qty) > 1 ? tr("{n} pcs", { n: b.qty }) + " · " : "";
+    const n = Math.abs(Number(b.qty) || 1);
+    const qty = n > 1 ? tr("{n} pcs", { n }) + " · " : "";
     const price = fmtUZS(b.net_uzs);
-    return el("li", { class: "buyer" + (here ? " here" : "") }, [
+    return el("li", { class: "buyer" + (here ? " here" : "") + (b.refund ? " refund" : "") }, [
       el("div", { class: "b-main" }, [
         el("span", { class: "b-date", text: date(b.sold_at) }),
         b.client_id ? el("a", { class: "b-client", href: "../crm/#" + encodeURIComponent(b.client_id), text: b.client_name || b.client_id }) : el("span", { class: "b-client", text: b.client_name || tr("Unknown client") }),
         b.related_party ? el("span", { class: "chip-here b-rel", title: tr("Related party"), text: tr("Related party") }) : null,
+        b.refund ? el("span", { class: "chip-here b-ret", text: tr("Return") }) : null,
         here ? el("span", { class: "chip-here", text: tr("This colour") }) : null,
       ]),
       bits.length ? el("div", { class: "b-meta muted", text: bits.join(" · ") }) : null,
@@ -491,10 +493,11 @@ function buyersBlock(d, variants, v) {
   };
   const open = S.buyersAll === d.model.model_id;
   const shown = open ? all : all.slice(0, BUYERS_SHOWN);
-  const pcs = all.reduce((n, b) => n + (Number(b.qty) || 1), 0);
+  // Returns stay in the list but are not sales.
+  const pcs = all.filter((b) => !b.refund).reduce((n, b) => n + (Number(b.qty) || 1), 0);
   return el("section", { class: "panel buyers", "aria-label": tr("Who bought it") }, [
     el("div", { class: "section-h" }, [el("h2", { text: tr("Who bought it") }),
-      el("span", { class: "muted", text: all.length ? tr(pcs === 1 ? "Sold once" : "Sold {n} times", { n: pcs }) + (many ? " · " + tr("all colours") : "") : "" })]),
+      el("span", { class: "muted", text: pcs ? tr(pcs === 1 ? "Sold once" : "Sold {n} times", { n: pcs }) + (many ? " · " + tr("all colours") : "") : "" })]),
     all.length ? el("ul", { class: "buyer-list" }, shown.map(line)) : el("p", { class: "muted", text: tr("No recorded sales yet.") }),
     all.length > BUYERS_SHOWN ? el("button", { class: "linkbtn", type: "button",
       onclick: () => { S.buyersAll = open ? null : d.model.model_id; render(); },
