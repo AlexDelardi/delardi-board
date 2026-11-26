@@ -29,6 +29,21 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
+  "Who bought it": "Кто купил",
+  "Sold once": "Продано 1 раз",
+  "Sold {n} times": "Продано {n} раз",
+  "all colours": "все цвета",
+  "Names are shown to people with access to clients.": "Имена видны тем, у кого есть доступ к клиентам.",
+  "size {s}": "размер {s}",
+  "{n} pcs": "{n} шт.",
+  "Unknown client": "Клиент не указан",
+  "Related party": "Связанное лицо",
+  "This colour": "Этот цвет",
+  "Return": "Возврат",
+  "Ticket {n}": "Чек {n}",
+  "No recorded sales yet.": "Продаж пока нет.",
+  "Show fewer": "Свернуть",
+  "Show all {n}": "Показать все {n}",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",

@@ -187,6 +187,24 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await count(page, ".spec .tbc") > 0, "missing details read TBC");
     ok(await page.isVisible("details.owner"), "the owner sees the data and sources block");
     ok(await count(page, ".mp-body ~ .cards .card, .cards .card") > 0, "matching pieces are listed");
+    // who bought it
+    ok(await page.isVisible(".buyers h2:has-text('Who bought it')"), "the item page has a 'Who bought it' block");
+    ok((await page.textContent(".buyers .section-h .muted")).includes("Sold 8 times") && (await page.textContent(".buyers .section-h .muted")).includes("all colours"), "it counts pieces across all colours", await page.textContent(".buyers .section-h"));
+    ok(await count(page, ".buyer") === 5, "the five latest show first");
+    ok((await page.textContent(".buyer >> nth=0")).includes("Return") && await page.isVisible(".buyer.refund >> nth=0"), "a return is its own line, labelled");
+    ok((await page.textContent(".buyer >> nth=1")).includes("Test Client One") && (await page.textContent(".buyer >> nth=2")).includes("Test Owner Family"), "newest first");
+    ok(await page.getAttribute(".buyer >> nth=1 >> a.b-client", "href") === "../crm/#CL-TEST-1", "the client opens in CRM");
+    ok(await page.getAttribute(".buyer >> nth=1 >> a.b-ticket", "href") === "../sales/#/ticket/00000000-0000-4000-8000-000000000001", "the ticket opens in Sales");
+    ok((await page.textContent(".buyer >> nth=1")).includes("SER-T-1") && (await page.textContent(".buyer >> nth=1")).includes("size 54") && (await page.textContent(".buyer >> nth=1")).includes("Seller A."), "serial, size and seller from the ticket");
+    ok((await page.textContent(".buyer >> nth=1 >> .b-price")).replace(/\D/g, "") === "31000000", "the price paid");
+    ok(await page.isVisible(".buyer.here >> nth=0") && (await page.textContent(".buyer.here")).includes("This colour"), "a purchase of the colour on screen is marked");
+    ok((await page.textContent(".buyer >> nth=2")).includes("Related party") && (await page.textContent(".buyer >> nth=2")).includes("2 pcs"), "a related-party purchase is marked, with its quantity");
+    ok(await count(page, ".buyer >> nth=2 >> a.b-ticket") === 0, "no ticket link where there was no ticket");
+    await page.click(".buyers .linkbtn:has-text('Show all 8')");
+    ok(await count(page, ".buyer") === 8, "'Show all' lists every purchase and return");
+    await page.click("header .hbtn[aria-label='Hide amounts']");
+    ok((await page.textContent(".buyer >> nth=1 >> .b-price")).includes("•••"), "the eye button hides what was paid");
+    await page.click("header .hbtn[aria-label='Show amounts']");
     ok(!(await page.textContent("main")).includes("SN" + ring.model_id), "serial numbers are not on the page");
     ok(await count(page, ".mp-gallery .g-strip img") === 2, "the colour on screen shows its own photos", await count(page, ".mp-gallery .g-strip img"));
     ok(await count(page, ".g-thumb") === 2, "one thumbnail per photo");
@@ -392,6 +410,7 @@ const settle = (page) => page.waitForTimeout(150);
     ok(await count(page, ".tbc") === 0, "client view: no TBC on the model page");
     ok(await count(page, ".unv") === 0, "client view: no quality marks");
     ok(!(await page.isVisible("details.owner")), "client view: no owner's block");
+    ok(await count(page, ".buyers") === 0, "client view: no 'Who bought it'");
     ok(!(await page.isVisible(".report-btn")), "client view: no report button");
     ok(!(await page.textContent(".mp-stock")).match(/piece/), "client view: no piece count");
     await page.goto(PAGE + "#/model/" + shipped.model_id); await page.waitForSelector(".mp-top");
@@ -527,6 +546,16 @@ const settle = (page) => page.waitForTimeout(150);
     await page.click(".listbar .btn:has-text('Filters')");
     const sheet = await page.$eval(".sheet", (s) => s.getBoundingClientRect());
     ok(name === "phone" ? sheet.width >= 389 : sheet.width <= 421, name + ": the filters sheet fits", sheet);
+    {
+      const r = MODELS.find((m) => m.retail_category === "ring" && m.colours && m.in_stock);
+      await page.goto(PAGE + "#/model/" + r.model_id); await page.waitForSelector(".buyers .buyer");
+      const over = await page.evaluate(() => [...document.querySelectorAll(".buyers, .buyers *")].some((n) => n.getBoundingClientRect().right > innerWidth + 1));
+      ok(!over, name + ": 'Who bought it' fits the screen");
+      if (name === "phone") await page.screenshot({ path: "/tmp/buyers-phone.png", fullPage: true, clip: await page.evaluate(() => { const b = document.querySelector(".buyers").getBoundingClientRect(); return { x: 0, y: b.top + scrollY, width: innerWidth, height: Math.min(b.height, 700) }; }) });
+      await page.evaluate(() => localStorage.setItem("delardi_lang", "ru")); await page.reload(); await page.waitForSelector(".buyers .buyer");
+      ok((await page.textContent(".buyers h2")) === "Кто купил" && (await page.textContent(".buyers")).includes("Чек T-100"), name + ": the block in Russian", await page.textContent(".buyers .section-h"));
+      await page.evaluate(() => localStorage.setItem("delardi_lang", "en"));
+    }
     ok(errors.length === 0, name + ": no script errors", errors);
     await ctx.close();
   }
@@ -639,6 +668,11 @@ const settle = (page) => page.waitForTimeout(150);
     ok(!(await page.$$eval("select.btn option", (os) => os.map((o) => o.value))).includes("completeness"), "a floor login has no 'least complete first' sort");
     await page.click(".listbar .btn:has-text('Filters')"); await page.waitForSelector(".sheet");
     ok(await count(page, ".sheet label.check") === 0, "a floor login has no 'details still TBC' filter");
+    await page.keyboard.press("Escape");
+    const sold = MODELS.find((m) => m.retail_category === "ring" && m.colours && m.in_stock);
+    await page.goto(PAGE + "#/model/" + sold.model_id); await page.waitForSelector(".mp-top");
+    ok((await page.textContent(".buyers .section-h")).includes("Sold 8 times"), "without client access: the count", await page.textContent(".buyers"));
+    ok(await count(page, ".buyer") === 0 && !(await page.textContent("main")).includes("Test Client One"), "without client access: no names");
     await ctx.close();
   }
   {

@@ -314,6 +314,24 @@ select.btn { padding-right: 30px; -webkit-appearance: none; appearance: none;
 .val.inh { border-bottom: 1px dotted var(--line); }
 .mp-body { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 22px; align-items: start; margin-bottom: 22px; }
 .mp-body .col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.buyers { margin-bottom: 22px; }
+.buyer-list { list-style: none; margin: 0; padding: 0; }
+.buyer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.buyer:first-child { border-top: 0; }
+.buyer .b-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.buyer .b-date { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+.buyer .b-client { font-weight: 500; overflow-wrap: anywhere; }
+.buyer .b-meta { grid-column: 1; font-size: 13px; overflow-wrap: anywhere; }
+.buyer .b-side { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 13px; text-align: right; }
+.buyer .b-price { font-variant-numeric: tabular-nums; }
+.buyer .b-ticket { color: var(--ink-2); }
+.buyer.here .b-client { text-decoration-thickness: 2px; }
+.buyer.refund .b-price { color: var(--ink-2); }
+.chip-here { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+@media (max-width: 560px) {
+  .buyer { grid-template-columns: minmax(0, 1fr); }
+  .buyer .b-side { grid-column: 1; grid-row: auto; flex-direction: row; justify-content: space-between; align-items: baseline; }
+}
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); }
 .panel h2 { font-family: var(--serif); font-weight: 500; font-size: 20px; margin: 0 0 10px; }
 .panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -675,6 +693,21 @@ const RECENT_MAX = 12;
    English is written in the code; Russian comes from this table, keyed by the
    English. Anything missing simply shows in English. */
 const RU = {
+  "Who bought it": "Кто купил",
+  "Sold once": "Продано 1 раз",
+  "Sold {n} times": "Продано {n} раз",
+  "all colours": "все цвета",
+  "Names are shown to people with access to clients.": "Имена видны тем, у кого есть доступ к клиентам.",
+  "size {s}": "размер {s}",
+  "{n} pcs": "{n} шт.",
+  "Unknown client": "Клиент не указан",
+  "Related party": "Связанное лицо",
+  "This colour": "Этот цвет",
+  "Return": "Возврат",
+  "Ticket {n}": "Чек {n}",
+  "No recorded sales yet.": "Продаж пока нет.",
+  "Show fewer": "Свернуть",
+  "Show all {n}": "Показать все {n}",
   "Catalogue": "Каталог",
   "Watches & jewellery": "Часы и украшения",
   "All tools": "Все инструменты",
@@ -2672,7 +2705,7 @@ function renderModel() {
   // list when the page was opened cold from a shared link.
   const back = el("button", { class: "mp-back", type: "button", "aria-label": tr("Back to list"),
     onclick: () => goBack(listHash({ brands: [m.brand] })) }, [svg(["M10 19l-7-7 7-7", "M3 12h18"]), tr("Back")]);
-  return [back, crumbs(trail), top, el("div", { class: "mp-body" }, [el("div", { class: "col" }, [advisor, description].filter(Boolean)), el("div", { class: "col" }, [specs])]), ...match, owner].filter(Boolean);
+  return [back, crumbs(trail), top, el("div", { class: "mp-body" }, [el("div", { class: "col" }, [advisor, description].filter(Boolean)), el("div", { class: "col" }, [specs])]), buyersBlock(M.data, variants, v), ...match, owner].filter(Boolean);
 }
 /* v6 (25 Oct 2026): the gallery. The colour on screen shows its own photos and
    the model's general ones; a colour with none borrows another colour's, marked. */
@@ -2709,6 +2742,62 @@ function worst(list) {
   return fl.includes("confirmed") ? "confirmed" : "colibri_only";
 }
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u; } }
+
+// "Who bought it": every recorded client purchase of this design, all colours, newest first.
+// Names, prices and tickets come only to people allowed to see clients (the API strips them
+// for everyone else and sends a count). Hidden in client view.
+const BUYERS_SHOWN = 5;
+function buyersBlock(d, variants, v) {
+  if (S.client) return null;
+  if (!Array.isArray(d.buyers)) {
+    const n = Number(d.buyers_count) || 0;
+    if (!n) return null;
+    return el("section", { class: "panel buyers", "aria-label": tr("Who bought it") }, [
+      el("div", { class: "section-h" }, [el("h2", { text: tr("Who bought it") }), el("span", { class: "muted", text: tr(n === 1 ? "Sold once" : "Sold {n} times", { n }) })]),
+      el("p", { class: "muted", text: tr("Names are shown to people with access to clients.") })]);
+  }
+  const all = d.buyers;
+  const colourOf = (id) => {
+    const x = variants.find((y) => y.variant_id === id);
+    if (!x) return null;
+    return (LANG === "ru" && x.colour_name_ru) || x.colour_name_en || x.colour_code || null;
+  };
+  const many = variants.length > 1;
+  const date = (s) => s ? new Date(s + (String(s).length === 10 ? "T00:00:00" : "")).toLocaleDateString(LOC(), { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const line = (b) => {
+    const here = many && b.variant_id && b.variant_id === v.variant_id;
+    const bits = [many ? colourOf(b.variant_id) : null, b.size ? tr("size {s}", { s: b.size }) : null, b.serial, b.seller].filter(Boolean);
+    const n = Math.abs(Number(b.qty) || 1);
+    const qty = n > 1 ? tr("{n} pcs", { n }) + " · " : "";
+    const price = fmtUZS(b.net_uzs);
+    return el("li", { class: "buyer" + (here ? " here" : "") + (b.refund ? " refund" : "") }, [
+      el("div", { class: "b-main" }, [
+        el("span", { class: "b-date", text: date(b.sold_at) }),
+        b.client_id ? el("a", { class: "b-client", href: "../crm/#" + encodeURIComponent(b.client_id), text: b.client_name || b.client_id }) : el("span", { class: "b-client", text: b.client_name || tr("Unknown client") }),
+        b.related_party ? el("span", { class: "chip-here b-rel", title: tr("Related party"), text: tr("Related party") }) : null,
+        b.refund ? el("span", { class: "chip-here b-ret", text: tr("Return") }) : null,
+        here ? el("span", { class: "chip-here", text: tr("This colour") }) : null,
+      ]),
+      bits.length ? el("div", { class: "b-meta muted", text: bits.join(" · ") }) : null,
+      el("div", { class: "b-side" }, [
+        price ? el("span", { class: "b-price", text: qty + price }) : (qty ? el("span", { text: qty }) : null),
+        b.ticket_id ? el("a", { class: "b-ticket", href: "../sales/#/ticket/" + encodeURIComponent(b.ticket_id), text: tr("Ticket {n}", { n: b.ticket_no || "" }).trim() }) : null,
+      ]),
+    ]);
+  };
+  const open = S.buyersAll === d.model.model_id;
+  const shown = open ? all : all.slice(0, BUYERS_SHOWN);
+  // Returns stay in the list but are not sales.
+  const pcs = all.filter((b) => !b.refund).reduce((n, b) => n + (Number(b.qty) || 1), 0);
+  return el("section", { class: "panel buyers", "aria-label": tr("Who bought it") }, [
+    el("div", { class: "section-h" }, [el("h2", { text: tr("Who bought it") }),
+      el("span", { class: "muted", text: pcs ? tr(pcs === 1 ? "Sold once" : "Sold {n} times", { n: pcs }) + (many ? " · " + tr("all colours") : "") : "" })]),
+    all.length ? el("ul", { class: "buyer-list" }, shown.map(line)) : el("p", { class: "muted", text: tr("No recorded sales yet.") }),
+    all.length > BUYERS_SHOWN ? el("button", { class: "linkbtn", type: "button",
+      onclick: () => { S.buyersAll = open ? null : d.model.model_id; render(); },
+      text: open ? tr("Show fewer") : tr("Show all {n}", { n: all.length }) }) : null,
+  ]);
+}
 
 /* ===========================================================================
    Part 4 — the floor (24 Oct 2026)
