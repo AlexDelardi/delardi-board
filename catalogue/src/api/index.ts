@@ -78,7 +78,7 @@ const STONES = ["diamond", "lab_diamond", "sapphire", "emerald", "ruby", "rubell
 const MOVEMENTS = ["automatic", "quartz", "manual"];
 const SORTS: Record<string, string> = {
   // v7 (27 Nov 2026): by the real arrival date of the pieces in stock (cat_refresh_arrival_dates), then the year.
-  newest: "in_stock.desc,qty_transit.desc,latest_arrival_date.desc.nullslast,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
+  newest: "in_stock.desc,latest_arrival_date.desc.nullslast,latest_arrival_year.desc.nullslast,brand.asc,model_id.asc",
   brand: "brand.asc,collection.asc.nullslast,model_name.asc.nullslast,model_id.asc",
   price_asc: "price_min_uzs.asc.nullslast,model_id.asc",
   price_desc: "price_max_uzs.desc.nullslast,model_id.asc",

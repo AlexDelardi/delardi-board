@@ -24,6 +24,7 @@ begin
   assert position('x.latest_arrival_date end desc nulls last' in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure)) > 0
      and position('x.latest_arrival_date' in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure))
        < position('x.latest_arrival_year end desc' in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure)), 'v2 newest: date before year';
+  assert position($q$then x.has_transit end desc$q$ in pg_get_functiondef('public.cat_filter_v2(jsonb)'::regprocedure)) = 0, 'v2 newest: transit no longer outranks the date';
   assert not has_function_privilege('anon','public.cat_refresh_arrival_dates()','execute'), 'closed to the page';
 end $$;
 select ' ok' as result;
