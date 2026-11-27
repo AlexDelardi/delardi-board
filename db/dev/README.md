@@ -29,8 +29,9 @@ privileges (every table, sequence and function a migration creates in
 Supabase), and revokes from `anon`/`authenticated` every table and sequence
 already in the snapshot and execute on its `ops_*` functions. So a migration
 that forgets a revoke leaves the object granted here too, and the rights
-assertions in `db/tests/` catch it. The `s2_t2`-`s2_t5` tests also need production-sized
-catalogue and CRM data, so they cannot pass on this database; the `s3_` tests can.
+assertions in `db/tests/` catch it. The `s2_t2`-`s2_t5` tests include
+`db/tests/fixtures/s2_seed.sql` (invented catalogue, stock and CRM rows, added only to an empty
+catalogue), so every test in `db/tests/` passes on this database.
 
 ## Commands
 

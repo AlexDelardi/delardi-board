@@ -1,5 +1,6 @@
 -- Sprint 2, Task 4: sales history protected, tickets applied to pieces. Rolled back.
 begin;
+\ir fixtures/s2_seed.sql
 do $$
 declare run bigint; c text; p uuid; t1 uuid; t2 uuid; l1 uuid; l2 uuid; n_ev int; s text; other_variant text;
 begin

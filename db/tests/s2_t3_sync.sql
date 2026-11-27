@@ -1,5 +1,6 @@
 -- Sprint 2, Task 3: stock sync after a catalogue load. Rolled back.
 begin;
+\ir fixtures/s2_seed.sql
 do $$
 declare r jsonb; run bigint; s text; p uuid; t_serial text; t_variant text; t_piece uuid; n_ev int; s2 text; rv bigint;
 begin
