@@ -61,7 +61,7 @@ revoke execute on function public.cat_refresh_stock(text[]) from public, anon, a
 
 -- Rebuilds search and the filter caches when a piece change left them behind. True when it rebuilt.
 create function public.cat_refresh_if_dirty() returns boolean
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, pg_temp set statement_timeout to '120s' as $$
 begin
   if not coalesce((select dirty from cat_facet_revision where singleton), false) then return false; end if;
   if not pg_try_advisory_xact_lock(hashtext('cat_refresh_if_dirty')) then return false; end if;   -- another read is rebuilding

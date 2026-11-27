@@ -293,6 +293,16 @@ function listFilters(body: Record<string, unknown>): string[] {
 }
 
 // --------------------------------------------------------------------- handle
+// A piece changed since search and the filter caches were built: rebuild them before reading. The rebuild
+// takes seconds on the full catalogue, so a read waits for it only briefly; it finishes in the background
+// and a failure never blocks the read (counts on the cards are kept by the database as pieces change).
+async function freshen() {
+  const done = rpc("cat_refresh_if_dirty", {}).catch((e) => { console.error("catalogue-api refresh:", e?.message ?? e); return false; });
+  // deno-lint-ignore no-explicit-any
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(done); } catch { /* not on the edge runtime */ }
+  await Promise.race([done, new Promise((r) => setTimeout(r, 1500))]);
+}
+
 async function handle(req: Request, body: Record<string, unknown>) {
   const action = str(body.action, 40);
 // Insert inside handle(), immediately after the existing `const action = ...`.
@@ -306,7 +316,7 @@ if (body.filter_version === 2 || action === "facets") {
   if (!FILTER_V2_ENABLED) {
     throw new HttpErr(503, "Catalogue filtering v2 is not enabled yet.");
   }
-  await rpc("cat_refresh_if_dirty", {});   // a piece changed since the caches were built: rebuild before reading
+  await freshen();
   const result = await rpc("cat_filter_v2", { p_request: request });
   return { ...result, adjustments: [...request.adjustments, ...(result.adjustments ?? [])] };
 }
@@ -364,7 +374,7 @@ if (body.filter_version === 2 || action === "facets") {
 
   if (action === "list") {
     await requireSession(body.token);
-    await rpc("cat_refresh_if_dirty", {});
+    await freshen();
     const limit = intIn(body.limit, 1, PAGE_MAX, PAGE_DEFAULT);
     const offset = intIn(body.offset, 0, 100_000, 0);
     const sort = SORTS[str(body.sort, 20) ?? "newest"] ?? SORTS.newest;
