@@ -26,6 +26,9 @@ create function public.cat_refresh_stock(p_models text[] default null) returns i
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare n int;
 begin
+  -- One refresh at a time: two sales of the same colour committed side by side would each count the other's piece
+  -- as still in stock. Waiting here means the counts below are read after the other change is committed.
+  perform pg_advisory_xact_lock(hashtext('cat_refresh_stock'));
   update cat_variants v set qty_stock = c.s, in_stock = c.s > 0, qty_transit = c.t
     from (select t.variant_id,
                  (count(*) filter (where o.state = 'in_stock'))::int s,

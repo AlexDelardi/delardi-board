@@ -79,6 +79,9 @@ begin
                            'cat_merge_sizes', 'cat_apply_incoming');   -- the load and its own helpers work on the load record
   assert n = 0, format('%s functions outside the load still read cat_pieces', n);
 
+  assert position('pg_advisory_xact_lock' in pg_get_functiondef('public.cat_refresh_stock(text[])'::regprocedure))
+       < position('update cat_variants' in pg_get_functiondef('public.cat_refresh_stock(text[])'::regprocedure)), 'refreshes run one at a time, the lock before the counting';
+
   assert not has_table_privilege('anon', 'public.cat_live_pieces', 'select') and not has_table_privilege('authenticated', 'public.cat_live_pieces', 'select')
      and not has_table_privilege('anon', 'public.cat_live_incoming', 'select'), 'views closed to the page';
   assert not has_function_privilege('anon', 'public.cat_refresh_stock(text[])', 'execute')
