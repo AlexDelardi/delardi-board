@@ -124,6 +124,19 @@ function kitPhoneMenu(items, lang, onClose) {
   add(items);
   wrap.appendChild(scrim);
   wrap.appendChild(panel);
+  // Keyboard focus stays in the panel while it is open: Tab and Shift+Tab wrap around its controls
+  // (read at each key press, since items such as the tools list open and close inside it); Escape closes.
+  wrap.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+    if (e.key !== 'Tab') return;
+    const all = Array.from(panel.querySelectorAll('a[href], button, input, select, textarea, [tabindex]'))
+      .filter(n => !n.disabled && n.getAttribute('tabindex') !== '-1' && n.getClientRects().length > 0);
+    if (!all.length) { e.preventDefault(); return; }
+    const first = all[0], last = all[all.length - 1];
+    const inside = panel.contains(document.activeElement);
+    if (e.shiftKey && (document.activeElement === first || !inside)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !inside)) { e.preventDefault(); first.focus(); }
+  });
   // once it is in the page, focus goes into it
   requestAnimationFrame(() => { if (close.isConnected) close.focus(); });
   return wrap;
