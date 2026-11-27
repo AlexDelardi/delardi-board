@@ -5,6 +5,7 @@ do $$
 declare payload jsonb; r jsonb; pid uuid;
 begin
   if not exists (select 1 from ops_pieces) then perform ops_initial_fill('Alex'); end if;
+  assert (select (state, price_uzs is null) = ('in_transit', true) from ops_pieces where serial = 'ZS-T001'), 'a piece on its way has no price';
   -- what the migration's backfill does, for pieces the seed added after it ran
   perform reg_backfill_prices();
   assert not exists (
@@ -20,7 +21,8 @@ begin
     'models', (select jsonb_agg(to_jsonb(m)) from cat_models m),
     'variants', (select jsonb_agg(to_jsonb(v)) from cat_variants v),
     'pieces', (select jsonb_agg(jsonb_build_object('serial', serial, 'variant_id', variant_id, 'size', size, 'price_uzs', price_uzs)) from cat_pieces)
-              || jsonb_build_array(jsonb_build_object('serial', 'ZR-S900', 'variant_id', 'ZS-M2-WG', 'size', null, 'price_uzs', 5000000)),
+              || jsonb_build_array(jsonb_build_object('serial', 'ZR-S900', 'variant_id', 'ZS-M2-WG', 'size', null, 'price_uzs', 5000000),
+                                   jsonb_build_object('serial', 'ZS-T001', 'variant_id', 'ZS-M2-WG', 'size', null, 'price_uzs', 2100)),   -- was in transit
     'attributes', (select jsonb_agg(jsonb_build_object('variant_id', variant_id, 'key', key, 'value', value, 'value_num', value_num, 'flag', flag)) from cat_attributes),
     'links', '[]'::jsonb,
     'expected', (select jsonb_agg(to_jsonb(e)) from cat_expected_keys e));
@@ -29,7 +31,9 @@ begin
   assert pid is not null and (select price_uzs from ops_pieces where piece_id = pid) = 5000000, 'a new piece takes its first price from the load';
   assert (select count(*) from ops_piece_changes where piece_id = pid and field = 'price' and source = 'colibri_first_load'
             and old_value is null and new_value = '5000000' and actor = 'catalogue load') = 1, 'first price recorded once';
-  assert (select count(*) from ops_piece_changes) = 1, 'held pieces got no history line';
+  assert (select (state, price_uzs) = ('in_stock', 2100) from ops_pieces where serial = 'ZS-T001'), 'a piece that was on its way arrives with its first price';
+  assert (select count(*) from ops_piece_changes c join ops_pieces o using (piece_id) where o.serial = 'ZS-T001' and c.source = 'colibri_first_load' and c.new_value = '2100') = 1, 'and it is recorded';
+  assert (select count(*) from ops_piece_changes) = 2, 'held pieces got no history line';
 
   assert not has_table_privilege('anon', 'public.ops_piece_changes', 'select')
      and not has_table_privilege('authenticated', 'public.ops_piece_changes', 'select'), 'history closed to the page';

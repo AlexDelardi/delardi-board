@@ -1,7 +1,8 @@
 -- One register, step 1: the retail price lives on the piece (ops_pieces.price_uzs), with a history of changes.
 -- Until now the price existed only in cat_pieces, the list each Colibri load rebuilds.
 --   ops_sync_pieces  from 20261115_pos_2_feeds.sql: a piece the load creates takes its first price from the load,
---                    recorded in ops_piece_changes. Pieces we already hold are not repriced here.
+--                    recorded in ops_piece_changes; so does a piece that was in transit (it had no price) when it
+--                    arrives. Pieces we already hold are not repriced here.
 
 alter table public.ops_pieces add column price_uzs bigint;
 comment on column public.ops_pieces.price_uzs is 'Retail price in UZS. Set by our tools; a Colibri load sets it only when it creates the piece.';
@@ -65,11 +66,17 @@ begin
 
   -- 1. in transit, now in stock → arrived
   with moved as (
-    update ops_pieces o set state = 'in_stock', state_since = now(), updated_at = now()
+    -- a piece that was on its way had no price yet: its first price comes with its arrival
+    update ops_pieces o set state = 'in_stock', state_since = now(), updated_at = now(),
+                            price_uzs = coalesce(o.price_uzs, l.price_uzs)
       from ops_sync_load l
      where o.state = 'in_transit' and l.src = 'in_stock'
        and o.brand = l.brand and upper(btrim(o.serial)) = l.k
-    returning o.piece_id)
+    returning o.piece_id, o.price_uzs, (select x.price_uzs is null from ops_pieces x where x.piece_id = o.piece_id) was_unpriced)
+  , pr as (
+    insert into ops_piece_changes(piece_id, field, old_value, new_value, source, actor)
+    select piece_id, 'price', null, price_uzs::text, 'colibri_first_load', 'catalogue load' from moved where was_unpriced and price_uzs is not null
+    returning piece_id)
   insert into ops_piece_events(piece_id, from_state, to_state, reason, ref_kind, ref_id, actor)
   select piece_id, 'in_transit', 'in_stock', 'arrived', 'cat_run', p_run::text, 'catalogue load' from moved;
   get diagnostics v_arrived = row_count;
