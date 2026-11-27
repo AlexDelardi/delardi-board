@@ -41,6 +41,20 @@ Object.assign(RU, {
   "Ticket {n}": "Чек {n}",
   "Void": "Аннулирован",
   "Refund": "Возврат",
+  "Who bought it": "Кто купил",
+  "Sold once": "Продано 1 раз",
+  "Sold {n} times": "Продано {n} раз",
+  "this design, all colours": "эта модель, все цвета",
+  "Names are shown to people with access to clients.": "Имена видны тем, у кого есть доступ к клиентам.",
+  "This piece": "Это изделие",
+  "Return": "Возврат",
+  "Related party": "Связанное лицо",
+  "Unknown client": "Клиент не указан",
+  "size {s}": "размер {s}",
+  "{n} pcs": "{n} шт.",
+  "No recorded sales of this design yet.": "Продаж этой модели пока нет.",
+  "Show all {n}": "Показать все {n}",
+  "Show fewer": "Свернуть",
   "Colibri": "Colibri",
   "Till": "Касса",
   "Training": "Учебный",
@@ -234,6 +248,45 @@ function saleItem(s) {
     s.status === "void" ? el("span", { class: "tag done", text: tr("Void") }) : null);
 }
 
+// Who bought it: every recorded client purchase of this piece's design (all colours), newest first, as in the
+// Catalogue. The API sends the list only to people with the CRM view right; everyone else gets the count.
+const BUYERS_SHOWN = 5;
+function buyersBlock(pc, d, p) {
+  const head = (extra) => el("div", { class: "pc-buyers-h" }, el("h3", { class: "lbl", text: tr("Who bought it") }), extra);
+  if (!Array.isArray(d.buyers)) {
+    const n = Number(d.buyers_count) || 0;
+    if (!n) return null;
+    return el("section", { class: "pc-sec", id: "pc-buyers" },
+      head(el("span", { class: "small", text: tr(n === 1 ? "Sold once" : "Sold {n} times", { n }) + " · " + tr("this design, all colours") })),
+      el("p", { class: "small", text: tr("Names are shown to people with access to clients.") }));
+  }
+  const all = d.buyers;
+  const pcs = all.filter((b) => !b.refund).reduce((n, b) => n + (Number(b.qty) || 1), 0);
+  const open = pc.buyersAll === true;
+  const line = (b) => {
+    const mine = !blank(b.serial) && !blank(p.serial) && String(b.serial).trim().toUpperCase() === String(p.serial).trim().toUpperCase();
+    const n = Math.abs(Number(b.qty) || 1);
+    const meta = [blank(b.size) ? null : tr("size {s}", { s: b.size }), blank(b.serial) ? null : b.serial, blank(b.seller) ? null : b.seller].filter(Boolean).join(" · ");
+    return el("li", { class: "pc-buyer" + (mine ? " mine" : "") + (b.refund ? " refund" : "") },
+      el("span", { class: "num", text: fmtDate(b.sold_at) }),
+      b.client_id ? el("a", { class: "b-client", href: "../crm/#" + encodeURIComponent(b.client_id), text: blank(b.client_name) ? b.client_id : b.client_name })
+        : el("span", { class: "b-client", text: blank(b.client_name) ? tr("Unknown client") : b.client_name }),
+      b.refund ? el("span", { class: "tag info", text: tr("Return") }) : null,
+      b.related_party ? el("span", { class: "tag", text: tr("Related party") }) : null,
+      mine ? el("span", { class: "tag done", text: tr("This piece") }) : null,
+      meta ? el("span", { class: "small", text: meta }) : null,
+      el("span", { class: "num", text: (n > 1 ? tr("{n} pcs", { n }) + " · " : "") + fmtMoney(b.net_uzs) }),
+      !blank(b.ticket_id) ? el("a", { class: "ev-ticket", href: ticketHref(b.ticket_id), text: tr("Ticket {n}", { n: blank(b.ticket_no) ? "" : b.ticket_no }).trim() }) : null);
+  };
+  return el("section", { class: "pc-sec", id: "pc-buyers" },
+    head(el("span", { class: "small", text: pcs ? tr(pcs === 1 ? "Sold once" : "Sold {n} times", { n: pcs }) + " · " + tr("this design, all colours") : "" })),
+    all.length ? el("ul", { class: "pc-list", id: "pc-buyer-list" }, (open ? all : all.slice(0, BUYERS_SHOWN)).map(line))
+      : el("p", { class: "small", text: tr("No recorded sales of this design yet.") }),
+    all.length > BUYERS_SHOWN ? el("button", { type: "button", class: "btn subtle", id: "pc-buyers-more",
+      onclick: () => { pc.buyersAll = !open; renderPiece(); },
+      text: open ? tr("Show fewer") : tr("Show all {n}", { n: all.length }) }) : null);
+}
+
 function renderPiece() {
   const pc = S.pc;
   if (!pc || S.locked) return;
@@ -284,6 +337,7 @@ function renderPiece() {
       body.push(el("section", { class: "pc-sec" }, el("h3", { class: "lbl", text: tr("Sales") }),
         el("ul", { class: "pc-list", id: "pc-sales" }, d.sales.map(saleItem))));
     }
+    if (!S.training) { const b = buyersBlock(pc, d, p); if (b) body.push(b); }
     }
   }
   host.append(el("div", { class: "panel-scrim", onclick: userClose }),

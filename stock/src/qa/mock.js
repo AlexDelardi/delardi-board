@@ -240,9 +240,21 @@ function list(f) {
   return { count: hit.length, page, page_size: 50, rows: hit.slice((page - 1) * 50, page * 50).map(row),
     totals: Object.values(totals).sort((a, b) => cmp(a.state, b.state)) };
 }
+// Who bought it (invented): purchases of the first sold piece's design, newest first, as cat_model_buyers returns them.
+function buyersFor(p) {
+  const sold = pieces.find((x) => x.state === "sold");
+  if (!sold || p.article !== sold.article) return [];
+  return [
+    { id: 9, sold_at: "2026-10-10", client_id: "CL-T-1", client_name: "Test Client One", related_party: false, seller: "Seller A.", size: "54", serial: sold.serial, qty: -1, net_uzs: -15000000, ticket_id: "40000000-0000-4000-8000-000000000002", ticket_no: "T-201", refund: true },
+    { id: 8, sold_at: "2026-10-03", client_id: "CL-T-1", client_name: "Test Client One", related_party: false, seller: "Seller A.", size: "54", serial: sold.serial, qty: 1, net_uzs: 15000000, ticket_id: "40000000-0000-4000-8000-000000000001", ticket_no: "T-200", refund: false },
+    { id: 7, sold_at: "2026-02-14", client_id: "CL-T-2", client_name: "Test Owner Family", related_party: true, seller: null, size: null, serial: null, qty: 2, net_uzs: 28000000, ticket_id: null, ticket_no: null, refund: false },
+    ...[6, 5, 4, 3].map((k) => ({ id: k, sold_at: `2025-0${k}-01`, client_id: "CL-OLD-" + k, client_name: "Older Client " + k, related_party: false, seller: "Seller B.", size: null, serial: null, qty: 1, net_uzs: 14000000, ticket_id: null, ticket_no: null, refund: false })),
+  ];
+}
 function detail(sess, id) {
   const p = pieces.find((x) => x.piece_id === id);
   if (!p) fail(404, "No piece with that reference.");
+  const bought = buyersFor(p);
   const out = {
     piece: Object.assign(row(p), { hold_client_id: p.hold_client_id, hold_until: p.hold_until, state_note: p.state_note,
       shipped_on: p.shipped_on, first_seen_at: p.first_seen_at }),
@@ -256,6 +268,8 @@ function detail(sess, id) {
     ] : [],
   };
   if (sess.rights.crm) out.client_name = p.hold_client_id ? (CLIENTS[p.hold_client_id] || null) : null;
+  if (sess.rights.crm) out.buyers = bought;
+  else out.buyers_count = bought.filter((b) => !b.refund).reduce((n, b) => n + (Number(b.qty) || 1), 0);
   return out;
 }
 // ops_move_state: in_stock → reserved | booked_out | damaged, and each of those back to in_stock.

@@ -282,6 +282,16 @@ async function pieceDetail(sess: Session, id: string) {
   const doc = await rpc("stk_piece_detail", { p_piece: id });
   if (!doc) throw new HttpErr(404, "No piece with that reference.");
   if (!sess.rights.crm) delete doc.client_name;
+  // Who bought it: every recorded client purchase of the piece's design (all colours), as in the Catalogue.
+  // Names, prices and tickets only with the CRM view right; everyone else gets the number of pieces sold.
+  const rows = await select(`ops_pieces?piece_id=eq.${id}&select=model_id`);
+  const model = rows?.[0]?.model_id;
+  if (model) {
+    const bought = await rpc("cat_model_buyers", { p_model: model });
+    const buyers = Array.isArray(bought) ? bought : [];
+    if (sess.rights.crm) doc.buyers = buyers;
+    else doc.buyers_count = buyers.filter((b: { refund?: boolean }) => !b.refund).reduce((n: number, b: { qty?: number }) => n + (Number(b.qty) || 1), 0);
+  }
   return doc;
 }
 
