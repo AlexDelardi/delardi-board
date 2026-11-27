@@ -10,8 +10,10 @@ do $$ begin
             and grantee in ('anon', 'authenticated')) = 0, 'no grants to public roles';
   assert (select bool_and(relrowsecurity) from pg_class
           where relnamespace = 'public'::regnamespace and relname like 'ops\_%' and relkind = 'r'), 'RLS on';
-  assert (select count(*) from pg_class
-          where relnamespace = 'public'::regnamespace and relname like 'ops\_%' and relkind = 'r') = 8, 'eight ops tables (S3 polish adds ops_link_runs)';
+  -- the core register tables exist (later sprints add more ops_ tables; the checks above cover them all)
+  assert (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'
+          and relname in ('ops_stores','ops_pieces','ops_piece_events','ops_review','ops_tickets','ops_ticket_lines','ops_ticket_payments','ops_link_runs')) = 8,
+         'core ops tables';
 end $$;
 -- states are constrained to the six agreed values
 do $$ begin

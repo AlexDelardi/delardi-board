@@ -1,5 +1,6 @@
 -- Sprint 2, Task 5: catalogue reload keeps variant ids, reports, photos and pieces; syncs stock. Rolled back.
 begin;
+\ir fixtures/s2_seed.sql
 do $$
 declare payload jsonb; payload2 jsonb; r jsonb; rep bigint; n_ev int;
   v_rep text; v_gone text; v_clone text; clone_attrs int; n_photos int;

@@ -1,5 +1,6 @@
 -- Sprint 2, Task 2: initial fill, manage-stock right, manual states, review resolution. Rolled back.
 begin;
+\ir fixtures/s2_seed.sql
 do $$
 declare r jsonb; p uuid; c text; rv bigint; n_ev int;
   expect_stock int := (select count(*) from cat_pieces);
