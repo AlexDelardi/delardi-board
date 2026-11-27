@@ -44,6 +44,11 @@ const FILTER_V2_ENABLED = Deno.env.get("CATALOGUE_FILTER_V2_ENABLED") === "true"
 // lists include them, stock = "transit" lists only them, and the model page gets
 // each colour's `transit` pieces. A piece drops out as soon as its serial is in
 // stock. No supplier price is stored.
+// v17 — 27 Nov 2026. One piece register. Pieces, sizes, prices and transit come from the Stock
+// register (ops_pieces) through the views cat_live_pieces and cat_live_incoming; cat_refresh_stock
+// keeps the counts on models and variants as pieces change, and cat_refresh_if_dirty() rebuilds
+// search and the filter caches before a list read when a piece changed since the last rebuild.
+// A reserved, booked-out or damaged piece is not offered.
 // v6 — 27 Oct 2026. A size filter. cat_models.size_keys lists the sizes a model
 // has in stock (from its physical pieces); `sizes` filters on them with the same
 // overlap test as metals and stones. The per-category facet (sizes, broken down
@@ -301,6 +306,7 @@ if (body.filter_version === 2 || action === "facets") {
   if (!FILTER_V2_ENABLED) {
     throw new HttpErr(503, "Catalogue filtering v2 is not enabled yet.");
   }
+  await rpc("cat_refresh_if_dirty", {});   // a piece changed since the caches were built: rebuild before reading
   const result = await rpc("cat_filter_v2", { p_request: request });
   return { ...result, adjustments: [...request.adjustments, ...(result.adjustments ?? [])] };
 }
@@ -358,6 +364,7 @@ if (body.filter_version === 2 || action === "facets") {
 
   if (action === "list") {
     await requireSession(body.token);
+    await rpc("cat_refresh_if_dirty", {});
     const limit = intIn(body.limit, 1, PAGE_MAX, PAGE_DEFAULT);
     const offset = intIn(body.offset, 0, 100_000, 0);
     const sort = SORTS[str(body.sort, 20) ?? "newest"] ?? SORTS.newest;
@@ -389,12 +396,12 @@ if (body.filter_version === 2 || action === "facets") {
     const variants = await select(`cat_variants?model_id=eq.${encodeURIComponent(id)}&select=${VARIANT_COLUMNS}&order=sort_order`);
     const vids = variants.map((v: { variant_id: string }) => v.variant_id);
     const [pieces, attrs, expected, links, photos, incoming, bought] = await Promise.all([
-      vids.length ? select(`cat_pieces?variant_id=in.${inList(vids)}&select=variant_id,serial,size,price_uzs&order=size.asc.nullslast,serial`) : [],
+      vids.length ? select(`cat_live_pieces?variant_id=in.${inList(vids)}&select=variant_id,serial,size,price_uzs&order=size.asc.nullslast,serial`) : [],
       vids.length ? select(`cat_attributes?variant_id=in.${inList(vids)}&select=variant_id,key,value,value_num,flag`) : [],
       select(`cat_expected_keys?category=eq.${model.category}&select=key,section,crucial&order=sort_order`),
       select(`cat_links?model_id=eq.${encodeURIComponent(id)}&select=linked_model_id,kind,rank&order=rank`),
       select(`cat_photos?model_id=eq.${encodeURIComponent(id)}&select=variant_id,ord,path_full,path_thumb,width,height&order=variant_id.asc.nullsfirst,ord`),
-      vids.length ? select(`cat_incoming?variant_id=in.${inList(vids)}&select=variant_id,serial,size,shipment,shipped_on&order=size.asc.nullslast,serial`) : [],
+      vids.length ? select(`cat_live_incoming?variant_id=in.${inList(vids)}&select=variant_id,serial,size,shipment,shipped_on&order=size.asc.nullslast,serial`) : [],
       // Who bought it: every recorded client purchase of the design, newest first.
       rpc("cat_model_buyers", { p_model: id }),
     ]);
