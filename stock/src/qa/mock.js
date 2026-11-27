@@ -55,7 +55,7 @@ const CATS = ["ring", "watch", "necklace", "earrings", "bracelet", "strap", "cla
 const SPREAD = [["in_stock", 30], ["reserved", 5], ["booked_out", 4], ["in_transit", 6], ["damaged", 3], ["not_received", 4], ["sold", 8]];
 const LONG_NAME = "Grand Heritage Perpetual Calendar Skeleton Tourbillon Pieces";   // 60 characters
 
-let pieces, events, reviews, sessions, calls, nextReview;
+let pieces, events, reviews, sessions, calls, nextReview, diffs;
 let tPieces, tEvents;   // training (stk_train_*)
 const TRAIN_STORES = [{ code: "TRN-A", name: "Training store A" }, { code: "TRN-B", name: "Training store B" }];
 const storeName = (code) => (TRAIN_STORES.find((x) => x.code === code) || {}).name || null;
@@ -122,6 +122,12 @@ function reset() {
   const kinds = ["missing_from_export", "serial_reused", "ticket_conflict", "overdue_in_transit", "dropped_from_incoming"];
   reviews = [0, 5, 12, 40, 41].map((pi, k) => ({ review_id: k + 1, piece_id: pieces[pi].piece_id, kind: kinds[k],
     raised_at: iso(30 + k, 9), status: "open", resolution: null, resolved_by: null, resolved_at: null, note: k === 1 ? "Seen twice in the export" : k === 2 ? "Ticket D-000777 line 1: sold 03.11.2026, but the piece is still in the stock export" : null }));
+  // what the last Colibri load said differently about pieces we hold (ops_colibri_diffs): five open lines, two on one piece
+  diffs = [[2, "price", (p) => String(p.price_uzs), (p) => String(p.price_uzs + 500000)], [2, "size", (p) => p.size || "52", () => "53"],
+           [7, "price", (p) => String(p.price_uzs), (p) => String(p.price_uzs - 250000)], [9, "design", (p) => p.article + "-WG", (p) => p.article + "-YG"],
+           [20, "barcode", () => "2000000000017", () => "2000000000024"]]
+    .map(([pi, field, ours, col], k) => { const p = pieces[pi];
+      return { diff_id: k + 1, piece_id: p.piece_id, brand: p.brand, serial: p.serial, article: p.article, field, ours: ours(p), colibri: col(p), raised_at: iso(2, 10), status: "open" }; });
   // a sale on pieces[1] was voided and the piece came back to stock (pos_void_ticket writes "void: <reason>")
   // pieces[3] was sold and then refunded: the refund line carries kind "refund" and a positive net, as in ops_ticket_lines
   refundSales = {};
@@ -561,6 +567,36 @@ function handle(body) {
       if (hit) waitingRows.delete(hit[0]);
       return [200, { removed: hit ? 1 : 0, waiting: waitingRows.size, rows: waitingList() }];
     }
+    if (action === "diffs" || action === "diff_decide") {
+      session(body.token, "manage");
+      const FIELDS = ["price", "size", "barcode", "design"];
+      const filt = (v) => { const f = v || {}; if (f.field && !FIELDS.includes(f.field)) fail(400, "field must be one of " + FIELDS.join(", ") + "."); return { brand: f.brand || null, field: f.field || null }; };
+      const list = (f) => {
+        const open = diffs.filter((d) => d.status === "open");
+        const rows = open.filter((d) => (!f.brand || d.brand === f.brand) && (!f.field || d.field === f.field))
+          .sort((a, b) => cmp(a.brand, b.brand) || cmp(a.serial, b.serial) || cmp(a.field, b.field));
+        const by = {}; open.forEach((d) => { by[d.field] = (by[d.field] || 0) + 1; });
+        return { total: rows.length, open_all: open.length, open_by_field: by, brands: [...new Set(open.map((d) => d.brand))].sort(), page: 1, per_page: 100,
+          rows: rows.slice(0, 100).map((d) => ({ diff_id: d.diff_id, piece_id: d.piece_id, brand: d.brand, serial: d.serial, article: d.article, field: d.field, ours: d.ours, colibri: d.colibri, raised_at: d.raised_at })) };
+      };
+      if (action === "diffs") return [200, list(filt(body.filters))];
+      if (typeof body.take !== "boolean") fail(400, "Say whether to keep ours or take Colibri's.");
+      const hasIds = body.ids !== null && body.ids !== undefined, hasF = body.filters !== null && body.filters !== undefined;
+      if (hasIds === hasF) fail(400, "Say which differences to decide.");
+      if (hasIds && (!Array.isArray(body.ids) || !body.ids.length)) fail(400, "Say which differences to decide.");
+      const f = hasF ? filt(body.filters) : null;
+      const hit = diffs.filter((d) => d.status === "open" && (hasIds ? body.ids.includes(d.diff_id) : (!f.brand || d.brand === f.brand) && (!f.field || d.field === f.field)));
+      let kept = 0, taken = 0, skipped = 0;
+      for (const d of hit) {
+        const pc = pieces.find((x) => x.piece_id === d.piece_id);
+        if (!body.take) { d.status = "kept"; kept++; continue; }
+        if (pc && pc.state === "sold") { d.status = "superseded"; skipped++; continue; }
+        if (pc && d.field === "price") pc.price_uzs = Number(d.colibri);
+        if (pc && d.field === "size") pc.size = d.colibri;
+        d.status = "taken"; taken++;
+      }
+      return [200, { kept, taken, skipped, list: list(hasIds ? filt(body.shown) : f) }];
+    }
     if (action === "reviews") {
       session(body.token, "view");
       return [200, reviews.filter((r) => r.status === "open").sort((a, b) => cmp(a.raised_at, b.raised_at) || a.review_id - b.review_id)
@@ -646,6 +682,7 @@ module.exports = {
   // test helper: a training piece is received in the other store behind the page's back
   trainReceiveNow(id) { const p = tPieces.find((x) => x.piece_id === id); const from = p.store_code; p.store_code = p.to_code; p.to_code = null; trainEvent(p, "in_transfer", "in_stock", "transfer_received", "Other Store", null, from, p.store_code); },
   get reviews() { return reviews; },
+  get diffs() { return diffs; },
   get calls() { return calls; },
   get failNext() { return failNext; }, set failNext(v) { failNext = v; },
   // test helper: the piece is sold behind the page's back (a till sale)

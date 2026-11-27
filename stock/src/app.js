@@ -154,6 +154,8 @@ const S = {
   pieceId: null,                     // the piece last opened (openPiece)
   rv: null,                          // the review queue (review.js): { items, ans, errs, err }
   reviewCount: null,                 // open reviews, for the tab label
+  df: null,                          // Colibri differences (diffs.js)
+  diffCount: null,                   // open differences, for the tab label
 };
 
 /* ----------------------------------------------------------------- helpers */
@@ -336,6 +338,7 @@ const ROUTES = {
   pieces: (main) => renderList(main),                                      // list.js
   import: (main) => (S.rights.manage ? (importLoadWaiting(), renderImport(main)) : renderList(main)),            // import.js: manage right only
   review: (main) => (typeof renderReview === "function" ? renderReview(main) : renderReviewPlaceholder(main)),   // review.js (Task 5)
+  colibri: (main) => (S.rights.manage ? renderDiffs(main) : renderList(main)),                                    // diffs.js: manage right only
 };
 function route() {
   const m = /^#\/([a-z]+)(?:\/([^/?#]+))?/.exec(location.hash || "");
@@ -413,6 +416,7 @@ function renderHeader() {
     el("nav", { class: "kit-tabs", "aria-label": tr("Stock") },
       tab("pieces", "Pieces"),
       S.training ? null : tab("review", "Review", S.reviewCount),
+      S.rights.manage && !S.training ? tab("colibri", "Colibri", S.diffCount) : null,
       S.rights.manage && !S.training ? tab("import", "Import") : null,
       el("span", { class: "kit-spacer" }),
       // the Training switch sits at the end of the tab row (not tr(): "Training" is also a ticket source word)
@@ -484,6 +488,7 @@ function renderGate() {
       activeNow();
       await loadFacets();
       loadReviews();                               // review.js: the count on the tab
+      loadDiffs();                                 // diffs.js: the count on its tab
       renderAll();
       renderGate();
       toast(tr("Welcome, {name}", { name: r.name }));
@@ -526,6 +531,8 @@ function lockDown(message) {
   S.imp = null;                                    // import.js: no file, preview or pending Load crosses a lock
   { const h = $("#screen-import"); if (h) h.innerHTML = ""; }                    // nor stays on screen behind the card
   S.rv = null; S.reviewCount = null;
+  S.df = null; S.diffCount = null;
+  { const h = $("#df-host"); if (h) h.innerHTML = ""; }
   { const h = $("#rv-host"); if (h) h.innerHTML = ""; if (typeof setReviewTab === "function") setReviewTab(); }   // review.js: no queue is left on screen behind the card
   S.list = null; S.listError = null; S.listBusy = false; S.facets = null;
   // The Tools menu (ui/tools.js) is closed and its listeners dropped before anything is redrawn.
@@ -609,6 +616,7 @@ function restoreSession() {
       S.name = p.name; S.rights = p.rights; S.locked = false; activeNow();
       await loadFacets();
       loadReviews();
+      loadDiffs();
     } catch (e) {
       S.locked = true;
       if (e.status !== 401) { S.token = null; sstore(SESSION_KEY, null); S.gateMessage = e.raw || null; }

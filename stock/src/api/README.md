@@ -225,3 +225,16 @@ Every training piece back to how it started (same piece references), history cle
 `column` one of `brand`, `state` (`train_facet` also `store`). The values of that column among the pieces the other
 filters leave (the column's own filter is left out), with a count each.
 → `{ column, values: [ { value, count, label? } ] }` (`label` for stores: the store's name)
+
+## Colibri differences (manage right)
+
+A Colibri load never changes a piece we hold. What it says differently is kept as open lines, one per piece and
+field (`price`, `size`, `barcode`, `design`: article, design and colour together).
+
+- `diffs` `{token, filters?: {brand?, field?, page?}}` → `{total, open_all, open_by_field, brands, page, per_page, rows:
+  [{diff_id, piece_id, brand, serial, article, field, ours, colibri, raised_at}]}`. Open lines only, 100 a page.
+- `diff_decide` `{token, take: boolean, ids: [diff_id…], shown?: {brand?, field?}}` or `{token, take, filters: {brand?,
+  field?}}` (every open line the filters show; `{}` is all of them) → `{kept, taken, skipped, list}`. `take: false`
+  keeps our value and the same Colibri value is not raised again; `take: true` changes the piece and writes its history.
+  A line whose piece has been sold meanwhile is skipped and closed. `list` is a fresh first page for `shown`/`filters`.
+  400 `Say which differences to decide.` when neither or both of `ids` and `filters` are given.
