@@ -2152,6 +2152,11 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       check(L + ": the menu is a panel from the right edge and the header keeps its height", await page.$eval("#head-menu .head-panel", (m) => { const r = m.getBoundingClientRect(); return r.left >= window.innerWidth * 0.1 && r.top === 0 && Math.round(r.bottom) === window.innerHeight; })
         && (await page.$eval(".kit-head", (n) => Math.round(n.getBoundingClientRect().height))) === 56);
       check(L + ": everything in the menu is 44 px", (await small("#head-menu button, #head-menu a")).length === 0, (await small("#head-menu button, #head-menu a")).join());
+      // keyboard focus stays in the panel (Codex on #51): Shift+Tab from the close button and Tab past the last control wrap around
+      await page.focus("#head-close"); await page.keyboard.press("Shift+Tab");
+      check(L + ": Shift+Tab from the close button stays in the menu", await page.evaluate(() => !!document.activeElement.closest("#head-menu .head-panel") && document.activeElement.id !== "menu-btn"));
+      for (let i = 0; i < 12; i++) await page.keyboard.press("Tab");
+      check(L + ": Tab never leaves the menu", await page.evaluate(() => !!document.activeElement.closest("#head-menu .head-panel")));
       await page.keyboard.press("Escape");
       check(L + ": Escape closes the menu and returns to its button", !(await page.$("#head-menu")) && await page.evaluate(() => document.activeElement.id === "menu-btn"));
       await page.fill("#f-q", ""); await settled(page);
