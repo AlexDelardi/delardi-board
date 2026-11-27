@@ -177,16 +177,14 @@ begin
   update ops_colibri_diffs d set ours = c.ours
     from ops_sync_cmp c
    where d.piece_id = c.piece_id and d.field = c.field and d.status = 'open' and d.ours is distinct from c.ours;
-  -- a new line, unless the same Colibri value was already turned down ("keep ours") for this piece and field
+  -- a new line, unless this Colibri value was ever turned down ("keep ours") for this piece and field
   insert into ops_colibri_diffs(piece_id, field, ours, colibri, colibri_data, raised_run)
   select c.piece_id, c.field, c.ours, c.colibri, c.data, p_run
     from ops_sync_cmp c
    where c.colibri is not null and c.colibri is distinct from c.ours
      and not exists (select 1 from ops_colibri_diffs d where d.piece_id = c.piece_id and d.field = c.field and d.status = 'open')
-     and not coalesce((select d.status = 'kept' and d.colibri = c.colibri
-                         from ops_colibri_diffs d
-                        where d.piece_id = c.piece_id and d.field = c.field and d.status in ('kept', 'taken')
-                        order by d.diff_id desc limit 1), false);
+     and not exists (select 1 from ops_colibri_diffs d
+                      where d.piece_id = c.piece_id and d.field = c.field and d.status = 'kept' and d.colibri = c.colibri);
   get diagnostics v_diffs = row_count;
   drop table ops_sync_cmp;
 

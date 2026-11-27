@@ -75,6 +75,13 @@ begin
   drop table if exists _ov_new, _cat_facet_stage_v2;
   perform cat_load(pg_temp.reg_payload((select jsonb_agg(case when e->>'serial' = 'ZS-S001' then e || '{"price_uzs":1700}'::jsonb else e end) from jsonb_array_elements(changed) e)), 'reg test 4');
   assert (select colibri from ops_colibri_diffs where piece_id = p1 and field = 'price' and status = 'open') = '1700', 'another value raises a new line';
+  -- that one turned down too; then Colibri goes back to the first value: every rejected value is remembered
+  perform stk_diff_decide(jsonb_build_object('take', false, 'ids', (select jsonb_agg(diff_id) from ops_colibri_diffs where piece_id = p1 and field = 'price' and status = 'open')), 'Alex');
+  drop table if exists _ov_new, _cat_facet_stage_v2;
+  perform cat_load(pg_temp.reg_payload(changed), 'reg test 4b');
+  assert not exists (select 1 from ops_colibri_diffs where piece_id = p1 and field = 'price' and status = 'open'), 'a value turned down earlier is not raised again either';
+  drop table if exists _ov_new, _cat_facet_stage_v2;
+  perform cat_load(pg_temp.reg_payload((select jsonb_agg(case when e->>'serial' = 'ZS-S001' then e || '{"price_uzs":1750}'::jsonb else e end) from jsonb_array_elements(changed) e)), 'reg test 4c');
 
   -- take Colibri's size
   r := stk_diff_decide(jsonb_build_object('take', true, 'ids', jsonb_build_array(d_size)), 'Alex');
@@ -90,7 +97,7 @@ begin
   drop table if exists _ov_new, _cat_facet_stage_v2;
   perform cat_load(pg_temp.reg_payload((select jsonb_agg(case when e->>'serial' = 'ZS-S001' then e || '{"price_uzs":1000}'::jsonb else e end) from jsonb_array_elements(changed) e)), 'reg test 5');
   assert not exists (select 1 from ops_colibri_diffs where piece_id = p1 and status = 'open'), 'agreement closes the line';
-  assert (select status from ops_colibri_diffs where piece_id = p1 and field = 'price' and colibri = '1700') = 'superseded', 'closed as superseded';
+  assert (select status from ops_colibri_diffs where piece_id = p1 and field = 'price' and colibri = '1750') = 'superseded', 'closed as superseded';
 
   -- bulk by filter; a piece sold meanwhile is skipped and its line closed
   drop table if exists _ov_new, _cat_facet_stage_v2;
