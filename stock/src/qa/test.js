@@ -607,6 +607,16 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("sales: ticket link, date, net so'm, source", sales.length === 2 && sales[0].href === "../sales/#/ticket/" + tid && /Till/.test(sales[0].t) &&
       sales[0].t.includes(money(sp.price_uzs) + " so'm") && /\d{1,2} [A-Z][a-z]{2} 2026/.test(sales[0].t), JSON.stringify(sales[0]));
     check("sales: a void ticket carries a Void tag, training source", sales[1].tags.includes("Void") && /Training/.test(sales[1].t) && !sales[0].tags.includes("Void"), JSON.stringify(sales[1]));
+    // Who bought it: every client purchase of this design, newest first, as in the Catalogue
+    const bl = await page.$$eval("#pc-buyer-list li", (ns) => ns.map((n) => ({ t: n.textContent.replace(/[\s\u00a0\u202f]+/g, " ").trim(), cls: n.className,
+      client: n.querySelector("a.b-client") && n.querySelector("a.b-client").getAttribute("href"), ticket: n.querySelector("a.ev-ticket") && n.querySelector("a.ev-ticket").getAttribute("href") })));
+    check("buyers: a section with the count across the design", /Sold 7 times/.test(norm(await page.textContent("#pc-buyers"))) && /this design, all colours/.test(norm(await page.textContent("#pc-buyers"))), norm(await page.textContent("#pc-buyers")));
+    check("buyers: five shown first, newest first, the return on its own line", bl.length === 5 && /Return/.test(bl[0].t) && /Test Client One/.test(bl[1].t) && /Test Owner Family/.test(bl[2].t), JSON.stringify(bl.map((x) => x.t)));
+    check("buyers: the client opens in CRM, the ticket in Sales", bl[1].client === "../crm/#CL-T-1" && bl[1].ticket === "../sales/#/ticket/40000000-0000-4000-8000-000000000001", JSON.stringify(bl[1]));
+    check("buyers: the line for this very piece is marked, with size, serial and seller", /mine/.test(bl[1].cls) && /This piece/.test(bl[1].t) && /size 54/.test(bl[1].t) && bl[1].t.includes(sp.serial) && /Seller A\./.test(bl[1].t), bl[1].t);
+    check("buyers: a related party and a quantity are marked", /Related party/.test(bl[2].t) && /2 pcs/.test(bl[2].t), bl[2].t);
+    await page.click("#pc-buyers-more");
+    check("buyers: Show all lists every line", (await page.$$("#pc-buyer-list li")).length === 7);
     // Codex (PR #11): a refund line is labelled and shown negative, never as another sale
     const rfp = mock.pieces[3];
     await openId(page, rfp.piece_id);
@@ -941,6 +951,9 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await openId(t.page, rsv.piece_id);
     const hold = norm(await t.page.textContent("#pc-hold"));
     check("hold: without crm the client reference is shown", hold.includes("DLD-9001") && !hold.includes("Соколова") && /1 Dec 2026/.test(hold), hold);
+    await openId(t.page, pieceOf("sold").piece_id);
+    const bx = norm(await t.page.textContent("#pc-buyers"));
+    check("buyers: without crm only the count, no names", /Sold 7 times/.test(bx) && !/Test Client One/.test(bx) && !(await t.page.$("#pc-buyer-list")), bx);
     await t.ctx.close();
     // manage, no crm: buttons yes, reference
     t = await setup(browser, { width: 1024, height: 768 }, { pass: "nocrm" });
