@@ -85,6 +85,12 @@ begin
   assert position('lock table ops_pieces in exclusive mode' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure)) between 1
        and position('insert into cat_import_runs' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure)), 'a load takes the register before it writes anything';
 
+  assert position('pg_advisory_xact_lock(hashtext(''cat_refresh_stock''))' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure))
+           > position('lock table ops_pieces in exclusive mode' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure))
+     and position('pg_try_advisory_xact_lock(hashtext(''cat_refresh_stock''))' in pg_get_functiondef('public.cat_refresh_if_dirty()'::regprocedure))
+           < position('update cat_facet_revision' in pg_get_functiondef('public.cat_refresh_if_dirty()'::regprocedure)),
+         'load, rebuild and piece changes share one lock, taken before any catalogue row';
+
   assert not has_table_privilege('anon', 'public.cat_live_pieces', 'select') and not has_table_privilege('authenticated', 'public.cat_live_pieces', 'select')
      and not has_table_privilege('anon', 'public.cat_live_incoming', 'select'), 'views closed to the page';
   assert not has_function_privilege('anon', 'public.cat_refresh_stock(text[])', 'execute')
