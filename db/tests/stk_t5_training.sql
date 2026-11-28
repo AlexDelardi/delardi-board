@@ -30,7 +30,7 @@ begin
   assert stk_train_piece(gen_random_uuid()) is null, 'unknown piece is null';
 
   -- rights: a viewer changes nothing
-  insert into board_users(name, passcode_hash, can_view_stock) values ('T5 Viewer', 'not-a-real-hash-t5', true);
+  insert into board_users(name, signin_hash, can_view_stock) values ('T5 Viewer', 'not-a-real-hash-t5', true);
   begin perform stk_train_set_state(v_a, 'reserved', 'T5 Viewer'); assert false, 'viewer may reserve'; exception when raise_exception then null; end;
   begin perform stk_train_send(v_a, 'TRN-B', 'T5 Viewer', null); assert false, 'viewer may send'; exception when raise_exception then null; end;
   begin perform stk_train_reset('T5 Viewer'); assert false, 'viewer may reset'; exception when raise_exception then null; end;

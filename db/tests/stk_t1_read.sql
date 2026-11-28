@@ -46,7 +46,7 @@ begin
   -- rights
   assert ops_has_right('Alex', 'view_stock'), 'Alex views stock';
   assert ops_has_right('Alex', 'manage_stock'), 'manage_stock kept';
-  insert into board_users(name, passcode_hash) values ('T1 Nobody', 'not-a-real-hash-t1');
+  insert into board_users(name, signin_hash) values ('T1 Nobody', 'not-a-real-hash-t1');
   assert not ops_has_right('T1 Nobody', 'view_stock'), 'default is no';
   assert not ops_has_right('Alex', 'no_such_right'), 'unknown right is no';
   assert exists (select 1 from information_schema.columns where table_name = 'editor_sessions' and column_name = 'can_use_stock'), 'can_use_stock column';

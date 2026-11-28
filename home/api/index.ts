@@ -149,7 +149,15 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const fails = await select(`auth_attempts?ip=eq.${encodeURIComponent(ip)}&ok=is.false&created_at=gte.${since}&select=id`);
     if ((fails?.length ?? 0) >= MAX_FAILS_PER_HOUR) throw new HttpErr(429, "Too many failed attempts. Try again in an hour.");
     const hash = await sha256hex(str(body.passcode, 200) ?? "");
-    const matches = await select(`board_users?passcode_hash=eq.${hash}&active=is.true&select=name`);
+    // The person is found by board_users.signin_hash, a name only this function knows: the tools' own passcode
+    // entrances still ask for the old name (passcode_hash) and find no one. The old name is tried here only until
+    // the column is renamed (db/migrations/20261203_signin_hash.sql); after that the second try fails and is not reached.
+    let matches;
+    try {
+      matches = await select(`board_users?signin_hash=eq.${hash}&active=is.true&select=name`);
+    } catch (_e) {
+      matches = await select(`board_users?passcode_hash=eq.${hash}&active=is.true&select=name`);
+    }
     const user = matches?.[0];
     await insert("auth_attempts", { ip, ok: !!user }, "return=minimal");
     if (!user) throw new HttpErr(401, "That passcode is not right.");

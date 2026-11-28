@@ -5,7 +5,7 @@ do $$
 declare
   d jsonb; x jsonb; v_id uuid; v_b uuid; v_s uuid; v_item bigint; v_topic uuid; v_topic2 uuid; v_topic3 uuid; v_sug uuid; v_sug2 uuid; n int; ok boolean;
 begin
-  insert into board_users(name, passcode_hash, active, can_use_floor_tasks, can_use_backoffice_tasks, can_manage_tasks, can_view_sensitive, can_view_crm, can_view_email_suggestions) values
+  insert into board_users(name, signin_hash, active, can_use_floor_tasks, can_use_backoffice_tasks, can_manage_tasks, can_view_sensitive, can_view_crm, can_view_email_suggestions) values
     ('Zz Boss',  'zz-hash-1', true,  true,  true,  true,  true,  true,  true),
     ('Zz Lead',  'zz-hash-2', true,  true,  false, true,  false, true,  false),
     ('Zz Rep',   'zz-hash-3', true,  true,  false, false, false, true,  false),

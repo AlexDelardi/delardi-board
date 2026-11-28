@@ -5,7 +5,7 @@ One repository, six pages:
 | Path | Page |
 |---|---|
 | `/` — `index.html` | **Landing page.** Links to the tools below. It holds no key, makes no network request and shows no data; it only reads, from the visitor's own browser, whether each tool is already unlocked there. English / Russian. |
-| `/board/` — `board/index.html` | **Weekly Board.** A private page for the weekly leadership meeting: topics tracked across **Marketing · Retail · Operations · Company Steering**, with a week-by-week record of what was said about each one. |
+| `/board/` — `board/index.html` | **Weekly Board (retired).** The address now sends people to the home page's sign-in and on to Tasks, where the board's data lives on the Backoffice tab. The page has no passcode card of its own. `board-api` stays deployed for now; its own passcode entrance no longer finds anyone (see `db/migrations/20261203_signin_hash.sql`). The sections below describe the board as it was. |
 | `/crm/` — `crm/index.html` | **Client Instrument.** The CRM spring clean — see below. |
 | `/catalogue/` — `catalogue/index.html` | **Catalogue.** Every watch and piece of jewellery for the floor — see below. |
 | `/sales/` — `sales/index.html` | **Sales (the till).** Scan a piece, choose the client (read from the CRM through crm-api, or Walk-in), take payment, print the receipt; suspended sales, the ticket list with void, and Training / Live for the manager. Talks only to `sales-api` and `crm-api`. Source and build: `sales/src/` (see `sales/src/README.md`). |

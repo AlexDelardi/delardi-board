@@ -47,13 +47,13 @@ for (const id of ids) {
   ok(page.includes('function kitToolsMenu(') && new RegExp('kitToolsMenu\\(["\']' + id + '["\']').test(page), id + ' has the tool switcher in its header');
   for (const other of ids) ok(page.includes("{ id: '" + other + "', href: '../" + other + "/'"), id + ' lists ' + other);
 }
-// the Board is one hand-kept file: its copy of ui/tools.js must be the file itself
+// the Weekly Board is retired: its address sends people to the home page's sign-in and on to Tasks; it has no passcode
+// card and talks to no server of its own
 const board = fs.readFileSync(path.join(root, 'board/index.html'), 'utf8');
-ok(board.includes(kit.trimEnd()), 'the Board carries ui/tools.js unchanged');
-// the Weekly Board is retired: kept at its address for reference, offered nowhere
+ok(/location\.replace\("\.\.\/\?next=tasks"\)/.test(board) && /http-equiv="refresh" content="0; url=\.\.\/\?next=tasks"/.test(board), 'the Board address goes to the home page and on to Tasks');
+ok(!/board-api|passcode|type="password"/i.test(board), 'the Board page has no passcode card and calls no server');
 ok(!ids.includes('board'), 'the tool menu does not offer the Board');
 ok(!/data-tool="board"|href="board\/"|board_name|board_desc|board_session/.test(home), 'the home page has no Weekly Board tile');
-ok(/kitToolsMenu\(["']board["']/.test(board), 'the Board keeps its own way to the other tools');
 // the Christmas season: every tool and the hub carry ui/season.js with its images in place
 for (const id of ids.concat([''])) {
   const page = fs.readFileSync(path.join(root, id, 'index.html'), 'utf8');
