@@ -313,6 +313,9 @@ begin
   -- A load and a sale must not wait on each other: the load takes the piece register first and for itself
   -- (reads go on), so anything changing a piece either finishes before the load starts or waits for it to end.
   lock table ops_pieces in exclusive mode;
+  -- then the catalogue writers' lock (see cat_refresh_stock), so a cache rebuild started by a read finishes first
+  -- and none starts while the load runs. This order matters: the register first, this second.
+  perform pg_advisory_xact_lock(hashtext('cat_refresh_stock'));
   perform set_config('cat.skip_v2', 'on', true);  -- one v2 rebuild at load end, not inside the mid-load overlay
   insert into cat_import_runs(source_file, source_built, notes)
     values (p_source, p->>'built', 'full load') returning id into run_id;
