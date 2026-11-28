@@ -3434,6 +3434,17 @@ Object.assign(RU, {
     "Исправьте строки с ошибками и загрузите файл снова. Пока есть ошибки, ничего не загружается.",
   "Nothing to load: every row is already on file.": "Загружать нечего: все строки уже в базе.",
   "Loaded: {u} updated, {p} waiting for their pieces.": "Загружено: обновлено {u}, ждут своих изделий {p}.",
+  "Loaded: {c} added, {u} updated, {p} waiting for their pieces.": "Загружено: добавлено {c}, обновлено {u}, ждут своих изделий {p}.",
+  "New piece": "Новое изделие",
+  "New pieces": "Новые изделия",
+  "Will be added to Stock.": "Будет добавлено на Склад.",
+  "Retail price {p}.": "Розничная цена {p}.",
+  "No retail price in the file.": "В файле нет розничной цены.",
+  "Retail price {a} → {b}.": "Розничная цена {a} → {b}.",
+  "Selling price in dollars: not a number.": "Цена продажи в долларах: не число.",
+  "The Catalogue does not have this design yet. The row is kept and applied when the piece arrives from Colibri.": "Этой модели ещё нет в Каталоге. Строка сохранится и применится, когда изделие придёт из Colibri.",
+  "The reference fits more than one design. The row is kept and applied when the piece arrives from Colibri.": "Артикул подходит к нескольким моделям. Строка сохранится и применится, когда изделие придёт из Colibri.",
+  "The design has several colours and the row does not say which (colour code or colour name). The row is kept and applied when the piece arrives from Colibri.": "У модели несколько цветов, а в строке не указано какой (код или название цвета). Строка сохранится и применится, когда изделие придёт из Colibri.",
   "Not in stock yet. The row is kept and applied when the piece appears.": "Изделия ещё нет на складе. Строка сохранится и применится, когда изделие появится.",
   "Already on file.": "Уже в базе.",
   "{n} Colibri fields": "полей Colibri: {n}",
@@ -3535,7 +3546,7 @@ Object.assign(RU, {
   "Download the template and fill one row for each piece. Do not rename, move or delete the headings in row 1.": "Скачайте шаблон и заполните по одной строке на каждое изделие. Не переименовывайте, не переставляйте и не удаляйте заголовки в строке 1.",
   "Every row needs three cells: {h}. The serial number must be the one on the piece, and must not repeat within a brand.": "В каждой строке обязательны три ячейки: {h}. Серийный номер — тот, что на изделии; внутри одного бренда он не должен повторяться.",
   "Columns A–AK are Colibri's own: fill them exactly as you do for Colibri today. Columns {a}–{b} are ours: the table below says what goes in each.": "Столбцы A–AK — это шаблон Colibri: заполняйте их так же, как сейчас для Colibri. Столбцы {a}–{b} — наши: что в них писать, сказано в таблице ниже.",
-  "Load the pieces into Colibri as usual. This file does not add pieces to Stock: a piece appears here once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.": "Загрузите изделия в Colibri как обычно. Этот файл не добавляет изделия на Склад: изделие появится здесь после загрузки в Colibri, а его строка до тех пор ждёт. Если Colibri не примет файл из-за наших столбцов, загрузите в Colibri копию без столбцов {a}–{b}.",
+  "Load the pieces into Colibri as usual. Here, a row for a new piece adds it to Stock when its design is already in the Catalogue; a piece of a new design appears once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.": "Загрузите изделия в Colibri как обычно. Здесь строка нового изделия добавит его на Склад, если его модель уже есть в Каталоге; изделие новой модели появится после загрузки в Colibri, а его строка до тех пор ждёт. Если Colibri не примет файл из-за наших столбцов, загрузите в Colibri копию без столбцов {a}–{b}.",
   "Choose the file here. You first see every row and what it will change; nothing is saved until you press Load.": "Выберите файл здесь. Сначала вы увидите каждую строку и что она изменит; ничего не сохраняется, пока вы не нажмёте «Загрузить».",
   "Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.": "Значение неизвестно: оставьте ячейку пустой или напишите TBD. Пустая ячейка ничего не меняет.",
   "If any row has an error, nothing is loaded from the file. Correct the rows marked as errors and choose the file again.": "Если хотя бы в одной строке ошибка, из файла не загружается ничего. Исправьте строки, отмеченные как ошибки, и выберите файл снова.",
@@ -3599,7 +3610,7 @@ function importGuide(im) {
       li(tr("Download the template and fill one row for each piece. Do not rename, move or delete the headings in row 1.")),
       li(tr("Every row needs three cells: {h}. The serial number must be the one on the piece, and must not repeat within a brand.", { h: UPLOAD_REQUIRED.join(", ") })),
       li(tr("Columns A–AK are Colibri's own: fill them exactly as you do for Colibri today. Columns {a}–{b} are ours: the table below says what goes in each.", { a: first, b: last })),
-      li(tr("Load the pieces into Colibri as usual. This file does not add pieces to Stock: a piece appears here once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.", { a: first, b: last })),
+      li(tr("Load the pieces into Colibri as usual. Here, a row for a new piece adds it to Stock when its design is already in the Catalogue; a piece of a new design appears once it is in Colibri, and its row waits for it until then. If Colibri refuses the file because of our columns, load a copy without columns {a}–{b} into Colibri.", { a: first, b: last })),
       li(tr("Choose the file here. You first see every row and what it will change; nothing is saved until you press Load."))),
     el("ul", { id: "imp-guide-rules" },
       li(tr("Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.")),
@@ -3680,7 +3691,9 @@ async function importApply() {
     const res = await api("import", { file_name: im.file, rows: im.rows, apply: true });
     if (S.imp !== im || im.seq !== seq) return;
     Object.assign(im, { busy: null, res: null, rows: null, waiting: res.waiting,
-      done: tr("Loaded: {u} updated, {p} waiting for their pieces.", { u: res.summary.update, p: res.summary.pending }) });
+      done: res.summary.create ? tr("Loaded: {c} added, {u} updated, {p} waiting for their pieces.", { c: res.summary.create, u: res.summary.update, p: res.summary.pending })
+        : tr("Loaded: {u} updated, {p} waiting for their pieces.", { u: res.summary.update, p: res.summary.pending }) });
+    if (res.summary.create || res.summary.repriced) { if (typeof loadList === "function") loadList(); if (typeof loadFacets === "function") loadFacets(); }
     if (res.waiting > 0) importRefreshWaiting();   // which rows wait, for the list under the message
   } catch (e) {
     if (S.imp !== im || im.seq !== seq) return;
@@ -3731,6 +3744,7 @@ async function importLoadWaiting() {
 const IMPORT_ERR = {
   no_brand: () => tr("No brand."), no_serial: () => tr("No serial number."), no_article: () => tr("No reference."),
   bad_hs: () => tr("HS code must be 10 digits."), bad_ikpu: () => tr("ИКПУ must be 17 digits."),
+  bad_price: () => tr("Selling price in dollars: not a number."),
   bad_date: (e) => tr("{f}: not a date. Write it as 14.10.2026.", { f: tr(e.field === "invoice_date" ? "Invoice date" : "Arrival date") }),
   serial_repeated: () => tr("This serial number is in the file more than once."),
   serial_ambiguous: () => tr("This serial number is on more than one piece in stock."),
@@ -3760,18 +3774,25 @@ function importPreview(im) {
   const s = im.res.summary;
   const card = (id, label, n, cls) => el("div", { class: "imp-card" + (cls ? " " + cls : ""), id: "imp-n-" + id },
     el("span", { class: "lbl", text: tr(label) }), el("span", { class: "tc-n num", text: String(n) }));
-  const toLoad = s.update + s.pending;
+  const nCreate = s.create || 0, toLoad = s.update + s.pending + nCreate;
+  const PENDING_WHY = {
+    no_design: "The Catalogue does not have this design yet. The row is kept and applied when the piece arrives from Colibri.",
+    design_unclear: "The reference fits more than one design. The row is kept and applied when the piece arrives from Colibri.",
+    colour_unclear: "The design has several colours and the row does not say which (colour code or colour name). The row is kept and applied when the piece arrives from Colibri.",
+  };
   const rowText = (r) => {
     if (r.status === "error") return (r.errors || []).map((e) => (IMPORT_ERR[e.code] ? IMPORT_ERR[e.code](e) : e.code));
     const warn = (r.warnings || []).map((w) => (IMPORT_WARN[w.code] ? IMPORT_WARN[w.code](w) : w.code));
-    if (r.status === "pending") return [tr("Not in stock yet. The row is kept and applied when the piece appears.")];
+    if (r.status === "pending") return [tr(PENDING_WHY[r.reason] || "Not in stock yet. The row is kept and applied when the piece appears.")];
+    if (r.status === "create") return [tr("Will be added to Stock."), blank(r.price_uzs) ? tr("No retail price in the file.") : tr("Retail price {p}.", { p: fmtUZS(r.price_uzs) })];
+    const priced = r.price ? [tr("Retail price {a} → {b}.", { a: blank(r.price.old) ? "—" : fmtUZS(r.price.old), b: fmtUZS(r.price.new) })] : [];
     if (r.status === "same") return [tr("Already on file.")].concat(warn);
-    return [importChangeWords(r.changes)].concat(warn);
+    return priced.concat([importChangeWords(r.changes)], warn);
   };
-  const STATUS = { update: ["Will update", "info"], same: ["No change", "done"], pending: ["Waiting for the piece", "line"], error: ["Error", "alert"] };
+  const STATUS = { create: ["New piece", "info"], update: ["Will update", "info"], same: ["No change", "done"], pending: ["Waiting for the piece", "line"], error: ["Error", "alert"] };
   return [
     el("p", { class: "small", id: "imp-file-name", text: tr("File: {f}", { f: im.file }) }),
-    el("div", { class: "totals", id: "imp-summary" }, card("update", "Will update", s.update), card("same", "No change", s.same),
+    el("div", { class: "totals", id: "imp-summary" }, nCreate ? card("create", "New pieces", nCreate) : null, card("update", "Will update", s.update), card("same", "No change", s.same),
       card("pending", "Waiting for the piece", s.pending), card("error", "Errors", s.error, s.error ? "bad" : "")),
     s.error ? el("p", { class: "notice", role: "alert", id: "imp-blocked", text: tr("Fix the rows with errors and upload the file again. Nothing is loaded while a row is in error.") })
       : toLoad === 0 ? el("p", { class: "notice", id: "imp-nothing", text: tr("Nothing to load: every row is already on file.") })

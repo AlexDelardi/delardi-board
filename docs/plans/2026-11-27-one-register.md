@@ -156,6 +156,11 @@
 
 ### Task 6: Upload creates and prices
 
+> **Amended 28 Nov 2026 (owner's decision).** The template has no UZS price. The retail price is "Цена продажи, долл"
+> times a fixed rate of 12 500 (`pos_settings.usd_shelf_rate`), Colibri's own logic and rate. A row whose design is
+> unknown or whose colour is unclear is not an error: it waits for Colibri as before, with a reason. A serial held
+> only as a sold piece does not create a second piece and is not repriced. Where the steps below differ, this note wins.
+
 **Files:**
 - Create: `db/migrations/20261129_reg_5_import_create.sql`
 - Test: `db/tests/reg_t5_import_create.sql`

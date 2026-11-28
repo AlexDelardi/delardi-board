@@ -24,7 +24,8 @@ begin
             'category', 'Ring', 'metal', 'White gold', 'metal_purity', '750', 'name_uz', 'Uzuk', 'store', 'tbd'));
   rowb := jsonb_build_object('row', 3, 'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-A', 'Серийный номер', 'ZY.00.70002'),
           'extra', jsonb_build_object('supplier', 'T4 Supplier SpA', 'invoice_no', 'inv-4', 'arrival_date', '2026-10-14'));
-  rownew := jsonb_build_object('row', 4, 'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-A', 'Серийный номер', 'ZY.00.79999', 'Страна', 'Италия'),
+  -- a design the catalogue does not have yet: the row waits for its piece (a known design would create it: reg_t5)
+  rownew := jsonb_build_object('row', 4, 'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-NEW', 'Серийный номер', 'ZY.00.79999', 'Страна', 'Италия'),
           'extra', jsonb_build_object('supplier', 'T4 Supplier SpA', 'invoice_no', 'INV-4'));
   f := jsonb_build_object('file_name', 't4 upload.xlsx', 'rows', jsonb_build_array(rowa, rowb, rownew));
 
@@ -34,7 +35,7 @@ begin
 
   -- preview: says what would happen, changes nothing
   r := stk_import(f, 'Alex', false);
-  assert not (r->>'applied')::boolean and r->'summary' = '{"rows":3,"update":2,"same":0,"pending":1,"error":0}'::jsonb, 'preview summary: ' || (r->'summary')::text;
+  assert not (r->>'applied')::boolean and r->'summary' = '{"rows":3,"update":2,"same":0,"pending":1,"error":0,"create":0,"repriced":0}'::jsonb, 'preview summary: ' || (r->'summary')::text;
   x := r->'rows'->0;
   assert x->>'status' = 'update' and (x->>'row')::int = 2 and x->>'piece_id' = v_a::text and x->>'serial' = 'zy.00.70001', 'row a: ' || x::text;
   assert x->'changes' = '{"colibri_new":5,"colibri_changed":0,"details":4,"receipt":"new","brand_code":true,"hs_code":true,"ikpu":false}'::jsonb, 'row a changes: ' || (x->'changes')::text;
@@ -59,7 +60,7 @@ begin
 
   -- the same file again: nothing to change
   r := stk_import(f, 'Alex', false);
-  assert r->'summary' = '{"rows":3,"update":0,"same":2,"pending":1,"error":0}'::jsonb, 'second preview: ' || (r->'summary')::text;
+  assert r->'summary' = '{"rows":3,"update":0,"same":2,"pending":1,"error":0,"create":0,"repriced":0}'::jsonb, 'second preview: ' || (r->'summary')::text;
 
   -- a different value never overwrites: it is reported
   r := stk_import(jsonb_build_object('rows', jsonb_build_array(jsonb_build_object('row', 2, 'colibri', rowa->'colibri',
@@ -71,7 +72,7 @@ begin
 
   -- the waiting row is applied when its piece appears
   insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, state, state_since)
-    select store_id, brand, 'ZY.00.79999', article, model_id, variant_id, 'in_stock', now() from ops_pieces where piece_id = v_a;
+    select store_id, brand, 'ZY.00.79999', 'ZY-ART-NEW', model_id, variant_id, 'in_stock', now() from ops_pieces where piece_id = v_a;
   assert stk_apply_pending() = 1, 'pending applied';
   assert (select count(*) from ops_upload_pending) = 0, 'pending list emptied';
   select stk_piece_origin(piece_id) into x from ops_pieces where serial = 'ZY.00.79999';
@@ -110,7 +111,7 @@ begin
     jsonb_build_object('row', 6, 'colibri', jsonb_build_object('Бренд', 'T4 Jeweller', 'Артикул', 'ZY-ART-A', 'Серийный номер', 'OK-1', 'Страна', 'X'),
       'extra', jsonb_build_object('hs_code', '7113', 'ikpu', 'abc', 'invoice_date', '14.10.2026', 'arrival_date', '2026-02-31'))));
   r := stk_import(f, 'Alex', false);
-  assert r->'summary' = '{"rows":5,"update":0,"same":0,"pending":0,"error":5}'::jsonb, 'errors summary: ' || (r->'summary')::text;
+  assert r->'summary' = '{"rows":5,"update":0,"same":0,"pending":0,"error":5,"create":0,"repriced":0}'::jsonb, 'errors summary: ' || (r->'summary')::text;
   assert r->'rows'->0->'errors' = '[{"code":"serial_repeated"}]'::jsonb and r->'rows'->1->'errors' = '[{"code":"serial_repeated"}]'::jsonb, 'repeat';
   assert r->'rows'->2->'errors' = '[{"code":"serial_other_reference","on_file":"ZY-ART-A"}]'::jsonb, 'other reference: ' || (r->'rows'->2)::text;
   assert r->'rows'->3->'errors' = '[{"code":"no_brand"},{"code":"no_serial"},{"code":"no_article"}]'::jsonb, 'missing: ' || (r->'rows'->3)::text;
