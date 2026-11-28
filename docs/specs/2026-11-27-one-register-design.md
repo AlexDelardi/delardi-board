@@ -70,12 +70,17 @@ stays only as the record of what the last Colibri load said, which the load comp
 
 The Stock upload keeps its file format and its preview-then-apply flow, and gains two abilities:
 
-- **Create a piece.** A row whose brand and serial we do not hold creates the piece (today it waits for a
-  Colibri load to bring it). The row must name a design we know; otherwise it is an error line in the preview.
-- **Set the price.** The retail price column of the file sets `price_uzs`.
+- **Create a piece.** A row whose brand and serial we do not hold creates the piece, in stock, when its design is
+  already in the Catalogue and its colour is clear (the design has one colour, or the row's colour code or colour
+  name picks one). Otherwise the row waits for the piece to arrive from Colibri, as it does today, and the preview
+  says why: design not in the Catalogue yet, reference fits several designs, or colour not stated.
+- **Set the price.** Decided 28 Nov 2026: we keep Colibri's logic and Colibri's rate for now. The file carries the
+  selling price in dollars ("Цена продажи, долл"); the shelf price in UZS is that price times a fixed rate of
+  **12 500**, the rate Colibri applies to every piece. The rate is one setting (`pos_settings.usd_shelf_rate`),
+  not code. A blank price cell changes nothing. A piece that has left stock is not repriced.
 
 A change of price on a piece is recorded in the piece's history (who, when, old and new), since Colibri keeps
-no price history.
+no price history. How prices are calculated (rate, coefficients, landed cost) is a later stage: see the backlog.
 
 ### 4. What a Colibri load does
 
