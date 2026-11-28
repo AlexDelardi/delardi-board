@@ -127,6 +127,10 @@ begin
   assert exists (select 1 from cat_variants where variant_id = 'ZS-M1-YG') and (select qty_stock from cat_variants where variant_id = 'ZS-M1-YG') = 2
      and (select in_stock from cat_variants where variant_id = 'ZS-M1-YG'), 'a held piece keeps its colour in the catalogue';
 
+  assert position('from ops_pieces where piece_id = any(v_pieces) order by piece_id for update' in pg_get_functiondef('public.stk_diff_decide(jsonb,text)'::regprocedure)) between 1
+       and position('for update of x' in pg_get_functiondef('public.stk_diff_decide(jsonb,text)'::regprocedure)), 'a decision locks the pieces before their lines, as a load does';
+  assert position('lock table ops_pieces in exclusive mode' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure)) > 0, 'the load still takes the register first';
+
   assert not has_table_privilege('anon', 'public.ops_colibri_diffs', 'select') and not has_table_privilege('authenticated', 'public.ops_colibri_diffs', 'select')
      and not has_function_privilege('anon', 'public.stk_diff_list(jsonb)', 'execute')
      and not has_function_privilege('authenticated', 'public.stk_diff_decide(jsonb,text)', 'execute'), 'closed to the page';

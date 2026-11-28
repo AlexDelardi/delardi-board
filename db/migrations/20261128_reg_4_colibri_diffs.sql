@@ -53,7 +53,7 @@ revoke execute on function public.stk_diff_list(jsonb) from public, anon, authen
 -- Decides differences: {take: boolean, ids: [...]} or {take, filters: {brand?, field?}} (everything open the filters show).
 create function public.stk_diff_decide(p jsonb, p_actor text) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare d record; o ops_pieces%rowtype; v_take boolean; v_kept int := 0; v_taken int := 0; v_skipped int := 0;
+declare d record; o ops_pieces%rowtype; v_take boolean; v_ids bigint[]; v_pieces uuid[]; v_kept int := 0; v_taken int := 0; v_skipped int := 0;
   has_ids boolean := coalesce(jsonb_typeof(p->'ids') = 'array', false); has_f boolean := coalesce(jsonb_typeof(p->'filters') = 'object', false);
 begin
   if not ops_has_right(p_actor, 'manage_stock') then raise exception 'Your account cannot change stock.'; end if;
@@ -61,16 +61,22 @@ begin
     raise exception 'Say which differences to decide.';
   end if;
   v_take := (p->>'take')::boolean;
+  -- which lines, read without locking
+  select coalesce(array_agg(x.diff_id), '{}'), coalesce(array_agg(distinct x.piece_id), '{}') into v_ids, v_pieces
+    from ops_colibri_diffs x join ops_pieces pc on pc.piece_id = x.piece_id
+   where x.status = 'open'
+     and (not has_ids or x.diff_id in (select (e #>> '{}')::bigint from jsonb_array_elements(p->'ids') e))
+     and (not has_f or ((nullif(btrim(p->'filters'->>'brand'), '') is null or pc.brand = btrim(p->'filters'->>'brand'))
+                    and (nullif(btrim(p->'filters'->>'field'), '') is null or x.field = btrim(p->'filters'->>'field'))));
+  -- the pieces first, then their lines: the order a Colibri load takes them in, so the two never wait on each other
+  perform 1 from ops_pieces where piece_id = any(v_pieces) order by piece_id for update;
   for d in
-    select x.* from ops_colibri_diffs x join ops_pieces pc on pc.piece_id = x.piece_id
-     where x.status = 'open'
-       and (not has_ids or x.diff_id in (select (e #>> '{}')::bigint from jsonb_array_elements(p->'ids') e))
-       and (not has_f or ((nullif(btrim(p->'filters'->>'brand'), '') is null or pc.brand = btrim(p->'filters'->>'brand'))
-                      and (nullif(btrim(p->'filters'->>'field'), '') is null or x.field = btrim(p->'filters'->>'field'))))
+    select x.* from ops_colibri_diffs x
+     where x.diff_id = any(v_ids) and x.status = 'open'      -- a line a load closed while we waited is left alone
      order by x.diff_id
      for update of x
   loop
-    select * into o from ops_pieces where piece_id = d.piece_id for update;
+    select * into o from ops_pieces where piece_id = d.piece_id;
     if not v_take then
       update ops_colibri_diffs set status = 'kept', decided_by = p_actor, decided_at = now() where diff_id = d.diff_id;
       v_kept := v_kept + 1;
@@ -304,6 +310,9 @@ as $function$
 declare run_id bigint; c jsonb; v_models_removed int; v_photos_unlinked int; v_variants_removed int;
   v_variants_kept int; v_ops jsonb;
 begin
+  -- A load and a sale must not wait on each other: the load takes the piece register first and for itself
+  -- (reads go on), so anything changing a piece either finishes before the load starts or waits for it to end.
+  lock table ops_pieces in exclusive mode;
   perform set_config('cat.skip_v2', 'on', true);  -- one v2 rebuild at load end, not inside the mid-load overlay
   insert into cat_import_runs(source_file, source_built, notes)
     values (p_source, p->>'built', 'full load') returning id into run_id;
