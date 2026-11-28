@@ -4,7 +4,12 @@ begin;
 do $$
 declare t jsonb; n int; ok boolean;
 begin
-  insert into board_users(name, passcode_hash, active, can_view_sales, can_post_sales, can_view_stock, can_manage_stock, can_view_crm, can_edit_crm,
+  -- the tools' own passcode entrances look people up by the old column name: it is gone, and nothing names it
+  assert not exists (select 1 from information_schema.columns where table_name = 'board_users' and column_name = 'passcode_hash'), 'the old column is gone';
+  assert exists (select 1 from information_schema.columns where table_name = 'board_users' and column_name = 'signin_hash' and is_nullable = 'NO'), 'the new one is there';
+  assert not exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prosrc like '%passcode_hash%'), 'no function names the old column';
+
+  insert into board_users(name, signin_hash, active, can_view_sales, can_post_sales, can_view_stock, can_manage_stock, can_view_crm, can_edit_crm,
       can_view_catalogue, can_manage_catalogue, can_use_floor_tasks, can_use_backoffice_tasks, can_view_performance, can_manage_access) values
     ('Zz All',  'zz-h1', true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true),
     ('Zz Rep',  'zz-h2', true,  false, true,  false, true,  true,  false, true,  false, false, true,  false, false),

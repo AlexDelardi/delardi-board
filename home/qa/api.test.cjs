@@ -9,15 +9,20 @@ const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const js = esbuild.transformSync(fs.readFileSync(path.join(__dirname, "..", "api", "index.ts"), "utf8").replace(/^import .*$/m, ""), { loader: "ts", format: "cjs" }).code;
 const ALL = { sales: true, stock: true, crm: true, catalogue: true, tasks: true, perf: true, access: true, crm_edit: true, catalogue_manage: true };
 function world() {
-  const w = { users: [{ name: "Zz Boss", passcode_hash: sha("boss-code"), active: true }, { name: "Zz Rep", passcode_hash: sha("rep-code"), active: true }, { name: "Zz Gone", passcode_hash: sha("gone-code"), active: false }],
-    tools: { "Zz Boss": ALL, "Zz Rep": Object.assign({}, ALL, { stock: false, perf: false, access: false }) }, sessions: [], attempts: [], rpc: [], handler: null };
+  const w = { users: [{ name: "Zz Boss", hash: sha("boss-code"), active: true }, { name: "Zz Rep", hash: sha("rep-code"), active: true }, { name: "Zz Gone", hash: sha("gone-code"), active: false }],
+    tools: { "Zz Boss": ALL, "Zz Rep": Object.assign({}, ALL, { stock: false, perf: false, access: false }) }, sessions: [], attempts: [], rpc: [], handler: null, col: "signin_hash", asked: [] };
   const res = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => (body === undefined ? "" : JSON.stringify(body)) });
   w.fetch = async (url, init = {}) => {
     const u = new URL(url), p = u.pathname.replace("/rest/v1/", ""), q = u.searchParams, body = init.body ? JSON.parse(init.body) : null;
     if (init.headers.apikey !== "service-key") return res(401, { message: "no key" });
     if (p === "rpc/hub_tools") { w.rpc.push({ fn: "hub_tools", args: body }); return res(200, w.tools[body.p_name] || null); }
     if (p === "rpc/hub_open") { w.rpc.push({ fn: "hub_open", args: body }); return res(200, !!(w.tools[body.p_name] || {})[body.p_tool]); }
-    if (p === "board_users" && q.get("passcode_hash")) return res(200, w.users.filter((x) => "eq." + x.passcode_hash === q.get("passcode_hash") && x.active));
+    // the people table has one column for the passcode check (w.col); asking by any other name is an error, as in PostgREST
+    if (p === "board_users" && (q.get("signin_hash") || q.get("passcode_hash"))) {
+      w.asked.push(q.get("signin_hash") ? "signin_hash" : "passcode_hash");
+      if (!q.get(w.col)) return res(400, { code: "42703", message: "column does not exist" });
+      return res(200, w.users.filter((x) => "eq." + x.hash === q.get(w.col) && x.active));
+    }
     if (p === "board_users") return res(200, [{ name: "x" }]);
     if (p === "auth_attempts" && init.method === "POST") { w.attempts.push(body); return res(201); }
     if (p === "auth_attempts") return res(200, w.attempts.filter((a) => !a.ok && "eq." + a.ip === q.get("ip")).map((_, i) => ({ id: i })));
@@ -90,6 +95,15 @@ function world() {
   check("unlock: another address is not affected", st === 200, d);
   [st, d] = await w.post({ action: "nonsense", token: d.token });
   check("an unknown action is refused", st === 400, d);
+  // the passcode is looked up under the new column name; until the rename the old name still works
+  w = world();
+  [st, d] = await w.post({ action: "unlock", passcode: "boss-code" });
+  check("unlock: looks the person up by signin_hash", st === 200 && w.asked.join() === "signin_hash", w.asked.join());
+  w = world(); w.col = "passcode_hash";
+  [st, d] = await w.post({ action: "unlock", passcode: "boss-code" });
+  check("unlock: before the column is renamed, the old name still signs in", st === 200 && d.name === "Zz Boss" && w.asked.join() === "signin_hash,passcode_hash", w.asked.join());
+  [st, d] = await w.post({ action: "unlock", passcode: "nope" }, "10.0.0.7");
+  check("unlock: and a wrong passcode is still refused and counted", st === 401 && w.attempts.filter((a) => !a.ok).length === 1, d);
   const r = await w.handler(new Request("https://x/", { method: "GET" }));
   check("only POST", r.status === 405);
   console.log(`\n${pass} passed, ${fail} failed`);

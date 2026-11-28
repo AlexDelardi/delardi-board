@@ -27,7 +27,7 @@ begin
   -- rights: view_cost is its own right, off by default, Alex has it
   assert ops_has_right('Alex', 'view_cost'), 'Alex views cost';
   assert ops_has_right('Alex', 'view_stock') and ops_has_right('Alex', 'manage_stock'), 'older rights kept';
-  insert into board_users(name, passcode_hash, can_view_stock) values ('T2 Viewer', 'not-a-real-hash-t2', true);
+  insert into board_users(name, signin_hash, can_view_stock) values ('T2 Viewer', 'not-a-real-hash-t2', true);
   assert not ops_has_right('T2 Viewer', 'view_cost'), 'view stock does not give view cost';
 
   -- a piece with nothing recorded: every block is empty, nothing fails

@@ -5,7 +5,7 @@ do $$
 declare
   d jsonb; x jsonb; p jsonb; v_boss uuid; v_rep uuid; v_new uuid; v_gone uuid; n int; ok boolean; t text;
 begin
-  insert into board_users(name, passcode_hash, active, can_manage_access, can_view_logins, can_view_crm, crm_rep_label) values
+  insert into board_users(name, signin_hash, active, can_manage_access, can_view_logins, can_view_crm, crm_rep_label) values
     ('Zz Boss', 'zz-hash-1', true,  true,  true,  true,  null),
     ('Zz Rep',  'zz-hash-2', true,  false, false, true,  'Zz Rep'),
     ('Zz Gone', 'zz-hash-3', false, true,  true,  false, null),
@@ -38,7 +38,7 @@ begin
   select z into p from jsonb_array_elements(d->'people') z where z->>'name' = 'Zz Rep';
   assert p->>'person_id' = v_rep::text and (p->>'active')::boolean and p->>'rep' = 'Zz Rep' and p->>'role' is null
      and (p->'rights'->>'can_view_crm')::boolean and not (p->'rights'->>'can_view_stock')::boolean and (select count(*) from jsonb_object_keys(p->'rights')) = 24, 'a person: ' || p::text;
-  assert p->>'passcode' = 'earlier' and not (p ? 'passcode_hash') and not (p ? 'passcode_enc') and d::text not like '%zz-hash-%', 'no passcode, scrambled or not, ever leaves in the snapshot';
+  assert p->>'passcode' = 'earlier' and not (p ? 'signin_hash') and not (p ? 'passcode_enc') and d::text not like '%zz-hash-%', 'no passcode, scrambled or not, ever leaves in the snapshot';
   assert (select count(*) from jsonb_array_elements(d->'people') z where z->>'name' = 'Zz Gone' and not (z->>'active')::boolean) = 1, 'switched-off people are listed, marked';
 
   -- a right is switched on and off, and each change is written down
@@ -49,7 +49,7 @@ begin
   assert (select count(*) from acc_log where person_id = v_rep and field = 'can_view_stock') = 1, 'no change, no log line';
   perform acc_set_right('Zz Boss', v_rep, 'can_view_stock', false);
   assert not (select can_view_stock from board_users where id = v_rep) and (select count(*) from acc_log where person_id = v_rep and field = 'can_view_stock') = 2, 'off again, logged again';
-  for t in select unnest(array['passcode_hash', 'active', 'name', 'can_fly', 'can_view_stock; drop table acc_log', '']) loop
+  for t in select unnest(array['signin_hash', 'active', 'name', 'can_fly', 'can_view_stock; drop table acc_log', '']) loop
     begin perform acc_set_right('Zz Boss', v_rep, t, true); ok := false; exception when others then ok := sqlerrm like '%not a right%'; end;
     assert ok, 'only a listed right may be switched: ' || t;
   end loop;
@@ -115,11 +115,11 @@ begin
   begin perform acc_passcode('Zz Boss', v_rep); ok := false; exception when others then ok := sqlerrm like '%set earlier%'; end;
   assert ok, 'a passcode from before the tool cannot be shown';
   begin perform acc_set_passcode('Zz Boss', v_rep, 'zz-hash-9', 'zz-enc-x'); ok := false; exception when others then ok := sqlerrm like '%passcode is already in use%'; end;
-  assert ok and (select passcode_hash = 'zz-hash-2' from board_users where id = v_rep), 'a passcode someone else has is refused and nothing changes';
+  assert ok and (select signin_hash = 'zz-hash-2' from board_users where id = v_rep), 'a passcode someone else has is refused and nothing changes';
   begin perform acc_set_passcode('Zz Boss', v_rep, '', 'zz-enc-x'); ok := false; exception when others then ok := true; end;
   assert ok, 'an empty passcode is refused';
   p := acc_set_passcode('Zz Boss', v_rep, 'zz-hash-20', 'zz-enc-20');
-  assert p->>'passcode' = 'viewable' and (select passcode_hash = 'zz-hash-20' and passcode_enc = 'zz-enc-20' and passcode_set_at is not null from board_users where id = v_rep), 'the new passcode is in';
+  assert p->>'passcode' = 'viewable' and (select signin_hash = 'zz-hash-20' and passcode_enc = 'zz-enc-20' and passcode_set_at is not null from board_users where id = v_rep), 'the new passcode is in';
   assert (select count(*) from editor_sessions where display_name = 'Zz Rep') = 0, 'and the person signs in again';
   assert (select count(*) from acc_log where person_id = v_rep and action = 'passcode' and old_value is null and new_value is null) = 1 and (select count(*) from acc_log where coalesce(old_value, '') || coalesce(new_value, '') like '%zz-hash%' or coalesce(old_value, '') || coalesce(new_value, '') like '%zz-enc%') = 0, 'logged, without the passcode in any form';
   t := acc_passcode('Zz Boss', v_rep);

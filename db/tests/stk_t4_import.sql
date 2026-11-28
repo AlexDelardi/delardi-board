@@ -30,7 +30,7 @@ begin
   f := jsonb_build_object('file_name', 't4 upload.xlsx', 'rows', jsonb_build_array(rowa, rowb, rownew));
 
   -- rights
-  insert into board_users(name, passcode_hash, can_view_stock) values ('T4 Viewer', 'not-a-real-hash-t4', true);
+  insert into board_users(name, signin_hash, can_view_stock) values ('T4 Viewer', 'not-a-real-hash-t4', true);
   begin perform stk_import(f, 'T4 Viewer', false); assert false, 'viewer may import'; exception when raise_exception then null; end;
 
   -- preview: says what would happen, changes nothing

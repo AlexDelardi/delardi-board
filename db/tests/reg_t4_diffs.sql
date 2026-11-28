@@ -19,7 +19,7 @@ begin
   select piece_id into p1 from ops_pieces where serial = 'ZS-S001';
   select piece_id into p2 from ops_pieces where serial = 'ZS-S002';
   select piece_id into p3 from ops_pieces where serial = 'ZS-S003';
-  insert into board_users(name, passcode_hash, active) values ('Zed Viewer', 'zr-no-login', true);   -- no manage-stock right
+  insert into board_users(name, signin_hash, active) values ('Zed Viewer', 'zr-no-login', true);   -- no manage-stock right
   base := (select jsonb_agg(jsonb_build_object('serial', serial, 'variant_id', variant_id, 'size', size, 'price_uzs', price_uzs)) from cat_pieces);
   -- Colibri now says: S001 costs 1500, is size 56 and is the yellow-gold one; S002 has a barcode
   changed := (select jsonb_agg(case e->>'serial'

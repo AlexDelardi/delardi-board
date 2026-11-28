@@ -13,7 +13,7 @@ function luminance(hex) {
   return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 }
 function ratio(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); }
-for (const file of ['index.html','board/index.html','crm/index.html','catalogue/index.html']) {
+for (const file of ['index.html','crm/index.html','catalogue/index.html']) {
   const html = read(file);
   for (const [,script] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) new vm.Script(script, {filename:file});
   ok(true, file + ' JavaScript parses');

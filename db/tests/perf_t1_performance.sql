@@ -87,7 +87,7 @@ begin
   assert (b->>'tickets')::numeric + (b->>'mix')::numeric + (b->>'size')::numeric = 120, 'a reference without large tickets still adds up: ' || b::text;
 
   -- inputs: rights, checks, the plan, the funnel
-  insert into board_users(name, passcode_hash, can_view_stock, can_manage_stock) values ('PF Other', 'not-a-real-hash-pf', true, true);
+  insert into board_users(name, signin_hash, can_view_stock, can_manage_stock) values ('PF Other', 'not-a-real-hash-pf', true, true);
   begin perform perf_save_month('{"month":"2031-10-01","plan_uzs":1}', 'PF Other'); assert false, 'someone without the right saved'; exception when raise_exception then null; end;
   begin perform perf_mark_ticket(a6, '{"basis":"trade"}', 'PF Other'); assert false, 'someone without the right marked'; exception when raise_exception then null; end;
   begin perform perf_save_month('{"month":"2031-10-01","plan_uzs":100,"plan_tickets":2,"plan_large_tickets":3}', 'Alex'); assert false, 'more large tickets than tickets'; exception when raise_exception then null; end;
