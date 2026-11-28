@@ -39,6 +39,13 @@ Object.assign(RU, {
   "From Colibri — read-only.": "Из Colibri — только просмотр.",
   "Entered by": "Провёл(а)",
   "Era receipt no.": "Номер чека Era",
+  "Colibri receipt no.": "Номер чека Colibri",
+  "Till ticket no.": "Номер чека кассы",
+  "Colibri export": "Выгрузка Colibri",
+  "Same pieces and total as in Colibri": "Те же изделия и сумма, что в Colibri",
+  "Differs from Colibri": "Расходится с Colibri",
+  "Colibri {n}": "Colibri {n}",
+  "Till {n}": "Касса {n}",
   "Void reason": "Причина аннулирования",
   "Voided by": "Аннулировал(а)",
   "Refund": "Возврат",
@@ -65,6 +72,12 @@ const tkToday = (back) => new Date(Date.now() + 5 * 3600e3 - (back || 0) * 86400
 
 /* -------------------------------------------------------------------- list */
 S.tk = null;
+// A till sale has two numbers once it carries its Colibri receipt's: the one it goes by, and this, the other one.
+function otherNo(r) {
+  if (!r.colibri_no) return null;
+  const text = shownNo(r) === r.colibri_no ? tr("Till {n}", { n: r.ticket_no }) : tr("Colibri {n}", { n: r.colibri_no });
+  return el("span", { class: "tk-no2 small", text });
+}
 function tkState() {
   if (!S.tk) S.tk = { f: { q: "", from: tkToday(29), to: tkToday(0), seller: "", source: "", status: "" }, page: 1, data: null, err: null, seq: 0 };
   // test sales are offered only while the till is in training
@@ -155,7 +168,8 @@ function renderTkList() {
     el("tbody", {}, d.rows.map((r) => {
       const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
       return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
-        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
+        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: shownNo(r) }), otherNo(r),
+          r.colibri_check === "differs" ? el("span", { class: "tag alert tk-diff", text: tr("Differs from Colibri") }) : null),
         el("td", { class: "tk-date", text: tkWhen(r.sold_at, r.source) }),
         el("td", { class: "tk-items", text: r.items || "—" }),
         el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
@@ -223,14 +237,14 @@ function drawTicket(wrap, doc, ui) {
   const submitVoid = async () => {
     const reason = ui.reason.trim();
     if (!reason) { ui.err = tr("Write the reason for the void."); redraw(); return; }
-    const yes = await confirmBox({ title: tr("Void {no}?", { no: t.ticket_no }),
+    const yes = await confirmBox({ title: tr("Void {no}?", { no: shownNo(t) }),
       body: [tr(t.source === "training" ? "A test sale: nothing real changes." : "Its pieces go back in stock and the client's purchase is taken off the CRM record."),
         tr("Reason: {r}", { r: reason })],
       ok: tr("Void this sale"), danger: true });
     if (!yes) return;
     try {
       await api("void", { ticket_id: t.ticket_id, reason });
-      toast(tr("{no} voided.", { no: t.ticket_no }));
+      toast(tr("{no} voided.", { no: shownNo(t) }));
       const fresh = await api("ticket", { ticket_id: t.ticket_id, lang: rcLangFor(t.ticket_id) });
       if (!wrap.isConnected) return;
       Object.assign(doc, fresh);
@@ -244,7 +258,7 @@ function drawTicket(wrap, doc, ui) {
   // Node.append would print a null as "null": the optional parts go through filter(Boolean)
   wrap.append(...[
     el("div", { class: "sheet-head" },
-      el("h1", { text: t.ticket_no }),
+      el("h1", { text: shownNo(t) }),
       el("span", { class: "tk-status" }, tkStatus(t.status, t.source)),
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
@@ -254,7 +268,11 @@ function drawTicket(wrap, doc, ui) {
       kv("Seller", t.seller),
       kv("Client", client),
       kv("Entered by", t.entered_by ? who(t.entered_by) : null),
+      t.source === "delardi" || t.source === "training" ? kv("Till ticket no.", t.ticket_no) : null,
+      kv("Colibri receipt no.", t.colibri_no),
       kv("Era receipt no.", t.fiscal_ref),
+      t.colibri_check ? kv("Colibri export", t.colibri_check === "matched" ? tr("Same pieces and total as in Colibri")
+        : tr("Differs from Colibri") + (t.colibri_note ? ": " + t.colibri_note : "")) : null,
       voided ? kv("Void reason", t.void_reason) : null,
       voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
@@ -276,7 +294,7 @@ function drawTicket(wrap, doc, ui) {
         el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,
     actions.length ? el("div", { class: "tk-actions" }, actions) : null,
     ui.receipt && t.receipt_text ? el("div", { class: "tk-receipt" },
-      el("article", { class: "receipt", "aria-label": t.ticket_no },
+      el("article", { class: "receipt", "aria-label": shownNo(t) },
         el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
         el("div", { class: "rc-body" }, receiptLines(t.receipt_text), el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))),
       el("div", { class: "receipt-actions" },

@@ -1701,6 +1701,72 @@ async function shot(page, name) {
     await ctx.close();
   });
 
+  await run("colibri receipt number", async () => {
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 800 });
+    // Admin: the switch, till numbers by default
+    await page.click('a[href="#/admin"]'); await page.waitForSelector("#screen-admin");
+    check("main numbers: Admin shows the switch, on Till by default", (await page.getAttribute("#main-till", "aria-pressed")) === "true" && (await page.getAttribute("#main-colibri", "aria-pressed")) === "false");
+    await page.click("#mode-live"); await page.click("#confirm-ok");
+    await page.waitForFunction(() => S.mode === "live");
+    // till numbers main: the field is optional and kept beside the till number
+    await page.click('a[href="#/sale"]');
+    await addLine(page, "2000000000031");
+    await toPay(page);
+    check("pay: the Colibri receipt field is there, marked optional", /Colibri receipt no\. \(optional\)/.test(await page.textContent(".pay-refs")) && !!(await page.$("#colibri-no")));
+    await addPay(page, "cash", "31 500 000");
+    check("pay: with till numbers main the sale can be posted without it", await postEnabled(page));
+    await page.fill("#colibri-no", " c-200001 ");
+    mock.state.calls.length = 0;
+    await page.click("#post"); await page.waitForSelector("#new-sale");
+    const sent = mock.state.calls.find((c) => c.action === "post");
+    check("pay: the number is sent trimmed", !!sent && sent.sale.colibri_no === "c-200001", JSON.stringify(sent && sent.sale.colibri_no));
+    check("receipt: under till numbers the till number is shown", /D-000003/.test(await page.textContent("#screen-receipt")), norm(await page.textContent("#screen-receipt")).slice(0, 160));
+    // the list: both numbers, the flag from the Colibri export, found by either number
+    await page.click('a[href="#/tickets"]'); await page.waitForSelector("#tk-list");
+    const rowOf = async (no) => norm(await page.$$eval("#tk-list tbody tr", (rs, no) => (rs.find((r) => r.querySelector(".tk-no").textContent === no) || { textContent: "" }).textContent, no));
+    check("tickets: a till sale shows its Colibri number beside its own", /Colibri c-200001/.test(await rowOf("D-000003")), await rowOf("D-000003"));
+    check("tickets: a sale the Colibri export disagreed with is flagged", /Differs from Colibri/.test(await rowOf("D-000002")), await rowOf("D-000002"));
+    await page.fill("#tk-q", "C-200001"); await page.press("#tk-q", "Enter");
+    await page.waitForFunction(() => document.querySelectorAll("#tk-list tbody tr").length === 1);
+    check("tickets: found by the Colibri number", /D-000003/.test(await page.textContent("#tk-list tbody")));
+    await page.fill("#tk-q", "D-000002"); await page.press("#tk-q", "Enter");
+    await page.waitForFunction(() => /D-000002/.test(document.querySelector("#tk-list tbody").textContent));
+    await page.click("#tk-list .tk-no"); await page.waitForSelector(".tk-meta");
+    const meta = norm(await page.textContent(".tk-meta"));
+    check("ticket: both numbers and what the Colibri export said", /Till ticket no\.\s*D-000002/.test(meta) && /Colibri receipt no\.\s*C-104240/.test(meta)
+      && /Differs from Colibri: total: till 13 500 000, Colibri 13 600 000/.test(meta), meta);
+    // Colibri numbers main
+    await page.click('a[href="#/admin"]'); await page.waitForSelector("#screen-admin");
+    await page.click("#main-colibri");
+    check("main numbers: switching asks first", /Make Colibri numbers the main ones\?/.test(await page.textContent("#confirm-dialog")));
+    await page.click("#confirm-ok");
+    await page.waitForFunction(() => document.querySelector("#main-colibri").getAttribute("aria-pressed") === "true");
+    check("main numbers: the note says a sale needs the number", /cannot be posted without its Colibri receipt number/.test(await page.textContent("#main-no-note")));
+    await page.click('a[href="#/sale"]');
+    await addLine(page, "ZZ.00.20001");
+    await toPay(page);
+    await addPay(page, "cash", "18 400 000");
+    check("pay: with Colibri numbers main the sale waits for the number", !(await postEnabled(page)) && /Type the Colibri receipt number/.test(await page.textContent("#why"))
+      && !/optional/.test(await page.textContent('label[for="colibri-no"]')), await page.textContent("#why"));
+    await page.fill("#colibri-no", "C-200001");
+    check("pay: typing it frees Post", await postEnabled(page));
+    await page.click("#post");
+    await page.waitForFunction(() => /already on sale D-000003/.test(document.querySelector("#toast").textContent));
+    check("pay: a number already on another sale is refused, saying which", !!(await page.$("#screen-pay")));
+    await page.fill("#colibri-no", "C-200002");
+    await page.click("#post"); await page.waitForSelector("#new-sale");
+    const rc = norm(await page.textContent("#screen-receipt"));
+    check("receipt: under Colibri numbers the Colibri number is shown and printed", /Ticket C-200002/.test(rc) && !/Ticket D-0000/.test(rc), rc.slice(0, 200));
+    await page.click('a[href="#/tickets"]'); await page.waitForSelector("#tk-q");
+    await page.fill("#tk-q", ""); await page.press("#tk-q", "Enter");
+    await page.waitForFunction(() => document.querySelectorAll("#tk-list tbody tr").length > 2);
+    check("tickets: that sale goes by its Colibri number, the till number beside it", /Till D-000004/.test(await rowOf("C-200002")), await rowOf("C-200002"));
+    check("tickets: an earlier sale keeps the number it was posted under", /Colibri c-200001/.test(await rowOf("D-000003")));
+    await shot(page, "colibri-tickets");
+    check("colibri receipt number: no script errors", errors.length === 0, errors.join());
+    await ctx.close();
+  });
+
   await browser.close();
   console.log(results.join("\n"));
   console.log(`\n${pass} passed, ${fail} failed`);

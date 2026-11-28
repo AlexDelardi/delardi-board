@@ -344,7 +344,8 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .pay-add { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .card-menu { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; border: 1px solid var(--mist); background: var(--white); }
 .cash-notice b { margin-right: 4px; }
-.fiscal { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
+.pay-refs { display: flex; flex-wrap: wrap; gap: 16px 24px; }
+.fiscal { display: flex; flex-direction: column; gap: 4px; max-width: 320px; flex: 1 1 220px; }
 .fiscal .lbl { margin: 0; }
 .pay-side { background: var(--card); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .ps-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
@@ -513,6 +514,8 @@ main > .notice { max-width: 640px; margin: 24px auto; }
 .tk-list td { color: var(--navy-deep); font-size: 14px; }
 a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
 a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-no2 { display: block; color: var(--slate); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tk-diff { display: inline-block; margin-top: 4px; white-space: nowrap; }
 .tk-date, .tk-seller, .tk-src { color: var(--slate); white-space: nowrap; }
 .tk-list td.tk-items, .tk-list td.tk-client { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-net { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -793,7 +796,7 @@ function setLang(l) {
 
 /* -------------------------------------------------------------------- state */
 function newSale() {
-  return { draft_id: null, client_id: null, client_name: null, walk_in: false, seller: "", lines: [], payments: [], fiscal_ref: "" };
+  return { draft_id: null, client_id: null, client_name: null, walk_in: false, seller: "", lines: [], payments: [], fiscal_ref: "", colibri_no: "" };
 }
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false, crm: false },
@@ -908,6 +911,11 @@ function pctMillionths(pct) {
   const p = Math.min(Math.max(Number(pct) || 0, 0), MAX_DISCOUNT);
   return BigInt(Math.round(p * 10000));                    // ten-thousandths of a percent
 }
+// Which ticket numbers are the main ones: Colibri's receipt numbers, or the till's own (D-000001). Set in Admin.
+const colibriMain = () => !!(S.ref && S.ref.main_ticket_no === "colibri");
+// The number a ticket goes by: the one it was posted under (a till sale posted while Colibri numbers were main
+// carries its Colibri number), else its own.
+const shownNo = (t) => (t && (t.display_no || t.ticket_no)) || "";
 function lineNet(line) {
   if (line.price_uzs === null || line.price_uzs === undefined) return null;
   // a line brought to an exact total ("Set total") carries it; the database checks it against the discount
@@ -2158,6 +2166,10 @@ Object.assign(RU, {
   "Overpaid by {x}": "Переплата {x}",
   "Balanced": "Сходится",
   "Era receipt no. (optional)": "Номер чека Era (необязательно)",
+  "Colibri receipt no.": "Номер чека Colibri",
+  "Colibri receipt no. (optional)": "Номер чека Colibri (необязательно)",
+  "Type the Colibri receipt number.": "Введите номер чека Colibri.",
+  "The number of this sale's receipt in Colibri. It ties the two records together.": "Номер чека этой продажи в Colibri. Он связывает две записи.",
   "← Back": "← Назад",
   "Post sale": "Провести продажу",
   "Posting…": "Проводим…",
@@ -2202,6 +2214,7 @@ function postBlocker() {
   if (!saleReady()) return tr("Every piece needs a price.");
   if (!s.seller) return tr("Choose the seller.");
   if (!s.walk_in && !s.client_id) return tr("Choose a client or Walk-in.");
+  if (colibriMain() && blank(s.colibri_no)) return tr("Type the Colibri receipt number.");
   if (!s.payments.length) return tr("Add a payment.");
   if (s.payments.some((p) => !(p.amount > 0))) return tr("Every payment needs an amount.");
   if (s.payments.length > MAX_PAYMENTS) return tr("At most {n} payments.", { n: MAX_PAYMENTS });
@@ -2266,6 +2279,7 @@ async function postSale() {
   const sale = {
     seller: s.seller,
     fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(),
+    colibri_no: blank(s.colibri_no) ? null : s.colibri_no.trim(),
     draft_id: s.draft_id || null,
     lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, net_uzs: l.net_uzs || null, seller: l.seller || null })),
     payments: s.payments.map((p) => ({ method: p.method, card_type: p.card_type || null, amount: p.amount })),
@@ -2299,6 +2313,10 @@ function renderPay(main) {
   renderClientSlot(who);
   const fiscal = el("input", { type: "text", id: "fiscal", maxlength: "60", autocomplete: "off", value: s.fiscal_ref || "",
     oninput: (ev) => { s.fiscal_ref = ev.target.value; } });
+  const colibri = el("input", { type: "text", id: "colibri-no", maxlength: "40", autocomplete: "off", autocapitalize: "characters", spellcheck: "false",
+    value: s.colibri_no || "", "aria-required": colibriMain() ? "true" : null,
+    title: tr("The number of this sale's receipt in Colibri. It ties the two records together."),
+    oninput: (ev) => { s.colibri_no = ev.target.value; refreshPay(); } });
   const add = el("div", { class: "pay-add" },
     el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("Cash")),
     el("button", { type: "button", class: "btn", id: "add-card", "aria-expanded": payMenuOpen ? "true" : "false",
@@ -2317,7 +2335,9 @@ function renderPay(main) {
         who,
         el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
         el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
-        el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal),
+        el("div", { class: "pay-refs" },
+          el("label", { class: "fiscal", for: "colibri-no" }, el("span", { class: "lbl", text: tr(colibriMain() ? "Colibri receipt no." : "Colibri receipt no. (optional)") }), colibri),
+          el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal)),
         el("div", { class: "notice cash-notice", role: "note", hidden: true },
           el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), " ", tr("this payment should go by card."))),
       el("aside", { class: "pay-side", "aria-label": tr("Summary") },
@@ -2381,11 +2401,11 @@ async function renderReceipt(main, id) {
   const t = doc && doc.ticket;
   const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
-  const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
+  const ticketNo = t ? shownNo(t) : shownNo(S.lastPosted);
   const total = p ? p.total : doc && doc.lines && doc.lines.length ? docTotal(doc.lines) : null;
   let card;
   if (t) {
-    card = el("article", { class: "receipt", "aria-label": t.ticket_no },
+    card = el("article", { class: "receipt", "aria-label": shownNo(t) },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" }, receiptLines(t.receipt_text),
         el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" })));
@@ -2395,7 +2415,7 @@ async function renderReceipt(main, id) {
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" },
         training ? el("div", { class: "rc-line rc-train", text: rcLangFor(id) === "ru" ? "УЧЕБНЫЙ ЧЕК — НЕ ПРОДАЖА" : "TRAINING — NOT A SALE" }) : null,
-        p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: p.ticket_no, t: fmtUZS(p.total) }) }) : null,
+        p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: shownNo(p), t: fmtUZS(p.total) }) }) : null,
         el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) })));
   }
   wrap.append(
@@ -3070,6 +3090,13 @@ Object.assign(RU, {
   "From Colibri — read-only.": "Из Colibri — только просмотр.",
   "Entered by": "Провёл(а)",
   "Era receipt no.": "Номер чека Era",
+  "Colibri receipt no.": "Номер чека Colibri",
+  "Till ticket no.": "Номер чека кассы",
+  "Colibri export": "Выгрузка Colibri",
+  "Same pieces and total as in Colibri": "Те же изделия и сумма, что в Colibri",
+  "Differs from Colibri": "Расходится с Colibri",
+  "Colibri {n}": "Colibri {n}",
+  "Till {n}": "Касса {n}",
   "Void reason": "Причина аннулирования",
   "Voided by": "Аннулировал(а)",
   "Refund": "Возврат",
@@ -3096,6 +3123,12 @@ const tkToday = (back) => new Date(Date.now() + 5 * 3600e3 - (back || 0) * 86400
 
 /* -------------------------------------------------------------------- list */
 S.tk = null;
+// A till sale has two numbers once it carries its Colibri receipt's: the one it goes by, and this, the other one.
+function otherNo(r) {
+  if (!r.colibri_no) return null;
+  const text = shownNo(r) === r.colibri_no ? tr("Till {n}", { n: r.ticket_no }) : tr("Colibri {n}", { n: r.colibri_no });
+  return el("span", { class: "tk-no2 small", text });
+}
 function tkState() {
   if (!S.tk) S.tk = { f: { q: "", from: tkToday(29), to: tkToday(0), seller: "", source: "", status: "" }, page: 1, data: null, err: null, seq: 0 };
   // test sales are offered only while the till is in training
@@ -3186,7 +3219,8 @@ function renderTkList() {
     el("tbody", {}, d.rows.map((r) => {
       const href = "#/ticket/" + encodeURIComponent(r.ticket_id);
       return el("tr", { class: "tk-row" + (r.status === "void" ? " is-void" : ""), onclick: (ev) => { if (!ev.target.closest("a")) location.hash = href; } },
-        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: r.ticket_no })),
+        el("td", { class: "tk-numcell" }, el("a", { class: "tk-no", href, text: shownNo(r) }), otherNo(r),
+          r.colibri_check === "differs" ? el("span", { class: "tag alert tk-diff", text: tr("Differs from Colibri") }) : null),
         el("td", { class: "tk-date", text: tkWhen(r.sold_at, r.source) }),
         el("td", { class: "tk-items", text: r.items || "—" }),
         el("td", { class: "tk-client", text: r.client_name || (r.walk_in ? walkInText() : r.client_id || "—") }),
@@ -3254,14 +3288,14 @@ function drawTicket(wrap, doc, ui) {
   const submitVoid = async () => {
     const reason = ui.reason.trim();
     if (!reason) { ui.err = tr("Write the reason for the void."); redraw(); return; }
-    const yes = await confirmBox({ title: tr("Void {no}?", { no: t.ticket_no }),
+    const yes = await confirmBox({ title: tr("Void {no}?", { no: shownNo(t) }),
       body: [tr(t.source === "training" ? "A test sale: nothing real changes." : "Its pieces go back in stock and the client's purchase is taken off the CRM record."),
         tr("Reason: {r}", { r: reason })],
       ok: tr("Void this sale"), danger: true });
     if (!yes) return;
     try {
       await api("void", { ticket_id: t.ticket_id, reason });
-      toast(tr("{no} voided.", { no: t.ticket_no }));
+      toast(tr("{no} voided.", { no: shownNo(t) }));
       const fresh = await api("ticket", { ticket_id: t.ticket_id, lang: rcLangFor(t.ticket_id) });
       if (!wrap.isConnected) return;
       Object.assign(doc, fresh);
@@ -3275,7 +3309,7 @@ function drawTicket(wrap, doc, ui) {
   // Node.append would print a null as "null": the optional parts go through filter(Boolean)
   wrap.append(...[
     el("div", { class: "sheet-head" },
-      el("h1", { text: t.ticket_no }),
+      el("h1", { text: shownNo(t) }),
       el("span", { class: "tk-status" }, tkStatus(t.status, t.source)),
       el("div", { class: "aside" }, el("a", { class: "btn", href: "#/tickets", text: tr("← Tickets") }))),
     t.source === "training" ? el("p", { class: "tk-train-note", text: tr("Test sales are listed apart: nothing in them is real.") }) : null,
@@ -3285,7 +3319,11 @@ function drawTicket(wrap, doc, ui) {
       kv("Seller", t.seller),
       kv("Client", client),
       kv("Entered by", t.entered_by ? who(t.entered_by) : null),
+      t.source === "delardi" || t.source === "training" ? kv("Till ticket no.", t.ticket_no) : null,
+      kv("Colibri receipt no.", t.colibri_no),
       kv("Era receipt no.", t.fiscal_ref),
+      t.colibri_check ? kv("Colibri export", t.colibri_check === "matched" ? tr("Same pieces and total as in Colibri")
+        : tr("Differs from Colibri") + (t.colibri_note ? ": " + t.colibri_note : "")) : null,
       voided ? kv("Void reason", t.void_reason) : null,
       voided ? kv("Voided by", [t.voided_by ? who(t.voided_by) : null, t.voided_at ? tkWhen(t.voided_at) : null].filter(Boolean).join(", ")) : null),
     !mine ? el("p", { class: "ro-note", text: tr("From Colibri — read-only.") }) : null,
@@ -3307,7 +3345,7 @@ function drawTicket(wrap, doc, ui) {
         el("button", { type: "button", class: "btn subtle", onclick: () => { ui.voidOpen = false; ui.err = null; redraw(); } }, tr("Cancel")))) : null,
     actions.length ? el("div", { class: "tk-actions" }, actions) : null,
     ui.receipt && t.receipt_text ? el("div", { class: "tk-receipt" },
-      el("article", { class: "receipt", "aria-label": t.ticket_no },
+      el("article", { class: "receipt", "aria-label": shownNo(t) },
         el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
         el("div", { class: "rc-body" }, receiptLines(t.receipt_text), el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" }))),
       el("div", { class: "receipt-actions" },
@@ -3353,6 +3391,23 @@ Object.assign(RU, {
   "Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.":
     "Удаляет все тестовые чеки и все отложенные тестовые продажи. Настоящие продажи не затрагиваются.",
   "Clear test sales": "Очистить тестовые продажи",
+  "Main ticket numbers": "Основная нумерация чеков",
+  "Till": "Касса",
+  "Colibri": "Colibri",
+  "Colibri numbers are the main ones: a sale cannot be posted without its Colibri receipt number, and that number is shown and printed. The till's own number (D-…) is kept beside it.":
+    "Основные номера — Colibri: продажу нельзя провести без номера чека Colibri, этот номер показывается и печатается. Собственный номер кассы (D-…) хранится рядом.",
+  "The till's own numbers (D-…) are the main ones. The Colibri receipt number can still be typed on a sale, and is kept beside it.":
+    "Основные номера — собственные номера кассы (D-…). Номер чека Colibri по-прежнему можно указать в продаже, он хранится рядом.",
+  "Make Colibri numbers the main ones?": "Сделать номера Colibri основными?",
+  "Use Colibri numbers": "Использовать номера Colibri",
+  "From now on a sale cannot be posted without its Colibri receipt number, and new sales are shown and printed under that number. Sales already posted keep the number they have.":
+    "С этого момента продажу нельзя провести без номера чека Colibri, новые продажи показываются и печатаются под этим номером. Уже проведённые продажи сохраняют свой номер.",
+  "Make the till's numbers the main ones?": "Сделать номера кассы основными?",
+  "Use till numbers": "Использовать номера кассы",
+  "From now on new sales are shown and printed under the till's own number (D-…). The Colibri receipt number becomes optional. Sales already posted keep the number they have.":
+    "С этого момента новые продажи показываются и печатаются под собственным номером кассы (D-…). Номер чека Colibri становится необязательным. Уже проведённые продажи сохраняют свой номер.",
+  "Colibri numbers are now the main ones.": "Номера Colibri теперь основные.",
+  "The till's numbers are now the main ones.": "Номера кассы теперь основные.",
   "Clear every test sale?": "Очистить все тестовые продажи?",
   "This cannot be undone.": "Это нельзя отменить.",
   "Clear them": "Очистить",
@@ -3376,6 +3431,14 @@ function renderAdmin(main) {
           el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
         el("p", { class: "small", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
           : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
+      el("div", { class: "admin-sec" },
+        el("h2", { class: "h2", text: tr("Main ticket numbers") }),
+        el("div", { class: "seg", role: "group", "aria-label": tr("Main ticket numbers") },
+          el("button", { type: "button", class: "btn", id: "main-till", "aria-pressed": colibriMain() ? "false" : "true", onclick: () => switchMainNo("till") }, tr("Till")),
+          el("button", { type: "button", class: "btn", id: "main-colibri", "aria-pressed": colibriMain() ? "true" : "false", onclick: () => switchMainNo("colibri") }, tr("Colibri"))),
+        el("p", { class: "small", id: "main-no-note", text: tr(colibriMain()
+          ? "Colibri numbers are the main ones: a sale cannot be posted without its Colibri receipt number, and that number is shown and printed. The till's own number (D-…) is kept beside it."
+          : "The till's own numbers (D-…) are the main ones. The Colibri receipt number can still be typed on a sale, and is kept beside it.") })),
       el("div", { class: "admin-sec" },
         el("h2", { class: "h2", text: tr("Go-live date") }),
         el("p", { id: "go-live", class: goLive ? "h2" : "small", text: goLive ? fmtDate(goLive) : tr("Not yet — the till has not been Live.") })),
@@ -3404,6 +3467,21 @@ async function switchMode(mode) {
     await loadDrafts();                // suspended sales are per mode
     renderAll();
     toast(tr(toLive ? "The till is Live." : "The till is in training."));
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+}
+async function switchMainNo(main) {
+  if ((main === "colibri") === colibriMain()) return;
+  const yes = await confirmBox(main === "colibri"
+    ? { title: tr("Make Colibri numbers the main ones?"), ok: tr("Use Colibri numbers"),
+        body: tr("From now on a sale cannot be posted without its Colibri receipt number, and new sales are shown and printed under that number. Sales already posted keep the number they have.") }
+    : { title: tr("Make the till's numbers the main ones?"), ok: tr("Use till numbers"),
+        body: tr("From now on new sales are shown and printed under the till's own number (D-…). The Colibri receipt number becomes optional. Sales already posted keep the number they have.") });
+  if (!yes) return;
+  try {
+    await api("set_main_no", { main });
+    await loadReference();
+    renderAll();
+    toast(tr(main === "colibri" ? "Colibri numbers are now the main ones." : "The till's numbers are now the main ones."));
   } catch (e) { if (e.status !== 401) toast(e.message); }
 }
 async function clearTraining() {

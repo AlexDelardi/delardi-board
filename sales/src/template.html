@@ -185,7 +185,8 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .pay-add { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .card-menu { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; border: 1px solid var(--mist); background: var(--white); }
 .cash-notice b { margin-right: 4px; }
-.fiscal { display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
+.pay-refs { display: flex; flex-wrap: wrap; gap: 16px 24px; }
+.fiscal { display: flex; flex-direction: column; gap: 4px; max-width: 320px; flex: 1 1 220px; }
 .fiscal .lbl { margin: 0; }
 .pay-side { background: var(--card); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .ps-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
@@ -354,6 +355,8 @@ main > .notice { max-width: 640px; margin: 24px auto; }
 .tk-list td { color: var(--navy-deep); font-size: 14px; }
 a.tk-no { white-space: nowrap; color: var(--navy); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
 a.tk-no:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tk-no2 { display: block; color: var(--slate); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tk-diff { display: inline-block; margin-top: 4px; white-space: nowrap; }
 .tk-date, .tk-seller, .tk-src { color: var(--slate); white-space: nowrap; }
 .tk-list td.tk-items, .tk-list td.tk-client { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-net { font-variant-numeric: tabular-nums; white-space: nowrap; }
