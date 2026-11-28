@@ -11,7 +11,7 @@
 //      board_users on every call. Without the CRM view right a login sees a
 //      held piece's client by reference only (no name).
 //   3. Reads are the stk_* database functions. The only writes to real stock are
-//      ops_set_state, ops_resolve_review and stk_import, which check manage_stock
+//      ops_set_state, ops_resolve_review, stk_import and stk_diff_decide, which check manage_stock
 //      themselves; their refusals (raise exception, SQLSTATE P0001) come back
 //      as 409 with the sentence verbatim, because they are written for the screen.
 //
@@ -41,6 +41,8 @@ const TRAIN_STATES = ["in_stock", "reserved", "booked_out", "damaged", "in_trans
 // The columns the table can be sorted by, and those with a checklist of values (training adds the store).
 const SORT_COLS = ["serial", "brand", "article", "state", "since", "price"];
 const FACET_COLS = ["brand", "state"];
+// What a Colibri load can differ on for a piece we hold (ops_colibri_diffs.field).
+const DIFF_FIELDS = ["price", "size", "barcode", "design"];
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -555,6 +557,44 @@ async function handle(req: Request, body: Record<string, unknown>) {
       { method: "DELETE", headers: { Prefer: "return=representation" } },
     );
     return { removed: Array.isArray(gone) ? gone.length : 0, ...(await waitingRows()) };
+  }
+
+  // What a Colibri load said differently about pieces we hold (price, size, barcode, design). Open lines only.
+  if (action === "diffs" || action === "diff_decide") {
+    const sess = await requireStock(body.token, "manage");
+    const filt = (v: unknown) => {
+      const f = obj(v, "filters");
+      const out: Record<string, unknown> = {};
+      const brand = str(f.brand, 80), field = str(f.field, 20);
+      if (brand !== null) out.brand = brand;
+      if (field !== null) {
+        if (!DIFF_FIELDS.includes(field)) throw new HttpErr(400, `field must be one of ${DIFF_FIELDS.join(", ")}.`);
+        out.field = field;
+      }
+      return out;
+    };
+    if (action === "diffs") {
+      const f = filt(body.filters);
+      const page = obj(body.filters, "filters").page;
+      if (page !== null && page !== undefined && page !== "") f.page = Math.min(posInt(page, "page"), 100000);
+      return await rpc("stk_diff_list", { p: f });
+    }
+    // Keep ours (take: false) or take Colibri's (take: true), for the lines named or for everything the filters show.
+    if (typeof body.take !== "boolean") throw new HttpErr(400, "Say whether to keep ours or take Colibri's.");
+    const hasIds = body.ids !== null && body.ids !== undefined, hasFilters = body.filters !== null && body.filters !== undefined;
+    if (hasIds === hasFilters) throw new HttpErr(400, "Say which differences to decide.");
+    const p: Record<string, unknown> = { take: body.take };
+    let shown: Record<string, unknown> = {};
+    if (hasIds) {
+      if (!Array.isArray(body.ids) || body.ids.length === 0 || body.ids.length > 2000) throw new HttpErr(400, "Say which differences to decide.");
+      p.ids = [...new Set(body.ids.map((x) => posInt(x, "difference")))];
+      shown = filt(body.shown);            // what the page was showing, for the fresh list that comes back
+    } else {
+      p.filters = filt(body.filters);
+      shown = p.filters as Record<string, unknown>;
+    }
+    const done = await rpc("stk_diff_decide", { p, p_actor: sess.name });
+    return { ...done, list: await rpc("stk_diff_list", { p: shown }) };
   }
 
   if (action === "resolve") {

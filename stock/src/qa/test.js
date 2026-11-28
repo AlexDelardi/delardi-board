@@ -151,7 +151,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       [...document.querySelectorAll(".kit-head .kit-lang .kit-hbtn")].map((b) => b.textContent + ":" + b.getAttribute("aria-pressed")).join() === "EN:true,RU:false"));
     // tabs
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim() + (n.getAttribute("aria-current") === "page" ? "*" : "")));
-    check("tabs: Pieces (current), Review with its count, and Import for a login that can change stock", tabs.join() === "Pieces*,Review (5),Import", tabs.join());
+    check("tabs: Pieces (current), Review with its count, and Import for a login that can change stock", tabs.join() === "Pieces*,Review (5),Colibri (5),Import", tabs.join());
     check("routes: the default is #/pieces", await page.evaluate(() => route().name === "pieces"));
     await page.click(".kit-tabs .kit-tab >> text=Review");
     await page.waitForSelector("#screen-review");
@@ -460,7 +460,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       norm(await page.textContent(".kit-head [data-kit-menu] > button")) === "Инструменты" &&
       norm(await page.textContent(".kit-head > button.kit-hbtn")) === "Заблокировать");
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
-    check("RU: tabs Изделия / Проверка / Импорт", tabs.join() === "Изделия,Проверка (5),Импорт", tabs.join());
+    check("RU: tabs Изделия / Проверка / Импорт", tabs.join() === "Изделия,Проверка (5),Colibri (5),Импорт", tabs.join());
     const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.replace(/[↕↑↓▾]/g, "").trim()));   // without the sort arrow and the checklist ▾
     check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|С даты|Цена", heads.join("|"));
     const opts = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.textContent.trim()));
@@ -788,7 +788,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 });
     await settled(page);
     const tabs = () => page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
-    check("import: a tab for a login that can change stock", (await tabs()).join() === "Pieces,Review (5),Import", (await tabs()).join());
+    check("import: a tab for a login that can change stock", (await tabs()).join() === "Pieces,Review (5),Colibri (5),Import", (await tabs()).join());
     await page.click("#tab-import");
     await page.waitForSelector("#screen-import");
     check("import: says what the file is; nothing previewed yet", /A–AK/.test(await page.textContent("#imp-help")) && !(await page.$("#imp-rows")) && !(await page.$("#imp-apply")));
@@ -833,7 +833,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.evaluate(() => setLang("ru"));
     await page.waitForSelector("#imp-rows");
     rs = await rows();
-    check("ru: tab, counts, result words", (await tabs())[2] === "Импорт" && /Будет обновлено=2/.test(await cards()) && rs[0].tag === "Будет обновлено" && /полей Colibri: 9/.test(rs[0].msgs[0])
+    check("ru: tab, counts, result words", (await tabs())[3] === "Импорт" && /Будет обновлено=2/.test(await cards()) && rs[0].tag === "Будет обновлено" && /полей Colibri: 9/.test(rs[0].msgs[0])
       && (await page.textContent("#imp-apply")).trim() === "Загрузить строк: 3", rs[0].msgs[0]);
     await page.evaluate(() => setLang("en"));
     // load
@@ -1508,6 +1508,114 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("review (empty): \"No open reviews.\" in the serif line", await t.page.$eval("#rv-empty", (n) => /No open reviews\./.test(n.textContent) && /Palatino/.test(getComputedStyle(n).fontFamily)));
     await t.ctx.close();
     check("review (empty): no script errors", errors.length === 0 && t.errors.length === 0, errors.concat(t.errors).join(" | "));
+  });
+
+  // ---------------------------------------------------------------- Colibri differences (one register)
+  await run("colibri differences", async () => {
+    mock.reset();
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 });
+    await settled(page);
+    const dfTab = () => page.$eval("#tab-colibri", (n) => n.textContent.trim());
+    const drawn = async () => { const n = await page.$eval("#df-host", (h) => h.getAttribute("data-draws")); return n; };
+    const afterDraw = async (act) => { const before = await drawn(); await act(); await page.waitForFunction((b) => { const h = document.querySelector("#df-host"); return h && h.getAttribute("data-draws") !== b && !S.df.busy; }, before); };
+    const rows = () => page.$$eval("#df-rows tr.drow", (ns) => ns.map((n) => ({ id: n.getAttribute("data-diff"), serial: n.querySelector(".serial").textContent, field: n.querySelector(".df-fld").textContent,
+      ours: n.querySelector(".dv.ours .dv-val").textContent, col: n.querySelector(".dv.col .dv-val").textContent })));
+    await page.waitForFunction(() => /\(5\)/.test(document.querySelector("#tab-colibri").textContent));
+    check("colibri: the tab carries the open count", (await dfTab()) === "Colibri (5)", await dfTab());
+    await page.click("#tab-colibri");
+    await page.waitForSelector("#df-rows tr.drow");
+    let rs = await rows();
+    const heads = await page.$$eval("#df-table thead th", (ns) => ns.map((n) => n.textContent.trim()).filter(Boolean));
+    check("colibri: columns Piece, Field, Ours, Colibri, Load, Answer", heads.join() === "Piece,Field,Ours,Colibri,Load,Answer", heads.join());
+    check("colibri: five open lines, two on one piece", rs.length === 5 && rs.filter((r) => r.serial === mock.pieces[2].serial).length === 2, JSON.stringify(rs));
+    const priceRow = rs.find((r) => r.field === "Price" && r.serial === mock.pieces[2].serial);
+    const listPrice = await page.evaluate((n) => fmtUZS(n), mock.pieces[2].price_uzs);
+    check("colibri: a price is shown as prices are elsewhere in Stock", priceRow && priceRow.ours === listPrice && /\D/.test(priceRow.ours), JSON.stringify(priceRow));
+    check("colibri: count line says 5 open", /5 open/.test(await page.textContent("#df-count")));
+
+    // keep ours on one line: no question, the line goes, the count drops
+    const calls0 = mock.calls.filter((c) => c.action === "diff_decide").length;
+    await afterDraw(() => page.click('#df-rows tr.drow[data-diff="' + priceRow.id + '"] .df-keep'));
+    rs = await rows();
+    const last = mock.calls.filter((c) => c.action === "diff_decide").pop();
+    check("colibri: Keep ours removes the line without a question", rs.length === 4 && !rs.some((r) => r.id === priceRow.id) && !(await page.$("#confirm-ok")), JSON.stringify(rs));
+    check("colibri: one call, by id, take false", mock.calls.filter((c) => c.action === "diff_decide").length === calls0 + 1 && last.take === false && last.ids.join() === priceRow.id, JSON.stringify(last));
+    check("colibri: the tab count follows", (await dfTab()) === "Colibri (4)", await dfTab());
+    check("colibri: the piece keeps its price", mock.pieces[2].price_uzs === Number(mock.diffs.find((d) => String(d.diff_id) === priceRow.id).ours));
+
+    // take Colibri's on one line: the piece changes, the toast says so
+    const sizeRow = rs.find((r) => r.field === "Size");
+    await afterDraw(() => page.click('#df-rows tr.drow[data-diff="' + sizeRow.id + '"] .df-take'));
+    check("colibri: Take Colibri's changes the piece", mock.pieces[2].size === "53" && (await rows()).length === 3);
+    check("colibri: toast Updated from Colibri.", /Updated from Colibri\./.test(await page.textContent(".toast, #toast")));
+
+    // two ticked lines, kept in one call
+    rs = await rows();
+    await page.check('#df-rows input[data-diff="' + rs[0].id + '"]');
+    await page.check('#df-rows input[data-diff="' + rs[1].id + '"]');
+    check("colibri: the bar counts the ticked lines and offers the two answers for them", /2 selected/.test(await page.textContent("#df-count")) && !!(await page.$("#df-keep-sel")) && !(await page.$("#df-keep-all")));
+    await afterDraw(() => page.click("#df-keep-sel"));
+    const two = mock.calls.filter((c) => c.action === "diff_decide").pop();
+    check("colibri: both ticked lines decided in one call with ids", two.ids.length === 2 && two.take === false && !two.filters && (await rows()).length === 1, JSON.stringify(two));
+    await ctx.close();
+    check("colibri: no script errors", errors.length === 0, errors.join(" | "));
+
+    // everything the filters show, after a question
+    mock.reset();
+    const t = await setup(browser, { width: 1280, height: 900 });
+    await settled(t.page); await t.page.click("#tab-colibri");
+    await t.page.waitForSelector("#df-rows tr.drow");
+    const before = await t.page.$eval("#df-host", (h) => h.getAttribute("data-draws"));
+    await t.page.selectOption("#df-field", "price");
+    await t.page.waitForFunction((b) => document.querySelector("#df-host").getAttribute("data-draws") !== b && document.querySelectorAll("#df-rows tr.drow").length === 2, before);
+    check("colibri: the Field filter leaves the price lines", (await t.page.$$eval("#df-rows .df-fld", (ns) => ns.map((n) => n.textContent))).join() === "Price,Price");
+    await t.page.click("#df-keep-all");
+    await t.page.waitForFunction(() => /Keep our value on all 2 shown\?/.test(document.body.textContent));
+    check("colibri: all shown asks first, with the number", true);
+    await t.page.click("#confirm-ok");
+    await t.page.waitForFunction(() => document.querySelectorAll("#df-rows tr.drow").length === 3 && !document.querySelector("#df-field").value);
+    check("colibri: with the filter's last line gone, the list is back to everything open", true);
+    const all = mock.calls.filter((c) => c.action === "diff_decide").pop();
+    check("colibri: all shown sends the filters, not ids", all && all.filters && all.filters.field === "price" && all.ids === undefined && all.take === false, JSON.stringify(all));
+    check("colibri: the other three lines are still open", mock.diffs.filter((d) => d.status === "open").length === 3 && mock.diffs.filter((d) => d.status === "kept").length === 2);
+    await t.ctx.close();
+    check("colibri (all shown): no script errors", t.errors.length === 0, t.errors.join(" | "));
+
+    // no manage right: no tab, and the address shows the pieces
+    const v = await setup(browser, { width: 1280, height: 900 }, { pass: "look" });
+    await settled(v.page); await v.page.evaluate(() => { location.hash = "#/colibri"; }); await v.page.waitForTimeout(300);
+    check("colibri: no tab and no screen without the manage right", !(await v.page.$("#tab-colibri")) && !(await v.page.$("#screen-colibri")) && !!(await v.page.$("#rows")));
+    const vt = mock.handle({ action: "unlock", passcode: "look" })[1].token;
+    check("colibri: the API refuses a viewer", mock.handle({ action: "diffs", token: vt })[0] === 403 && mock.handle({ action: "diff_decide", token: vt, take: false, ids: [1] })[0] === 403);
+    await v.ctx.close();
+
+    // empty
+    const e = await setup(browser, { width: 1280, height: 900 });
+    mock.diffs.forEach((d) => { d.status = "kept"; });
+    await e.page.reload();
+    await e.page.waitForSelector("#rows");
+    await e.page.click("#tab-colibri");
+    await e.page.waitForSelector("#df-empty");
+    check("colibri (empty): the tab shows no count and the screen says they agree", (await e.page.$eval("#tab-colibri", (n) => n.textContent.trim())) === "Colibri"
+      && /No differences\. Colibri and Stock agree\./.test(await e.page.textContent("#df-empty")));
+    await e.ctx.close();
+
+    // RU and phone
+    mock.reset();
+    const ph = await setup(browser, { width: 390, height: 844 });
+    await settled(ph.page); await ph.page.evaluate(() => { location.hash = "#/colibri"; });
+    await ph.page.waitForSelector("#df-rows tr.drow");
+    const fit = await ph.page.evaluate(() => {
+      const row = document.querySelector("#df-rows tr.drow"), k = row.querySelector(".df-keep").getBoundingClientRect(), t = row.querySelector(".df-take").getBoundingClientRect();
+      return { noScroll: document.documentElement.scrollWidth <= window.innerWidth, inView: k.left >= 0 && t.right <= window.innerWidth, tall: k.height >= 44 && t.height >= 44,
+        labels: getComputedStyle(row.querySelector(".dv-lbl")).display !== "none" };
+    });
+    check("colibri phone: a line is a card, both answers reachable, values labelled, no sideways scroll", fit.noScroll && fit.inView && fit.tall && fit.labels, JSON.stringify(fit));
+    await ph.page.evaluate(() => setLang("ru"));
+    await ph.page.waitForSelector("#df-rows tr.drow");
+    check("colibri RU: answers in Russian", (await ph.page.textContent("#df-rows .df-keep")) === "Оставить наше" && (await ph.page.textContent("#df-rows .df-take")) === "Взять из Colibri");
+    await ph.ctx.close();
+    check("colibri phone: no script errors", ph.errors.length === 0, ph.errors.join(" | "));
   });
 
   await run("review queue RU, lock, widths", async () => {

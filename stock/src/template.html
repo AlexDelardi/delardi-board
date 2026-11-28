@@ -189,6 +189,17 @@ th.sorted .th-sort .arr { opacity: 1; }
 .rv-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--card); border: 1px solid var(--mist); }
 .rv-field { display: block; }
 .rv-field textarea { width: 100%; }
+/* Colibri differences: a filter bar, then one line per piece and field with both values side by side */
+.df-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 16px; }
+.df-bar .df-f { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+.df-bar .df-count { align-self: center; color: var(--slate); font-variant-numeric: tabular-nums; }
+.tbl.diffs th.dc, .tbl.diffs td.dc { width: 44px; text-align: center; }
+.tbl.diffs td.dc input, .tbl.diffs th.dc input { width: 20px; height: 20px; }
+.tbl.diffs td.df-fld { font-weight: 700; color: var(--navy-deep); white-space: nowrap; }
+.tbl.diffs td.dv { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tbl.diffs td.dv .dv-lbl { display: none; }
+.tbl.diffs td.dv.col .dv-val { font-weight: 700; }
+.tbl.diffs td.da { white-space: nowrap; }
 .rv-empty { margin: 48px 0; text-align: center; color: var(--slate); font: normal 21px/1.4 var(--serif); }
 @media (max-width: 900px) {
   .tbl.reviews th, .tbl.reviews td { padding: 8px 6px; font-size: 14px; }
@@ -338,6 +349,22 @@ label.btn { display: inline-flex; align-items: center; cursor: pointer; }
   .tbl.reviews td.st { grid-area: st; }
   .tbl.reviews td.since { grid-area: since; color: var(--slate); font-size: 13px; }
   .tbl.reviews td.ra { grid-area: ra; padding-top: 4px; }
+  /* Colibri differences: the same card, with the two values labelled */
+  .tbl.diffs tr.drow { display: grid; grid-template-columns: var(--tap) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "dc dp dp" "dc fld since" "dc ours col" "da da da"; gap: 6px 12px; height: auto; padding: 12px; border-bottom: 1px solid var(--mist); }
+  .tbl.diffs tr.drow td { padding: 0; border: 0; min-height: 0; width: auto; text-align: left; }
+  .tbl.diffs td.dc { grid-area: dc; display: flex; align-items: flex-start; justify-content: center; }
+  .tbl.diffs td.dc input { width: 24px; height: 24px; margin-top: 10px; }
+  .tbl.diffs td.dp { grid-area: dp; }
+  .tbl.diffs td.df-fld { grid-area: fld; }
+  .tbl.diffs td.since { grid-area: since; text-align: right; }
+  .tbl.diffs td.dv.ours { grid-area: ours; }
+  .tbl.diffs td.dv.col { grid-area: col; }
+  .tbl.diffs td.dv .dv-lbl { display: block; }
+  .tbl.diffs td.da { grid-area: da; padding-top: 4px; white-space: normal; }
+  .tbl.diffs td.da .rv-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .df-bar .df-f { flex: 1 1 140px; min-width: 0; }
+  .df-bar .btn { flex: 1 1 100%; }
+  .df-bar .kit-spacer { display: none; }
   .tbl.reviews .rv-piece { min-height: var(--tap); }
   .rv-answers .btn { flex: 1 1 auto; }
   .tbl.reviews tr.rv-formrow, .tbl.reviews tr.rv-formrow td { display: block; }
