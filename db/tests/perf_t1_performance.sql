@@ -247,7 +247,7 @@ begin
   -- on hand: pieces still on their way are not counted, and a piece is valued by its own variant
   insert into cat_variants(variant_id, model_id) values ('ZZ-PERF-VA', 'ZZ-PERF-J1'), ('ZZ-PERF-VB', 'ZZ-PERF-J1');
   insert into cat_pieces(serial, variant_id, price_uzs) values ('ZZPF-0001', 'ZZ-PERF-VB', 11000000), ('ZZPF-0001', 'ZZ-PERF-VA', 50000000), ('ZZPF-0002', 'ZZ-PERF-VA', 30000000);
-  insert into ops_pieces(store_id, brand, serial, state, variant_id) values (1, 'Zz Hand', 'ZZPF-0001', 'in_stock', 'ZZ-PERF-VA'), (1, 'Zz Hand', 'ZZPF-0002', 'in_transit', 'ZZ-PERF-VA');
+  insert into ops_pieces(store_id, brand, serial, state, variant_id, price_uzs) values (1, 'Zz Hand', 'ZZPF-0001', 'in_stock', 'ZZ-PERF-VA', 50000000), (1, 'Zz Hand', 'ZZPF-0002', 'in_transit', 'ZZ-PERF-VA', 30000000);   -- the price is the piece's own
   b := perf_brands('2031-10-01', '2031-11-01');
   assert (select (x2->>'stock_units')::int from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 1
      and (select (x2->>'stock_value')::numeric from jsonb_array_elements(b->'brands') x2 where x2->>'brand' = 'Zz Hand') = 50000000
