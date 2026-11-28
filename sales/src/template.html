@@ -93,7 +93,12 @@ select.unset { color: var(--slate); }
 .sg-st .tag { white-space: normal; line-height: 1.3; padding: 4px 8px; max-width: 100%; overflow-wrap: anywhere; }
 .sg { text-align: left; border: 0; border-top: 1px solid var(--mist); border-left: 3px solid transparent; background: none; font: inherit; color: inherit; min-height: 56px; }
 button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-color: var(--navy); }
-.sg .sg-n { display: flex; flex-direction: column; min-width: 0; }
+.sg .sg-n { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sg .sg-tx { display: flex; flex-direction: column; min-width: 0; }
+/* the design's photo beside a piece; an empty frame when there is none */
+.thumb { flex: none; width: 48px; height: 48px; border: 1px solid var(--mist); background: #fff; display: block; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.thumb.none { background: var(--card); }
 .sg .sg-t { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .sg .sg-s { font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
 .sg .sg-p { text-align: right; font-variant-numeric: tabular-nums; color: var(--navy-deep); }
@@ -117,7 +122,9 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
   grid-template-areas: "info price disc net x";
 }
 .lines > .line:first-child { border-top: 0; }
-.l-info { grid-area: info; min-width: 0; }
+.l-info { grid-area: info; min-width: 0; display: flex; align-items: center; gap: 12px; }
+.l-info .thumb { width: 56px; height: 56px; }
+.l-tx { min-width: 0; }
 .l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
 .l-spec { font-size: 13px; color: var(--slate); margin-top: 4px; overflow-wrap: anywhere; }
@@ -140,6 +147,10 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .l-x, .p-x { font-size: 19px; line-height: 1; color: var(--slate); padding: 0; }
 .l-x:hover, .p-x:hover { color: var(--alert); }
 .lines-tools { display: flex; justify-content: flex-end; padding: 0 24px 12px; gap: 8px; }
+#set-total .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--slate); margin: 12px 0 4px; }
+#set-total .field input { font-size: 20px; text-align: right; font-variant-numeric: tabular-nums; min-height: var(--tap); }
+#set-total .hint { font-size: 13px; color: var(--slate); margin: 8px 0 0; line-height: 1.45; }
+#set-total .field-err { font-size: 13px; color: var(--alert); margin: 4px 0 0; }
 
 /* foot: client, total, next step */
 .foot {

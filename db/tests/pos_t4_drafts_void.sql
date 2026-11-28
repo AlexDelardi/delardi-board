@@ -79,7 +79,7 @@ begin
          and res->0->>'seller' = 'S3T Rep' and res->0->>'created_at' is not null, 'draft header ' || res::text;
   assert jsonb_array_length(res->0->'lines') = 1 and res->0->'lines'->0 = jsonb_build_object(
            'piece_id', p1, 'serial', 'ZZ.00.30001', 'brand', 'S3T Brand', 'model_name', 'Zz Ring',
-           'price_uzs', 31500000, 'discount_pct', 5, 'seller', 'S3T Rep 2'), 'draft line ' || res::text;
+           'price_uzs', 31500000, 'discount_pct', 5, 'net_uzs', null, 'image', null, 'seller', 'S3T Rep 2'), 'draft line ' || res::text;
   assert res::text not like '%S3T Source%', 'no Colibri names in the list';
   assert pos_drafts_list('training') = '[]'::jsonb, 'training list empty';
 
@@ -96,6 +96,17 @@ begin
   assert res->>'ticket_no' = 'D-000001', 'posted from the draft ' || res::text;
   assert not exists (select 1 from pos_drafts where draft_id = d1), 'draft gone';
   assert pos_drafts_list('live') = '[]'::jsonb, 'list empty after post';
+  -- a suspended sale keeps a line's exact total, and its photo comes with the list
+  update cat_models set image_key = 'ZZ-M4/all/1-zz-400.webp' where model_id = 'ZZ-M4';
+  res := pos_suspend(jsonb_build_object('walk_in', true, 'seller', 'S3T Rep',
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p5, 'price_uzs', 5000000, 'discount_pct', 5.1034, 'net_uzs', 4744832))), 'pos t4');
+  assert (select l->>'net_uzs' = '4744832' and l->>'image' = 'ZZ-M4/all/1-zz-400.webp'
+            from jsonb_array_elements(pos_drafts_list('live')) d, jsonb_array_elements(d->'lines') l
+           where (d->>'draft_id')::bigint = (res->>'draft_id')::bigint), 'draft keeps the line total and has the photo';
+  perform pg_temp.t4_refused(format('select pos_suspend(%L::jsonb, %L)', jsonb_build_object('walk_in', true, 'seller', 'S3T Rep',
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p4, 'price_uzs', 12000000, 'discount_pct', 5, 'net_uzs', 11000000))), 'pos t4'),
+         'a line total does not match');
+  perform pos_cancel_draft((res->>'draft_id')::bigint, 'pos t4');
 
   ---------------- suspend refusals
   perform pg_temp.t4_refused(format('select pos_suspend(%L::jsonb, %L)', jsonb_build_object('walk_in', true,

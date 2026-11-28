@@ -175,7 +175,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const exp = mock.expectList({});
     check("list: 50 rows on page 1", (await rowCount(page)) === 50);
     const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.replace(/[↕↑↓▾]/g, "").trim()));   // without the sort arrow and the checklist ▾
-    check("list: the columns", heads.join("|") === "Serial|Brand|Reference / Model|Size|State|Since|Price", heads.join("|"));
+    check("list: the columns", heads.join("|") === "Serial|Brand|Reference / Model|Size|State|Arrived|Price", heads.join("|"));
     check("list: a kit table", await page.evaluate(() => !!document.querySelector("table.tbl #rows")));
     const serials = await colText(page, 0);
     check("list: rows in the API's order", serials.join() === exp.rows.map((r) => r.serial).join());
@@ -187,8 +187,14 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     }) && cells[2].startsWith(first.article) && cells[2].endsWith(first.model_name), cells[2]);
     check("list: price right-aligned, grouped by spaces", cells[6] === money(first.price_uzs) &&
       await page.$eval("#rows tr.prow td:last-child", (n) => n.classList.contains("r")), cells[6]);
-    check("list: since is fmtDate of state_since", await page.evaluate((iso) => fmtDate(iso), first.state_since) === cells[5] &&
-      /^\d{1,2} [A-Z][a-z]{2} 2026$/.test(cells[5]), cells[5]);
+    check("list: Arrived is the arrival date", await page.evaluate((iso) => fmtDate(iso), first.arrived) === cells[5] &&
+      /^\d{1,2} [A-Z][a-z]{2} 202\d$/.test(cells[5]), cells[5]);
+    const arr = await page.$$eval("#rows tr.prow", (rs) => rs.map((r) => { const c = r.querySelector("td.since"); return [r.querySelector("td").textContent.trim(), c.textContent.trim(), c.className, c.title]; }));
+    const yearOnly = mock.pieces.filter((p) => !p.arrived && p.arrived_year).map((p) => p.serial), none = mock.pieces.filter((p) => !p.arrived && !p.arrived_year).map((p) => p.serial);
+    check("list: without an arrival document the year shows, marked as an estimate",
+      arr.filter((a) => yearOnly.includes(a[0])).length > 0 && arr.filter((a) => yearOnly.includes(a[0])).every((a) => a[1] === "≈ 2025" && /\best\b/.test(a[2]) && /Estimated/.test(a[3])),
+      JSON.stringify(arr.filter((a) => yearOnly.includes(a[0])).slice(0, 2)));
+    check("list: no arrival at all is a dash", arr.filter((a) => none.includes(a[0])).every((a) => a[1] === "—"), JSON.stringify(arr.filter((a) => none.includes(a[0]))));
     check("list: the state is a tag", await page.$eval("#rows tr.prow td.st .tag", (n) => n.textContent.trim()) === WORDS[first.state]);
     check("pager: Page 1 of 2, Previous disabled", norm(await page.textContent("#pager .pg-n")) === "Page 1 of 2" &&
       await page.$eval("#pg-prev", (b) => b.disabled) && !(await page.$eval("#pg-next", (b) => b.disabled)));
@@ -462,7 +468,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const tabs = await page.$$eval(".kit-tabs .kit-tab", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: tabs Изделия / Проверка / Импорт", tabs.join() === "Изделия,Проверка (5),Colibri (5),Импорт", tabs.join());
     const heads = await page.$$eval(".tbl thead th", (ns) => ns.map((n) => n.textContent.replace(/[↕↑↓▾]/g, "").trim()));   // without the sort arrow and the checklist ▾
-    check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|С даты|Цена", heads.join("|"));
+    check("RU: the column heads", heads.join("|") === "Серийный №|Бренд|Артикул / Модель|Размер|Статус|Поступило|Цена", heads.join("|"));
     const opts = await page.$$eval("#f-state option", (ns) => ns.map((n) => n.textContent.trim()));
     check("RU: state words", opts.join() === ["Все статусы"].concat(ORDER.map((s) => WORDS_RU[s])).join(), opts.join());
     const cats = await page.$$eval("#f-cat option", (ns) => ns.map((n) => n.value + "=" + n.textContent.trim()));
@@ -473,7 +479,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
       (await page.$$eval("#f-brand option", (ns) => ns[0].textContent.trim())) === "Все бренды");
     const card = norm(await page.textContent("#totals .tot[data-state=in_stock]"));
     check("RU: a totals card in Russian (сум, изделий)", /В наличии/.test(card) && /сум/.test(card) && /издели/.test(card), card);
-    check("RU: dates in Russian months", /^\d{1,2} (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек) 2026$/.test((await colText(page, 5))[0]), (await colText(page, 5))[0]);
+    check("RU: dates in Russian months", /^\d{1,2} (янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек) 202\d$/.test((await colText(page, 5))[0]), (await colText(page, 5))[0]);
     check("RU: the pager", /^Страница 1 из 1$/.test(norm(await page.textContent("#pager .pg-n"))) &&
       norm(await page.textContent("#pg-prev")) === "Назад" && norm(await page.textContent("#pg-next")) === "Далее");
     check("RU: the filter labels", await page.evaluate(() => [...document.querySelectorAll(".filters .lbl")].map((n) => n.textContent.trim()).join()) ===
@@ -757,6 +763,10 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     await page.waitForSelector("#imp-guide");
     check("guide: open before any file is chosen", await page.$eval("#imp-guide", (d) => d.open === true));
     const steps = await page.$$eval("#imp-guide-steps > li", (ns) => ns.map((n) => n.textContent.replace(/\s+/g, " ").trim()));
+    const guideRules = norm(await page.textContent("#imp-guide-rules"));
+    check("guide: says what is read from Colibri's own columns, with their letters",
+      /Цена продажи, долл \(S\) sets the shelf price/.test(guideRules) && /× 12 500/.test(guideRules) && /Код цвета \(J\) or Наименование цвета \(I\) picks the colour/.test(guideRules)
+      && /Размер \(K\) and Штрих Код \(T\) are taken when a piece is created/.test(guideRules), guideRules.slice(-420));
     check("guide: five numbered steps", steps.length === 5, String(steps.length));
     check("guide: the three required cells are named by their headings", /Бренд/.test(steps[1]) && /Артикул/.test(steps[1]) && /Серийный номер/.test(steps[1]), steps[1]);
     check("guide: says which rows add a piece to Stock and which wait for Colibri", /Colibri/.test(steps[3]) && /adds it to Stock when its design is already in the Catalogue/.test(steps[3]) && /waits/.test(steps[3]), steps[3]);
@@ -1720,8 +1730,8 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("export: python3 -m zipfile -t accepts the downloaded file", z.status === 0, (z.stderr || z.stdout || "").trim());
     return { name: dl.suggestedFilename(), parts: unzip(fs.readFileSync(file)) };
   };
-  const EXPORT_EN = ["Serial", "Barcode", "Brand", "Reference", "Model", "Collection", "Category", "Size", "State", "Since", "Price, so'm"];
-  const EXPORT_RU = ["Серийный №", "Штрихкод", "Бренд", "Артикул", "Модель", "Коллекция", "Категория", "Размер", "Статус", "С даты", "Цена, сум"];
+  const EXPORT_EN = ["Serial", "Barcode", "Brand", "Reference", "Model", "Collection", "Category", "Size", "State", "Arrived", "Price, so'm"];
+  const EXPORT_RU = ["Серийный №", "Штрихкод", "Бренд", "Артикул", "Модель", "Коллекция", "Категория", "Размер", "Статус", "Поступило", "Цена, сум"];
 
   await run("kitXlsx unit", async () => {
     const vm = require("vm");

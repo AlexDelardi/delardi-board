@@ -151,6 +151,7 @@ Object.assign(RU, {
   "Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.": "Значение неизвестно: оставьте ячейку пустой или напишите TBD. Пустая ячейка ничего не меняет.",
   "If any row has an error, nothing is loaded from the file. Correct the rows marked as errors and choose the file again.": "Если хотя бы в одной строке ошибка, из файла не загружается ничего. Исправьте строки, отмеченные как ошибки, и выберите файл снова.",
   "Supplier, contract, invoice, dates, customs declaration, HS code and ИКПУ never overwrite a value already on file: they fill empty fields only, and a different value is shown as a warning.": "Поставщик, договор, инвойс, даты, ГТД, код ТН ВЭД и ИКПУ не заменяют уже записанное значение: заполняются только пустые поля, а расхождение показывается как предупреждение.",
+  "From Colibri's columns we also read four things. {price} ({pc}) sets the shelf price: the dollar price × 12 500, in so'm; on a piece already in Stock it replaces the price, and an empty cell leaves it as it is. {cc} ({ccc}) or {cn} ({cnc}) picks the colour when a piece is created. {size} ({sc}) and {bar} ({bc}) are taken when a piece is created.": "Из колонок Colibri мы также берём четыре значения. {price} ({pc}) задаёт цену на полке: цена в долларах × 12 500, в сумах; у изделия, которое уже есть в Stock, цена заменяется, пустая ячейка её не меняет. {cc} ({ccc}) или {cn} ({cnc}) определяет цвет при создании изделия. {size} ({sc}) и {bar} ({bc}) берутся при создании изделия.",
   "Pieces with the same supplier and invoice number go on one arrival document. HS code and ИКПУ are saved for the reference, so they apply to all its pieces.": "Изделия с одним поставщиком и номером инвойса попадают в один документ прихода. Код ТН ВЭД и ИКПУ сохраняются для артикула и действуют для всех его изделий.",
   "Column": "Столбец", "Heading in the file": "Заголовок в файле", "What to write": "Что писать", "Example": "Пример",
   "Customs commodity code (ТН ВЭД): 10 digits, no spaces or dots.": "Код ТН ВЭД: 10 цифр, без пробелов и точек.",
@@ -199,6 +200,7 @@ const GUIDE_COLS = {
 };
 // 0 → A, 25 → Z, 26 → AA: the letter of a column of the file
 function colLetter(i) { let s = ""; for (i += 1; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s; return s; }
+const colOf = (heading) => colLetter(UPLOAD_COLIBRI.indexOf(heading));
 function importGuide(im) {
   const open = typeof im.guide === "boolean" ? im.guide : !im.res;
   const first = colLetter(UPLOAD_COLIBRI.length), last = colLetter(UPLOAD_COLIBRI.length + UPLOAD_OURS.length - 1);
@@ -216,7 +218,10 @@ function importGuide(im) {
       li(tr("Unknown value: leave the cell empty or write TBD. An empty cell changes nothing.")),
       li(tr("If any row has an error, nothing is loaded from the file. Correct the rows marked as errors and choose the file again.")),
       li(tr("Supplier, contract, invoice, dates, customs declaration, HS code and ИКПУ never overwrite a value already on file: they fill empty fields only, and a different value is shown as a warning.")),
-      li(tr("Pieces with the same supplier and invoice number go on one arrival document. HS code and ИКПУ are saved for the reference, so they apply to all its pieces."))),
+      li(tr("Pieces with the same supplier and invoice number go on one arrival document. HS code and ИКПУ are saved for the reference, so they apply to all its pieces.")),
+      li(tr("From Colibri's columns we also read four things. {price} ({pc}) sets the shelf price: the dollar price × 12 500, in so'm; on a piece already in Stock it replaces the price, and an empty cell leaves it as it is. {cc} ({ccc}) or {cn} ({cnc}) picks the colour when a piece is created. {size} ({sc}) and {bar} ({bc}) are taken when a piece is created.", {
+        price: "Цена продажи, долл", pc: colOf("Цена продажи, долл"), cc: "Код цвета", ccc: colOf("Код цвета"), cn: "Наименование цвета", cnc: colOf("Наименование цвета"),
+        size: "Размер", sc: colOf("Размер"), bar: "Штрих Код", bc: colOf("Штрих Код") }))),
     el("div", { class: "table-wrap" }, el("table", { class: "tbl", id: "imp-guide-cols" },
       el("thead", null, el("tr", null, el("th", { scope: "col", text: tr("Column") }), el("th", { scope: "col", text: tr("Heading in the file") }),
         el("th", { scope: "col", text: tr("What to write") }), el("th", { scope: "col", text: tr("Example") }))),
