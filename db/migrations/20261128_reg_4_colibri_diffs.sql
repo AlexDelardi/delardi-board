@@ -5,6 +5,7 @@
 --                    A piece that arrives (in transit -> in stock) takes its first price from the load.
 --   cat_load         from 20261127_reg_3_catalogue_live.sql: a design or colour Colibri no longer sends is kept
 --                    while we hold a piece of it.
+--   cat_merge_sizes  held pieces follow when a size-coded reference is folded into the established design.
 --   stk_diff_list / stk_diff_decide: the review. "Keep ours" is remembered for that Colibri value; "take" changes
 --                    the piece and writes its history (ops_piece_changes, source colibri_review).
 
@@ -415,3 +416,25 @@ begin
   drop table _load_models_gone;
   return c || jsonb_build_object('run', run_id);
 end $function$;
+
+-- cat_merge_sizes folds a size-coded reference into the established design. That fold is the catalogue's own
+-- tidying, not something Colibri says about a piece, so the pieces we hold under the folded reference follow it
+-- (design, colour, and the size the old reference carried when the piece has none). Without this they would point
+-- at a colour that no longer exists until someone accepted a "design" difference.
+do $do$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.cat_merge_sizes()'::regprocedure);
+  n := replace(d, 'update cat_variants set model_id = canon where variant_id = cv;   -- a colour the canonical model lacks',
+                  'update cat_variants set model_id = canon where variant_id = cv;   -- a colour the canonical model lacks
+            update ops_pieces p set model_id = canon, size = coalesce(p.size, cat_size_from_ref(o.model_id)), updated_at = now()
+             where p.variant_id = cv and p.state not in (''sold'', ''not_received'');');
+  n := replace(n, 'update cat_pieces p set variant_id = tv, size = coalesce(p.size, cat_size_from_ref(o.model_id)) where p.variant_id = cv;',
+                  'update cat_pieces p set variant_id = tv, size = coalesce(p.size, cat_size_from_ref(o.model_id)) where p.variant_id = cv;
+            update ops_pieces p set variant_id = tv, model_id = canon, size = coalesce(p.size, cat_size_from_ref(o.model_id)), updated_at = now()
+             where p.variant_id = cv and p.state not in (''sold'', ''not_received'');');
+  if (length(n) - length(replace(n, 'update ops_pieces p set', ''))) / length('update ops_pieces p set') <> 2 then
+    raise exception 'reg_4: cat_merge_sizes not patched as expected';
+  end if;
+  execute n;
+end $do$;
