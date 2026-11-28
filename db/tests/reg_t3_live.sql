@@ -82,6 +82,9 @@ begin
   assert position('pg_advisory_xact_lock' in pg_get_functiondef('public.cat_refresh_stock(text[])'::regprocedure))
        < position('update cat_variants' in pg_get_functiondef('public.cat_refresh_stock(text[])'::regprocedure)), 'refreshes run one at a time, the lock before the counting';
 
+  assert position('lock table ops_pieces in exclusive mode' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure)) between 1
+       and position('insert into cat_import_runs' in pg_get_functiondef('public.cat_load(jsonb,text)'::regprocedure)), 'a load takes the register before it writes anything';
+
   assert not has_table_privilege('anon', 'public.cat_live_pieces', 'select') and not has_table_privilege('authenticated', 'public.cat_live_pieces', 'select')
      and not has_table_privilege('anon', 'public.cat_live_incoming', 'select'), 'views closed to the page';
   assert not has_function_privilege('anon', 'public.cat_refresh_stock(text[])', 'execute')
