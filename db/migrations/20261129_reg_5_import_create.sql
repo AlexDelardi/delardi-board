@@ -9,6 +9,8 @@
 --     Every price set here is written to ops_piece_changes (source upload).
 --   A waiting row applied later (stk_apply_pending) sets the price too, and a reference that is another reference
 --   of the piece's own design (an alias) is accepted, so a file that created a piece can be loaded again.
+--   Applying by hand: a tool that decodes escapes can turn the \u00a0 in stk_row_price's pattern into the character
+--   itself. Same behaviour, different text; in production it was written with a placeholder and put back in SQL.
 --   stk_import from 20261118_stk_7_import_fixes.sql: preview rows gain status "create" and a "price" {old, new};
 --   the summary gains "create" and "repriced".
 
