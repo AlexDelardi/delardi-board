@@ -21,6 +21,10 @@ Object.assign(RU, {
   "Overpaid by {x}": "Переплата {x}",
   "Balanced": "Сходится",
   "Era receipt no. (optional)": "Номер чека Era (необязательно)",
+  "Colibri receipt no.": "Номер чека Colibri",
+  "Colibri receipt no. (optional)": "Номер чека Colibri (необязательно)",
+  "Type the Colibri receipt number.": "Введите номер чека Colibri.",
+  "The number of this sale's receipt in Colibri. It ties the two records together.": "Номер чека этой продажи в Colibri. Он связывает две записи.",
   "← Back": "← Назад",
   "Post sale": "Провести продажу",
   "Posting…": "Проводим…",
@@ -65,6 +69,7 @@ function postBlocker() {
   if (!saleReady()) return tr("Every piece needs a price.");
   if (!s.seller) return tr("Choose the seller.");
   if (!s.walk_in && !s.client_id) return tr("Choose a client or Walk-in.");
+  if (colibriMain() && blank(s.colibri_no)) return tr("Type the Colibri receipt number.");
   if (!s.payments.length) return tr("Add a payment.");
   if (s.payments.some((p) => !(p.amount > 0))) return tr("Every payment needs an amount.");
   if (s.payments.length > MAX_PAYMENTS) return tr("At most {n} payments.", { n: MAX_PAYMENTS });
@@ -129,6 +134,7 @@ async function postSale() {
   const sale = {
     seller: s.seller,
     fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(),
+    colibri_no: blank(s.colibri_no) ? null : s.colibri_no.trim(),
     draft_id: s.draft_id || null,
     lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, net_uzs: l.net_uzs || null, seller: l.seller || null })),
     payments: s.payments.map((p) => ({ method: p.method, card_type: p.card_type || null, amount: p.amount })),
@@ -162,6 +168,10 @@ function renderPay(main) {
   renderClientSlot(who);
   const fiscal = el("input", { type: "text", id: "fiscal", maxlength: "60", autocomplete: "off", value: s.fiscal_ref || "",
     oninput: (ev) => { s.fiscal_ref = ev.target.value; } });
+  const colibri = el("input", { type: "text", id: "colibri-no", maxlength: "40", autocomplete: "off", autocapitalize: "characters", spellcheck: "false",
+    value: s.colibri_no || "", "aria-required": colibriMain() ? "true" : null,
+    title: tr("The number of this sale's receipt in Colibri. It ties the two records together."),
+    oninput: (ev) => { s.colibri_no = ev.target.value; refreshPay(); } });
   const add = el("div", { class: "pay-add" },
     el("button", { type: "button", class: "btn", id: "add-cash", onclick: () => addPayment("cash") }, tr("Cash")),
     el("button", { type: "button", class: "btn", id: "add-card", "aria-expanded": payMenuOpen ? "true" : "false",
@@ -180,7 +190,9 @@ function renderPay(main) {
         who,
         el("div", { class: "pay-block" }, el("span", { class: "lbl", text: tr("Add a payment") }), add),
         el("ul", { class: "pay-rows", id: "pay-rows" }, s.payments.map(renderPayRow)),
-        el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal),
+        el("div", { class: "pay-refs" },
+          el("label", { class: "fiscal", for: "colibri-no" }, el("span", { class: "lbl", text: tr(colibriMain() ? "Colibri receipt no." : "Colibri receipt no. (optional)") }), colibri),
+          el("label", { class: "fiscal", for: "fiscal" }, el("span", { class: "lbl", text: tr("Era receipt no. (optional)") }), fiscal)),
         el("div", { class: "notice cash-notice", role: "note", hidden: true },
           el("b", { text: tr("Cash above {x} so'm:", { x: fmtUZS(cashNoticeAt()) }) }), " ", tr("this payment should go by card."))),
       el("aside", { class: "pay-side", "aria-label": tr("Summary") },
@@ -244,11 +256,11 @@ async function renderReceipt(main, id) {
   const t = doc && doc.ticket;
   const p = S.lastPosted && S.lastPosted.ticket_id === id ? S.lastPosted : null;
   const training = t ? t.source === "training" : (S.lastPosted && S.lastPosted.mode === "training");
-  const ticketNo = t ? t.ticket_no : (S.lastPosted ? S.lastPosted.ticket_no : "");
+  const ticketNo = t ? shownNo(t) : shownNo(S.lastPosted);
   const total = p ? p.total : doc && doc.lines && doc.lines.length ? docTotal(doc.lines) : null;
   let card;
   if (t) {
-    card = el("article", { class: "receipt", "aria-label": t.ticket_no },
+    card = el("article", { class: "receipt", "aria-label": shownNo(t) },
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" }, receiptLines(t.receipt_text),
         el("img", { class: "rc-mono", src: LOGO_MONO, alt: "" })));
@@ -258,7 +270,7 @@ async function renderReceipt(main, id) {
       el("div", { class: "rc-mast" }, el("img", { src: LOGO_WORDMARK, alt: "Delardi" })),
       el("div", { class: "rc-body" },
         training ? el("div", { class: "rc-line rc-train", text: rcLangFor(id) === "ru" ? "УЧЕБНЫЙ ЧЕК — НЕ ПРОДАЖА" : "TRAINING — NOT A SALE" }) : null,
-        p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: p.ticket_no, t: fmtUZS(p.total) }) }) : null,
+        p ? el("div", { class: "rc-line rc-ticket", text: tr("Ticket {n} · total {t}", { n: shownNo(p), t: fmtUZS(p.total) }) }) : null,
         el("div", { class: "rc-line rc-who", text: tr("Could not load the receipt: {e}", { e: failed ? failed.message : "" }) })));
   }
   wrap.append(

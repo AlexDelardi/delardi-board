@@ -29,6 +29,23 @@ Object.assign(RU, {
   "Deletes every test ticket and every suspended test sale. Real (Live) sales are never touched.":
     "Удаляет все тестовые чеки и все отложенные тестовые продажи. Настоящие продажи не затрагиваются.",
   "Clear test sales": "Очистить тестовые продажи",
+  "Main ticket numbers": "Основная нумерация чеков",
+  "Till": "Касса",
+  "Colibri": "Colibri",
+  "Colibri numbers are the main ones: a sale cannot be posted without its Colibri receipt number, and that number is shown and printed. The till's own number (D-…) is kept beside it.":
+    "Основные номера — Colibri: продажу нельзя провести без номера чека Colibri, этот номер показывается и печатается. Собственный номер кассы (D-…) хранится рядом.",
+  "The till's own numbers (D-…) are the main ones. The Colibri receipt number can still be typed on a sale, and is kept beside it.":
+    "Основные номера — собственные номера кассы (D-…). Номер чека Colibri по-прежнему можно указать в продаже, он хранится рядом.",
+  "Make Colibri numbers the main ones?": "Сделать номера Colibri основными?",
+  "Use Colibri numbers": "Использовать номера Colibri",
+  "From now on a sale cannot be posted without its Colibri receipt number, and new sales are shown and printed under that number. Sales already posted keep the number they have.":
+    "С этого момента продажу нельзя провести без номера чека Colibri, новые продажи показываются и печатаются под этим номером. Уже проведённые продажи сохраняют свой номер.",
+  "Make the till's numbers the main ones?": "Сделать номера кассы основными?",
+  "Use till numbers": "Использовать номера кассы",
+  "From now on new sales are shown and printed under the till's own number (D-…). The Colibri receipt number becomes optional. Sales already posted keep the number they have.":
+    "С этого момента новые продажи показываются и печатаются под собственным номером кассы (D-…). Номер чека Colibri становится необязательным. Уже проведённые продажи сохраняют свой номер.",
+  "Colibri numbers are now the main ones.": "Номера Colibri теперь основные.",
+  "The till's numbers are now the main ones.": "Номера кассы теперь основные.",
   "Clear every test sale?": "Очистить все тестовые продажи?",
   "This cannot be undone.": "Это нельзя отменить.",
   "Clear them": "Очистить",
@@ -52,6 +69,14 @@ function renderAdmin(main) {
           el("button", { type: "button", class: "btn", id: "mode-live", "aria-pressed": live ? "true" : "false", onclick: () => switchMode("live") }, tr("Live"))),
         el("p", { class: "small", text: tr(live ? "The till is Live: every sale posted here is real (D-…)."
           : "The till is in training: sales posted now are test sales (T-…). Pieces stay in stock and nothing reaches the CRM or the monthly figures.") })),
+      el("div", { class: "admin-sec" },
+        el("h2", { class: "h2", text: tr("Main ticket numbers") }),
+        el("div", { class: "seg", role: "group", "aria-label": tr("Main ticket numbers") },
+          el("button", { type: "button", class: "btn", id: "main-till", "aria-pressed": colibriMain() ? "false" : "true", onclick: () => switchMainNo("till") }, tr("Till")),
+          el("button", { type: "button", class: "btn", id: "main-colibri", "aria-pressed": colibriMain() ? "true" : "false", onclick: () => switchMainNo("colibri") }, tr("Colibri"))),
+        el("p", { class: "small", id: "main-no-note", text: tr(colibriMain()
+          ? "Colibri numbers are the main ones: a sale cannot be posted without its Colibri receipt number, and that number is shown and printed. The till's own number (D-…) is kept beside it."
+          : "The till's own numbers (D-…) are the main ones. The Colibri receipt number can still be typed on a sale, and is kept beside it.") })),
       el("div", { class: "admin-sec" },
         el("h2", { class: "h2", text: tr("Go-live date") }),
         el("p", { id: "go-live", class: goLive ? "h2" : "small", text: goLive ? fmtDate(goLive) : tr("Not yet — the till has not been Live.") })),
@@ -80,6 +105,21 @@ async function switchMode(mode) {
     await loadDrafts();                // suspended sales are per mode
     renderAll();
     toast(tr(toLive ? "The till is Live." : "The till is in training."));
+  } catch (e) { if (e.status !== 401) toast(e.message); }
+}
+async function switchMainNo(main) {
+  if ((main === "colibri") === colibriMain()) return;
+  const yes = await confirmBox(main === "colibri"
+    ? { title: tr("Make Colibri numbers the main ones?"), ok: tr("Use Colibri numbers"),
+        body: tr("From now on a sale cannot be posted without its Colibri receipt number, and new sales are shown and printed under that number. Sales already posted keep the number they have.") }
+    : { title: tr("Make the till's numbers the main ones?"), ok: tr("Use till numbers"),
+        body: tr("From now on new sales are shown and printed under the till's own number (D-…). The Colibri receipt number becomes optional. Sales already posted keep the number they have.") });
+  if (!yes) return;
+  try {
+    await api("set_main_no", { main });
+    await loadReference();
+    renderAll();
+    toast(tr(main === "colibri" ? "Colibri numbers are now the main ones." : "The till's numbers are now the main ones."));
   } catch (e) { if (e.status !== 401) toast(e.message); }
 }
 async function clearTraining() {

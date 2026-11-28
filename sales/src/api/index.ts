@@ -46,7 +46,7 @@ const TICKET_STATUSES = ["posted", "void"];
 const TICKET_KEYS = [
   "ticket_id", "store_id", "source", "ticket_no", "sold_at", "seller", "client_id", "client_raw", "walk_in",
   "entered_by", "note", "fiscal_ref", "status", "receipt_text", "void_reason", "voided_by", "voided_at",
-  "loaded_at", "updated_at",
+  "loaded_at", "updated_at", "colibri_no", "display_no", "colibri_check", "colibri_note", "colibri_seen_at",
 ];
 const LINE_KEYS = [
   "line_id", "line_no", "kind", "article", "colour", "item_name", "brand_raw", "size", "model_id", "variant_id",
@@ -54,8 +54,8 @@ const LINE_KEYS = [
 ];
 const PAYMENT_KEYS = ["payment_id", "method", "amount", "raw", "card_type"];
 const LIST_ROW_KEYS = [
-  "ticket_id", "ticket_no", "source", "sold_at", "status", "seller", "client_id", "client_name", "walk_in", "items",
-  "lines", "net",
+  "ticket_id", "ticket_no", "display_no", "colibri_no", "colibri_check", "source", "sold_at", "status", "seller", "client_id",
+  "client_name", "walk_in", "items", "lines", "net",
 ];
 
 const CORS: Record<string, string> = {
@@ -217,6 +217,7 @@ function saleIn(v: unknown, withPayments: boolean): Record<string, unknown> {
     walk_in: bool(s.walk_in, "walk_in"),
     seller: str(s.seller, 80),
     fiscal_ref: str(s.fiscal_ref, 60),
+    colibri_no: str(s.colibri_no, 40),          // the number of the same sale's Colibri receipt
     draft_id: s.draft_id === null || s.draft_id === undefined || s.draft_id === "" ? null : posInt(s.draft_id, "suspended sale"),
     lines,
   };
@@ -339,10 +340,11 @@ interface Settings {
   vat_pct: number;
   cash_notice_uzs: number;
   shop_address: string;
+  main_ticket_no: string;
 }
 
 async function settings(): Promise<Settings> {
-  const rows = await select("pos_settings?id=eq.1&select=mode,go_live_date,vat_pct,cash_notice_uzs,shop_address");
+  const rows = await select("pos_settings?id=eq.1&select=mode,go_live_date,vat_pct,cash_notice_uzs,shop_address,main_ticket_no");
   if (!rows?.length) throw new HttpErr(500, "pos_settings has no row");
   const r = rows[0];
   return {
@@ -351,6 +353,7 @@ async function settings(): Promise<Settings> {
     vat_pct: Number(r.vat_pct),
     cash_notice_uzs: Number(r.cash_notice_uzs),
     shop_address: r.shop_address ?? "",
+    main_ticket_no: r.main_ticket_no === "colibri" ? "colibri" : "till",
   };
 }
 
@@ -442,7 +445,7 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const sellers = [...new Set(((reps ?? []) as Array<{ label: string }>).map((r) => r.label))];
     return {
       mode: s.mode, go_live_date: s.go_live_date, vat_pct: s.vat_pct, cash_notice_uzs: s.cash_notice_uzs,
-      shop_address: s.shop_address, sellers, rights: sess.rights,
+      shop_address: s.shop_address, main_ticket_no: s.main_ticket_no, sellers, rights: sess.rights,
     };
   }
 
@@ -573,6 +576,13 @@ async function handle(req: Request, body: Record<string, unknown>) {
     const mode = enumOrNull(body.mode, MODES, "mode");
     if (!mode) throw new HttpErr(400, "Say which mode: training or live.");
     return await rpc("pos_set_mode", { p_mode: mode, p_actor: sess.name });
+  }
+
+  if (action === "set_main_no") {
+    const sess = await requireSales(body.token, "manage");
+    const main = enumOrNull(body.main, ["till", "colibri"], "main");
+    if (!main) throw new HttpErr(400, "Say which numbers are the main ones: till or colibri.");
+    return await rpc("pos_set_main_no", { p_main: main, p_actor: sess.name });
   }
 
   if (action === "clear_training") {

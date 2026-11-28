@@ -91,7 +91,8 @@ function seedTickets(pieces) {
       [{ line_id: "20000000-0000-4000-8000-000000000201", article: "ZZ-PO-1201", item_name: "Nudo Ring", brand_raw: "Pomellato",
         serial_raw: "ZZ.00.12001", piece_id: pz.piece_id, price_list: 24600000, price_current: 24600000, net: 24600000 }],
       [{ payment_id: 3, method: "cash", amount: 24600000, raw: null, card_type: null }]),
-    t({ ticket_id: "30000000-0000-4000-8000-000000000004", source: "delardi", ticket_no: "D-000002", sold_at: tkDate(2),
+    t({ ticket_id: "30000000-0000-4000-8000-000000000004", source: "delardi", ticket_no: "D-000002", sold_at: tkDate(2), colibri_no: "C-104240",
+      colibri_check: "differs", colibri_note: "total: till 13 500 000, Colibri 13 600 000",
       seller: "Malika B.", client_id: "DLD-9001", entered_by: "Malika B.",
       receipt_text: "DELARDI\nTashkent, 1 Example Street\nTicket D-000002\nSeller: Malika B.\nClient: Соколова Мария Андреевна\nChimento Armillas Ring · ZZ.00.12002\n15 000 000 −10% = 13 500 000\nTotal 13 500 000\nHumo 13 500 000" },
       [{ line_id: LINE_D2, article: "ZZ-CH-1202", item_name: "Armillas Ring", brand_raw: "Chimento",
@@ -109,7 +110,7 @@ let st;
 function reset() {
   const pieces = freshPieces();
   st = {
-    mode: "training", go_live_date: null, pieces, sessions: new Map(), tickets: seedTickets(pieces), seq: { training: 0, live: 2 },
+    mode: "training", go_live_date: null, main_no: "till", pieces, sessions: new Map(), tickets: seedTickets(pieces), seq: { training: 0, live: 2 },
     calls: [], nextTicket: 1, drafts: [], nextDraft: 8,
   };
   crmReset();
@@ -203,6 +204,16 @@ function post(sale, actor) {
   }
   if (st.drafts.some((d) => d.mode === st.mode && d.draft_id !== sale.draft_id)) return err(409, "another sale is suspended");
   if (paid !== total) return err(409, "payments " + paid + " do not match total " + total);
+  // the Colibri receipt number, as pos_post_sale takes it
+  const cno = typeof sale.colibri_no === "string" && sale.colibri_no.trim() ? sale.colibri_no.trim() : null;
+  if (st.main_no === "colibri" && !cno) return err(409, "Colibri receipt number is needed");
+  if (st.mode === "live" && cno) {
+    const dup = st.tickets.find((x) => x.ticket.source === "delardi" && x.ticket.status === "posted" && (x.ticket.colibri_no || "").toUpperCase() === cno.toUpperCase());
+    if (dup) return err(409, "Colibri receipt " + cno + " is already on sale " + dup.ticket.ticket_no);
+    if (st.tickets.some((x) => x.ticket.source === "colibri" && x.ticket.ticket_no.toUpperCase() === cno.toUpperCase()))
+      return err(409, "Colibri receipt " + cno + " is already in the register, loaded from Colibri");
+  }
+  const display_no = st.main_no === "colibri" ? cno : null;
   if (sale.draft_id) st.drafts = st.drafts.filter((d) => d.draft_id !== sale.draft_id);
 
   const mode = st.mode;
@@ -213,7 +224,7 @@ function post(sale, actor) {
   const now = new Date("2026-11-15T10:42:00Z");
   const text = [];
   if (mode === "training") text.push("TRAINING — NOT A SALE");
-  text.push("DELARDI", "Tashkent, 1 Example Street", "Ticket " + ticket_no + " · 15.11.2026 15:42",
+  text.push("DELARDI", "Tashkent, 1 Example Street", "Ticket " + (display_no || ticket_no) + " · 15.11.2026 15:42",
     "Seller: " + sale.seller, "Client: " + (walk ? "Walk-in" : client));
   for (const l of lines) {
     // same layout as pos_receipt_text (pos_6): name, reference line, serial, price
@@ -232,7 +243,8 @@ function post(sale, actor) {
     ticket: {
       ticket_id, store_id: 1, source: mode === "training" ? "training" : "delardi", ticket_no, sold_at: tkDate(0),
       seller: sale.seller, client_id: client, client_raw: null, walk_in: walk, entered_by: actor, note: null,
-      fiscal_ref: sale.fiscal_ref || null, status: "posted", receipt_text: text.join("\n"), void_reason: null,
+      fiscal_ref: sale.fiscal_ref || null, colibri_no: cno, display_no, colibri_check: null, colibri_note: null,
+      status: "posted", receipt_text: text.join("\n"), void_reason: null,
       voided_by: null, voided_at: null, loaded_at: now.toISOString(), updated_at: now.toISOString(),
     },
     lines: lines.map((l, i) => ({
@@ -244,7 +256,7 @@ function post(sale, actor) {
     payments: pays.map((x, i) => ({ payment_id: 500 + i, method: x.method, amount: x.amount, raw: null, card_type: x.card_type || null })),
     client_name: walk ? null : (crmName(client) || "Invented Client"),
   });
-  return [200, { ticket_id, ticket_no, mode, total, cash_notice: cash > CASH_NOTICE }];
+  return [200, { ticket_id, ticket_no, display_no: display_no || ticket_no, colibri_no: cno, mode, total, cash_notice: cash > CASH_NOTICE }];
 }
 
 // The suspended sale (of the current mode) holding a piece, other than `except`.
@@ -275,7 +287,8 @@ function suspend(sale, actor) {
 function ticketRow(x) {
   const t = x.ticket, ls = x.lines;
   const first = ls[0] ? [ls[0].brand_raw, ls[0].item_name].filter(Boolean).join(" ") : null;
-  return { ticket_id: t.ticket_id, ticket_no: t.ticket_no, source: t.source, sold_at: t.sold_at, status: t.status, seller: t.seller,
+  return { ticket_id: t.ticket_id, ticket_no: t.ticket_no, display_no: t.display_no || t.ticket_no, colibri_no: t.colibri_no || null,
+    colibri_check: t.colibri_check || null, source: t.source, sold_at: t.sold_at, status: t.status, seller: t.seller,
     client_id: t.client_id, client_name: x.client_name, walk_in: t.walk_in,
     items: first ? first + (ls.length > 1 ? " ×" + ls.length : "") : null, lines: ls.length,
     net: ls.reduce((a, l) => a + (l.kind === "refund" ? -l.net : l.net), 0) };
@@ -293,7 +306,7 @@ function tickets(f) {
     .filter((x) => !f.seller || x.ticket.seller === f.seller)
     .filter((x) => !f.source || x.ticket.source === f.source)
     .filter((x) => !f.status || x.ticket.status === f.status)
-    .filter((x) => !q || x.ticket.ticket_no.toLowerCase() === q || String(x.client_name || "").toLowerCase().includes(q)
+    .filter((x) => !q || x.ticket.ticket_no.toLowerCase() === q || String(x.ticket.colibri_no || "").toLowerCase() === q || String(x.client_name || "").toLowerCase().includes(q)
       || x.lines.some((l) => [l.serial_raw, l.article, l.brand_raw].some((v) => v && v.toLowerCase().includes(q))))
     .map(ticketRow)
     .sort((a, b) => (a.sold_at < b.sold_at ? 1 : a.sold_at > b.sold_at ? -1 : a.ticket_no < b.ticket_no ? 1 : -1));
@@ -341,7 +354,7 @@ function handle(body) {
     return [200, { token, name: u.name, expires_at: new Date(Date.now() + 8 * 3600000).toISOString(), rights: u.rights }];
   }
   const need = { search: "post", post: "post", suspend: "post", drafts: "post", cancel_draft: "post",
-    tickets: "view", ticket: "view", ticket_by_line: "view", void: "void", set_mode: "manage", clear_training: "manage",
+    tickets: "view", ticket: "view", ticket_by_line: "view", void: "void", set_mode: "manage", set_main_no: "manage", clear_training: "manage",
     ping: null, reference: null }[a];
   if (need === undefined) return err(400, "Unknown action.");
   const bad = session(body, need);
@@ -350,7 +363,7 @@ function handle(body) {
   switch (a) {
     case "ping": return [200, { ok: true, name: u.name, rights: u.rights, mode: st.mode }];
     case "reference": return [200, { mode: st.mode, go_live_date: st.go_live_date, vat_pct: 0, cash_notice_uzs: CASH_NOTICE,
-      shop_address: "Tashkent, 1 Example Street", sellers: SELLERS, rights: u.rights }];
+      shop_address: "Tashkent, 1 Example Street", main_ticket_no: st.main_no, sellers: SELLERS, rights: u.rights }];
     case "search":
       if (body.q !== undefined && typeof body.q !== "string") return err(400, "q must be text.");
       return [200, { mode: st.mode, pieces: search(body.q) }];
@@ -397,6 +410,11 @@ function handle(body) {
       }
       Object.assign(t.ticket, { status: "void", void_reason: body.reason.trim(), voided_by: u.name, voided_at: new Date().toISOString() });
       return [200, { ticket_no: t.ticket.ticket_no, pieces_returned: n }];
+    }
+    case "set_main_no": {
+      if (!["till", "colibri"].includes(body.main)) return err(400, "Say which numbers are the main ones: till or colibri.");
+      st.main_no = body.main;
+      return [200, { main_ticket_no: st.main_no }];
     }
     case "set_mode": {
       if (!["training", "live"].includes(body.mode)) return err(400, "mode must be training or live.");

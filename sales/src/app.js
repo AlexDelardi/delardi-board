@@ -114,7 +114,7 @@ function setLang(l) {
 
 /* -------------------------------------------------------------------- state */
 function newSale() {
-  return { draft_id: null, client_id: null, client_name: null, walk_in: false, seller: "", lines: [], payments: [], fiscal_ref: "" };
+  return { draft_id: null, client_id: null, client_name: null, walk_in: false, seller: "", lines: [], payments: [], fiscal_ref: "", colibri_no: "" };
 }
 const S = {
   token: null, name: null, expires_at: null, rights: { view: false, post: false, void: false, manage: false, crm: false },
@@ -229,6 +229,11 @@ function pctMillionths(pct) {
   const p = Math.min(Math.max(Number(pct) || 0, 0), MAX_DISCOUNT);
   return BigInt(Math.round(p * 10000));                    // ten-thousandths of a percent
 }
+// Which ticket numbers are the main ones: Colibri's receipt numbers, or the till's own (D-000001). Set in Admin.
+const colibriMain = () => !!(S.ref && S.ref.main_ticket_no === "colibri");
+// The number a ticket goes by: the one it was posted under (a till sale posted while Colibri numbers were main
+// carries its Colibri number), else its own.
+const shownNo = (t) => (t && (t.display_no || t.ticket_no)) || "";
 function lineNet(line) {
   if (line.price_uzs === null || line.price_uzs === undefined) return null;
   // a line brought to an exact total ("Set total") carries it; the database checks it against the discount
