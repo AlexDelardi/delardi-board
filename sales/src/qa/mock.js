@@ -29,7 +29,8 @@ function freshPieces() {
   return [
     // one sellable piece on this barcode
     p({ serial: "ZZ.00.30001", barcode: "2000000000031", brand: "Messika", article: "ZZ-MS-0301", collection: "Move Uno",
-      model_name: "Move Uno Pavé Ring", colour: "WG", size: "52", metal_keys: ["white_gold"], stone_keys: ["diamond"], price_uzs: 31500000 }),
+      model_name: "Move Uno Pavé Ring", colour: "WG", size: "52", metal_keys: ["white_gold"], stone_keys: ["diamond"], price_uzs: 31500000,
+      image: "ZZ-MS-0301/all/1-zz-400.webp" }),
     // a barcode shared by three pieces, one of them sold
     p({ serial: "ZZ.00.20001", barcode: "2000000000024", brand: "Chimento", article: "ZZ-CH-0201", collection: "Armillas",
       model_name: "Armillas Bangle", colour: "YG", size: "17", metal_keys: ["yellow_gold"], stone_keys: [], price_uzs: 18400000 }),
@@ -39,7 +40,7 @@ function freshPieces() {
       model_name: "Armillas Bangle", colour: "YG", size: "16", metal_keys: ["yellow_gold"], stone_keys: [], price_uzs: 18400000, state: "sold" }),
     // a watch dear enough to pass the cash notice
     p({ serial: "ZZ.00.40001", barcode: "2000000000048", brand: "Franck Muller", article: "ZZ-FM-0401", collection: "Vanguard",
-      model_name: "Vanguard Chronograph", size: "44", metal_keys: ["steel"], stone_keys: [], price_uzs: 245000000 }),
+      model_name: "Vanguard Chronograph", size: "44", metal_keys: ["steel"], stone_keys: [], price_uzs: 245000000, image: "ZZ-GONE/all/1-zz-400.webp" }),
     // held by a suspended sale
     p({ serial: "ZZ.00.50001", barcode: "2000000000055", brand: "Messika", article: "ZZ-MS-0501", collection: "Glam'Azone",
       model_name: "Glam'Azone Bracelet", metal_keys: ["rose_gold"], stone_keys: ["diamond"], price_uzs: 52300000, held: { draft_id: 7 } }),
@@ -175,7 +176,14 @@ function post(sale, actor) {
     const d = l.discount_pct === undefined || l.discount_pct === null ? 0 : l.discount_pct;
     if (typeof d !== "number" || d < 0 || d > 99.9999) return err(409, "discount of " + p.serial + " must be between 0 and 99.9999");
     if (l.seller && !SELLERS.includes(l.seller)) return err(409, "seller " + l.seller + " is not a current sales rep");
-    const net = netOf(l.price_uzs, d);
+    // a line's exact total: as the database takes it (pos_line_net)
+    let net = netOf(l.price_uzs, d);
+    if (l.net_uzs !== undefined && l.net_uzs !== null) {
+      const v = l.price_uzs * (1 - d / 100);
+      if (!Number.isInteger(l.net_uzs) || l.net_uzs <= 0 || l.net_uzs > l.price_uzs || Math.abs(l.net_uzs - v) > l.price_uzs * 0.000001 + 1)
+        return err(409, "a line total does not match its price and discount");
+      net = l.net_uzs;
+    }
     total += net;
     lines.push({ p, price: l.price_uzs, d, net, seller: l.seller || null });
   }
@@ -258,7 +266,7 @@ function suspend(sale, actor) {
   }
   if (!sale.draft_id && st.drafts.some((d) => d.mode === st.mode)) return err(409, "another sale is suspended");
   const lines = sale.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs === undefined ? null : l.price_uzs,
-    discount_pct: l.discount_pct || 0, seller: l.seller || null }));
+    discount_pct: l.discount_pct || 0, net_uzs: l.net_uzs || null, seller: l.seller || null }));
   let d = sale.draft_id ? st.drafts.find((x) => x.draft_id === sale.draft_id) : null;
   if (!d) { d = { draft_id: st.nextDraft++, mode: st.mode, created_by: actor, created_at: new Date().toISOString() }; st.drafts.push(d); }
   Object.assign(d, { client_id: sale.client_id || null, walk_in: !!sale.walk_in, seller: sale.seller || null, lines });
@@ -351,7 +359,7 @@ function handle(body) {
       .map((d) => ({ draft_id: d.draft_id, created_by: d.created_by, created_at: d.created_at, client_id: d.client_id, walk_in: d.walk_in,
         seller: d.seller, lines: d.lines.map((l) => { const p = st.pieces.find((x) => x.piece_id === l.piece_id);
           return { piece_id: l.piece_id, serial: p.serial, brand: p.brand, model_name: p.model_name, price_uzs: l.price_uzs,
-            discount_pct: l.discount_pct, seller: l.seller }; }) })) }];
+            discount_pct: l.discount_pct, net_uzs: l.net_uzs || null, image: p.image || null, seller: l.seller }; }) })) }];
     case "suspend": return saleGuard(body, u) || suspend(body.sale, u.name);
     case "cancel_draft": {
       const d = st.drafts.find((x) => x.draft_id === body.draft_id && x.mode === st.mode);

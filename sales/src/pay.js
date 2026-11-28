@@ -130,7 +130,7 @@ async function postSale() {
     seller: s.seller,
     fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(),
     draft_id: s.draft_id || null,
-    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, seller: l.seller || null })),
+    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, net_uzs: l.net_uzs || null, seller: l.seller || null })),
     payments: s.payments.map((p) => ({ method: p.method, card_type: p.card_type || null, amount: p.amount })),
   };
   if (s.walk_in) sale.walk_in = true; else sale.client_id = s.client_id;

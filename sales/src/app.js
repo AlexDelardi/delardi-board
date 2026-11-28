@@ -15,6 +15,7 @@ const SESSION_KEY = "sales_session";      // sessionStorage: gone when the tab c
 const ACTIVE_KEY = "sales_last_active";   // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
 const IDLE_MIN = 15;                      // touch devices only (global constraints)
+const PHOTO_BASE = API.replace("/functions/v1/sales-api", "/storage/v1/object/public/catalogue-photos/");
 const MAX_DISCOUNT = 99.9999;             // ops_ticket_lines.discount_pct is numeric(6,4)
 const MAX_LINES = 50;
 const MAX_PAYMENTS = 10;
@@ -230,6 +231,8 @@ function pctMillionths(pct) {
 }
 function lineNet(line) {
   if (line.price_uzs === null || line.price_uzs === undefined) return null;
+  // a line brought to an exact total ("Set total") carries it; the database checks it against the discount
+  if (line.net_uzs !== null && line.net_uzs !== undefined) return Number(line.net_uzs);
   const num = BigInt(Math.round(line.price_uzs)) * (1000000n - pctMillionths(line.discount_pct));
   const neg = num < 0n, a = neg ? -num : num;
   let q = a / 1000000n;

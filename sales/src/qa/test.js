@@ -11,6 +11,7 @@ const ROOT = "https://alexdelardi.github.io/delardi-board/";
 const PAGE_URL = ROOT + "sales/";
 const API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/sales-api";
 const CRM_API = "https://hugduzqwyqwryicfzipu.supabase.co/functions/v1/crm-api";
+const PHOTOS = "https://hugduzqwyqwryicfzipu.supabase.co/storage/v1/object/public/catalogue-photos/";
 const LANDING = path.join(__dirname, "..", "..", "..", "index.html");   // the root landing page
 const SHOTS = process.env.SHOTS || "";   // a folder to save screenshots in, if set
 
@@ -53,6 +54,10 @@ async function setup(browser, viewport, opts = {}) {
       return r.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ ok: true, name: "x", expires_at: new Date(Date.now() + 3600e3).toISOString(), tools: { sales: true } }) });
     }
     if (opts.hub && u.startsWith(ROOT) && !u.startsWith(PAGE_URL)) return r.fulfill({ status: 200, contentType: "text/html", body: "<!DOCTYPE html><title>home</title>" });
+    if (u.startsWith(PHOTOS)) {                       // a design's photo: one file is missing
+      if (/ZZ-GONE/.test(u)) return r.fulfill({ status: 404, body: "" });
+      return r.fulfill({ status: 200, contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==", "base64") });
+    }
     foreign.push(u);
     return r.fulfill({ status: 404, body: "" });
   });
@@ -1619,6 +1624,80 @@ async function shot(page, name) {
     check("phone turned: the full header comes back, the menu button goes", !(await page.$("#menu-btn")) && !(await page.$("#head-menu")) && !!(await page.$(".kit-head .kit-lang")));
     check("phone turned: the sale is still on screen", (await page.$$("#lines .line")).length === 1);
     check("phone turned: no script errors", errors.length === 0, errors.join());
+    await ctx.close();
+  });
+
+  await run("photos and set total", async () => {
+    const { ctx, page, errors, foreign } = await setup(browser, { width: 1024, height: 768 });
+    // photos: in the search list and on the line; an empty frame when there is none or the file is missing
+    await page.fill("#q", "Armillas");
+    await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length === 3);
+    check("photo: a piece without one shows an empty frame in the list", (await page.$$("#sugg .sg .thumb.none")).length === 3 && (await page.$$("#sugg .sg .thumb img")).length === 0);
+    await page.fill("#q", "");
+    await addLine(page, "2000000000031");               // Messika ring, 31 500 000, has a photo
+    const src = await page.getAttribute("#lines .line:nth-child(1) .thumb img", "src");
+    check("photo: the line shows the design's photo", src === PHOTOS + "ZZ-MS-0301/all/1-zz-400.webp", src);
+    await page.fill("#q", "ZZ.00.20001"); await page.press("#q", "Enter");
+    await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 2);
+    check("photo: a line without one shows an empty frame", !!(await page.$("#lines .line:nth-child(2) .thumb.none")));
+    await page.fill("#q", "Vanguard");
+    await page.waitForFunction(() => document.querySelectorAll("#sugg .sg").length >= 1);
+    await page.waitForFunction(() => !!document.querySelector("#sugg .sg .thumb.none") && !document.querySelector("#sugg .sg .thumb img"));
+    check("photo: a missing file falls back to the empty frame", true);
+    await page.fill("#q", "");
+    await page.waitForSelector("#sugg .sg", { state: "detached" });
+    const box = await page.$eval("#lines .line:nth-child(1) .thumb", (n) => { const r = n.getBoundingClientRect(); return [r.width, r.height]; });
+    check("photo: the frame is a small square", box[0] === box[1] && box[0] >= 44 && box[0] <= 64, box.join("x"));
+
+    // set total: 31 500 000 + 18 400 000 = 49 900 000 → 47 000 000
+    await page.click("#set-total");
+    await page.waitForSelector("#set-total-in");
+    check("set total: the box says what the prices add up to and starts from the current total",
+      /49 900 000/.test(norm(await page.textContent("#set-total .modal-body"))) && norm(await valOf(page, "#set-total-in")) === "49 900 000");
+    await shot(page, "set-total-box");
+    await page.fill("#set-total-in", "50 000 000"); await page.click("#set-total-ok");
+    check("set total: a total above the prices is refused, with the reason", /cannot be above the prices/.test(await page.textContent("#set-total-err")) && !!(await page.$("#set-total-in")));
+    await page.fill("#set-total-in", ""); await page.click("#set-total-ok");
+    check("set total: an empty total is refused", /Type the total/.test(await page.textContent("#set-total-err")));
+    await page.fill("#set-total-in", "47 000 000"); await page.press("#set-total-in", "Enter");
+    await page.waitForSelector("#set-total-in", { state: "detached" });
+    const d1 = await valOf(page, "#lines .line:nth-child(1) input.l-disc"), d2 = await valOf(page, "#lines .line:nth-child(2) input.l-disc");
+    const n1 = Number(norm(await lineText(page, 1, ".l-net")).replace(/\D/g, "")), n2 = Number(norm(await lineText(page, 2, ".l-net")).replace(/\D/g, ""));
+    await shot(page, "set-total-applied");
+    check("set total: the total is exactly what was typed", /47 000 000/.test(norm(await page.textContent("#total"))) && n1 + n2 === 47000000, n1 + " + " + n2);
+    check("set total: both lines get the same discount (to the rounding)", d1 === "5.8116" && Math.abs(Number(d2) - 5.8116) <= 0.0002, d1 + " / " + d2);
+    check("set total: the first line is its price less the discount", n1 === mock.netOf(31500000, "5.8116"), String(n1));
+    // typing a discount on a line returns that line to price less discount
+    await page.fill("#lines .line:nth-child(2) input.l-disc", "10");
+    check("set total: typing a discount on a line recalculates that line", /16 560 000/.test(norm(await lineText(page, 2, ".l-net"))), norm(await lineText(page, 2, ".l-net")));
+    // an awkward total, then post it: the server takes the exact line totals
+    await page.click("#set-total"); await page.waitForSelector("#set-total-in");
+    await page.fill("#set-total-in", "46 999 999"); await page.click("#set-total-ok");
+    await page.waitForSelector("#set-total-in", { state: "detached" });
+    check("set total: an awkward total is met exactly too", /46 999 999/.test(norm(await page.textContent("#total"))), norm(await page.textContent("#total")));
+    // suspend and resume keeps the exact total and the photo
+    await page.selectOption("#seller", "Dilnoza A.");
+    await page.click("#suspend");
+    await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 0);
+    await page.click("#suspended"); await page.waitForSelector("#drafts .draft");
+    check("set total: the suspended sale shows the exact total", /46 999 999/.test(norm(await page.textContent("#drafts"))), norm(await page.textContent("#drafts")));
+    await page.click("#drafts .draft .draft-resume");
+    await page.waitForFunction(() => document.querySelectorAll("#lines .line").length === 2);
+    check("set total: resumed with the exact total and the photo", /46 999 999/.test(norm(await page.textContent("#total"))) && !!(await page.$("#lines .line:nth-child(1) .thumb img")));
+    await toPay(page);
+    await addPay(page, "cash", "46 999 999");
+    mock.state.calls.length = 0;
+    await page.click("#post");
+    await page.waitForSelector("#new-sale");
+    const sent = mock.state.calls.find((c) => c.action === "post");
+    check("set total: the sale posts at the typed total, with the exact line totals sent",
+      !!sent && sent.sale.lines.reduce((a, l) => a + (l.net_uzs || mock.netOf(l.price_uzs, String(l.discount_pct))), 0) === 46999999 && sent.sale.lines.some((l) => l.net_uzs > 0),
+      JSON.stringify(sent && sent.sale.lines));
+    // one line: Set total is offered, Same % is not
+    await page.click("#new-sale");
+    await addLine(page, "ZZ.00.20002");
+    check("set total: offered on a single line, without 'Same %'", !!(await page.$("#set-total")) && !(await page.$("#same-pct")));
+    check("photos and set total: nothing foreign asked for, no script errors", foreign.length === 0 && errors.length === 0, foreign.concat(errors).join());
     await ctx.close();
   });
 

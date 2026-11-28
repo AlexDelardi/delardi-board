@@ -43,7 +43,7 @@ const exportColumns = () => [
   { title: tr("Category"), key: "category_word" },
   { title: tr("Size"), key: "size" },
   { title: tr("State"), key: "state_word" },
-  { title: tr("Since"), key: "since", type: "date" },
+  { title: tr("Arrived"), key: "since", type: "date" },
   { title: tr("Price, so'm"), key: "price_uzs", type: "number" },
 ];
 
@@ -58,7 +58,7 @@ async function exportList() {
     const rows = (r.rows || []).map((p) => Object.assign({}, p, {
       category_word: blank(p.category) ? "" : categoryWord(p.category),
       state_word: stateWord(p.state),
-      since: tashkentIsoDay(p.state_since),
+      since: p.arrived || null,        // the arrival date; empty when the piece has no arrival document
     }));
     if (!rows.length) { toast(tr("Nothing to download: no piece matches these filters.")); return; }
     const name = "Delardi_stock_" + tashkentIsoDay(new Date().toISOString()) + ".xlsx";

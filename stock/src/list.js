@@ -20,6 +20,7 @@ Object.assign(RU, {
   "Reference / Model": "Артикул / Модель",
   "Size": "Размер",
   "Since": "С даты",
+  "Estimated: the year this design last arrived. This piece has no arrival document.": "Оценка: год последнего поступления этой модели. У изделия нет документа поступления.",
   "Price": "Цена",
   "{n} without price": "{n} без цены",
   "Totals by state": "Итоги по статусам",
@@ -182,6 +183,12 @@ function drawResults() {
   drawPager(L);
 }
 
+// When the piece arrived: the date of its arrival document; without one, the year its design last arrived, marked as an estimate.
+function arrivedCell(p) {
+  if (p.arrived) return el("td", { class: "since", text: fmtDate(p.arrived) });
+  if (p.arrived_year) return el("td", { class: "since est", title: tr("Estimated: the year this design last arrived. This piece has no arrival document.") }, "≈ " + p.arrived_year);
+  return el("td", { class: "since", text: "—" });
+}
 function pieceRow(p) {
   const open = () => openPiece(p.piece_id);
   return el("tr", { class: "prow", tabindex: "0", "data-id": p.piece_id,
@@ -196,7 +203,7 @@ function pieceRow(p) {
     el("td", { class: "size", text: blank(p.size) ? "—" : p.size }),
     S.training ? el("td", { class: "store", text: (blank(p.store) ? "—" : p.store) + (blank(p.to_store) ? "" : " → " + p.to_store) }) : null,
     el("td", { class: "st" }, stateTag(p.state)),
-    el("td", { class: "since", text: fmtDate(p.state_since) }),
+    S.training ? el("td", { class: "since", text: fmtDate(p.state_since) }) : arrivedCell(p),
     el("td", { class: "r", text: fmtUZS(p.price_uzs) }));
 }
 

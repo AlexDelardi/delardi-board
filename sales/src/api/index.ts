@@ -207,6 +207,8 @@ function saleIn(v: unknown, withPayments: boolean): Record<string, unknown> {
       piece_id: uuid(l.piece_id, "piece"),
       price_uzs: num(l.price_uzs, "price_uzs"),
       discount_pct: num(l.discount_pct, "discount_pct") ?? 0,
+      // the line's exact total, when the sale was brought to a typed total; the database checks it against the discount
+      net_uzs: num(l.net_uzs, "net_uzs"),
       seller: str(l.seller, 80),
     };
   });

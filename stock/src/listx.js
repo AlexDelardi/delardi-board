@@ -37,7 +37,9 @@ const LIST_COLS = [
   ["since", "Since", "", "desc", null],
   ["price", "Price", "r", "desc", null],
 ];
-const listCols = () => LIST_COLS.filter((c) => S.training || c[0] !== "store");
+// The date column: when the piece arrived (its arrival document); in Training, when it entered its state.
+const listCols = () => LIST_COLS.filter((c) => S.training || c[0] !== "store")
+  .map((c) => c[0] === "since" && !S.training ? ["since", "Arrived", c[2], c[3], c[4]] : c);
 const MULTI_KEYS = ["brand", "state", "store"];    // checklist column = the single filter's key in S.filters
 const blankMulti = () => ({ brand: [], state: [], store: [] });
 const blankFilters = () => ({ q: "", state: "", brand: "", category: "", store: "", price_min: null, price_max: null, sort: "", multi: blankMulti() });

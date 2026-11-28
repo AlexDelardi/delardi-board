@@ -252,7 +252,12 @@ select.unset { color: var(--slate); }
 .sg-st .tag { white-space: normal; line-height: 1.3; padding: 4px 8px; max-width: 100%; overflow-wrap: anywhere; }
 .sg { text-align: left; border: 0; border-top: 1px solid var(--mist); border-left: 3px solid transparent; background: none; font: inherit; color: inherit; min-height: 56px; }
 button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-color: var(--navy); }
-.sg .sg-n { display: flex; flex-direction: column; min-width: 0; }
+.sg .sg-n { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sg .sg-tx { display: flex; flex-direction: column; min-width: 0; }
+/* the design's photo beside a piece; an empty frame when there is none */
+.thumb { flex: none; width: 48px; height: 48px; border: 1px solid var(--mist); background: #fff; display: block; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.thumb.none { background: var(--card); }
 .sg .sg-t { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .sg .sg-s { font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
 .sg .sg-p { text-align: right; font-variant-numeric: tabular-nums; color: var(--navy-deep); }
@@ -276,7 +281,9 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
   grid-template-areas: "info price disc net x";
 }
 .lines > .line:first-child { border-top: 0; }
-.l-info { grid-area: info; min-width: 0; }
+.l-info { grid-area: info; min-width: 0; display: flex; align-items: center; gap: 12px; }
+.l-info .thumb { width: 56px; height: 56px; }
+.l-tx { min-width: 0; }
 .l-title { font: normal 17px/1.35 var(--serif); color: var(--navy); overflow-wrap: anywhere; }
 .l-title .dot { color: var(--slate); font-weight: 400; margin: 0 4px; }
 .l-spec { font-size: 13px; color: var(--slate); margin-top: 4px; overflow-wrap: anywhere; }
@@ -299,6 +306,10 @@ button.sg:hover, button.sg:focus-visible { background: var(--card); border-left-
 .l-x, .p-x { font-size: 19px; line-height: 1; color: var(--slate); padding: 0; }
 .l-x:hover, .p-x:hover { color: var(--alert); }
 .lines-tools { display: flex; justify-content: flex-end; padding: 0 24px 12px; gap: 8px; }
+#set-total .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--slate); margin: 12px 0 4px; }
+#set-total .field input { font-size: 20px; text-align: right; font-variant-numeric: tabular-nums; min-height: var(--tap); }
+#set-total .hint { font-size: 13px; color: var(--slate); margin: 8px 0 0; line-height: 1.45; }
+#set-total .field-err { font-size: 13px; color: var(--alert); margin: 4px 0 0; }
 
 /* foot: client, total, next step */
 .foot {
@@ -683,6 +694,7 @@ const SESSION_KEY = "sales_session";      // sessionStorage: gone when the tab c
 const ACTIVE_KEY = "sales_last_active";   // sessionStorage: last touch, for the idle lock
 const LANG_KEY = "delardi_lang";          // shared with the landing page
 const IDLE_MIN = 15;                      // touch devices only (global constraints)
+const PHOTO_BASE = API.replace("/functions/v1/sales-api", "/storage/v1/object/public/catalogue-photos/");
 const MAX_DISCOUNT = 99.9999;             // ops_ticket_lines.discount_pct is numeric(6,4)
 const MAX_LINES = 50;
 const MAX_PAYMENTS = 10;
@@ -898,6 +910,8 @@ function pctMillionths(pct) {
 }
 function lineNet(line) {
   if (line.price_uzs === null || line.price_uzs === undefined) return null;
+  // a line brought to an exact total ("Set total") carries it; the database checks it against the discount
+  if (line.net_uzs !== null && line.net_uzs !== undefined) return Number(line.net_uzs);
   const num = BigInt(Math.round(line.price_uzs)) * (1000000n - pctMillionths(line.discount_pct));
   const neg = num < 0n, a = neg ? -num : num;
   let q = a / 1000000n;
@@ -1579,6 +1593,17 @@ Object.assign(RU, {
   "list {p}": "по прайсу {p}",
   "Remove {s}": "Убрать {s}",
   "Same % for all lines": "Одинаковый % для всех строк",
+  "Set total": "Задать итог",
+  "Set the total": "Задать итоговую сумму",
+  "Prices add up to {p} so'm.": "Сумма цен: {p} сум.",
+  "Total to pay, so'm": "Итого к оплате, сум",
+  "Every line gets the same discount. The last line takes the rounding, so the total is exactly what you type.": "Все строки получают одинаковую скидку. Округление уходит в последнюю строку, поэтому итог точно совпадает с введённым.",
+  "Apply": "Применить",
+  "Type the total.": "Введите итоговую сумму.",
+  "The total cannot be above the prices ({p}).": "Итог не может быть больше суммы цен ({p}).",
+  "That total is too low for these prices.": "Этот итог слишком мал для таких цен.",
+  "Every piece needs a price first.": "Сначала укажите цену каждого изделия.",
+  "No photo": "Нет фото",
   "Gives every line {p}%": "Ставит {p}% во всех строках",
   "Type a discount on a line first.": "Сначала введите скидку в одной из строк.",
   "A discount can be at most 99.9999%.": "Скидка — не больше 99,9999%.",
@@ -1653,6 +1678,73 @@ function pieceSpec(p) {
     blank(p.size) ? null : tr("size {s}", { s: p.size }),
     ...(p.stone_keys || []).map((k) => keyName(STONE_NAMES, k)),
   ].filter(Boolean).join(", ");
+}
+// The small photo of a design, or an empty frame when it has none (or the picture does not load).
+function thumb(image) {
+  const box = el("span", { class: "thumb" + (image ? "" : " none"), "aria-hidden": "true" });
+  if (image) box.append(el("img", { src: PHOTO_BASE + image, alt: "", loading: "lazy", decoding: "async",
+    onerror: (ev) => { ev.target.remove(); box.classList.add("none"); } }));
+  return box;
+}
+/* "Set total": bring the sale to a typed total with the same discount on every line.
+   The discount is the share to four decimals; each line is its price less that, rounded; what is left
+   (a few so'm of rounding) goes to the last line, or to the lines before it when the last cannot take it.
+   A line that took rounding carries its exact total (net_uzs) and the discount closest to it.
+   Returns [{discount_pct, net_uzs}] in line order, or {error}. */
+function spreadTotal(prices, total) {
+  if (!prices.length || prices.some((x) => !(x > 0))) return { error: "price" };
+  if (!(total > 0)) return { error: "empty" };
+  const sum = prices.reduce((a, b) => a + b, 0);
+  if (total > sum) return { error: "high", sum };
+  const share = (num, den) => { const n = BigInt(num) * 2000000n + BigInt(den); return Number(n / (BigInt(den) * 2n)); };   // rounded millionths
+  const m = share(sum - total, sum);
+  if (m > 999999) return { error: "low" };
+  const out = prices.map((price) => ({ price, discount_pct: m / 10000, net_uzs: null, net: lineNet({ price_uzs: price, discount_pct: m / 10000 }) }));
+  let left = total - out.reduce((a, l) => a + l.net, 0);
+  for (let i = out.length - 1; i >= 0 && left !== 0; i--) {
+    const l = out[i], net = Math.min(l.price, Math.max(1, l.net + left));
+    left -= net - l.net;
+    if (net !== l.net) {
+      const lm = share(l.price - net, l.price);
+      if (lm > 999999) return { error: "low" };
+      Object.assign(l, { net, net_uzs: net, discount_pct: lm / 10000 });
+    }
+  }
+  if (left !== 0) return { error: "low" };
+  return out.map((l) => ({ discount_pct: l.discount_pct, net_uzs: l.net_uzs }));
+}
+function openSetTotal() {
+  const s = S.sale;
+  if (s.lines.some((l) => !(l.price_uzs > 0) || l.priceBad)) { toast(tr("Every piece needs a price first.")); return; }
+  const sum = s.lines.reduce((a, l) => a + l.price_uzs, 0);
+  const input = el("input", { type: "text", id: "set-total-in", inputmode: "numeric", autocomplete: "off", "aria-label": tr("Total to pay, so'm"),
+    value: fmtUZS(saleTotal()), onkeydown: (ev) => { if (ev.key === "Enter") { ev.preventDefault(); apply(); } } });
+  const msg = el("p", { class: "field-err", id: "set-total-err", role: "alert", hidden: true });
+  const fail = (t) => { msg.textContent = t; msg.hidden = false; markInvalid(input, true); };
+  const apply = () => {
+    const r = readAmount(input.value);
+    if (r.invalid || r.value === null) { fail(tr("Type the total.")); return; }
+    const res = spreadTotal(s.lines.map((l) => l.price_uzs), r.value);
+    if (res.error) {
+      fail(res.error === "high" ? tr("The total cannot be above the prices ({p}).", { p: fmtUZS(sum) })
+        : res.error === "low" ? tr("That total is too low for these prices.") : tr("Type the total."));
+      return;
+    }
+    s.lines.forEach((l, i) => { l.discount_pct = res[i].discount_pct; l.net_uzs = res[i].net_uzs; l.discBad = null; });
+    S.lastPct = res[0].discount_pct;
+    m.close();
+    renderAll();
+  };
+  const m = modal("set-total", tr("Set the total"), [
+    el("p", { text: tr("Prices add up to {p} so'm.", { p: fmtUZS(sum) }) }),
+    el("label", { class: "field" }, el("span", { text: tr("Total to pay, so'm") }), input),
+    msg,
+    el("p", { class: "hint", text: tr("Every line gets the same discount. The last line takes the rounding, so the total is exactly what you type.") }),
+  ], [
+    el("button", { type: "button", class: "btn primary", id: "set-total-ok", onclick: apply }, tr("Apply")),
+    el("button", { type: "button", class: "btn", onclick: () => m.close() }, tr("Cancel")),
+  ], "confirm");
+  setTimeout(() => { input.focus(); input.select(); }, 30);
 }
 function pctText(n) {
   if (!n) return "";
@@ -1739,7 +1831,7 @@ function addPiece(p, fromScan) {
     piece_id: p.piece_id, serial: p.serial, barcode: p.barcode, brand: p.brand, article: p.article,
     collection: p.collection, model_name: p.model_name, colour: p.colour, size: p.size,
     metal_keys: p.metal_keys || [], stone_keys: p.stone_keys || [],
-    list_price: p.price_uzs, price_uzs: p.price_uzs, discount_pct: 0, seller: null, sellerOpen: false,
+    list_price: p.price_uzs, price_uzs: p.price_uzs, discount_pct: 0, net_uzs: null, image: p.image || null, seller: null, sellerOpen: false,
   });
   searchSeq++;
   S.search = { q: "", pieces: null, open: false, busy: false };
@@ -1760,9 +1852,9 @@ function renderSugg() {
   for (const p of s.pieces) {
     const ok = p.sellable && !inSale(p);
     const kids = [
-      el("span", { class: "sg-n" },
+      el("span", { class: "sg-n" }, thumb(p.image), el("span", { class: "sg-tx" },
         el("span", { class: "sg-t" }, p.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: " · " }), pieceName(p)),
-        el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · "))),
+        el("span", { class: "sg-s" }, [pieceSpec(p), p.serial].filter(Boolean).join(" · ")))),
       el("span", { class: "sg-st" }, stateTag(p)),
       el("span", { class: "sg-p money", text: p.price_uzs === null || p.price_uzs === undefined ? (ok ? tr("no price") : "") : fmtUZS(p.price_uzs) }),
     ];
@@ -1811,6 +1903,7 @@ function renderLine(l, i) {
     const r = readAmount(input.value);
     l.priceBad = r.invalid ? input.value : null;
     l.price_uzs = r.invalid ? null : r.value;
+    l.net_uzs = null;
     markInvalid(input, r.invalid);
     return r;
   };
@@ -1822,6 +1915,7 @@ function renderLine(l, i) {
   const takePct = (input) => {
     const r = parsePct(input.value);
     l.discBad = r.invalid ? input.value : null;
+    l.net_uzs = null;
     markInvalid(input, r.invalid);
     if (!r.invalid) { l.discount_pct = r.pct; S.lastPct = r.pct; }
     return r;
@@ -1849,10 +1943,10 @@ function renderLine(l, i) {
   }
   const showWas = l.list_price !== null && l.list_price !== undefined && l.price_uzs !== l.list_price;
   return el("li", { class: "line" },
-    el("div", { class: "l-info" },
+    el("div", { class: "l-info" }, thumb(l.image), el("div", { class: "l-tx" },
       el("div", { class: "l-title" }, l.brand || "", el("span", { class: "dot", "aria-hidden": "true", text: "·" }), pieceName(l)),
       el("div", { class: "l-spec", text: pieceSpec(l) }),
-      el("div", { class: "l-meta" }, el("span", { class: "l-serial", text: l.serial }), sellerBox)),
+      el("div", { class: "l-meta" }, el("span", { class: "l-serial", text: l.serial }), sellerBox))),
     el("label", { class: "l-cell l-price" }, el("span", { text: tr("Price") }), price,
       el("span", { class: "was", "data-was": i, text: showWas ? tr("list {p}", { p: fmtUZS(l.list_price) }) : "" })),
     el("label", { class: "l-cell l-disc pct" }, el("span", { text: tr("Discount") }), disc),
@@ -1895,14 +1989,15 @@ function renderSale(main) {
       q, sugg),
     linesHead,
     lines,
-    s.lines.length > 1 ? el("div", { class: "lines-tools" },
-      el("button", { type: "button", class: "btn", id: "same-pct",
+    s.lines.length ? el("div", { class: "lines-tools" },
+      s.lines.length > 1 ? el("button", { type: "button", class: "btn", id: "same-pct",
         title: S.lastPct ? tr("Gives every line {p}%", { p: pctText(S.lastPct) }) : tr("Type a discount on a line first."),
         onclick: () => {
           if (S.lastPct === null) { toast(tr("Type a discount on a line first.")); return; }
-          s.lines.forEach((l) => { l.discount_pct = S.lastPct; l.discBad = null; });
+          s.lines.forEach((l) => { l.discount_pct = S.lastPct; l.net_uzs = null; l.discBad = null; });
           renderAll();
-        } }, tr("Same % for all lines"))) : null,
+        } }, tr("Same % for all lines")) : null,
+      el("button", { type: "button", class: "btn", id: "set-total", onclick: openSetTotal }, tr("Set total"))) : null,
     foot));
   renderSugg();
 }
@@ -1939,7 +2034,8 @@ async function suspendSale() {
   if (suspending || !s.lines.length) return;
   const sale = {
     seller: s.seller || null, fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(), draft_id: s.draft_id || null,
-    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs > 0 ? l.price_uzs : null, discount_pct: l.discount_pct || 0, seller: l.seller || null })),
+    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs > 0 ? l.price_uzs : null, discount_pct: l.discount_pct || 0,
+      net_uzs: l.price_uzs > 0 && l.net_uzs ? l.net_uzs : null, seller: l.seller || null })),
   };
   if (s.walk_in) sale.walk_in = true; else if (s.client_id) sale.client_id = s.client_id;
   suspending = true;
@@ -1977,7 +2073,8 @@ function draftToSale(d) {
   s.lines = d.lines.map((l) => ({
     piece_id: l.piece_id, serial: l.serial, barcode: null, brand: l.brand, article: null, collection: null, model_name: l.model_name,
     colour: null, size: null, metal_keys: [], stone_keys: [], list_price: l.price_uzs, price_uzs: l.price_uzs,
-    discount_pct: Number(l.discount_pct) || 0, seller: l.seller || null, sellerOpen: false,
+    discount_pct: Number(l.discount_pct) || 0, net_uzs: l.price_uzs && l.net_uzs ? Number(l.net_uzs) : null, image: l.image || null,
+    seller: l.seller || null, sellerOpen: false,
   }));
   return s;
 }
@@ -2170,7 +2267,7 @@ async function postSale() {
     seller: s.seller,
     fiscal_ref: blank(s.fiscal_ref) ? null : s.fiscal_ref.trim(),
     draft_id: s.draft_id || null,
-    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, seller: l.seller || null })),
+    lines: s.lines.map((l) => ({ piece_id: l.piece_id, price_uzs: l.price_uzs, discount_pct: l.discount_pct || 0, net_uzs: l.net_uzs || null, seller: l.seller || null })),
     payments: s.payments.map((p) => ({ method: p.method, card_type: p.card_type || null, amount: p.amount })),
   };
   if (s.walk_in) sale.walk_in = true; else sale.client_id = s.client_id;

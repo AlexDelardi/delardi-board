@@ -23,7 +23,7 @@ function sortRows(rows, sort) {
   const usual = (a, b) => cmp(a.brand, b.brand) || cmp(a.article, b.article) || cmp(a.serial, b.serial);
   if (!sort) return rows.sort(usual);
   const [col, dir] = sort.split(".");
-  const key = (p) => col === "state" ? STATE_RANK.indexOf(p.state) : col === "price" ? p.price_uzs : col === "since" ? Date.parse(p.state_since)
+  const key = (p) => col === "state" ? STATE_RANK.indexOf(p.state) : col === "price" ? p.price_uzs : col === "since" ? (p.arrived ? Date.parse(p.arrived) : p.arrived_year ? Date.UTC(p.arrived_year, 0, 1) : "arrived" in p ? null : Date.parse(p.state_since))
     : col === "store" ? p.store_code : p[col];
   return rows.sort((a, b) => {
     const x = key(a), y = key(b), nx = x === null || x === undefined, ny = y === null || y === undefined;
@@ -89,6 +89,9 @@ function freshPieces() {
         category,
         state,
         state_since: iso(i % 45, 4 + (i % 10)),
+        // most pieces have an arrival document; every seventh only the year its design last arrived; every 23rd nothing
+        arrived: i % 7 === 3 || i % 23 === 5 ? null : new Date(Date.UTC(2025, 6, 1 + (i * 13) % 400)).toISOString().slice(0, 10),
+        arrived_year: i % 23 === 5 ? null : 2025,
         price_uzs: 5000000 + ((i * 7919) % 60) * 1500000,
         hold_client_id: state === "reserved" || state === "booked_out" ? (i % 2 ? "DLD-9001" : "DLD-9002") : null,
         hold_until: state === "reserved" ? "2026-12-01" : null,
@@ -216,7 +219,7 @@ function filtersIn(v, training) {
   return out;
 }
 
-const ROW_KEYS = ["piece_id", "serial", "barcode", "brand", "article", "collection", "model_name", "colour", "size", "category", "state", "state_since", "price_uzs"];
+const ROW_KEYS = ["piece_id", "serial", "barcode", "brand", "article", "collection", "model_name", "colour", "size", "category", "state", "state_since", "price_uzs", "arrived", "arrived_year"];
 const row = (p) => Object.fromEntries(ROW_KEYS.map((k) => [k, p[k]]));
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 // stk_base: every word matches somewhere (case-insensitive), brand and category exact, price bounds drop unpriced pieces.
