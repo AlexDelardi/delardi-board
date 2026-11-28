@@ -56,6 +56,16 @@ begin
   assert res->>'ticket_no' = 'D-000002' and res->>'display_no' = 'K-1002', 'Colibri number shown: ' || res::text;
   assert (select display_no = 'K-1002' and receipt_text like '%Ticket K-1002 ·%' from ops_tickets where ticket_id = t2), 'Colibri number printed';
 
+  -- the other tools show the same main number: Performance, the Stock piece page, "Who bought it" in the Catalogue
+  assert exists (select 1 from perf_tickets(current_date, current_date + 1, 1::smallint) x where x.ticket_id = t2 and x.ticket_no = 'K-1002'), 'Performance shows the Colibri number';
+  assert exists (select 1 from perf_tickets(current_date, current_date + 1, 1::smallint) x where x.ticket_id = t1 and x.ticket_no = 'D-000001'), 'Performance keeps the till number of a sale posted under it';
+  assert stk_piece_detail(p2)::text like '%"ticket_no": "K-1002"%' and stk_piece_detail(p2)::text not like '%"ticket_no": "D-000002"%', 'Stock piece page: ' || stk_piece_detail(p2)::text;
+  insert into crm_clients(client_id, record_type, name_colibri, name_confirmed) values ('DLD-9909', 'client', 'Zztest Nine', 'Zztest Nine');
+  insert into crm_transactions(client_id, sold_at, brand, item, qty, gross_uzs, discount_pct, net_uzs, advisor, ticket_line_id, cat_model_id)
+  select 'DLD-9909', current_date, 'T9 Brand', 'T9 piece', 1, 20000000, 0.05, 19000000, 'T9 Source', l.line_id, 'T9-MODEL' from ops_ticket_lines l where l.ticket_id = t2;
+  update crm_transactions set cat_model_id = 'T9-MODEL' where client_id = 'DLD-9909';      -- the link trigger clears it on insert
+  assert cat_model_buyers('T9-MODEL')::text like '%"ticket_no": "K-1002"%', 'Who bought it: ' || cat_model_buyers('T9-MODEL')::text;
+
   -- the list carries both numbers and finds a sale by either
   r := pos_ticket_list('{"q":"k-1002"}');
   assert (r->>'count')::int = 1 and r->'rows'->0->>'display_no' = 'K-1002' and r->'rows'->0->>'ticket_no' = 'D-000002'
