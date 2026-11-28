@@ -152,6 +152,16 @@ begin
            'payments', jsonb_build_array(jsonb_build_object('method', 'cash', 'amount', 500001))), 'pos t3');
   assert (select net = 500001 and discount_amt = 500000 from ops_ticket_lines where ticket_id = (res->>'ticket_id')::uuid),
          '.5 rounds away from zero';
+  -- a line's exact total ("Set total"): taken when it agrees with the discount, refused when it does not
+  res := pos_post_sale(base || jsonb_build_object(
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p3, 'price_uzs', 9990000, 'discount_pct', 5.1034, 'net_uzs', 9480175)),
+           'payments', jsonb_build_array(jsonb_build_object('method', 'cash', 'amount', 9480175))), 'pos t3');
+  assert (res->>'total')::numeric = 9480175
+     and (select net = 9480175 and discount_amt = 509825 and discount_pct = 5.1034 from ops_ticket_lines where ticket_id = (res->>'ticket_id')::uuid),
+         'the line total is the one sent: ' || res::text;
+  perform pg_temp.t3_refused(base || jsonb_build_object(
+           'lines', jsonb_build_array(jsonb_build_object('piece_id', p3, 'price_uzs', 9990000, 'discount_pct', 5.1034, 'net_uzs', 9480200)),
+           'payments', jsonb_build_array(jsonb_build_object('method', 'cash', 'amount', 9480200))), 'a line total does not match');
 
   -- live post
   perform pos_set_mode('live', 'pos t3');

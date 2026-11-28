@@ -10,6 +10,10 @@ begin
     (1, 'T6 Beta',  'T6-B1', 'in_stock',   '2026-11-02 10:00+00'),
     (1, 'T6 Beta',  'T6-B2', 'damaged',    '2026-11-05 10:00+00'),
     (1, 'T6 Gamma', 'T6-G1', 'booked_out', '2026-11-04 10:00+00');
+  -- the date column is the arrival: each piece gets an arrival document dated as its state date
+  with r as (insert into ops_receipts(supplier, invoice_no, arrival_date)
+               select 'T6 Supplier', serial, state_since::date from ops_pieces where serial like 'T6-%' returning receipt_id, invoice_no)
+  update ops_pieces o set receipt_id = r.receipt_id from r where o.serial = r.invoice_no;
 
   -- several brands at once
   r := stk_piece_list('{"q":"T6-","brands":["T6 Alpha","T6 Gamma"]}');
