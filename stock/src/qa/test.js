@@ -759,7 +759,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     const steps = await page.$$eval("#imp-guide-steps > li", (ns) => ns.map((n) => n.textContent.replace(/\s+/g, " ").trim()));
     check("guide: five numbered steps", steps.length === 5, String(steps.length));
     check("guide: the three required cells are named by their headings", /Бренд/.test(steps[1]) && /Артикул/.test(steps[1]) && /Серийный номер/.test(steps[1]), steps[1]);
-    check("guide: says the file does not add pieces, Colibri does", /Colibri/.test(steps[3]) && /does not add/i.test(steps[3]), steps[3]);
+    check("guide: says which rows add a piece to Stock and which wait for Colibri", /Colibri/.test(steps[3]) && /adds it to Stock when its design is already in the Catalogue/.test(steps[3]) && /waits/.test(steps[3]), steps[3]);
     const cols = await page.$$eval("#imp-guide-cols tbody tr", (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.replace(/\s+/g, " ").trim())));
     const ours = await page.evaluate(() => UPLOAD_OURS.map((c) => c[0]));
     check("guide: one row for each of our 19 columns, in file order, with its letter", cols.length === 19 && cols.map((c) => c[1]).join("|") === ours.join("|")
@@ -822,7 +822,7 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("preview: one line per row with its sheet row, serial, brand and reference", rs.length === 3 && rs[0].cells.join("|") === "2|ZZ.00.10001|Zz Atelier|ZZ-AT-0100" && rs[2].cells[0] === "5", JSON.stringify(rs[0].cells));
     check("preview: what an update changes, in words", rs[0].tag === "Will update" && rs[0].msgs[0] === "9 Colibri fields · arrival document: new · brand barcode · HS code · item details", rs[0].msgs.join(" / "));
     check("preview: a value that differs from the one on file is reported, not overwritten", rs[1].msgs.some((m) => m === "Supplier differs from the arrival document on file (Older Supplier); kept."), rs[1].msgs.join(" / "));
-    check("preview: a serial not in stock waits", rs[2].tag === "Waiting for the piece" && /kept and applied when the piece appears/.test(rs[2].msgs[0]));
+    check("preview: a serial not in stock waits", rs[2].tag === "Waiting for the piece" && /kept and applied when the piece arrives from Colibri/.test(rs[2].msgs[0]));
     check("preview: the button says how many rows load", (await page.textContent("#imp-apply")).trim() === "Load 3 rows");
     // a row's serial opens the piece
     await page.click("#imp-rows tbody tr:first-child .linklike");
@@ -1508,6 +1508,43 @@ const WORDS_RU = { in_stock: "В наличии", reserved: "Резерв", book
     check("review (empty): \"No open reviews.\" in the serif line", await t.page.$eval("#rv-empty", (n) => /No open reviews\./.test(n.textContent) && /Palatino/.test(getComputedStyle(n).fontFamily)));
     await t.ctx.close();
     check("review (empty): no script errors", errors.length === 0 && t.errors.length === 0, errors.concat(t.errors).join(" | "));
+  });
+
+  // ---------------------------------------------------------------- upload creates pieces and sets prices (one register)
+  await run("import: new pieces and prices", async () => {
+    mock.reset();
+    const FX = (n) => path.join(__dirname, "fixtures", n);
+    const { ctx, page, errors } = await setup(browser, { width: 1280, height: 900 }, { hash: "#/import" });
+    await page.waitForSelector("#imp-file", { state: "attached" });
+    const n0 = mock.pieces.length, old0 = mock.pieces[0].price_uzs;
+    await page.setInputFiles("#imp-file", FX("upload_new.xlsx"));
+    await page.waitForSelector("#imp-rows");
+    const cards = await page.$$eval("#imp-summary .imp-card", (ns) => ns.map((n) => n.querySelector(".lbl").textContent.trim() + "=" + n.querySelector(".tc-n").textContent.trim()).join());
+    check("new: a New pieces count joins the others", cards === "New pieces=1,Will update=2,No change=0,Waiting for the piece=0,Errors=0", cards);
+    const rs = await page.$$eval("#imp-rows tbody tr", (ns) => ns.map((n) => ({ cls: n.className, tag: n.querySelector(".tag").textContent.trim(), msgs: [...n.querySelectorAll(".imp-msg")].map((m) => m.textContent.trim()) })));
+    const shelf = await page.evaluate(() => fmtUZS(Math.round(2124.5 * 12500)));
+    check("new: the row of a new serial says the piece will be added, with its price at the shelf rate", rs[2].tag === "New piece" && rs[2].cls === "imp-create"
+      && rs[2].msgs[0] === "Will be added to Stock." && rs[2].msgs[1] === "Retail price " + shelf + ".", JSON.stringify(rs[2]));
+    const was = await page.evaluate((n) => fmtUZS(n), old0), now = await page.evaluate(() => fmtUZS(8000 * 12500));
+    check("new: a held piece with another price shows old → new first", rs[0].tag === "Will update" && rs[0].msgs[0] === "Retail price " + was + " → " + now + ".", JSON.stringify(rs[0].msgs));
+    check("new: a row with no price says nothing about price", !rs[1].msgs.some((m) => /Retail price/.test(m)));
+    check("new: the button counts the new piece", (await page.textContent("#imp-apply")).trim() === "Load 3 rows");
+    await page.click("#imp-apply");
+    await page.waitForSelector("#imp-done");
+    check("new: says what happened, the added piece first", (await page.textContent("#imp-done")).trim() === "Loaded: 1 added, 2 updated, 0 waiting for their pieces.", await page.textContent("#imp-done"));
+    const added = mock.pieces.find((p) => p.serial === "ZZ.NEW.99001");
+    check("new: the piece is in Stock with its price, and the held piece is repriced", mock.pieces.length === n0 + 1 && added && added.state === "in_stock" && added.price_uzs === 26556250 && mock.pieces[0].price_uzs === 100000000,
+      JSON.stringify({ n: mock.pieces.length - n0, p: added && added.price_uzs, r: mock.pieces[0].price_uzs }));
+    await page.evaluate(() => setLang("ru"));
+    await page.setInputFiles("#imp-file", FX("upload_new.xlsx"));
+    await page.waitForSelector("#imp-rows");
+    check("new RU: nothing left to add or reprice the second time", !(await page.$("#imp-n-create")) && !/Розничная цена/.test(await page.textContent("#imp-rows")));
+    await ctx.close();
+    check("new: no script errors", errors.length === 0, errors.join(" | "));
+
+    const bad = mock.handle({ action: "import", token: mock.handle({ action: "unlock", passcode: "demo" })[1].token, file_name: "x.xlsx",
+      rows: [{ row: 2, colibri: { "Бренд": "Zz Atelier", "Артикул": "ZZ-AT-0100", "Серийный номер": "ZZ.NEW.99002", "Цена продажи, долл": "abc" }, extra: {} }] })[1];
+    check("new: a price that is not a number is an error line", bad.rows[0].status === "error" && bad.rows[0].errors.some((e) => e.code === "bad_price"));
   });
 
   // ---------------------------------------------------------------- Colibri differences (one register)

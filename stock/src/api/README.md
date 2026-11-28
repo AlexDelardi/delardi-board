@@ -238,3 +238,16 @@ field (`price`, `size`, `barcode`, `design`: article, design and colour together
   keeps our value and the same Colibri value is not raised again; `take: true` changes the piece and writes its history.
   A line whose piece has been sold meanwhile is skipped and closed. `list` is a fresh first page for `shown`/`filters`.
   400 `Say which differences to decide.` when neither or both of `ids` and `filters` are given.
+
+## Upload: new pieces and prices
+
+`import` (unchanged request) now also:
+
+- **creates a piece** for a row whose serial we do not hold, when its design is in the catalogue and its colour is
+  clear. Preview row: `status: "create"` with `model_id`, `variant_id`, `price_uzs`. Otherwise the row is `pending`
+  as before, with `reason`: `no_design`, `design_unclear` or `colour_unclear`.
+- **sets the retail price** from "Цена продажи, долл" times `pos_settings.usd_shelf_rate` (12 500, Colibri's rate).
+  A held piece whose price differs: the row is `update` and carries `price: {old, new}`. Blank cell: no change.
+  Not a positive number: error `bad_price`.
+
+`summary` gains `create` and `repriced`.

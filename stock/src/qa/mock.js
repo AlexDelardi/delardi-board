@@ -525,7 +525,9 @@ function handle(body) {
       const key = (r) => (cell(r.colibri["Бренд"]) || "").toLowerCase().replace(/[^a-z0-9]/g, "") + "|" + (cell(r.colibri["Серийный номер"]) || "").toUpperCase();
       const seen = {};
       for (const r of body.rows) seen[key(r)] = (seen[key(r)] || 0) + 1;
-      const sum = { rows: body.rows.length, update: 0, same: 0, pending: 0, error: 0 };
+      const sum = { rows: body.rows.length, update: 0, same: 0, pending: 0, error: 0, create: 0, repriced: 0 };
+      const RATE = 12500;                                    // pos_settings.usd_shelf_rate
+      const priceOf = (r) => { const c = cell(r.colibri["Цена продажи, долл"]); if (c === null) return null; const v = Number(String(c).replace(/\s/g, "").replace(",", ".")); return v > 0 ? Math.round(v * RATE) : NaN; };
       const out = body.rows.map((r) => {
         const x = r.extra || {}, brand = cell(r.colibri["Бренд"]), serial = cell(r.colibri["Серийный номер"]), article = cell(r.colibri["Артикул"]);
         const errors = [];
@@ -535,21 +537,38 @@ function handle(body) {
         if (cell(x.hs_code) && !/^\d{10}$/.test(cell(x.hs_code))) errors.push({ code: "bad_hs" });
         if (cell(x.ikpu) && !/^\d{17}$/.test(cell(x.ikpu))) errors.push({ code: "bad_ikpu" });
         for (const k of ["invoice_date", "arrival_date"]) if (cell(x[k]) && !/^\d{4}-\d{2}-\d{2}$/.test(cell(x[k]))) errors.push({ code: "bad_date", field: k });
+        const price = priceOf(r);
+        if (Number.isNaN(price)) errors.push({ code: "bad_price" });
         const p = brand && serial ? pieces.find((q) => q.serial.toUpperCase() === serial.toUpperCase()) : null;
         if (brand && serial && seen[key(r)] > 1) errors.push({ code: "serial_repeated" });
         else if (p && article && p.article !== article) errors.push({ code: "serial_other_reference", on_file: p.article });
         const base = { row: r.row, brand, serial, article };
         if (errors.length) { sum.error++; return Object.assign(base, { status: "error", errors }); }
-        if (!p) { sum.pending++; return Object.assign(base, { status: "pending" }); }
-        if (imported.has(p.piece_id)) { sum.same++; return Object.assign(base, { status: "same", piece_id: p.piece_id, warnings: [] }); }
+        if (!p) {
+          // a design the mock knows (the reference of a piece it holds) creates the piece; any other waits
+          const twin = pieces.find((q) => q.article === article);
+          if (twin && !cell(r.colibri["Код цвета"])) { sum.pending++; return Object.assign(base, { status: "pending", reason: "colour_unclear" }); }   // the mock's designs have several colours
+          if (twin) { sum.create++; return Object.assign(base, { status: "create", model_id: twin.article, variant_id: twin.article + "-V1", price_uzs: price, _twin: twin }); }
+          sum.pending++; return Object.assign(base, { status: "pending", reason: "no_design" });
+        }
+        const pc = price !== null && p.state !== "sold" && price !== p.price_uzs ? { old: p.price_uzs, new: price } : null;
+        if (pc) sum.repriced++;
+        if (imported.has(p.piece_id) && !pc) { sum.same++; return Object.assign(base, { status: "same", piece_id: p.piece_id, warnings: [] }); }
         sum.update++;
+        if (imported.has(p.piece_id)) return Object.assign(base, { status: "update", piece_id: p.piece_id, warnings: [], price: pc,
+          changes: { colibri_new: 0, colibri_changed: 0, details: 0, receipt: null, brand_code: false, hs_code: false, ikpu: false } });
         const details = ["category", "subcategory", "metal", "metal_purity", "metal_weight_g", "stones", "certificate_no", "name_uz", "store"].filter((k) => cell(x[k])).length;
         return Object.assign(base, { status: "update", piece_id: p.piece_id, warnings: cell(x.contract) ? [] : [{ code: "receipt_differs", field: "supplier", on_file: "Older Supplier" }],
           changes: { colibri_new: Object.keys(r.colibri).filter((k) => cell(r.colibri[k])).length, colibri_changed: 0, details,
-            receipt: cell(x.supplier) ? "new" : null, brand_code: !!cell(x.brand_barcode), hs_code: !!cell(x.hs_code), ikpu: !!cell(x.ikpu) } });
+            receipt: cell(x.supplier) ? "new" : null, brand_code: !!cell(x.brand_barcode), hs_code: !!cell(x.hs_code), ikpu: !!cell(x.ikpu) } }, pc ? { price: pc } : {});
       });
       const apply = body.apply === true;
       if (apply && sum.error) fail(409, "The file has " + sum.error + " row(s) with errors. Nothing was loaded: fix them and upload again.");
+      if (apply) for (const r of out) {
+        if (r.status === "update" && r.price) pieces.find((q) => q.piece_id === r.piece_id).price_uzs = r.price.new;
+        if (r.status === "create") { const t = r._twin; pieces.push(Object.assign({}, t, { piece_id: "00000000-0000-4000-8000-0000000097" + String(pieces.length % 100).padStart(2, "0"), serial: r.serial, state: "in_stock", price_uzs: r.price_uzs, hold_client_id: null })); }
+      }
+      for (const r of out) delete r._twin;
       if (apply) for (const r of out) { if (r.status === "update") imported.add(r.piece_id); if (r.status === "pending") waitingRows.set(r.serial.toUpperCase(), Object.assign({}, r, { file_name: str(body.file_name, 200) || "upload.xlsx", actor: s.name, created_at: new Date().toISOString() })); }
       return [200, { applied: apply, file_name: str(body.file_name, 200) || "upload.xlsx", rows: out, summary: sum, waiting: waitingRows.size }];
     }
