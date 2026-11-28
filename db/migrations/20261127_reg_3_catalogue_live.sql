@@ -5,7 +5,8 @@
 --     caches for a rebuild. The rebuild takes seconds on the full catalogue, so it does not run inside a sale or a
 --     state change: cat_refresh_if_dirty() runs it before the next Catalogue read (catalogue-api calls it).
 --   * The filter and search rebuilds read the register through two views instead of cat_pieces / cat_incoming.
---   * cat_load: the register takes in the load first, then counts are refreshed from the register and the caches rebuilt.
+--   * cat_load: holds the piece register for itself while it runs (reads go on), so it cannot deadlock with a sale;
+--     the register takes in the load first, then counts are refreshed from the register and the caches rebuilt.
 -- cat_pieces stays as the record of what the last Colibri load said. Only the load and its own helpers
 -- (cat_merge_sizes, cat_apply_incoming, ops_sync_pieces) read it.
 
@@ -134,6 +135,9 @@ as $function$
 declare run_id bigint; c jsonb; v_models_removed int; v_photos_unlinked int; v_variants_removed int;
   v_variants_kept int; v_ops jsonb;
 begin
+  -- A load and a sale must not wait on each other: the load takes the piece register first and for itself
+  -- (reads go on), so anything changing a piece either finishes before the load starts or waits for it to end.
+  lock table ops_pieces in exclusive mode;
   perform set_config('cat.skip_v2', 'on', true);  -- one v2 rebuild at load end, not inside the mid-load overlay
   insert into cat_import_runs(source_file, source_built, notes)
     values (p_source, p->>'built', 'full load') returning id into run_id;
