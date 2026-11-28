@@ -7,6 +7,8 @@
 --     row waits for the piece to arrive from Colibri, as before, and says why (no_design, design_unclear, colour_unclear).
 --   * A row for a piece we hold reprices it when the file's price differs; a piece that has left stock is not repriced.
 --     Every price set here is written to ops_piece_changes (source upload).
+--   A waiting row applied later (stk_apply_pending) sets the price too, and a reference that is another reference
+--   of the piece's own design (an alias) is accepted, so a file that created a piece can be loaded again.
 --   stk_import from 20261118_stk_7_import_fixes.sql: preview rows gain status "create" and a "price" {old, new};
 --   the summary gains "create" and "repriced".
 
@@ -24,6 +26,22 @@ begin
   return round(v * (select usd_shelf_rate from pos_settings where id = 1))::bigint;
 end $$;
 revoke execute on function public.stk_row_price(jsonb) from public, anon, authenticated;
+
+-- Sets the piece's retail price from the row when the row has one and it differs; never on a piece that has left
+-- stock. Writes the piece's history. True when the price changed. Used by a direct upload and by a waiting row.
+create function public.stk_apply_row_price(p_piece uuid, r jsonb, p_actor text) returns boolean
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_price bigint; v_old bigint; v_state text;
+begin
+  begin v_price := stk_row_price(r); exception when others then return false; end;   -- a waiting row with a bad price: left as it is
+  if v_price is null then return false; end if;
+  select o.price_uzs, o.state into v_old, v_state from ops_pieces o where o.piece_id = p_piece for update;
+  if not found or v_state in ('sold', 'not_received') or v_price is not distinct from v_old then return false; end if;
+  insert into ops_piece_changes(piece_id, field, old_value, new_value, source, actor) values (p_piece, 'price', v_old::text, v_price::text, 'upload', p_actor);
+  update ops_pieces set price_uzs = v_price, updated_at = now() where piece_id = p_piece;
+  return true;
+end $$;
+revoke execute on function public.stk_apply_row_price(uuid, jsonb, text) from public, anon, authenticated;
 
 -- Which design and colour a row means: {model_id, variant_id}, or {reason} when it cannot be told.
 create function public.stk_row_design(p_brand text, p_article text, r jsonb) returns jsonb
@@ -60,6 +78,16 @@ begin
   return jsonb_build_object('model_id', v_model, 'variant_id', v_vars[1]);
 end $$;
 revoke execute on function public.stk_row_design(text, text, jsonb) from public, anon, authenticated;
+
+-- Is the row's reference the piece's own? The same reference letter for letter, or another reference of the same
+-- design (a size-coded reference the catalogue folds into it), so a file that created a piece can be loaded again.
+create function public.stk_same_reference(p_piece uuid, p_brand text, p_article text, r jsonb) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce(regexp_replace(upper(o.article), '[^0-9A-ZА-Я]', '', 'g') = regexp_replace(upper(p_article), '[^0-9A-ZА-Я]', '', 'g'), false)
+      or coalesce(o.model_id = stk_row_design(p_brand, p_article, r)->>'model_id', false)
+    from ops_pieces o where o.piece_id = p_piece;
+$$;
+revoke execute on function public.stk_same_reference(uuid, text, text, jsonb) from public, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.stk_import(p jsonb, p_actor text, p_apply boolean)
  RETURNS jsonb
@@ -110,7 +138,7 @@ begin
        where ops_brand_key(o.brand) = ops_brand_key(v_brand) and upper(btrim(o.serial)) = upper(v_serial);
       if v_n > 1 then v_err := v_err || '[{"code":"serial_ambiguous"}]'::jsonb; v_piece := null;
       elsif v_n = 1 and v_article is not null and v_have is not null
-            and regexp_replace(upper(v_have), '[^0-9A-ZА-Я]', '', 'g') <> regexp_replace(upper(v_article), '[^0-9A-ZА-Я]', '', 'g') then
+            and not stk_same_reference(v_piece, v_brand, v_article, r) then
         -- the serial is already on a piece of another reference: almost always a typing error in the file
         v_err := v_err || jsonb_build_array(jsonb_build_object('code', 'serial_other_reference', 'on_file', v_have));
       end if;
@@ -160,11 +188,7 @@ begin
       v_des := case when v_piece is null then stk_row_design(v_brand, stk_cell(r->'colibri'->>'Артикул'), r) end;
       if v_piece is not null then
         perform stk_import_row(v_piece, r, v_file, true);
-        select o.price_uzs, o.state into v_old, v_state from ops_pieces o where o.piece_id = v_piece for update;
-        if v_price is not null and v_state not in ('sold', 'not_received') and v_price is distinct from v_old then
-          insert into ops_piece_changes(piece_id, field, old_value, new_value, source, actor) values (v_piece, 'price', v_old::text, v_price::text, 'upload', p_actor);
-          update ops_pieces set price_uzs = v_price, updated_at = now() where piece_id = v_piece;
-        end if;
+        perform stk_apply_row_price(v_piece, r, p_actor);
       elsif v_des ? 'variant_id' then
         insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, size, state, barcode, price_uzs)
         select 1, m.brand, v_serial, m.article, m.model_id, v_des->>'variant_id', stk_cell(r->'colibri'->>'Размер'), 'in_stock',
@@ -194,3 +218,20 @@ begin
     'waiting', (select count(*) from ops_upload_pending));
 end $function$;
 revoke execute on function public.stk_import(jsonb, text, boolean) from public, anon, authenticated;
+
+-- A waiting row applied later follows the same two rules: the reference may be another reference of the piece's
+-- design, and its retail price is applied (by the person who uploaded the file).
+do $do$
+declare d text; n text;
+begin
+  d := pg_get_functiondef('public.stk_apply_pending()'::regprocedure);
+  n := replace(d, 'continue when v_want is not null and v_have is not null
+      and regexp_replace(upper(v_have), ''[^0-9A-ZА-Я]'', '''', ''g'') <> regexp_replace(upper(v_want), ''[^0-9A-ZА-Я]'', '''', ''g'');',
+                  'continue when v_want is not null and v_have is not null
+      and not stk_same_reference(v_piece, u.brand, v_want, u.row);');
+  n := replace(n, 'perform stk_import_row(v_piece, u.row, u.file_name, true);',
+                  'perform stk_import_row(v_piece, u.row, u.file_name, true);
+    perform stk_apply_row_price(v_piece, u.row, coalesce(u.actor, ''upload''));');
+  if n !~ 'stk_same_reference' or n !~ 'stk_apply_row_price' then raise exception 'reg_5: stk_apply_pending not patched as expected'; end if;
+  execute n;
+end $do$;

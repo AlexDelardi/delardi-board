@@ -64,6 +64,25 @@ begin
          jsonb_build_object('row', 2, 'colibri', rw || '{"Артикул":"ZS-M2","Серийный номер":"ZR-N009","Цена продажи, долл":"abc"}'::jsonb, 'extra', '{}'::jsonb))), 'Alex', false);
   assert r->'rows'->0->>'status' = 'error' and r->'rows'->0->'errors' @> '[{"code":"bad_price"}]'::jsonb, format('bad price: %s', r->'rows'->0);
 
+  -- a reference the catalogue knows as another reference of a design: creates the piece, and the same file loads again
+  insert into cat_article_alias(article, model_id, variant_id, reason) values ('ZS-M2-ALT', 'ZS-M2', 'ZS-M2-WG', 'reg t5');
+  f := jsonb_build_object('file_name', 'alias.xlsx', 'rows', jsonb_build_array(
+         jsonb_build_object('row', 2, 'colibri', rw || '{"Артикул":"ZS-M2-ALT","Серийный номер":"ZR-N010","Цена продажи, долл":1}'::jsonb, 'extra', '{}'::jsonb)));
+  r := stk_import(f, 'Alex', true);
+  assert (r->'summary'->>'create')::int = 1 and (select (model_id, article) = ('ZS-M2', 'ZS-M2') from ops_pieces where serial = 'ZR-N010'), format('alias creates: %s', r->'summary');
+  r := stk_import(f, 'Alex', true);
+  assert (r->'summary'->>'error')::int = 0 and (r->'summary'->>'create')::int = 0, format('the same file again is not an error: %s', r->'rows'->0);
+
+  -- a row that waited: when its piece arrives, its price is applied too, in the uploader's name
+  r := stk_import(jsonb_build_object('file_name', 'wait.xlsx', 'rows', jsonb_build_array(
+         jsonb_build_object('row', 2, 'colibri', rw || '{"Артикул":"ZS-LATER","Серийный номер":"ZR-N011","Цена продажи, долл":4}'::jsonb, 'extra', '{}'::jsonb))), 'Alex', true);
+  assert (r->'summary'->>'pending')::int = 1, 'waits';
+  insert into ops_pieces(store_id, brand, serial, article, model_id, variant_id, state, price_uzs) values (1, 'Zeta Seed', 'ZR-N011', 'ZS-LATER', 'ZS-M2', 'ZS-M2-WG', 'in_stock', 1);
+  assert stk_apply_pending() >= 1, 'the waiting row is applied';
+  assert (select price_uzs from ops_pieces where serial = 'ZR-N011') = 50000
+     and (select count(*) from ops_piece_changes c join ops_pieces o using (piece_id) where o.serial = 'ZR-N011' and c.source = 'upload' and c.actor = 'Alex' and c.new_value = '50000') = 1,
+         'with its price and history';
+
   -- a piece that was sold is not repriced, and its serial does not create a second piece
   update ops_pieces set state = 'sold' where serial = 'ZS-S004';
   r := stk_import(jsonb_build_object('file_name', 'sold.xlsx', 'rows', jsonb_build_array(
