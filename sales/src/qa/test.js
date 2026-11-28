@@ -1653,8 +1653,13 @@ async function shot(page, name) {
     await page.click("#set-total");
     await page.waitForSelector("#set-total-in");
     check("set total: the box says what the prices add up to and starts from the current total",
-      /49 900 000/.test(norm(await page.textContent("#set-total .modal-body"))) && norm(await valOf(page, "#set-total-in")) === "49 900 000");
+      /49 900 000/.test(norm(await page.textContent("#set-total-box .modal-body"))) && norm(await valOf(page, "#set-total-in")) === "49 900 000");
     await shot(page, "set-total-box");
+    // closing the box without applying leaves the button where it was
+    await page.click("#set-total-box-close");
+    await page.waitForSelector("#set-total-in", { state: "detached" });
+    check("set total: after closing the box the button is still there", !!(await page.$("button#set-total")) && /49 900 000/.test(norm(await page.textContent("#total"))));
+    await page.click("#set-total"); await page.waitForSelector("#set-total-in");
     await page.fill("#set-total-in", "50 000 000"); await page.click("#set-total-ok");
     check("set total: a total above the prices is refused, with the reason", /cannot be above the prices/.test(await page.textContent("#set-total-err")) && !!(await page.$("#set-total-in")));
     await page.fill("#set-total-in", ""); await page.click("#set-total-ok");
