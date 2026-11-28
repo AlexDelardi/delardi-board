@@ -68,7 +68,10 @@ create function public.cat_refresh_if_dirty() returns boolean
 language plpgsql security definer set search_path = public, pg_temp set statement_timeout to '120s' as $$
 begin
   if not coalesce((select dirty from cat_facet_revision where singleton), false) then return false; end if;
-  if not pg_try_advisory_xact_lock(hashtext('cat_refresh_if_dirty')) then return false; end if;   -- another read is rebuilding
+  -- The one lock every catalogue writer takes (a piece change in cat_refresh_stock, a load, this rebuild), so they
+  -- run one after another and cannot deadlock on model and revision rows. Busy: leave it for the next read.
+  if not pg_try_advisory_xact_lock(hashtext('cat_refresh_stock')) then return false; end if;
+  if not coalesce((select dirty from cat_facet_revision where singleton), false) then return false; end if;   -- rebuilt while we looked
   update cat_facet_revision set dirty = false where singleton;
   perform cat_rebuild_search();
   perform cat_rebuild_facets();
@@ -138,6 +141,9 @@ begin
   -- A load and a sale must not wait on each other: the load takes the piece register first and for itself
   -- (reads go on), so anything changing a piece either finishes before the load starts or waits for it to end.
   lock table ops_pieces in exclusive mode;
+  -- then the catalogue writers' lock (see cat_refresh_stock), so a cache rebuild started by a read finishes first
+  -- and none starts while the load runs. This order matters: the register first, this second.
+  perform pg_advisory_xact_lock(hashtext('cat_refresh_stock'));
   perform set_config('cat.skip_v2', 'on', true);  -- one v2 rebuild at load end, not inside the mid-load overlay
   insert into cat_import_runs(source_file, source_built, notes)
     values (p_source, p->>'built', 'full load') returning id into run_id;
