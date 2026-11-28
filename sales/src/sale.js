@@ -179,7 +179,7 @@ function openSetTotal() {
     m.close();
     renderAll();
   };
-  const m = modal("set-total", tr("Set the total"), [
+  const m = modal("set-total-box", tr("Set the total"), [
     el("p", { text: tr("Prices add up to {p} so'm.", { p: fmtUZS(sum) }) }),
     el("label", { class: "field" }, el("span", { text: tr("Total to pay, so'm") }), input),
     msg,
